@@ -16,7 +16,7 @@ import { resetUsersReadRateLimit } from '../../../src/features/users/users-read-
 import { SessionRepository } from '../../../src/features/access/repository.js';
 import { RecoveryRepository } from '../../../src/features/users/recovery-repository.js';
 import { UserRepository } from '../../../src/features/users/repository.js';
-import { INITIAL_PASSWORD, UserService } from '../../../src/features/users/service.js';
+import { getInitialPassword, UserService } from '../../../src/features/users/service.js';
 import { accountTransaction } from '../../../src/features/users/transaction.js';
 import { disconnectPrisma, prisma } from '../../../src/infrastructure/database/index.js';
 import { createTestApp } from '../../helpers/app.js';
@@ -26,6 +26,7 @@ const app = createTestApp();
 const users = new UserRepository();
 const service = new UserService();
 const access = new AccessService();
+const INITIAL_PASSWORD = getInitialPassword();
 const PASSWORD = 'personal-password';
 const CSRF = { 'X-Requested-With': 'XMLHttpRequest' };
 const ROOT = '/api/admin/users';

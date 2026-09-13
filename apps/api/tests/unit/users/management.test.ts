@@ -1,5 +1,6 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { getInitialPassword } from '../../../src/features/users/service.js';
 import {
   assertAdministrator,
   assertPasswordChanged,
@@ -73,5 +74,22 @@ describe('M8 input boundaries and service policies', () => {
       assertAdministrator({ active: true, role: 'ADMINISTRATOR', mustChangePassword: true }),
     ).toThrow('Password change required');
     expect(() => assertPasswordChanged({ mustChangePassword: false })).not.toThrow();
+  });
+});
+
+describe('INITIAL_PASSWORD configuration', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it('reads the value when creating users, not when the module is imported', () => {
+    vi.stubEnv('INITIAL_PASSWORD', 'assigned-once');
+    expect(getInitialPassword()).toBe('assigned-once');
+  });
+
+  it('fails only when the password is actually needed', () => {
+    vi.stubEnv('INITIAL_PASSWORD', '');
+    delete process.env.INITIAL_PASSWORD;
+    expect(() => getInitialPassword()).toThrow('INITIAL_PASSWORD is required');
   });
 });

@@ -1,5 +1,6 @@
 import './infrastructure/config/load-env.js';
 
+import { getInitialPassword } from './features/users/service.js';
 import { createApp } from './app.js';
 import { disconnectPrisma } from './infrastructure/database/index.js';
 import { logger } from './infrastructure/logging/index.js';
@@ -7,6 +8,8 @@ import { logger } from './infrastructure/logging/index.js';
 const DEFAULT_PORT = 3000;
 
 const port = Number(process.env.PORT ?? DEFAULT_PORT);
+
+getInitialPassword();
 
 const app = createApp();
 
