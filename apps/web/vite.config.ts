@@ -23,6 +23,13 @@ export default defineConfig(({ mode }) => {
       environment: 'node',
       include: ['tests/**/*.test.{ts,tsx}'],
       pool: 'forks',
+      coverage: {
+        provider: 'v8',
+        reporter: ['text', 'lcov'],
+        reportsDirectory: './coverage',
+        include: ['src/**/*.{ts,tsx}'],
+        exclude: ['src/**/*.d.ts'],
+      },
     },
     server: {
       host: '0.0.0.0',
@@ -34,13 +41,6 @@ export default defineConfig(({ mode }) => {
           changeOrigin: true,
         },
       },
-    },
-    coverage: {
-      provider: 'v8',
-      reporter: ['text', 'lcov'],
-      reportsDirectory: './coverage',
-      include: ['src/**/*.{ts,tsx}'],
-      exclude: ['src/**/*.d.ts'],
     },
   };
 });
