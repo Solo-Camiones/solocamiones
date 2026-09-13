@@ -227,7 +227,9 @@ export function SelectMenu({
       moveActive(-1);
       return;
     }
-    if (event.key === 'Enter' && activeOption && !activeOption.disabled) {
+    const selectsActiveOption =
+      event.key === 'Enter' || (event.key === ' ' && event.currentTarget === listRef.current);
+    if (selectsActiveOption && activeOption && !activeOption.disabled) {
       event.preventDefault();
       choose(activeOption.value);
     }
