@@ -7,7 +7,7 @@ RUN npm install --ignore-scripts --global npm@11.19.1
 COPY package.json package-lock.json .npmrc ./
 COPY apps/api/package.json apps/api/package.json
 COPY apps/web/package.json apps/web/package.json
-RUN npm --ignore-scripts ci
+RUN npm ci --ignore-scripts
 
 COPY apps/web apps/web
 

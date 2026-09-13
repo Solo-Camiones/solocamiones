@@ -9,3 +9,5 @@ build/
 coverage/
 .vite/
 .github/context-mode/
+.sonar/
+.scannerwork/
