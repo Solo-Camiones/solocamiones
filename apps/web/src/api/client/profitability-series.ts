@@ -153,7 +153,7 @@ export function buildProfitabilitySeries(
     };
   }
 
-  const fromDay = confirmedDays.reduce((left, right) => (left < right ? left : right));
+  const fromDay = confirmedDays.reduce((left, right) => (left < right ? left : right), confirmedDays[0]);
   const toDay = today < fromDay ? fromDay : today;
   const dayKeys = enumerateKeys(fromDay, toDay, nextDay);
   const monthKeys = enumerateKeys(monthKey(fromDay), monthKey(toDay), nextMonth);

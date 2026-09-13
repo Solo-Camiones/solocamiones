@@ -20,6 +20,7 @@ import {
   notFoundHandler,
   requestIdMiddleware,
   requestLoggingMiddleware,
+  apiRateLimiter,
 } from './infrastructure/http/index.js';
 import { createFxRateProvider, type FxRateProvider } from './infrastructure/fx/index.js';
 import {
@@ -81,12 +82,12 @@ export function createApp(options: CreateAppOptions = {}): express.Application {
   app.use(requestLoggingMiddleware);
   app.use(express.json({ limit: JSON_BODY_LIMIT_BYTES }));
   app.use('/api/health', healthRouter);
-  app.use('/api/auth', accessRouter);
-  app.use('/api/admin/users', usersRouter);
-  app.use('/api/customers', customersRouter);
-  app.use('/api/catalogs/services', catalogsRouter);
-  app.use('/api/sales', salesRouter);
-  app.use('/api/profitability', profitabilityRouter);
+  app.use('/api/auth', apiRateLimiter, accessRouter);
+  app.use('/api/admin/users', apiRateLimiter, usersRouter);
+  app.use('/api/customers', apiRateLimiter, customersRouter);
+  app.use('/api/catalogs/services', apiRateLimiter, catalogsRouter);
+  app.use('/api/sales', apiRateLimiter, salesRouter);
+  app.use('/api/profitability', apiRateLimiter, profitabilityRouter);
 
   for (const extraRouter of options.extraRouters ?? []) {
     app.use(extraRouter.path, extraRouter.router);

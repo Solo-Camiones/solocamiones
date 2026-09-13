@@ -16,6 +16,12 @@ export type SalesUrlFilters = {
   payments: boolean;
 };
 
+const DEFAULT_SALES_URL_FILTERS: SalesUrlFilters = {
+  today: false,
+  outstanding: false,
+  payments: false,
+};
+
 /**
  * Calendar day of an ISO timestamp — same rule as invoice-money `utcCalendarDate`.
  */
@@ -117,7 +123,7 @@ export function useSalesList(
   tab: SalesListTab,
   page: number,
   q = '',
-  filters: SalesUrlFilters = { today: false, outstanding: false, payments: false },
+  filters: SalesUrlFilters = DEFAULT_SALES_URL_FILTERS,
 ) {
   const [reloadToken, setReloadToken] = useState(0);
   const [result, setResult] = useState<SalesQuery>({ status: 'loading' });

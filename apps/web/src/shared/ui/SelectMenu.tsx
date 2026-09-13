@@ -94,6 +94,7 @@ export function SelectMenu({
   const rootRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
+  const listRef = useRef<HTMLUListElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const wasOpenRef = useRef(false);
   const [open, setOpen] = useState(false);
@@ -152,6 +153,8 @@ export function SelectMenu({
       setActiveIndex(Math.max(0, options.findIndex((option) => option.value === value)));
       if (searchable) {
         searchRef.current?.focus();
+      } else {
+        listRef.current?.focus();
       }
     }
     wasOpenRef.current = open;
@@ -159,6 +162,7 @@ export function SelectMenu({
 
   function close() {
     setOpen(false);
+    triggerRef.current?.focus();
   }
 
   function openMenu() {
@@ -195,13 +199,18 @@ export function SelectMenu({
     if (disabled) {
       return;
     }
+    if (open && event.key === 'Escape') {
+      event.preventDefault();
+      close();
+      return;
+    }
     if (event.key === 'ArrowDown' || event.key === 'Enter' || event.key === ' ') {
       event.preventDefault();
       openMenu();
     }
   }
 
-  function onPanelKeyDown(event: KeyboardEvent<HTMLDivElement>) {
+  function onPanelKeyDown(event: KeyboardEvent<HTMLElement>) {
     if (event.key === 'Escape') {
       event.preventDefault();
       event.stopPropagation();
@@ -237,7 +246,6 @@ export function SelectMenu({
             data-select-overlay=""
             style={panelStyle}
             className="flex flex-col overflow-hidden rounded-xl border border-navy-100 bg-white shadow-lg"
-            onKeyDown={onPanelKeyDown}
           >
             {searchable && (
               <div className="shrink-0 border-b border-navy-100 p-2">
@@ -245,6 +253,7 @@ export function SelectMenu({
                   ref={searchRef}
                   id={searchId}
                   type="search"
+                  onKeyDown={onPanelKeyDown}
                   value={query}
                   placeholder={searchPlaceholder}
                   autoComplete="off"
@@ -258,10 +267,13 @@ export function SelectMenu({
               </div>
             )}
             <ul
+              ref={listRef}
               id={listId}
               role="listbox"
               aria-labelledby={controlId}
+              tabIndex={-1}
               className="min-h-0 flex-1 overflow-y-auto py-1"
+              onKeyDown={onPanelKeyDown}
             >
               {filtered.length === 0 ? (
                 <li className="px-3 py-2 text-sm text-navy-400">{emptyMessage}</li>
@@ -300,7 +312,7 @@ export function SelectMenu({
       : null;
 
   return (
-    <div ref={rootRef} className={className} onKeyDown={onPanelKeyDown}>
+    <div ref={rootRef} className={className}>
       <button
         ref={triggerRef}
         type="button"

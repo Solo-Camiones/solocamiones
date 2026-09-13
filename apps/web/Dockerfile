@@ -24,8 +24,8 @@ RUN npm run build --workspace @truck-parts/web
 FROM nginxinc/nginx-unprivileged:1.27-alpine AS runtime
 
 USER root
-COPY --chown=nginx:nginx apps/web/nginx.conf /etc/nginx/conf.d/default.conf
-COPY --from=build --chown=nginx:nginx /app/apps/web/dist /usr/share/nginx/html
+COPY apps/web/nginx.conf /etc/nginx/conf.d/default.conf
+COPY --from=build --chown=root:root /app/apps/web/dist /usr/share/nginx/html
 USER nginx
 
 EXPOSE 8081 8080
