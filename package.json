@@ -21,6 +21,7 @@
     "test:integration": "npm run test:integration -w @truck-parts/api && npm run test:integration -w @truck-parts/web",
     "test:web": "npm run test -w @truck-parts/web",
     "test:web:component": "npm run test:component -w @truck-parts/web",
+    "test:coverage": "npm run test:coverage -w @truck-parts/api && npm run test:coverage -w @truck-parts/web",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "db:generate": "npm run db:generate -w @truck-parts/api",

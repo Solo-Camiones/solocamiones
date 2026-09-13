@@ -81,7 +81,7 @@ describe('ProfitabilityPage', () => {
     expect(await screen.findByText('Ganancia bruta registrada')).toBeVisible();
     expect(screen.getAllByText(money(1_800, 'DOP')).length).toBeGreaterThan(0);
     expect(screen.getAllByText(money(8_900 + 1_800, 'DOP')).length).toBeGreaterThan(0);
-    expect(screen.getByText('Criterio admin')).toBeVisible();
+    expect(screen.getByText('Registrada por administrador')).toBeVisible();
     expect(screen.queryByText('No disponible')).not.toBeInTheDocument();
   });
 });

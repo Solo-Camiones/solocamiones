@@ -2,7 +2,7 @@ import { Fragment, useState } from 'react';
 
 import { DEFAULT_CASH_CUSTOMER_ID, type CustomerListRow } from '../../api/contracts/customers';
 import type { CustomerContact } from '../../api/contracts/entities';
-import { Button, Chip, Empty, HoverRow, Mono, TableShell } from '../../shared/ui';
+import { Button, Chip, Empty, HoverRow, TableShell } from '../../shared/ui';
 
 const CUSTOMER_TABLE_COLUMN_COUNT = 4;
 
@@ -106,7 +106,6 @@ export function CustomerTable({ rows, onEdit }: CustomerTableProps) {
                     <span className="font-medium">{row.name}</span>
                     {isDefault && <Chip tone="brand">Predeterminado</Chip>}
                   </div>
-                  <Mono className="mt-0.5 text-xs text-navy-400">{row.id}</Mono>
                 </td>
                 <td className="px-4 py-3 text-navy-400">{row.rnc ?? '—'}</td>
                 <td className="px-4 py-3 text-navy-400">

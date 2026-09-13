@@ -57,12 +57,12 @@ describe('SalesPage', () => {
 
     expect(await screen.findByText('Mostrando 1–10 de 13')).toBeVisible();
     expect(screen.getByRole('button', { name: 'Siguiente' })).toBeEnabled();
-    expect(screen.getAllByRole('link', { name: /FAC-|Borrador / })).toHaveLength(10);
+    expect(screen.getAllByRole('link', { name: /FAC-|Borrador/ })).toHaveLength(10);
 
     await user.click(screen.getByRole('button', { name: 'Siguiente' }));
 
     expect(await screen.findByText('Mostrando 11–13 de 13')).toBeVisible();
-    expect(screen.getAllByRole('link', { name: /FAC-|Borrador / })).toHaveLength(3);
+    expect(screen.getAllByRole('link', { name: /FAC-|Borrador/ })).toHaveLength(3);
   });
 
   it('filters drafts in the Borrador tab', async () => {
@@ -72,7 +72,7 @@ describe('SalesPage', () => {
 
     await user.click(screen.getByRole('button', { name: 'Borrador' }));
 
-    expect(await screen.findByText(/Borrador INV-DRAFT-01/)).toBeVisible();
+    expect(await screen.findByRole('link', { name: 'Borrador' })).toBeVisible();
     expect(screen.queryByText('FAC-000098')).not.toBeInTheDocument();
   });
 
@@ -127,7 +127,7 @@ describe('SalesPage', () => {
       auth: createAuthValue('SELLER'),
     });
 
-    expect(await screen.findByText(/Borrador INV-DRAFT-01/)).toBeVisible();
+    expect(await screen.findByRole('link', { name: 'Borrador' })).toBeVisible();
     expect(screen.getByRole('button', { name: 'Borrador' })).toHaveAttribute('aria-pressed', 'true');
     expect(screen.queryByText('FAC-000098')).not.toBeInTheDocument();
   });

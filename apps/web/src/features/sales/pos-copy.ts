@@ -115,7 +115,7 @@ export function focusPosElement(elementId: string): void {
  */
 export function posDraftDescription(capabilities: AppCapabilities): string {
   if (capabilities.inventorySales || capabilities.quantitySales) {
-    return 'Edite el borrador, asigne precios y confirme. Las piezas de inventario quedan reservadas hasta confirmar o descartar.';
+    return 'Edite el borrador: las piezas de inventario quedan reservadas hasta confirmar o descartar.';
   }
 
   return 'Edite el borrador, asigne precios y confirme la factura.';

@@ -3,7 +3,7 @@ import { useEffect, useState, type FormEvent } from 'react';
 import type { Role } from '../../api/contracts/entities';
 import type { ManagedUser, SaveUserInput } from '../../api/contracts/users';
 import { roleLabel } from '../../shared/auth/policies';
-import { Button, Field, GuardedModal, Info, Input, Select, isFormDirty } from '../../shared/ui';
+import { Button, Field, GuardedModal, Info, Input, ReviewSummary, Select, isFormDirty } from '../../shared/ui';
 
 export type UserFormModalProps = {
   open: boolean;
@@ -44,6 +44,7 @@ export function UserFormModal({
 }: UserFormModalProps) {
   const [fields, setFields] = useState<FormFields>(EMPTY_FIELDS);
   const [baseline, setBaseline] = useState<FormFields>(EMPTY_FIELDS);
+  const [step, setStep] = useState<'form' | 'review'>('form');
   const isEdit = user != null;
 
   useEffect(() => {
@@ -63,18 +64,30 @@ export function UserFormModal({
       : EMPTY_FIELDS;
     setFields(next);
     setBaseline(next);
+    setStep('form');
   }, [open, user]);
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    onSubmit({
+  function savePayload(): SaveUserInput {
+    return {
       ...(user ? { id: user.id, active: fields.active } : { active: true }),
       name: fields.name,
       username: fields.username,
       role: fields.role,
       phone: fields.phone,
       email: fields.email,
-    });
+    };
+  }
+
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!isEdit && step === 'form') {
+      if (!event.currentTarget.reportValidity()) {
+        return;
+      }
+      setStep('review');
+      return;
+    }
+    onSubmit(savePayload());
   }
 
   return (
@@ -92,6 +105,38 @@ export function UserFormModal({
             {error}
           </Info>
         )}
+        {step === 'review' && !isEdit ? (
+          <div className="space-y-4">
+            <p className="text-sm font-medium text-navy">Revisa los datos antes de crear el usuario.</p>
+            <ReviewSummary
+              rows={[
+                { label: 'Nombre', value: fields.name },
+                { label: 'Usuario', value: fields.username },
+                { label: 'Rol', value: roleLabel(fields.role) },
+                { label: 'Teléfono', value: fields.phone },
+                { label: 'Correo', value: fields.email },
+              ]}
+            />
+            <Info title="Contraseña inicial">
+              El sistema asignará la contraseña inicial al crear la cuenta y se mostrará una sola
+              vez. No se pide ni se muestra en este resumen.
+            </Info>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => setStep('form')}
+                disabled={isSaving}
+              >
+                Volver a editar
+              </Button>
+              <Button type="button" disabled={isSaving} onClick={() => onSubmit(savePayload())}>
+                {isSaving ? 'Guardando…' : 'Confirmar creación'}
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <>
         <Field label="Nombre" htmlFor="user-name">
           <Input
             id="user-name"
@@ -115,8 +160,8 @@ export function UserFormModal({
         </Field>
         {!isEdit && (
           <Info title="Contraseña inicial">
-            El sistema asignará <strong>solocamiones</strong>. La persona deberá cambiarla desde Mi
-            perfil antes de poder operar.
+            El sistema asignará la contraseña inicial y se mostrará una sola vez después de crear
+            la cuenta. La persona deberá cambiarla desde Mi perfil antes de poder operar.
           </Info>
         )}
         <Field label="Rol" htmlFor="user-role">
@@ -177,6 +222,8 @@ export function UserFormModal({
             {isSaving ? 'Guardando…' : isEdit ? 'Guardar' : 'Crear usuario'}
           </Button>
         </div>
+          </>
+        )}
       </form>
       )}
     </GuardedModal>

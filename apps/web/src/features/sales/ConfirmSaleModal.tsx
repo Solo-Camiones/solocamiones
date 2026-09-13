@@ -4,8 +4,19 @@ import type { PaymentMethod } from '../../api/contracts/entities';
 import type { ConfirmInvoicePayment, PosDraftView } from '../../api/contracts/sales';
 import { useAppCapabilities } from '../../shared/config/CapabilitiesProvider';
 import { UX_TERMS } from '../../shared/copy/glossary';
-import { Button, Field, GuardedModal, Info, Input, Select, money, isFormDirty } from '../../shared/ui';
-import { PAYMENT_METHOD_LABELS } from './labels';
+import {
+  Button,
+  Field,
+  GuardedModal,
+  Info,
+  Input,
+  ReviewSummary,
+  Select,
+  currencyLabel,
+  isFormDirty,
+  money,
+} from '../../shared/ui';
+import { LINE_TYPE_LABELS, PAYMENT_METHOD_LABELS } from './labels';
 
 const METHODS: PaymentMethod[] = ['CASH', 'TRANSFER', 'CHECK'];
 const CASH_CUSTOMER_CREDIT_FORBIDDEN_MESSAGE =
@@ -127,15 +138,33 @@ export function ConfirmSaleModal({
             {displayedError}
           </Info>
         )}
-        <p>
-          Se emitirá una factura interna{' '}
-          {draft.fiscal ? 'con comprobante fiscal' : 'sin comprobante fiscal'} para{' '}
-          <strong>{draft.customerName}</strong>.
-        </p>
-        <p>
-          Total {money(draft.totals.gross, draft.currency)} · ITBIS{' '}
-          {money(draft.totals.itbis, draft.currency)}
-        </p>
+        <p className="font-medium">Revisa los datos antes de emitir la factura.</p>
+        <ReviewSummary
+          rows={[
+            { label: 'Cliente', value: draft.customerName },
+            { label: 'Identificación fiscal / cédula', value: draft.customerRnc ?? '' },
+            { label: 'Moneda', value: currencyLabel(draft.currency) },
+            { label: 'Comprobante fiscal', value: draft.fiscal ? 'Sí' : 'No' },
+            { label: 'Total', value: money(draft.totals.gross, draft.currency) },
+            { label: 'ITBIS', value: money(draft.totals.itbis, draft.currency) },
+          ]}
+        >
+          <div className="space-y-2">
+            <p className="text-navy-400">Líneas</p>
+            {draft.lines.length === 0 ? (
+              <p className="font-medium">—</p>
+            ) : (
+              <ul className="space-y-1">
+                {draft.lines.map((line) => (
+                  <li key={line.id}>
+                    {line.description} · {LINE_TYPE_LABELS[line.type]} · cant. {line.quantity} ·{' '}
+                    {money(line.gross, draft.currency)}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </ReviewSummary>
         {capabilities.workOrders && installed.length > 0 && (
           <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-amber-900">
             Hay {installed.length} pieza(s) instalada(s). Al confirmar quedarán vendidas e
@@ -210,6 +239,28 @@ export function ConfirmSaleModal({
               </div>
             )}
           </>
+        )}
+
+        {showPaymentFields && (
+          <ReviewSummary
+            rows={
+              cashCustomerRequiresFullPayment || includeInitialPayment
+                ? [
+                    {
+                      label: 'Pago',
+                      value:
+                        amount.trim() && Number.isFinite(Number(amount))
+                          ? money(Number(amount), draft.currency)
+                          : cashCustomerRequiresFullPayment
+                            ? money(draft.totals.gross, draft.currency)
+                            : '',
+                    },
+                    { label: 'Método', value: PAYMENT_METHOD_LABELS[method] },
+                    { label: 'Referencia', value: reference },
+                  ]
+                : [{ label: 'Pago', value: 'A crédito (sin pago inicial)' }]
+            }
+          />
         )}
 
         <div className="flex flex-wrap justify-end gap-2">

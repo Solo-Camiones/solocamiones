@@ -30,13 +30,13 @@ export function PaymentHistory({ payments, currency }: PaymentHistoryProps) {
     <section>
       <SectionTitle
         title="Pagos y reembolsos"
-        subtitle="Historial aditivo; los recibos no se sobrescriben"
+        subtitle="Los pagos se registran uno a uno; no se editan recibos anteriores."
       />
 
       {ordered.length === 0 ? (
         <Empty
           title="Sin movimientos registrados"
-          description="Esta factura no tiene pagos en el libro."
+          description="Esta factura no tiene pagos registrados."
         />
       ) : (
         <ul className="divide-y divide-navy-100 overflow-hidden rounded-xl border border-navy-100 bg-white">

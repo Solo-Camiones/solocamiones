@@ -37,7 +37,7 @@ export function ProfilePage() {
     <>
       <PageHeader
         title="Mi perfil"
-        description="Actualice su nombre y datos de contacto. El usuario, el rol y el estado de la cuenta los gestiona un administrador."
+        description="Nombre y datos de contacto."
       />
       <div className="space-y-4">
         {user.mustChangePassword && (

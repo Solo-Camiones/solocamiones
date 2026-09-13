@@ -154,8 +154,8 @@ export function CatalogsPage() {
         title="Catálogos"
         description={
           showCategories
-            ? 'Categorías de inventario y servicios mecánicos. El vendedor usa estas definiciones; no puede cambiarlas.'
-            : 'Servicios mecánicos. El vendedor los usa al facturar; no puede cambiarlos.'
+            ? 'Categorías y servicios.'
+            : 'Servicios mecánicos.'
         }
         actions={
           showCategories && tab === 'categories' ? (

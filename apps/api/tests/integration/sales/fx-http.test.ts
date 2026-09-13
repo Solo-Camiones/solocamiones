@@ -124,7 +124,7 @@ describe('M15 FX adapter + pending (COST-003 USD)', () => {
       ),
     ).toMatchObject({
       type: 'INVOICE_USD_FX_RECORDED',
-      description: `Tasa USD 61.5 DOP/USD registrada (${EXCHANGE_RATE_API_SOURCE})`,
+      description: 'Tasa USD 61.5 DOP/USD registrada (proveedor de tipo de cambio)',
       actorName: admin.user.name,
     });
 

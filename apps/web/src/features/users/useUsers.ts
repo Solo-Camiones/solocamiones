@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 
 import { toListPage, type ListPage } from '../../api/contracts/pagination';
-import type { ManagedUser, SaveUserInput } from '../../api/contracts/users';
+import type { ManagedUser, SaveUserInput, SaveUserResult } from '../../api/contracts/users';
 import type { AppError, Result } from '../../shared/auth/types';
 import { userRepository } from '../../api/repositories';
 
@@ -74,7 +74,7 @@ export function useUsers(page: number) {
     };
   }, [query, page, reloadToken]);
 
-  const save = useCallback(async (input: SaveUserInput): Promise<Result<string>> => {
+  const save = useCallback(async (input: SaveUserInput): Promise<Result<SaveUserResult>> => {
     setIsSaving(true);
     const response = await userRepository.save(input);
     setIsSaving(false);
@@ -84,7 +84,7 @@ export function useUsers(page: number) {
     }
 
     setReloadToken((token) => token + 1);
-    return { ok: true, value: response.value.id };
+    return { ok: true, value: response.value };
   }, []);
 
   return {

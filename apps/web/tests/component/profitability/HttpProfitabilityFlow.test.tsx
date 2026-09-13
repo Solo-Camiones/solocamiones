@@ -209,7 +209,7 @@ describe('HTTP profitability flow', () => {
 
     expect(await screen.findByText('Ganancia bruta registrada')).toBeVisible();
     expect(screen.getAllByText(money(1_800, 'DOP')).length).toBeGreaterThan(0);
-    expect(screen.getByText('Criterio admin')).toBeVisible();
+    expect(screen.getByText('Registrada por administrador')).toBeVisible();
     expect(
       fetchMock.mock.calls.some(
         ([requestPath, init]) =>

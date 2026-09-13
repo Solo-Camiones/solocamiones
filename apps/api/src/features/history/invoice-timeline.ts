@@ -51,12 +51,21 @@ function paymentMethodLabel(method: string | undefined): string {
   return PAYMENT_METHOD_LABELS[method] ?? method.toLowerCase();
 }
 
+const EXCHANGE_RATE_API_SOURCE = 'ExchangeRate-API';
+const DEMO_FX_SOURCE = 'DEMO_FX';
+
+function fxSourcePhrase(source: string): string {
+  if (source === DEMO_FX_SOURCE) return 'tasa de demostración';
+  if (source === EXCHANGE_RATE_API_SOURCE) return 'proveedor de tipo de cambio';
+  return `origen del tipo de cambio · ${source}`;
+}
+
 function fxRecordedDescription(payload: unknown): string {
   const after = asRecord(asRecord(payload)?.after);
   const rate = stringField(after, 'exchangeRateDopPerUsd');
   const source = stringField(after, 'source');
   if (!rate || !source) return 'Tasa USD registrada';
-  return `Tasa USD ${rate} DOP/USD registrada (${source})`;
+  return `Tasa USD ${rate} DOP/USD registrada (${fxSourcePhrase(source)})`;
 }
 
 function describeInvoiceHistoryEvent(row: InvoiceHistoryRow): string | null {

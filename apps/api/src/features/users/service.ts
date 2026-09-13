@@ -58,7 +58,8 @@ export class UserService {
           source: 'ADMINISTRATION',
         },
       });
-      return toPublicProfile(user);
+      // Plaintext exists only in this 201 body; history and later reads stay hash-only.
+      return { ...toPublicProfile(user), initialPassword: INITIAL_PASSWORD };
     });
   }
 

@@ -44,6 +44,7 @@ export function UsersPage() {
   const [recoveryAction, setRecoveryAction] = useState<RecoveryAction | null>(null);
   const [identityVerified, setIdentityVerified] = useState(false);
   const [temporaryPassword, setTemporaryPassword] = useState<string | null>(null);
+  const [initialPassword, setInitialPassword] = useState<string | null>(null);
 
   function openCreate() {
     setEditing(null);
@@ -71,6 +72,13 @@ export function UsersPage() {
     pushToast(input.id ? 'Usuario actualizado' : 'Usuario creado', 'success');
     setModalOpen(false);
     setEditing(null);
+    if (!input.id) {
+      if (response.value.initialPassword) {
+        setInitialPassword(response.value.initialPassword);
+      } else {
+        pushToast('El usuario fue creado, pero no se recibió la contraseña inicial.', 'error');
+      }
+    }
   }
 
   async function handleToggleActive(row: ManagedUser) {
@@ -137,7 +145,7 @@ export function UsersPage() {
     <>
       <PageHeader
         title="Usuarios"
-        description="Cuentas individuales. El sistema asigna la contraseña inicial; desactivar revoca el acceso."
+        description="Gestione cuentas y el acceso al sistema."
         actions={
           <Button onClick={openCreate} disabled={result.status === 'loading'}>
             Nuevo usuario
@@ -299,6 +307,27 @@ export function UsersPage() {
             </div>
           </div>
         )}
+      </Modal>
+
+      <Modal
+        open={initialPassword != null}
+        title="Contraseña inicial"
+        onClose={() => setInitialPassword(null)}
+      >
+        <div className="space-y-4">
+          <Info tone="warning" title="Entrega única">
+            Entréguela personalmente. Al cerrar este cuadro no podrá consultarla nuevamente.
+          </Info>
+          <p
+            className="break-all rounded-lg bg-navy-50 p-3 font-mono text-sm"
+            data-testid="initial-password"
+          >
+            {initialPassword}
+          </p>
+          <div className="flex justify-end">
+            <Button onClick={() => setInitialPassword(null)}>Ya la entregué</Button>
+          </div>
+        </div>
       </Modal>
 
       <Modal

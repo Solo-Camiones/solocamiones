@@ -101,7 +101,7 @@ export function SalesPage() {
     <>
       <PageHeader
         title="Ventas y Facturas"
-        description="Consulta de documentos, pagos y cancelación. Abra un borrador para confirmar una venta."
+        description="Facturas, pagos y cancelación."
         actions={
           <Button onClick={() => navigate('/sales/draft/new')}>Nuevo borrador</Button>
         }

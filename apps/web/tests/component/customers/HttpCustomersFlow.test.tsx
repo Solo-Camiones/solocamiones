@@ -156,6 +156,7 @@ describe('M19 HTTP customer directory UI', () => {
     await user.click(screen.getByRole('button', { name: 'Nuevo cliente' }));
     await user.type(screen.getByLabelText('Nombre'), 'Flota Este');
     await user.click(screen.getByRole('button', { name: 'Guardar' }));
+    await user.click(screen.getByRole('button', { name: 'Confirmar creación' }));
 
     expect(await screen.findByText('Flota Este')).toBeVisible();
     const createCall = fetchMock.mock.calls.find(
@@ -181,16 +182,19 @@ describe('M19 HTTP customer directory UI', () => {
     await user.type(screen.getByLabelText('Nombre'), 'Flota Este');
     await user.type(screen.getByLabelText('Identificación fiscal / cédula'), '1234567890');
     await user.click(screen.getByRole('button', { name: 'Guardar' }));
+    await user.click(screen.getByRole('button', { name: 'Confirmar creación' }));
 
     expect(
       await screen.findAllByText('Debe ser un RNC de 9 dígitos o una cédula de 11 dígitos.'),
     ).not.toHaveLength(0);
+    expect(screen.getByRole('dialog', { name: 'Nuevo cliente' })).toBeVisible();
+    expect(screen.getByText('Revisa los datos antes de crear el cliente.')).toBeVisible();
+    await user.click(screen.getByRole('button', { name: 'Volver a editar' }));
     expect(screen.getByLabelText('Identificación fiscal / cédula')).toHaveAttribute(
       'aria-invalid',
       'true',
     );
     expect(screen.queryByText('Revise los datos ingresados.')).not.toBeInTheDocument();
-    expect(screen.getByRole('dialog', { name: 'Nuevo cliente' })).toBeVisible();
   });
 
   it('denies a mechanic the customer directory', async () => {

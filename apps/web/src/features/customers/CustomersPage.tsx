@@ -73,7 +73,7 @@ export function CustomersPage() {
     <>
       <PageHeader
         title="Clientes"
-        description="Directorio reutilizable para facturación. Cliente Contado queda como predeterminado y no se edita."
+        description="Directorio para facturación."
         actions={
           <Button onClick={openCreate} disabled={result.status === 'loading'}>
             Nuevo cliente

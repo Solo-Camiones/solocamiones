@@ -4,6 +4,7 @@ import { screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
+import { INITIAL_USER_PASSWORD } from '../../../src/mocks/services/users';
 import { UsersPage } from '../../../src/features/users/UsersPage';
 import { mockAuthRepository } from '../../../src/mocks/repositories/MockAuthRepository';
 import { getMockState, resetMockState } from '../../../src/mocks/state';
@@ -31,11 +32,16 @@ describe('UsersPage', () => {
     await user.type(screen.getByLabelText('Nombre'), 'María López');
     await user.type(screen.getByLabelText('Usuario'), 'maria');
     expect(screen.queryByLabelText('Contraseña')).not.toBeInTheDocument();
-    expect(screen.getByText('solocamiones')).toBeVisible();
+    expect(screen.queryByText(INITIAL_USER_PASSWORD)).not.toBeInTheDocument();
+    expect(screen.getByText(/se mostrará una sola vez/i)).toBeVisible();
     await chooseSelectOption(user, 'Rol', 'SELLER');
     await user.click(screen.getByRole('button', { name: 'Crear usuario' }));
+    expect(screen.queryByTestId('initial-password')).not.toBeInTheDocument();
+    expect(screen.getByText('maria')).toBeVisible();
+    await user.click(screen.getByRole('button', { name: 'Confirmar creación' }));
 
     expect(await screen.findByText('Usuario creado')).toBeVisible();
+    expect(await screen.findByTestId('initial-password')).toHaveTextContent(INITIAL_USER_PASSWORD);
     expect(await screen.findByText('María López')).toBeVisible();
 
     const login = await mockAuthRepository.login('maria', 'solocamiones');

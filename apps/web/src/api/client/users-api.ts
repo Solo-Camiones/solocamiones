@@ -4,6 +4,7 @@ import type {
   ResolveRecoveryInput,
   ResolveRecoveryResult,
   SaveUserInput,
+  SaveUserResult,
 } from '../contracts/users';
 import { LIST_PAGE_SIZE, type ListPage } from '../contracts/pagination';
 import { err, ok, type Result } from '../../shared/auth/types';
@@ -104,19 +105,25 @@ function toAdministrativeProfile(input: SaveUserInput) {
   };
 }
 
-export function saveUserWithHttp(input: SaveUserInput): Promise<Result<ManagedUser>> {
+export function saveUserWithHttp(input: SaveUserInput): Promise<Result<SaveUserResult>> {
   const profile = toAdministrativeProfile(input);
   // POST schema is strict and always creates an active account; `active` is PATCH-only.
   const body = input.id ? { ...profile, active: input.active } : profile;
-  return request(async () =>
-    toManagedUser(
-      await httpClient<ApiUser>(input.id ? `${USERS_PATH}/${input.id}` : USERS_PATH, {
+  return request(async () => {
+    const response = await httpClient<ApiUser & { initialPassword?: string }>(
+      input.id ? `${USERS_PATH}/${input.id}` : USERS_PATH,
+      {
         method: input.id ? 'PATCH' : 'POST',
         headers: CSRF_HEADERS,
         body: JSON.stringify(body),
-      }),
-    ),
-  );
+      },
+    );
+    const user = toManagedUser(response);
+    if (!input.id && typeof response.initialPassword === 'string') {
+      return { ...user, initialPassword: response.initialPassword };
+    }
+    return user;
+  });
 }
 
 export function listRecoveryRequestsWithHttp(): Promise<Result<PasswordRecoveryRequest[]>> {

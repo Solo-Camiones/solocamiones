@@ -84,6 +84,7 @@ beforeEach(() => {
         ...body,
         id: 'created-id',
         mustChangePassword: true,
+        initialPassword: 'assigned-once',
       };
       users = [...users, created];
       return json(created, 201);
@@ -124,11 +125,16 @@ describe('M11 HTTP user administration UI', () => {
     expect((await screen.findAllByText('Seller existente'))[0]).toBeVisible();
     await user.click(screen.getByRole('button', { name: 'Nuevo usuario' }));
     expect(screen.queryByLabelText('Contraseña')).not.toBeInTheDocument();
-    expect(screen.getByText('solocamiones')).toBeVisible();
+    expect(screen.queryByText('solocamiones')).not.toBeInTheDocument();
+    expect(screen.getByText(/se mostrará una sola vez/i)).toBeVisible();
     await user.type(screen.getByLabelText('Nombre'), 'María López');
     await user.type(screen.getByLabelText('Usuario'), 'maria');
     await user.click(screen.getByRole('button', { name: 'Crear usuario' }));
+    await user.click(screen.getByRole('button', { name: 'Confirmar creación' }));
 
+    expect(await screen.findByTestId('initial-password')).toHaveTextContent('assigned-once');
+    await user.click(screen.getByRole('button', { name: 'Ya la entregué' }));
+    expect(screen.queryByText('assigned-once')).not.toBeInTheDocument();
     expect(await screen.findByText('María López')).toBeVisible();
     const createCall = fetchMock.mock.calls.find(
       ([path, init]) => path === '/api/admin/users' && init?.method === 'POST',

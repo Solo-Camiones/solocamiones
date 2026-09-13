@@ -65,7 +65,7 @@ export function InvoiceDetailPage() {
     <>
       <PageHeader
         leading={<BackToSalesLink />}
-        title={detail.number ?? detail.id}
+        title={detail.number ?? 'Factura'}
         description={`${detail.customerName}${detail.customerRnc ? ` · ${detail.customerRnc}` : ''}`}
         actions={
           <div className="flex flex-wrap gap-2">

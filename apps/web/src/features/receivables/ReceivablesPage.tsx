@@ -55,7 +55,7 @@ export function ReceivablesPage() {
     <>
       <PageHeader
         title="Cuentas por cobrar"
-        description="Saldos abiertos por cliente y moneda, sin convertir DOP y USD entre sí. El detalle de pagos está en cada factura."
+        description="Saldos abiertos por cliente y moneda."
       />
       <div className="mb-6 max-w-md">
         <SearchInput

@@ -105,7 +105,7 @@ describe('HTTP sales draft contract', () => {
       });
       expect(all.value.items.map((row) => row.number)).toEqual([
         'FAC-000001',
-        `Borrador ${draftId}`,
+        'Borrador',
       ]);
       expect(all.value.items[0]).toMatchObject({
         status: 'COMPLETED',

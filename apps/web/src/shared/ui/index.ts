@@ -17,6 +17,7 @@ export { GuardedModal, isFormDirty } from './GuardedModal';
 export { currencyLabel, money } from './money';
 export { Mono } from './Mono';
 export { PaginationBar } from './PaginationBar';
+export { ReviewSummary, REVIEW_EMPTY_VALUE, type ReviewSummaryRow } from './ReviewSummary';
 export { toPageLoadMessage } from './page-load-message';
 export { SectionTitle } from './SectionTitle';
 export { Skeleton } from './Skeleton';

@@ -165,6 +165,8 @@ describe('PosPage', () => {
     await screen.findByText('Alternador 24V');
 
     await user.click(screen.getByRole('button', { name: 'Confirmar venta' }));
+    expect(screen.getByText('Revisa los datos antes de emitir la factura.')).toBeVisible();
+    expect(screen.getByText('Comprobante fiscal')).toBeVisible();
     const confirmButtons = screen.getAllByRole('button', { name: 'Confirmar venta' });
     await user.click(confirmButtons[confirmButtons.length - 1]);
 

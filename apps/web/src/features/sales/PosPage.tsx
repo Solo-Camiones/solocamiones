@@ -183,7 +183,7 @@ export function PosPage() {
         title="Punto de venta"
         description={
           readOnly
-            ? `Factura ${draft.number ?? draft.id} confirmada. ${
+            ? `${draft.number ? `Factura ${draft.number} confirmada` : 'Factura confirmada'}. ${
                 capabilities.payments
                   ? 'Pagos y vista previa del documento están en el detalle.'
                   : 'La vista previa del documento está en el detalle.'
@@ -231,7 +231,7 @@ export function PosPage() {
           <Card id={POS_FIELD_IDS.lines} tabIndex={-1} className="outline-none">
             <div className="mb-4 flex flex-wrap items-center gap-2">
               <h2 className="text-lg font-semibold text-navy">Líneas</h2>
-              <Chip>{draft.id}</Chip>
+              <Chip>{draft.number ?? (readOnly ? 'Factura' : 'Borrador')}</Chip>
               {draft.fiscal ? (
                 <Chip tone="brand">Fiscal</Chip>
               ) : (

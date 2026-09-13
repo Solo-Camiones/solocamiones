@@ -1,6 +1,6 @@
 import type { Service } from '../../api/contracts/entities';
 import { AccountStateChip } from '../../shared/domain';
-import { Button, Empty, HoverRow, Mono, TableShell } from '../../shared/ui';
+import { Button, Empty, HoverRow, TableShell } from '../../shared/ui';
 
 export type ServiceListProps = {
   rows: Service[];
@@ -35,7 +35,6 @@ export function ServiceList({ rows, onEdit, onToggleActive, togglingId }: Servic
           <HoverRow key={row.id}>
             <td className="px-4 py-3">
               <span className="font-medium">{row.name}</span>
-              <Mono className="mt-0.5 block text-xs text-navy-400">{row.id}</Mono>
             </td>
             <td className="px-4 py-3">
               <AccountStateChip active={row.active} />

@@ -10,6 +10,7 @@ import type {
   ResolveRecoveryInput,
   ResolveRecoveryResult,
   SaveUserInput,
+  SaveUserResult,
 } from './users';
 import type { DashboardSnapshot } from './dashboard';
 import type {
@@ -94,7 +95,7 @@ export type AuthRepository = {
 
 export type UserRepository = {
   list(page?: number): Promise<Result<ListPage<ManagedUser>>>;
-  save(input: SaveUserInput): Promise<Result<ManagedUser>>;
+  save(input: SaveUserInput): Promise<Result<SaveUserResult>>;
   listRecoveryRequests(): Promise<Result<PasswordRecoveryRequest[]>>;
   resolveRecovery(input: ResolveRecoveryInput): Promise<Result<ResolveRecoveryResult>>;
 };

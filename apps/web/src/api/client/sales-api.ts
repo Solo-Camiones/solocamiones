@@ -180,7 +180,7 @@ function toPosDraft(
 
 function invoiceListNumber(item: ApiInvoiceListItem): string {
   if (item.number) return item.number;
-  return item.status === 'DRAFT' ? `Borrador ${item.id}` : item.id;
+  return item.status === 'DRAFT' ? 'Borrador' : 'Factura';
 }
 
 function invoiceHref(item: ApiInvoiceListItem): string {

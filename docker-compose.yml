@@ -8,6 +8,9 @@ services:
       POSTGRES_PASSWORD: ${DATABASE_PASSWORD}
       POSTGRES_DB: ${DATABASE_NAME}
 
+    ports:
+      - '${DATABASE_PORT}:5432'
+
     volumes:
       - truck_parts_pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -24,7 +27,7 @@ services:
     restart: unless-stopped
     environment:
       NODE_ENV: ${NODE_ENV}
-      PORT: 3000
+      PORT: ${PORT}
       DATABASE_URL: ${DATABASE_URL_DOCKER}
       # API is unpublished; nginx is the only client. Do not publish port 3000.
       TRUST_PROXY: ${TRUST_PROXY}
@@ -58,7 +61,7 @@ services:
     container_name: truck_parts_web
     restart: unless-stopped
     ports:
-      - '5173:8081'
+      - '${WEB_PORT}:8081'
     depends_on:
       api:
         condition: service_healthy

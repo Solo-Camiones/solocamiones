@@ -84,11 +84,15 @@ describe('M8 account management HTTP and transactions', () => {
         username: `new-${role.toLowerCase()}`,
         mustChangePassword: true,
         active: true,
+        initialPassword: INITIAL_PASSWORD,
       });
-      expect(JSON.stringify(created.body)).not.toMatch(/passwordHash|solocamiones|argon2/);
-      expect(
-        await prisma.historyEvent.findMany({ where: { subjectId: created.body.id } }),
-      ).toMatchObject([
+      expect(created.headers['cache-control']).toBe('no-store');
+      expect(JSON.stringify(created.body)).not.toMatch(/passwordHash|argon2/);
+      const createdHistory = await prisma.historyEvent.findMany({
+        where: { subjectId: created.body.id },
+      });
+      expect(JSON.stringify(createdHistory)).not.toContain(INITIAL_PASSWORD);
+      expect(createdHistory).toMatchObject([
         {
           eventType: 'USER_CREATED',
           actorUserId: admin.user.id,
@@ -102,9 +106,14 @@ describe('M8 account management HTTP and transactions', () => {
         .post('/api/auth/login')
         .send({ username: stored!.username, password: INITIAL_PASSWORD });
       expect(login.body.mustChangePassword).toBe(true);
+      expect(JSON.stringify(login.body)).not.toContain(INITIAL_PASSWORD);
       const second = await access.login({ username: stored!.username, password: INITIAL_PASSWORD });
-      expect((await agent.get('/api/auth/session')).body.mustChangePassword).toBe(true);
-      expect((await agent.get('/api/auth/me')).status).toBe(200);
+      const session = await agent.get('/api/auth/session');
+      expect(session.body.mustChangePassword).toBe(true);
+      expect(JSON.stringify(session.body)).not.toContain(INITIAL_PASSWORD);
+      const me = await agent.get('/api/auth/me');
+      expect(me.status).toBe(200);
+      expect(JSON.stringify(me.body)).not.toContain(INITIAL_PASSWORD);
       const denied = await agent.get(ROOT);
       expect(denied.status).toBe(403);
       expect(denied.body.error.details.reason).toBe('PASSWORD_CHANGE_REQUIRED');
@@ -223,18 +232,20 @@ describe('M8 account management HTTP and transactions', () => {
     const target = await fixture('SELLER');
     const page = await admin.agent.get(`${ROOT}?page=1&pageSize=1`);
     expect(page.body).toMatchObject({ total: 2, page: 1, pageSize: 1 });
-    expect(page.body.items).toHaveLength(1);
-    expect((await admin.agent.get(`${ROOT}?pageSize=101`)).status).toBe(400);
-    const updated = await admin.agent
-      .patch(`${ROOT}/${target.user.id}`)
-      .set(CSRF)
-      .send({ username: ' EDITED ', role: 'MECHANIC', phone: '', email: '' });
-    expect(updated.body).toMatchObject({
-      username: 'edited',
-      role: 'MECHANIC',
-      phone: null,
-      email: null,
-    });
+      expect(page.body.items).toHaveLength(1);
+      expect(JSON.stringify(page.body)).not.toContain(INITIAL_PASSWORD);
+      expect((await admin.agent.get(`${ROOT}?pageSize=101`)).status).toBe(400);
+      const updated = await admin.agent
+        .patch(`${ROOT}/${target.user.id}`)
+        .set(CSRF)
+        .send({ username: ' EDITED ', role: 'MECHANIC', phone: '', email: '' });
+      expect(updated.body).toMatchObject({
+        username: 'edited',
+        role: 'MECHANIC',
+        phone: null,
+        email: null,
+      });
+      expect(JSON.stringify(updated.body)).not.toContain(INITIAL_PASSWORD);
     expect(
       (
         await admin.agent

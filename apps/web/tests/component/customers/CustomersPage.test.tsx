@@ -40,6 +40,7 @@ describe('CustomersPage', () => {
     await user.click(screen.getByRole('button', { name: 'Nuevo cliente' }));
     await user.type(screen.getByLabelText('Nombre'), 'Flota Este');
     await user.click(screen.getByRole('button', { name: 'Guardar' }));
+    await user.click(screen.getByRole('button', { name: 'Confirmar creación' }));
 
     expect(await screen.findByText('Cliente creado')).toBeVisible();
     expect(await screen.findByText('Flota Este')).toBeVisible();

@@ -29,6 +29,12 @@ describe('CustomerFormModal', () => {
     await user.type(screen.getByLabelText('Notas'), 'Cliente nuevo');
     await user.click(screen.getByRole('button', { name: 'Guardar' }));
 
+    expect(onSubmit).not.toHaveBeenCalled();
+    expect(screen.getByText('Revisa los datos antes de crear el cliente.')).toBeVisible();
+    expect(screen.getByText('131000001')).toBeVisible();
+
+    await user.click(screen.getByRole('button', { name: 'Confirmar creación' }));
+
     expect(onSubmit).toHaveBeenCalledWith({
       id: undefined,
       name: 'Flota Este',
@@ -70,6 +76,10 @@ describe('CustomerFormModal', () => {
     await user.type(phones[1]!, '809-555-0101');
 
     await user.click(screen.getByRole('button', { name: 'Guardar' }));
+    expect(onSubmit).not.toHaveBeenCalled();
+    expect(screen.getByText('Contacto 1')).toBeVisible();
+    expect(screen.getByText('María Reyes')).toBeVisible();
+    await user.click(screen.getByRole('button', { name: 'Confirmar creación' }));
 
     expect(onSubmit).toHaveBeenCalledWith({
       id: undefined,
@@ -177,5 +187,29 @@ describe('CustomerFormModal', () => {
     expect(onClose).not.toHaveBeenCalled();
     await user.click(within(dialog).getByRole('button', { name: 'Seguir editando' }));
     expect(within(dialog).getByLabelText('Nombre')).toHaveValue('Flota que no debe perderse');
+  });
+
+  it('returns to the form from review without submitting', async () => {
+    const user = userEvent.setup();
+    const onSubmit = vi.fn();
+    renderWithProviders(
+      <CustomerFormModal
+        open
+        customer={null}
+        isSaving={false}
+        error={null}
+        onClose={vi.fn()}
+        onSubmit={onSubmit}
+      />,
+    );
+
+    await user.type(screen.getByLabelText('Nombre'), 'Flota Este');
+    await user.click(screen.getByRole('button', { name: 'Guardar' }));
+    expect(screen.queryByLabelText('Nombre')).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Volver a editar' }));
+
+    expect(screen.getByLabelText('Nombre')).toHaveValue('Flota Este');
+    expect(onSubmit).not.toHaveBeenCalled();
   });
 });

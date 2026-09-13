@@ -82,6 +82,24 @@ describe('invoice history timeline', () => {
     ).toEqual(['INVOICE_CONFIRMED']);
   });
 
+  it('describes a recorded USD rate with operator language and provenance', () => {
+    const entries = toInvoiceHistoryEntries(
+      [
+        row('INVOICE_USD_FX_RECORDED', {
+          after: {
+            exchangeRateDopPerUsd: '61.5',
+            source: 'ExchangeRate-API',
+          },
+        }),
+      ],
+      'ADMINISTRATOR',
+    );
+
+    expect(entries[0]?.description).toBe(
+      'Tasa USD 61.5 DOP/USD registrada (proveedor de tipo de cambio)',
+    );
+  });
+
   it('skips unknown event types instead of exposing raw payloads', () => {
     expect(toInvoiceHistoryEntries([row('USER_CREATED', { name: 'secret' })], 'ADMINISTRATOR')).toEqual(
       [],

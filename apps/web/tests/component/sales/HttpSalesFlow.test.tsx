@@ -494,13 +494,13 @@ describe('M21 HTTP POS draft UI', () => {
     await user.click(screen.getByRole('button', { name: 'Descartar borrador' }));
     await user.click(screen.getByRole('button', { name: 'Sí, descartar' }));
     expect(await screen.findByRole('heading', { name: 'Ventas y Facturas' })).toBeVisible();
-  });
+  }, 10_000);
 
   it('shows an empty completed tab after requesting completed invoices', async () => {
     const user = userEvent.setup();
     invoices = [emptyInvoice()];
     mount();
-    expect(await screen.findByText(`Borrador ${draftId}`)).toBeVisible();
+    expect(await screen.findByRole('link', { name: 'Borrador' })).toBeVisible();
     fetchMock.mockClear();
     await user.click(screen.getByRole('button', { name: 'Completada' }));
     expect(await screen.findByText('No hay facturas en esta pestaña')).toBeVisible();

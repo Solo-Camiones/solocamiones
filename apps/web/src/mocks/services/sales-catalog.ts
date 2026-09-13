@@ -38,7 +38,7 @@ function displayNumber(invoice: Invoice): string {
   if (invoice.number) {
     return invoice.number;
   }
-  return invoice.status === 'DRAFT' ? `Borrador ${invoice.id}` : invoice.id;
+  return invoice.status === 'DRAFT' ? 'Borrador' : 'Factura';
 }
 
 export function toSalesListRow(state: AppState, invoice: Invoice): SalesListRow {

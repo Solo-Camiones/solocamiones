@@ -133,7 +133,7 @@ function ProfitSourceBadge({ row }: { row: ProfitabilityInvoiceRow }) {
   if (row.source === 'MANUAL') {
     return (
       <Chip tone="neutral" title={SOURCE_TOOLTIP.manual} className="cursor-help">
-        Criterio admin
+        Registrada por administrador
       </Chip>
     );
   }
@@ -250,7 +250,7 @@ export function ProfitabilityPage() {
       <PageHeader
         compact
         title="Rentabilidad"
-        description="Ganancia bruta y cobrado neto en pesos. Solo administrador."
+        description="Ganancia bruta y cobrado neto en pesos."
         actions={
           <div className="flex min-w-0 flex-col items-stretch gap-3 sm:items-end">
             <ProfitabilityPeriodControls
@@ -369,7 +369,7 @@ export function ProfitabilityPage() {
                   <th className="px-4 py-3 align-middle font-medium">Moneda</th>
                   <th className="px-4 py-3 align-middle font-medium">Total</th>
                   <th className="px-4 py-3 align-middle font-medium">Ganancia bruta</th>
-                  <th className="px-4 py-3 align-middle font-medium">Origen ganancia</th>
+                  <th className="px-4 py-3 align-middle font-medium">Cálculo</th>
                   <th className="px-4 py-3 align-middle font-medium">Acción</th>
                 </tr>
               </thead>

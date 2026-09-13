@@ -44,7 +44,10 @@ describe('HTTP user management contract', () => {
   });
 
   it('creates without credentials and updates with PATCH', async () => {
-    const fetchMock = vi.fn().mockResolvedValue(json(userResponse));
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(json({ ...userResponse, initialPassword: 'assigned-once' }))
+      .mockResolvedValueOnce(json(userResponse));
     vi.stubGlobal('fetch', fetchMock);
     const input = {
       name: 'María López',
@@ -55,8 +58,15 @@ describe('HTTP user management contract', () => {
       email: 'maria@example.com',
     };
 
-    await repository.save(input);
-    await repository.save({ ...input, id: 'user-id', active: false });
+    const created = await repository.save(input);
+    expect(created).toMatchObject({
+      ok: true,
+      value: { id: 'user-id', initialPassword: 'assigned-once' },
+    });
+    if (created.ok) expect(created.value).not.toHaveProperty('passwordHash');
+    const patched = await repository.save({ ...input, id: 'user-id', active: false });
+    expect(patched).toMatchObject({ ok: true, value: { id: 'user-id' } });
+    if (patched.ok) expect(patched.value.initialPassword).toBeUndefined();
 
     expect(fetchMock.mock.calls[0][0]).toBe('/api/admin/users');
     expect(fetchMock.mock.calls[0][1].method).toBe('POST');

@@ -2,7 +2,16 @@ import { useEffect, useRef, useState, type FormEvent } from 'react';
 
 import type { Customer } from '../../api/contracts/entities';
 import type { SaveCustomerContactInput, SaveCustomerInput } from '../../api/contracts/customers';
-import { Button, Field, GuardedModal, Info, Input, Textarea, isFormDirty } from '../../shared/ui';
+import {
+  Button,
+  Field,
+  GuardedModal,
+  Info,
+  Input,
+  ReviewSummary,
+  Textarea,
+  isFormDirty,
+} from '../../shared/ui';
 
 export type CustomerFormModalProps = {
   open: boolean;
@@ -74,6 +83,7 @@ export function CustomerFormModal({
   const [fields, setFields] = useState<FormFields>(EMPTY_FIELDS);
   const [baseline, setBaseline] = useState<FormFields>(EMPTY_FIELDS);
   const [clearedFields, setClearedFields] = useState<Set<string>>(new Set());
+  const [step, setStep] = useState<'form' | 'review'>('form');
   const nextKeyRef = useRef(0);
   const isEdit = customer != null;
 
@@ -106,6 +116,7 @@ export function CustomerFormModal({
     setFields(next);
     setBaseline(next);
     setClearedFields(new Set());
+    setStep('form');
   }, [open, customer]);
 
   useEffect(() => {
@@ -180,16 +191,27 @@ export function CustomerFormModal({
     }));
   }
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    onSubmit({
+  function savePayload(): SaveCustomerInput {
+    return {
       id: customer?.id,
       name: fields.name,
       rnc: fields.rnc,
       address: fields.address,
       notes: fields.notes,
       contacts: toSaveContacts(fields.contacts),
-    });
+    };
+  }
+
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!isEdit && step === 'form') {
+      if (!event.currentTarget.reportValidity()) {
+        return;
+      }
+      setStep('review');
+      return;
+    }
+    onSubmit(savePayload());
   }
 
   return (
@@ -207,6 +229,53 @@ export function CustomerFormModal({
             {error}
           </Info>
         )}
+        {step === 'review' && !isEdit ? (
+          <div className="space-y-4">
+            <p className="text-sm font-medium text-navy">Revisa los datos antes de crear el cliente.</p>
+            <ReviewSummary
+              rows={[
+                { label: 'Nombre', value: fields.name },
+                { label: 'Identificación fiscal / cédula', value: fields.rnc },
+                { label: 'Dirección', value: fields.address },
+                { label: 'Notas', value: fields.notes },
+                ...(fields.contacts.length === 0 ? [{ label: 'Contactos', value: '' }] : []),
+              ]}
+            >
+              {fields.contacts.length > 0 && (
+                <div className="space-y-3">
+                  {fields.contacts.map((contact, index) => (
+                    <div key={contact.key} className="space-y-2">
+                      <p className="text-sm font-medium text-navy">Contacto {index + 1}</p>
+                      <ReviewSummary
+                        rows={[
+                          { label: 'Nombre', value: contact.name },
+                          { label: 'Teléfono', value: contact.phone },
+                          { label: 'Correo', value: contact.email },
+                          { label: 'Cargo', value: contact.title },
+                          { label: 'Principal', value: contact.isPrimary ? 'Sí' : 'No' },
+                        ]}
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
+            </ReviewSummary>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => setStep('form')}
+                disabled={isSaving}
+              >
+                Volver a editar
+              </Button>
+              <Button type="button" disabled={isSaving} onClick={() => onSubmit(savePayload())}>
+                {isSaving ? 'Guardando…' : 'Confirmar creación'}
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <>
         <Field label="Nombre" htmlFor="customer-name" error={visibleError(['name'])}>
           <Input
             id="customer-name"
@@ -366,6 +435,8 @@ export function CustomerFormModal({
             {isSaving ? 'Guardando…' : 'Guardar'}
           </Button>
         </div>
+          </>
+        )}
       </form>
       )}
     </GuardedModal>

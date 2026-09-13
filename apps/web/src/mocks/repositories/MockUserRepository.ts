@@ -3,7 +3,12 @@ import { toListPage } from '../../api/contracts/pagination';
 import type { ResolveRecoveryInput, SaveUserInput } from '../../api/contracts/users';
 import { err, ok } from '../../shared/auth/types';
 import { requirePermission } from '../services/require-permission';
-import { prepareUserSave, sortManagedUsers, toManagedUser } from '../services/users';
+import {
+  INITIAL_USER_PASSWORD,
+  prepareUserSave,
+  sortManagedUsers,
+  toManagedUser,
+} from '../services/users';
 import { cloneForRead, getMockState } from '../state';
 
 export class MockUserRepository implements UserRepository {
@@ -36,7 +41,11 @@ export class MockUserRepository implements UserRepository {
       state.users.push(user);
     }
 
-    return ok(cloneForRead(toManagedUser(user)));
+    const saved = cloneForRead(toManagedUser(user));
+    if (!input.id) {
+      return ok({ ...saved, initialPassword: INITIAL_USER_PASSWORD });
+    }
+    return ok(saved);
   }
 
   async listRecoveryRequests() {
