@@ -20,7 +20,7 @@ import {
   notFoundHandler,
   requestIdMiddleware,
   requestLoggingMiddleware,
-  apiRateLimiter,
+  createApiRateLimiter,
 } from './infrastructure/http/index.js';
 import { createFxRateProvider, type FxRateProvider } from './infrastructure/fx/index.js';
 import {
@@ -40,6 +40,8 @@ export type CreateAppOptions = {
   fxRateProvider?: FxRateProvider;
   /** Test double for SALE-004. Production uses pdfkit. */
   invoicePdfRenderer?: InvoicePdfRenderer;
+  /** Override for tests. Production defaults to 100 requests per 15-minute window. */
+  apiRateLimitMaxRequests?: number;
 };
 
 /** Matches body-parser's default; bodies over this size map to 413 PAYLOAD_TOO_LARGE. */
@@ -69,6 +71,7 @@ export function createApp(options: CreateAppOptions = {}): express.Application {
     invoiceDocuments,
   );
   const profitabilityService = new ProfitabilityService(salesTransaction, fxRateProvider);
+  const apiRateLimiter = createApiRateLimiter(options.apiRateLimitMaxRequests);
   app.locals.salesService = salesService;
   app.locals.profitabilityService = profitabilityService;
 
