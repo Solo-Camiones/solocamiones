@@ -8,9 +8,6 @@ on:
 permissions:
   contents: read
 jobs:
-  sonarqube:
-    name: SonarQube
-    runs-on: ubuntu-latest
   
   build:
     runs-on: ubuntu-24.04
