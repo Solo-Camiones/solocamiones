@@ -190,7 +190,7 @@ describe('InventoryPage', () => {
     await user.click(within(dialog).getByRole('button', { name: 'Seguir registrando' }));
     expect(within(dialog).getByLabelText('Nombre')).toHaveValue('Registro que debe conservarse');
 
-    await user.click(dialog.parentElement!);
+    await user.click(dialog.previousElementSibling!);
     expect(within(dialog).getByRole('heading', { name: '¿Descartar el registro?' })).toBeVisible();
     await user.click(within(dialog).getByRole('button', { name: 'Seguir registrando' }));
 
@@ -215,7 +215,7 @@ describe('InventoryPage', () => {
 
     expect(within(dialog).getByRole('button', { name: 'Cerrar' })).toBeDisabled();
     await user.keyboard('{Escape}');
-    await user.click(dialog.parentElement!);
+    await user.click(dialog.previousElementSibling!);
     expect(dialog).toBeVisible();
     expect(within(dialog).queryByText('¿Descartar el registro?')).not.toBeInTheDocument();
   });

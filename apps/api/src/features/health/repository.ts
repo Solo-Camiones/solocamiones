@@ -27,7 +27,7 @@ function listLocalMigrationNames(): string[] {
     .filter((entry) => entry.isDirectory())
     .map((entry) => entry.name)
     .filter((name) => fs.existsSync(path.join(migrationsDirectory, name, 'migration.sql')))
-    .sort();
+    .sort((left, right) => left.localeCompare(right));
 }
 
 export class HealthRepository {

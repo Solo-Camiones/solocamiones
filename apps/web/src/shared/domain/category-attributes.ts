@@ -26,7 +26,8 @@ export function suggestAttributeKey(label: string): string {
     .trim()
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '_')
-    .replace(/^_+|_+$/g, '')
+    .replace(/^_+/, '')
+    .replace(/_+$/, '')
     .slice(0, 32);
 }
 

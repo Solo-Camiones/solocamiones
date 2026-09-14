@@ -1,8 +1,8 @@
 import type { UpdateOwnProfileInput } from '../../api/contracts/profile';
 import type { User } from '../../api/contracts/entities';
 import { err, ok, type Result } from '../../shared/auth/types';
+import { isValidEmail } from './email';
 
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 export const MIN_PROFILE_PASSWORD_LENGTH = 6;
 
 function optionalText(value: string | undefined): string | undefined {
@@ -21,7 +21,7 @@ export function prepareProfileUpdate(user: User, input: UpdateOwnProfileInput): 
   }
 
   const email = optionalText(input.email);
-  if (email && !EMAIL_PATTERN.test(email)) {
+  if (email && !isValidEmail(email)) {
     return err({ code: 'VALIDATION', message: 'El correo no es válido' });
   }
 

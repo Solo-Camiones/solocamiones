@@ -61,7 +61,7 @@ export function DocumentPanel({
           onChange={(next) => onCurrencyChange(next as Currency)}
         />
       </Field>
-      <label className="flex items-start gap-2 text-sm text-navy">
+      <label htmlFor="pos-fiscal" className="flex items-start gap-2 text-sm text-navy">
         <input
           id="pos-fiscal"
           data-pos-field="fiscal"
@@ -71,9 +71,9 @@ export function DocumentPanel({
           disabled={readOnly || isMutating || (fiscalLocked && !draft.fiscal)}
           onChange={(event) => onFiscalChange(event.target.checked)}
         />
-        <span>
-          <span className="font-medium">Factura con comprobante fiscal</span>
-          <span className="mt-0.5 block text-xs text-navy-400">
+        <span className="font-medium">
+          Factura con comprobante fiscal
+          <span className="mt-0.5 block text-xs font-normal text-navy-400">
             Activa el ITBIS (18% incluido) en las líneas gravadas. Requiere cliente con RNC o cédula.
           </span>
         </span>

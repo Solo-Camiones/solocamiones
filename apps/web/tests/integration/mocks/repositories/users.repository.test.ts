@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { mockAuthRepository } from '../../../../src/mocks/repositories/MockAuthRepository';
 import { mockUserRepository } from '../../../../src/mocks/repositories/MockUserRepository';
+import { getInitialPassword } from '../../../../src/mocks/services/users';
 import { getMockState, resetMockState } from '../../../../src/mocks/state';
 import { resetDemoData } from '../../../../src/mocks/demo-controls';
 import { signInAs } from '../../../support/session';
@@ -29,9 +30,10 @@ describe('MockUserRepository', () => {
     if (saved.ok) {
       expect(saved.value).not.toHaveProperty('password');
       expect(saved.value.username).toBe('maria');
+      expect(saved.value.initialPassword).toBe(getInitialPassword());
     }
 
-    const login = await mockAuthRepository.login('maria', 'solocamiones');
+    const login = await mockAuthRepository.login('maria', getInitialPassword());
     expect(login.ok).toBe(true);
   });
 
