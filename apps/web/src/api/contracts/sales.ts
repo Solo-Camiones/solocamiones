@@ -27,13 +27,33 @@ export type SalesListRow = {
   balance: number;
   createdAt: string;
   confirmedAt?: string;
+  dueDate?: string;
   href: string;
+};
+
+export type CustomerOutstandingRow = {
+  customerId: string;
+  customerName: string;
+  currency: Currency;
+  invoiceCount: number;
+  invoiced: number;
+  paid: number;
+  balance: number;
+};
+
+export type ReceivablesSnapshot = {
+  invoices: SalesListRow[];
+  customers: CustomerOutstandingRow[];
+  total: number;
+  page: number;
+  pageSize: number;
 };
 
 export type InvoiceLineView = {
   id: string;
   type: LineType;
   description: string;
+  notes?: string;
   quantity: number;
   unitPrice: number;
   taxable: boolean;
@@ -48,6 +68,8 @@ export type PaymentView = {
   amount: number;
   method: PaymentMethod;
   createdAt: string;
+  effectiveDate?: string;
+  recordedAt?: string;
   reference?: string;
   actorName?: string;
 };
@@ -82,11 +104,19 @@ export type InvoiceProfitabilityView = {
   rateSource?: string;
 };
 
+export type InvoiceDocumentView = { status: 'READY' } | { status: 'FAILED'; errorId: string };
+
+export type InvoicePdfDownload = {
+  blob: Blob;
+  filename: string;
+};
+
 export type InvoiceDetailActions = {
   canPay: boolean;
   canCancel: boolean;
   canCorrectCurrency: boolean;
   canViewPdf: boolean;
+  canRegeneratePdf: boolean;
 };
 
 export type InvoiceDetailView = {
@@ -107,11 +137,15 @@ export type InvoiceDetailView = {
   balance: number;
   createdAt: string;
   confirmedAt?: string;
+  dueDate?: string;
+  sellerName?: string;
   cancelledAt?: string;
   cancelReason?: string;
+  cancelledByName?: string;
   linkedWorkOrders: LinkedWorkOrderView[];
   history: InvoiceHistoryEntry[];
   profitability?: InvoiceProfitabilityView;
+  document?: InvoiceDocumentView;
   actions: InvoiceDetailActions;
   /** Copied as-is from the invoice; omitted when no assembly was sold. */
   deliveredAssemblies?: DeliveredAssembly[];
@@ -121,6 +155,7 @@ export type AddPaymentInput = {
   invoiceId: string;
   amount: number;
   method: PaymentMethod;
+  effectiveDate: string;
   reference?: string;
   idempotencyKey?: string;
 };
@@ -140,6 +175,8 @@ export type CancelInvoiceInput = {
   reason: string;
   refundAmount?: number;
   refundMethod?: PaymentMethod;
+  refundReference?: string;
+  idempotencyKey?: string;
   inProgressDecision?: InProgressCancelDecision;
 };
 
@@ -156,10 +193,13 @@ export type PosDraftTotals = {
   taxableBase: number;
 };
 
+export type CostProvenance = 'ACTUAL' | 'ESTIMATED' | 'UNKNOWN';
+
 export type PosLineView = {
   id: string;
   type: LineType;
   description: string;
+  notes?: string;
   quantity: number;
   unitPrice: number;
   taxable: boolean;
@@ -171,6 +211,7 @@ export type PosLineView = {
   qtyProductId?: string;
   serviceId?: string;
   acquisitionCostDop?: number;
+  costProvenance: CostProvenance;
   installed?: boolean;
   parentName?: string;
   isAssembly?: boolean;
@@ -209,9 +250,11 @@ export type AddDraftLineInput = {
   qtyProductId?: string;
   serviceId?: string;
   description?: string;
+  notes?: string;
   quantity?: number;
   unitPrice?: number;
   acquisitionCostDop?: number;
+  costProvenance?: CostProvenance;
 };
 
 export type RemoveDraftLineInput = {
@@ -223,6 +266,19 @@ export type SetDraftLinePriceInput = {
   draftId: string;
   lineId: string;
   unitPrice: number;
+  quantity?: number;
+  /** Free-form types only. */
+  description?: string;
+  notes?: string | null;
+  /** GENERIC / EXTERNAL only. */
+  acquisitionCostDop?: number | null;
+  costProvenance?: CostProvenance;
+};
+
+export type SetDraftLineQuantityInput = {
+  draftId: string;
+  lineId: string;
+  quantity: number;
 };
 
 export type SetDraftMetaInput = {

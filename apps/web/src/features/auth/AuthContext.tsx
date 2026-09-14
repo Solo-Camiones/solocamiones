@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { authRepository } from '../../api/repositories';
 import { useMockApi } from '../../api/client/http-client';
 import { err, ok, type AppError, type Result } from '../../shared/auth/types';
+import { markLogoutDiscardsReturnPath } from '../../shared/layout/login-return-path';
 import { Button, Info, useToast } from '../../shared/ui';
 import { AuthContext, type AuthUser } from './auth-context';
 
@@ -114,6 +115,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return;
     }
     clearSession();
+    markLogoutDiscardsReturnPath();
   }, [pushToast, clearSession]);
 
   const value = useMemo(

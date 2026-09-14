@@ -10,6 +10,8 @@ The old consolidated requirements/validation files are intentionally no longer r
 
 **Release 7 — Mechanic Workflow and Installed-Item Operations**
 
+**Implementation (2026-09-10):** Production API **not started**. Checklist `[x]` items are prototype mock (desktop + mechanic). Do not treat them as PostgreSQL/Work-Order HTTP.
+
 ## What this feature does
 
 Control every post-baseline physical Desarme/Installation through one-piece Work Orders, a restricted mobile Mechanic queue, atomic claim, mandatory BEFORE/AFTER evidence, and immutable completion history.

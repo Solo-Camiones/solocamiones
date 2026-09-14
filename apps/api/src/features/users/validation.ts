@@ -38,7 +38,7 @@ export const updateAdministrativeUserSchema = createAdministrativeUserSchema
 export const userIdSchema = z.strictObject({ id: z.uuid() });
 export const paginationSchema = z.strictObject({
   page: z.coerce.number().int().min(1).max(1000000).default(1),
-  pageSize: z.coerce.number().int().min(1).max(100).default(20),
+  pageSize: z.coerce.number().int().min(1).max(100).default(10),
 });
 export const recoveryRequestSchema = z.strictObject({ username: usernameSchema });
 export const recoveryResolutionSchema = z.discriminatedUnion('action', [

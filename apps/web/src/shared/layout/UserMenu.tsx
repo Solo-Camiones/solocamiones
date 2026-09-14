@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import type { AuthUser } from '../../features/auth/AuthContext';
 import { roleLabel } from '../auth/policies';
 import { Button, ConfirmActionModal } from '../ui';
+import { useTransition } from '../ui/useTransition';
 
 export type UserMenuProps = {
   user: AuthUser;
@@ -13,6 +14,7 @@ export type UserMenuProps = {
 export function UserMenu({ user, onLogout }: UserMenuProps) {
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
+  const state = useTransition(open, 100);
   const [confirmLogout, setConfirmLogout] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -82,10 +84,13 @@ export function UserMenu({ user, onLogout }: UserMenuProps) {
         </span>
       </button>
 
-      {open && (
+      {state !== 'unmounted' && (
         <div
-          role="menu"
-          className="absolute right-0 z-20 mt-2 w-56 rounded-lg border border-navy-100 bg-white py-1 shadow-lg"
+          role={open ? 'menu' : undefined}
+          aria-hidden={!open}
+          className={`absolute right-0 z-20 mt-2 w-56 origin-top-right rounded-lg border border-navy-100 bg-white py-1 shadow-lg ${
+            state === 'enter' ? 'animate-scale-in' : 'animate-scale-out pointer-events-none'
+          }`}
         >
           <div className="border-b border-navy-100 px-3 py-2 text-xs text-navy-400">
             <p className="font-medium text-navy">{user.name}</p>

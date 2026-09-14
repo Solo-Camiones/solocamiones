@@ -9,14 +9,11 @@ import {
 } from '../../../../src/mocks/services/customers';
 
 describe('buildCustomerDirectory', () => {
-  it('matches seed invoice counts and puts Cliente Contado first', () => {
+  it('puts Cliente Contado first without an invoice-count field', () => {
     const rows = buildCustomerDirectory(createInitialState());
 
-    expect(rows.map((row) => ({ id: row.id, invoiceCount: row.invoiceCount }))).toEqual([
-      { id: 'C0', invoiceCount: 1 },
-      { id: 'C2', invoiceCount: 1 },
-      { id: 'C1', invoiceCount: 3 },
-    ]);
+    expect(rows.map((row) => row.id)).toEqual(['C0', 'C2', 'C1']);
+    expect(rows.every((row) => !('invoiceCount' in row))).toBe(true);
     expect(rows[0]?.isDefault).toBe(true);
     expect(rows[0]?.name).toBe('Cliente Contado');
     expect(rows[0]?.contacts).toEqual([]);

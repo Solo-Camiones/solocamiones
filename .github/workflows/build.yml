@@ -1,0 +1,67 @@
+name: Build
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    types: [opened, synchronize, reopened]
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: truck_parts_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d truck_parts_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      NODE_ENV: test
+      LOG_LEVEL: silent
+      DATABASE_URL_TEST: postgresql://postgres:postgres@localhost:5432/truck_parts_test
+
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          fetch-depth: 0 # Shallow clones should be disabled for a better relevancy of analysis
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Use required npm version
+        run: npm --ignore-scripts install --global npm@11.19.1
+
+      - name: Install locked dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Generate Prisma Client
+        run: npm exec --ignore-scripts --workspace @truck-parts/api -- prisma generate
+
+      - name: Test with coverage
+        run: npm run test:coverage
+
+      - name: Verify coverage reports
+        run: |
+          test -s apps/api/coverage/unit/lcov.info
+          test -s apps/api/coverage/integration/lcov.info
+          test -s apps/web/coverage/lcov.info
+
+      - name: SonarQube Scan
+        uses: SonarSource/sonarqube-scan-action@7006c4492b2e0ee0f816d36501671557c97f5995 # v8.1.0
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}

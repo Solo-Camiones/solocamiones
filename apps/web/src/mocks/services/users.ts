@@ -5,6 +5,7 @@ import { err, ok, type Result } from '../../shared/auth/types';
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const USERNAME_PATTERN = /^[a-z0-9][a-z0-9_-]{1,31}$/;
 const ROLES: Role[] = ['ADMINISTRATOR', 'SELLER', 'MECHANIC'];
+
 export const INITIAL_USER_PASSWORD = 'solocamiones';
 
 function optionalText(value: string | undefined): string | undefined {

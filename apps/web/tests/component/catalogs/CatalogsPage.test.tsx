@@ -8,6 +8,7 @@ import { CatalogsPage } from '../../../src/features/catalogs/CatalogsPage';
 import { InventoryPage } from '../../../src/features/inventory/InventoryPage';
 import { resetMockState } from '../../../src/mocks/state';
 import { renderWithProviders } from '../../support/render';
+import { chooseSelectOption } from '../../support/select-menu';
 import { signInAs } from '../../support/session';
 import '../../support/dom';
 
@@ -42,7 +43,9 @@ describe('CatalogsPage', () => {
     await user.click(screen.getByRole('button', { name: 'Registrar inventario' }));
     const dialog = screen.getByRole('dialog');
 
-    expect(within(dialog).getByRole('option', { name: /Bomba/ })).toBeInTheDocument();
+    await user.click(within(dialog).getByLabelText('Categoría'));
+    // SelectMenu portals the listbox outside the dialog overlay.
+    expect(screen.getByRole('option', { name: /Bomba/ })).toBeInTheDocument();
   });
 
   it('defines category attributes that appear as registration fields', async () => {
@@ -55,7 +58,7 @@ describe('CatalogsPage', () => {
     await user.click(screen.getByRole('button', { name: 'Añadir atributo' }));
     expect(screen.queryByLabelText('Clave')).not.toBeInTheDocument();
     await user.type(screen.getByLabelText('Etiqueta'), 'Señal');
-    await user.selectOptions(screen.getByLabelText('Tipo'), 'text');
+    await chooseSelectOption(user, 'Tipo', 'text');
     await user.click(screen.getByLabelText('Obligatorio al registrar'));
     await user.click(screen.getByRole('button', { name: 'Guardar' }));
 
@@ -67,7 +70,7 @@ describe('CatalogsPage', () => {
     await screen.findByText('Filtro de aceite HD');
     await user.click(screen.getByRole('button', { name: 'Registrar inventario' }));
     const dialog = screen.getByRole('dialog');
-    await user.selectOptions(within(dialog).getByLabelText('Categoría'), 'CAT-SENSOR');
+    await chooseSelectOption(user, 'Categoría', 'CAT-SENSOR', dialog);
 
     expect(within(dialog).getByLabelText('Señal')).toBeVisible();
     expect(within(dialog).queryByLabelText('Atributos (opcional)')).not.toBeInTheDocument();
@@ -104,6 +107,27 @@ describe('CatalogsPage', () => {
     expect(row).not.toBeNull();
     await user.click(within(row!).getByRole('button', { name: 'Desactivar' }));
 
+    const dialog = await screen.findByRole('dialog', { name: 'Desactivar servicio' });
+    expect(within(dialog).getByText(/no aparecerá al facturar/i)).toBeVisible();
+    await user.click(within(dialog).getByRole('button', { name: 'Desactivar' }));
+
     expect(await screen.findByText('Servicio desactivado')).toBeVisible();
+  });
+
+  it('asks before deactivating a service and keeps it active if cancelled', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<CatalogsPage />, { route: '/catalogs' });
+    await screen.findByText('Motor');
+
+    await user.click(screen.getByRole('tab', { name: 'Servicios' }));
+    const row = (await screen.findByText('Instalación mecánica')).closest('tr');
+    expect(row).not.toBeNull();
+    await user.click(within(row!).getByRole('button', { name: 'Desactivar' }));
+
+    const dialog = await screen.findByRole('dialog', { name: 'Desactivar servicio' });
+    await user.click(within(dialog).getByRole('button', { name: 'Cancelar' }));
+
+    expect(screen.queryByRole('dialog', { name: 'Desactivar servicio' })).not.toBeInTheDocument();
+    expect(within(row!).getByText('Activo')).toBeVisible();
   });
 });

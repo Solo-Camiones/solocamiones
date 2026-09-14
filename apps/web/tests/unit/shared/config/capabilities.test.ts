@@ -14,7 +14,7 @@ import {
 } from '../../../../src/shared/layout/navigation';
 
 describe('capability presets follow the Development Plan', () => {
-  it('exposes only Release 1 users in HTTP mode even with prototype flags', () => {
+  it('exposes users, customers, catalogs and sales in HTTP mode even with prototype flags', () => {
     const capabilities = resolveCapabilities({
       VITE_USE_MOCK_API: 'false',
       VITE_CAPABILITIES_PRESET: 'prototype',
@@ -22,24 +22,54 @@ describe('capability presets follow the Development Plan', () => {
       DEV: true,
     });
     expect(capabilities.users).toBe(true);
-    expect(
-      Object.entries(capabilities)
-        .filter(([key]) => key !== 'users')
-        .every(([, enabled]) => !enabled),
-    ).toBe(true);
+    expect(capabilities.customers).toBe(true);
+    expect(capabilities.catalogs).toBe(true);
+    expect(capabilities.sales).toBe(true);
+    expect(capabilities.profitability).toBe(true);
+    expect(capabilities.payments).toBe(true);
+    expect(capabilities.invoiceCancellation).toBe(true);
+    expect(capabilities.inventory).toBe(false);
     expect(isRouteAllowedForRole('/users', 'ADMINISTRATOR', capabilities)).toBe(true);
+    expect(isRouteAllowedForRole('/catalogs', 'ADMINISTRATOR', capabilities)).toBe(true);
+    expect(isRouteAllowedForRole('/catalogs', 'SELLER', capabilities)).toBe(false);
+    expect(isRouteAllowedForRole('/customers', 'SELLER', capabilities)).toBe(true);
+    expect(isRouteAllowedForRole('/sales', 'SELLER', capabilities)).toBe(true);
+    expect(isRouteAllowedForRole('/sales', 'MECHANIC', capabilities)).toBe(false);
+    expect(isRouteAllowedForRole('/customers', 'MECHANIC', capabilities)).toBe(false);
+    expect(navItemsForRole('MECHANIC', capabilities)).toEqual([]);
+    expect(navItemsForRole('SELLER', capabilities).map((item) => item.id)).toEqual(
+      expect.arrayContaining(['sales', 'customers']),
+    );
+    expect(navItemsForRole('SELLER', capabilities).map((item) => item.id)).not.toContain(
+      'profitability',
+    );
+    expect(navItemsForRole('ADMINISTRATOR', capabilities).map((item) => item.id)).toContain(
+      'profitability',
+    );
+    expect(isRouteAllowedForRole('/profitability', 'ADMINISTRATOR', capabilities)).toBe(true);
+    expect(isRouteAllowedForRole('/profitability', 'SELLER', capabilities)).toBe(false);
+    expect(navItemsForRole('SELLER', capabilities).map((item) => item.id)).not.toContain('inventory');
+    expect(enabledPosLineTypes(capabilities).map((entry) => entry.value)).toEqual([
+      'GENERIC',
+      'EXTERNAL',
+      'SERVICE',
+      'DELIVERY',
+    ]);
     expect(isMechanicPathAllowed('/mechanic/pending', capabilities)).toBe(false);
     expect(isMechanicPathAllowed('/mechanic/profile', capabilities)).toBe(true);
   });
 
-  it('treats an unset mock flag as HTTP Release 1, not the in-memory prototype', () => {
+  it('treats an unset mock flag as HTTP Access/Users plus customers, services and sales', () => {
     const capabilities = resolveCapabilities({
       VITE_CAPABILITIES_PRESET: 'prototype',
       VITE_ENABLE_DEMO_CONTROLS: 'true',
       DEV: true,
     });
     expect(capabilities.users).toBe(true);
-    expect(capabilities.sales).toBe(false);
+    expect(capabilities.customers).toBe(true);
+    expect(capabilities.catalogs).toBe(true);
+    expect(capabilities.sales).toBe(true);
+    expect(capabilities.inventory).toBe(false);
     expect(capabilities.prototypeControls).toBe(false);
   });
 
@@ -83,6 +113,7 @@ describe('capability presets follow the Development Plan', () => {
 
     expect(capabilities.payments).toBe(true);
     expect(capabilities.invoiceCancellation).toBe(true);
+    expect(isRouteAllowedForRole('/receivables', 'SELLER', capabilities)).toBe(true);
     expect(capabilities.inventory).toBe(false);
     expect(capabilities.inventorySales).toBe(false);
   });
@@ -125,7 +156,7 @@ describe('capability presets follow the Development Plan', () => {
   it('keeps the prototype preset complete, including mechanic work orders', () => {
     const capabilities = CAPABILITY_PRESETS.prototype;
 
-    expect(navItemsForRole('ADMINISTRATOR', capabilities)).toHaveLength(9);
+    expect(navItemsForRole('ADMINISTRATOR', capabilities)).toHaveLength(10);
     expect(isMechanicPathAllowed('/mechanic/pending', capabilities)).toBe(true);
     expect(defaultPathForRole('MECHANIC', capabilities)).toBe('/mechanic');
   });

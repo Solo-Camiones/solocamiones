@@ -1,7 +1,7 @@
 import { useState } from 'react';
 
 import { DEMO_SCENARIOS, runDemoScenario } from '../../mocks/demo-controls';
-import { Button } from '../ui';
+import { Button, Select } from '../ui';
 
 type ScenarioRunnerProps = {
   disabled?: boolean;
@@ -37,11 +37,13 @@ export function ScenarioRunner({ disabled, onRun, onError }: ScenarioRunnerProps
       <label className="sr-only" htmlFor="demo-scenario">
         Escenario demo
       </label>
-      <select
+      <Select
         id="demo-scenario"
-        className="max-w-56 rounded-lg border border-navy-200 bg-white px-2 py-1.5 text-xs text-navy"
-        value={selectedId}
+        className="max-w-56"
+        value={String(selectedId)}
         disabled={disabled || isRunning}
+        searchable
+        searchPlaceholder="Buscar escenario"
         onChange={(event) => setSelectedId(Number(event.target.value))}
       >
         {DEMO_SCENARIOS.map((scenario) => (
@@ -49,7 +51,7 @@ export function ScenarioRunner({ disabled, onRun, onError }: ScenarioRunnerProps
             {scenario.id}. {scenario.title}
           </option>
         ))}
-      </select>
+      </Select>
       <Button variant="secondary" size="sm" disabled={disabled || isRunning} onClick={() => void handleRun()}>
         {isRunning ? 'Cargando…' : 'Cargar escenario'}
       </Button>

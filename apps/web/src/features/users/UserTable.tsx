@@ -1,7 +1,7 @@
 import type { ManagedUser } from '../../api/contracts/users';
 import { AccountStateChip } from '../../shared/domain';
 import { roleLabel } from '../../shared/auth/policies';
-import { Button, Empty, HoverRow, Mono, TableShell } from '../../shared/ui';
+import { Button, Empty, HoverRow, TableShell } from '../../shared/ui';
 
 export type UserTableProps = {
   rows: ManagedUser[];
@@ -36,7 +36,6 @@ export function UserTable({ rows, onEdit, onToggleActive, togglingId }: UserTabl
           <HoverRow key={row.id}>
             <td className="px-4 py-3">
               <span className="font-medium">{row.name}</span>
-              <Mono className="mt-0.5 block text-xs text-navy-400">{row.id}</Mono>
             </td>
             <td className="px-4 py-3 font-mono text-navy-400">{row.username}</td>
             <td className="px-4 py-3">{roleLabel(row.role)}</td>

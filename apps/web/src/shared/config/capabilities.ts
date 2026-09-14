@@ -12,10 +12,10 @@ import { UX_TERMS } from '../copy/glossary';
  * | customers             | `/customers`                                        | 2 Billing       |
  * | sales                 | `/sales`, POS GENERIC/SERVICE/DELIVERY/EXTERNAL     | 2 Billing       |
  * | profitability         | `/profitability`, panel admin en factura            | 2 Billing       |
- * | payments              | Registrar pago, CxC en factura/dashboard            | 3 Payments/CxC  |
+ * | payments              | Registrar pago, CxC `/receivables`, detalle de factura | 3 Payments/CxC  |
  * | invoiceCancellation   | Cancelar factura / reembolso de cancelación         | 3 Payments/CxC  |
  * | inventory             | `/inventory` piezas independientes y por cantidad   | 4 Base stock    |
- * | catalogs              | `/catalogs` categorías y servicios                  | 4 Base stock    |
+ * | catalogs              | `/catalogs` servicios (R2 HTTP); categorías en R4   | 2 services / 4 categories |
  * | inventorySales        | Líneas ITEM independientes, agregar a borrador      | 5 Reservations  |
  * | quantitySales         | Líneas QTY, agregar producto por cantidad           | 5 Reservations  |
  * | hierarchy             | Baseline, ensamblajes, No desarmar, árbol recepción | 6 Hierarchy     |
@@ -163,8 +163,21 @@ export function resolveCapabilities(
     DEV?: boolean;
   } = import.meta.env,
 ): AppCapabilities {
-  // Release 1 HTTP (default) exposes only Access/Users. Later screens stay unavailable.
-  if (env.VITE_USE_MOCK_API !== 'true') return { ...DISABLED, users: true };
+  // HTTP mode exposes modules whose API swap has landed, including payments/CxC.
+  // `catalogs` is on for mechanical services; `/catalogs` hides inventory categories until R4.
+  // Dashboard KPIs are not swapped in R2.
+  if (env.VITE_USE_MOCK_API !== 'true') {
+    return {
+      ...DISABLED,
+      users: true,
+      customers: true,
+      catalogs: true,
+      sales: true,
+      profitability: true,
+      payments: true,
+      invoiceCancellation: true,
+    };
+  }
   const presetName = parseCapabilityPreset(env.VITE_CAPABILITIES_PRESET);
   const preset = CAPABILITY_PRESETS[presetName];
   const forceDemo = env.VITE_ENABLE_DEMO_CONTROLS === 'true';

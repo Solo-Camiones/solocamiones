@@ -2,7 +2,7 @@
 
 **Release:** Application Foundation and Access (Local Development)  
 **Plan de referencia:** [`../plans_api/plan-001.md`](../plans_api/plan-001.md)  
-**Estado:** alcance funcional local completado: M1–M3 y M5–M11 verificados en local. El owner confirmó el exit gate manual de M11 el 2026-09-07. M4 mantiene la verificación GitHub pendiente.
+**Estado:** Release 1 cerrado. M1–M11 verificados en local. El owner confirmó el exit gate manual de M11 el 2026-09-07. Milestone 4 cerrado en GitHub el 2026-09-07 (`CI R1` / check `R1 quality`).
 
 Este archivo documenta **qué se entregó** en cada milestone de Release 1, a medida que se completan.  
 No sustituye a `plan-001.md` (plan de ejecución) ni a los feature specs; es el registro histórico de implementación.
@@ -207,7 +207,7 @@ Instalar infraestructura transversal de errores de aplicación, logging estructu
 
 ## Milestone 4 — Test harness y CI baseline
 
-**Estado:** implementado y verificado localmente; cierre completo pendiente de verificación en GitHub
+**Estado:** completado (local 2026-09-03; GitHub 2026-09-07)
 
 **Fecha:** 2026-09-03
 
@@ -290,16 +290,17 @@ El owner actualizó posteriormente su npm global a **11.19.1**, y se comprobó q
 | Instalación con npm 11.17 | Rechazada con `EBADENGINE`; lockfile sin cambios |
 | Sintaxis del workflow YAML | Parseo correcto |
 
-Las comprobaciones locales se realizaron en Windows con Node.js 24. La ejecución real del workflow en Ubuntu/Node.js 22 sigue pendiente; las pruebas locales no se presentan como una ejecución verde de GitHub Actions.
+Las comprobaciones locales se realizaron en Windows con Node.js 24. El owner confirmó el 2026-09-07 que la ejecución de **CI R1** en GitHub (Ubuntu/Node.js 22) y el check obligatorio `R1 quality` quedaron listos.
 
-### Pendientes y acuerdo de continuidad
+### Cierre GitHub (2026-09-07)
 
-1. **Auditoría completa:** los primeros intentos posteriores a la corrección fallaron por timeout o **HTTP 503 Service Unavailable**. El reintento del 2026-09-04 con npm 11.19.1 concluyó correctamente: `found 0 vulnerabilities`.
-2. **Mantener el gate:** la auditoría sigue siendo obligatoria en CI, con umbral alto, y debe verificarse también en el workflow antes del merge de Release 1.
-3. **PR al final de Release 1:** el owner realizará el PR cuando complete el release, no al terminar M4. Hasta entonces puede continuar el desarrollo local con la verificación de GitHub pendiente.
-4. **GitHub:** comprobar la primera ejecución de **CI R1**, configurar **R1 quality** como check obligatorio para `main` y verificar que un fallo impida el merge. No se afirma que la protección de rama ya esté configurada.
+El owner confirmó que la parte GitHub de M4 quedó lista:
 
-Por tanto, M4 queda **implementado y verificado localmente**, incluida la auditoría sin vulnerabilidades; su definición de terminado completa permanece pendiente de la verificación del gate en GitHub.
+1. Primera ejecución de **CI R1** verificada.
+2. Check **R1 quality** configurado como obligatorio para merge a `main`.
+3. El gate de auditoría en el workflow permanece obligatorio.
+
+M4 queda **completo**: harness local + CI GitHub. Release 1 no conserva pendientes de este milestone.
 
 ### Fuera de alcance
 
@@ -612,7 +613,7 @@ Implementar administración HTTP de cuentas con primer acceso restringido, cambi
 
 Pruebas M8: tres roles, validación/inyección, secretos excluidos, CSRF, paginación, duplicados, desactivación/reactivación, solicitudes genéricas/duplicadas/vencidas, contraseña temporal sin vencimiento, aprobación entre administradores, prohibición de auto-resolución, concurrencia y rollback ante fallos simulados. El cambio desde perfil se prueba tanto obligatorio como voluntario. Se comprueba relectura de credenciales antes de emitir sesión.
 
-Las integraciones M6–M7 previamente documentadas como no ejecutadas sí pasaron durante este cierre. Se conserva su nota histórica de aquella sesión. No se ejecutó CI en GitHub ni se configura su protección de rama desde M8; M4 mantiene esos pendientes. No se cambiaron dependencias ni se afirma una nueva auditoría npm.
+Las integraciones M6–M7 previamente documentadas como no ejecutadas sí pasaron durante este cierre. Se conserva su nota histórica de aquella sesión. M8 no ejecutó CI en GitHub; ese gate se cerró después, el 2026-09-07, como parte de M4. No se cambiaron dependencias ni se afirma una nueva auditoría npm.
 
 ### Documentación y operación
 
@@ -658,7 +659,7 @@ Contrato de endpoints, ejemplos JSON, estructura, reglas y explicación paso a p
 
 La primera ejecución web tuvo un fallo de sincronización en `PosPage.test.tsx` al descartar un borrador. La suite de ese archivo pasó aislada (12 pruebas) y la repetición web completa pasó (443); no se modificó código web. Se registra la intermitencia, sin atribuirle una corrección en M9.
 
-Detalle de decisiones, eventos, integración y operación en [`../plans_api/milestone-9-verification.md`](../plans_api/milestone-9-verification.md). M4 conserva los pendientes GitHub. M10–M11 conservan la integración web; no se añadieron eventos comerciales ni recuperación operativa de Release 8.
+Detalle de decisiones, eventos, integración y operación en [`../plans_api/milestone-9-verification.md`](../plans_api/milestone-9-verification.md). M4 quedó cerrado en GitHub el 2026-09-07. M10–M11 conservan la integración web; no se añadieron eventos comerciales ni recuperación operativa de Release 8.
 
 ---
 
@@ -676,7 +677,7 @@ Detalle de decisiones, eventos, integración y operación en [`../plans_api/mile
 
 ## Milestone 11 — Frontend usuarios + exit gate Release 1
 
-**Estado:** completado y verificado localmente (2026-09-07), incluida la verificación manual de navegador confirmada por el owner. El alcance funcional local de Release 1 queda cerrado; permanece el pendiente externo de GitHub de M4.
+**Estado:** completado y verificado localmente (2026-09-07), incluida la verificación manual de navegador confirmada por el owner. Release 1 queda cerrado; M4 se cerró en GitHub el mismo día.
 
 ### Qué se entregó
 
@@ -705,4 +706,4 @@ La cobertura nueva verifica `POST` sin contraseña, `PATCH`, cookie, CSRF, varia
 
 ### Exit gate de navegador
 
-El owner confirmó el 2026-09-07 que pasaron todas las pruebas manuales indicadas en `plan-001.md`: administración de usuarios, creación sin contraseña elegida, cambio obligatorio, autorización server-side, edición/desactivación y aprobación/rechazo de recuperación con entrega única de contraseña temporal. M11 y el alcance funcional local de Release 1 quedan cerrados. M4 conserva la primera ejecución y protección del check `R1 quality` en GitHub como único pendiente de la release.
+El owner confirmó el 2026-09-07 que pasaron todas las pruebas manuales indicadas en `plan-001.md`: administración de usuarios, creación sin contraseña elegida, cambio obligatorio, autorización server-side, edición/desactivación y aprobación/rechazo de recuperación con entrega única de contraseña temporal. M11 y Release 1 quedan cerrados. El mismo día el owner confirmó que GitHub de M4 (`CI R1` / `R1 quality`) quedó listo.

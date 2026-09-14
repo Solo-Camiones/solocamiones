@@ -8,5 +8,13 @@ export default defineConfig({
     // The integration config inherits sequential files for the shared test database.
     fileParallelism: false,
     testTimeout: 15_000,
+
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'lcov'],
+      reportsDirectory: './coverage/unit',
+      include: ['src/**/*.ts'],
+      exclude: ['src/**/*.d.ts'],
+    },
   },
 });

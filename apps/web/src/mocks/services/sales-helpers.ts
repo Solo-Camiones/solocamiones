@@ -2,6 +2,8 @@ import type { AppState, Customer, WorkOrder } from '../../api/contracts/entities
 import { collectSubtree } from './inventory-helpers';
 
 export const CASH_CUSTOMER_ID = 'C0';
+export const CASH_CUSTOMER_CREDIT_FORBIDDEN_MESSAGE =
+  'A Cliente contado no se le puede vender a crédito';
 
 const ACTIVE_WORK_STATUSES = new Set(['PENDING', 'IN_PROGRESS']);
 
@@ -25,8 +27,12 @@ export function activeWorkAffectingAssembly(
 
 /** Fiscal invoices need a named customer with RNC/cédula — Cliente Contado never qualifies. */
 export function customerQualifiesForFiscal(customer: Customer | undefined): boolean {
-  if (!customer || customer.id === CASH_CUSTOMER_ID || customer.isDefault) {
+  if (!customer || isCashCustomer(customer)) {
     return false;
   }
   return Boolean(customer.rnc?.trim());
+}
+
+export function isCashCustomer(customer: Pick<Customer, 'id' | 'isDefault'> | undefined): boolean {
+  return Boolean(customer && (customer.id === CASH_CUSTOMER_ID || customer.isDefault));
 }

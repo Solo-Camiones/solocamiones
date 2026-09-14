@@ -1,4 +1,5 @@
 import type { SalesRepository } from '../../api/contracts/repositories';
+import { toListPage } from '../../api/contracts/pagination';
 import type {
   AddDraftLineInput,
   AddPaymentInput,
@@ -8,6 +9,7 @@ import type {
   RemoveDraftLineInput,
   SalesListTab,
   SetDraftLinePriceInput,
+  SetDraftLineQuantityInput,
   SetDraftMetaInput,
 } from '../../api/contracts/sales';
 import { err, ok } from '../../shared/auth/types';
@@ -21,21 +23,39 @@ import {
   discardDraft,
   removeDraftLine,
   setDraftLinePrice,
+  setDraftLineQuantity,
   setDraftMeta,
 } from '../services/sales-commands';
-import { buildInvoiceDetail, buildSalesList } from '../services/sales-catalog';
+import { buildInvoiceDetail, buildReceivables, buildSalesList } from '../services/sales-catalog';
 import { buildPosDraftView } from '../services/sales-draft';
 import { requirePermission } from '../services/require-permission';
 import { cloneForRead, getMockState } from '../state';
 
 export class MockSalesRepository implements SalesRepository {
-  async listInvoices(tab: SalesListTab = 'ALL') {
+  async listInvoices(tab: SalesListTab = 'ALL', page = 1, q = '') {
     const permission = requirePermission('sales.manage');
     if (!permission.ok) {
       return permission;
     }
 
-    return ok(cloneForRead(buildSalesList(getMockState(), tab)));
+    return ok(toListPage(cloneForRead(buildSalesList(getMockState(), tab, q)), page));
+  }
+
+  async listReceivables(page = 1) {
+    const permission = requirePermission('sales.manage');
+    if (!permission.ok) {
+      return permission;
+    }
+
+    const snapshot = cloneForRead(buildReceivables(getMockState()));
+    const paged = toListPage(snapshot.invoices, page);
+    return ok({
+      invoices: paged.items,
+      customers: snapshot.customers,
+      total: paged.total,
+      page: paged.page,
+      pageSize: paged.pageSize,
+    });
   }
 
   async getInvoice(id: string) {
@@ -50,6 +70,14 @@ export class MockSalesRepository implements SalesRepository {
     }
 
     return ok(cloneForRead(buildInvoiceDetail(getMockState(), invoice, permission.value)));
+  }
+
+  async getInvoicePdf() {
+    return err({ code: 'INTERNAL', message: 'El prototipo mock usa la vista previa HTML, no bytes de PDF.' });
+  }
+
+  async regenerateInvoicePdf() {
+    return err({ code: 'INTERNAL', message: 'La regeneración de PDF no está disponible en el prototipo mock.' });
   }
 
   async addPayment(input: AddPaymentInput) {
@@ -157,6 +185,20 @@ export class MockSalesRepository implements SalesRepository {
     }
 
     const result = setDraftLinePrice(getMockState(), permission.value, input);
+    if (!result.ok) {
+      return result;
+    }
+
+    return ok(cloneForRead(buildPosDraftView(getMockState(), result.value)));
+  }
+
+  async setLineQuantity(input: SetDraftLineQuantityInput) {
+    const permission = requirePermission('sales.manage');
+    if (!permission.ok) {
+      return permission;
+    }
+
+    const result = setDraftLineQuantity(getMockState(), permission.value, input);
     if (!result.ok) {
       return result;
     }

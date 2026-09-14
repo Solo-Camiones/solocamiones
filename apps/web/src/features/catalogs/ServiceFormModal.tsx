@@ -34,6 +34,7 @@ export function ServiceFormModal({
   const [fields, setFields] = useState<FormFields>(EMPTY_FIELDS);
   const [baseline, setBaseline] = useState<FormFields>(EMPTY_FIELDS);
   const isEdit = service != null;
+  const hasUnsavedChanges = isFormDirty(fields, baseline);
 
   useEffect(() => {
     if (!open) {
@@ -52,11 +53,17 @@ export function ServiceFormModal({
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    onSubmit({
-      id: service?.id,
-      name: fields.name,
-      active: fields.active,
-    });
+    if (service) {
+      if (!hasUnsavedChanges) return;
+      onSubmit({
+        id: service.id,
+        ...(fields.name !== baseline.name ? { name: fields.name } : {}),
+        ...(fields.active !== baseline.active ? { active: fields.active } : {}),
+      });
+      return;
+    }
+
+    onSubmit({ name: fields.name, active: fields.active });
   }
 
   return (
@@ -64,7 +71,7 @@ export function ServiceFormModal({
       open={open}
       title={isEdit ? 'Editar servicio' : 'Nuevo servicio'}
       onClose={onClose}
-      hasUnsavedChanges={isFormDirty(fields, baseline)}
+      hasUnsavedChanges={hasUnsavedChanges}
       isBusy={isSaving}
     >
       {({ requestClose }) => (
@@ -100,7 +107,7 @@ export function ServiceFormModal({
           <Button type="button" variant="secondary" onClick={requestClose} disabled={isSaving}>
             Cancelar
           </Button>
-          <Button type="submit" disabled={isSaving}>
+          <Button type="submit" disabled={isSaving || (isEdit && !hasUnsavedChanges)}>
             {isSaving ? 'Guardando…' : 'Guardar'}
           </Button>
         </div>

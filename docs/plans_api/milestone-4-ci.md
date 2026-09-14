@@ -1,14 +1,15 @@
 # Milestone 4 — CI and Release 1 smoke
 
-Status: implemented and tested locally. The owner will open the PR at the end of Release 1; the first GitHub run and required merge check remain pending until then. The post-update npm audit completed successfully on 2026-09-04 with zero vulnerabilities.
+Status: completed. Local harness verified 2026-09-03. The owner confirmed on 2026-09-07 that the GitHub **CI R1** run and required **R1 quality** merge check are done. The post-update npm audit completed successfully on 2026-09-04 with zero vulnerabilities.
 
 ## Local verification result (2026-09-03)
 
 All 501 tests pass after a clean `npm ci`: 43 API unit, 15 API integration, 256 web unit, 68 web integration
 and 119 web component tests. Typechecking and build pass. ESLint has no errors and
 four existing React Fast Refresh warnings. The workflow YAML parses successfully.
-These checks ran on Windows with Node.js 24; the Ubuntu/Node.js 22 job still needs
-verification on GitHub. Prisma generation and configuration loading pass; `npm ls`
+These checks ran on Windows with Node.js 24. The owner confirmed on 2026-09-07 that
+the Ubuntu/Node.js 22 GitHub job and the required **R1 quality** check are complete.
+Prisma generation and configuration loading pass; `npm ls`
 with npm 11.19.1 confirms Prisma/Client 6.19.3, deepmerge-ts 8.0.0 and qs 6.16.0
 without invalid dependency edges. An installation attempt with npm 11.17 fails with
 `EBADENGINE` and leaves the lockfile unchanged.
@@ -97,25 +98,31 @@ npm run build
 npm audit --audit-level=high
 ```
 
-CI uses `npm ci` on a fresh checkout. Local checks against an existing installation
-do not prove installation or execution on the GitHub runner; verify the first PR run.
+CI uses `npm ci` on a fresh checkout. The owner confirmed on 2026-09-07 that the
+GitHub runner execution and the required **R1 quality** check are complete.
 
 ## Repository owner configuration
 
-1. At the end of Release 1, the owner pushes the release branch and opens its pull request into `main`.
-2. Check **Actions → CI R1**, or the PR checks, and inspect the first run.
+Completed on 2026-09-07 (owner confirmation):
+
+1. Release 1 pull request / **CI R1** run inspected and green.
+2. **R1 quality** required for merge to `main`.
+3. Branch protection / ruleset for `main` includes that check.
+
+The steps below remain as the historical how-to. Do not treat them as open work.
+
+1. Push the release branch and open its pull request into `main`.
+2. Check **Actions → CI R1**, or the PR checks, and inspect the run.
 3. In **Settings → Branches**, create or edit a branch protection rule for `main`.
 4. Enable **Require a pull request before merging** and **Require status checks to
    pass before merging**. Select **R1 quality** after it has appeared in a run.
 5. Enable **Require branches to be up to date before merging** so the check applies
    against the current base branch. Apply the rule to administrators/bypass roles if
    the merge requirement should also constrain the owner.
-6. Confirm that a failing required check prevents merging. Record the successful PR
-   run and enabled protection before marking M4 complete.
+6. Confirm that a failing required check prevents merging.
 
 If the repository already uses an active ruleset for `main`, add the required check
-to that ruleset instead of creating overlapping rules. Protection availability depends
-on repository visibility and the GitHub plan; resolve that before claiming the merge gate.
+to that ruleset instead of creating overlapping rules.
 
 Sources: [PostgreSQL service containers](https://docs.github.com/en/actions/tutorials/use-containerized-services/create-postgresql-service-containers),
 [required status checks](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-protected-branches/about-protected-branches).

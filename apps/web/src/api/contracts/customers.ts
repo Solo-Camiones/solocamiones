@@ -3,9 +3,7 @@ import type { Customer, CustomerContact } from './entities';
 /** Seed and runtime id of the generic cash customer (CUST-002). */
 export const DEFAULT_CASH_CUSTOMER_ID = 'C0';
 
-export type CustomerListRow = Customer & {
-  invoiceCount: number;
-};
+export type CustomerListRow = Customer;
 
 export type SaveCustomerContactInput = {
   id?: string;

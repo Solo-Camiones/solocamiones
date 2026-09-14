@@ -56,13 +56,13 @@ jobs:
           cache-dependency-path: package-lock.json
 
       - name: Use npm with workspace override fixes
-        run: npm install --global npm@11.19.1
+        run: npm --ignore-scripts install --global npm@11.19.1
 
       - name: Install locked dependencies
-        run: npm ci
+        run: npm --ignore-scripts ci 
 
       - name: Generate Prisma Client
-        run: npm exec --workspace @truck-parts/api -- prisma generate
+        run: npm exec --ignore-scripts --workspace @truck-parts/api -- prisma generate
 
       - name: Lint
         run: npm run lint

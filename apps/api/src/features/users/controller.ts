@@ -13,6 +13,8 @@ function id(req: Request): string {
 }
 
 export async function postUser(req: Request, res: Response) {
+  // The create response is the only delivery of the assigned initial credential.
+  res.setHeader('Cache-Control', 'no-store');
   res.status(201).json(await userService.create(actor(req), req.validated?.body));
 }
 export async function getUsers(req: Request, res: Response) {

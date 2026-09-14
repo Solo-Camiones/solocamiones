@@ -10,6 +10,8 @@ The old consolidated requirements/validation files are intentionally no longer r
 
 **Release 5 — Inventory-Backed Sales**
 
+**Implementation (2026-09-10):** Production API **not started** (no reservation tables). Checklist `[x]` items are prototype mock. HTTP sales still reject ITEM/QTY.
+
 ## What this feature does
 
 Hold eligible unique items, quantities, and overlapping assembly inventory while a Draft is open, without marking stock Sold or relying on automatic expiry.

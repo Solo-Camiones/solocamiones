@@ -13,6 +13,14 @@ export const LOGIN_RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000;
 export const RECOVERY_RATE_LIMIT_MAX_ATTEMPTS = 10;
 export const RECOVERY_RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000;
 
+// Same numeric policy as login: PATCH /me is a credential/profile mutation.
+export const PROFILE_MUTATION_RATE_LIMIT_MAX_ATTEMPTS = LOGIN_RATE_LIMIT_MAX_ATTEMPTS;
+export const PROFILE_MUTATION_RATE_LIMIT_WINDOW_MS = LOGIN_RATE_LIMIT_WINDOW_MS;
+
+// SPA calls GET /session and GET /me on load and on every tab focus.
+export const ACCESS_READ_RATE_LIMIT_MAX_REQUESTS = 120;
+export const ACCESS_READ_RATE_LIMIT_WINDOW_MS = 60 * 1000;
+
 // Required on cookie-authenticated mutations. SameSite=Lax is the primary CSRF control.
 export const CSRF_REQUEST_HEADER = 'x-requested-with';
 export const CSRF_REQUEST_HEADER_VALUE = 'XMLHttpRequest';

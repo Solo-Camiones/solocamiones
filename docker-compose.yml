@@ -3,12 +3,13 @@ services:
     image: postgres:16-alpine
     container_name: truck_parts_db
     restart: unless-stopped
-    ports:
-      - '${DATABASE_PORT}:5432'
     environment:
       POSTGRES_USER: ${DATABASE_USER}
       POSTGRES_PASSWORD: ${DATABASE_PASSWORD}
       POSTGRES_DB: ${DATABASE_NAME}
+
+    ports:
+      - '${DATABASE_PORT}:5432'
 
     volumes:
       - truck_parts_pgdata:/var/lib/postgresql/data
@@ -26,10 +27,13 @@ services:
     restart: unless-stopped
     environment:
       NODE_ENV: ${NODE_ENV}
-      PORT: 3000
+      PORT: ${PORT}
       DATABASE_URL: ${DATABASE_URL_DOCKER}
       # API is unpublished; nginx is the only client. Do not publish port 3000.
-      TRUST_PROXY: '1'
+      TRUST_PROXY: ${TRUST_PROXY}
+      # Host .env is not auto-injected. Without this, USD confirm/retry stays PENDING_FX_RATE.
+      EXCHANGE_RATE_API_KEY: ${EXCHANGE_RATE_API_KEY}
+      INITIAL_PASSWORD: ${INITIAL_PASSWORD}
     depends_on:
       db:
         condition: service_healthy
@@ -57,12 +61,12 @@ services:
     container_name: truck_parts_web
     restart: unless-stopped
     ports:
-      - '5173:80'
+      - '${WEB_PORT}:8081'
     depends_on:
       api:
         condition: service_healthy
     healthcheck:
-      test: ['CMD', 'wget', '--quiet', '--tries=1', '--spider', 'http://127.0.0.1/']
+      test: ['CMD', 'wget', '--quiet', '--tries=1', '--spider', 'http://127.0.0.1:8081/']
       interval: 10s
       timeout: 5s
       retries: 5

@@ -1,15 +1,15 @@
 import { APP_NAME } from '../../shared/config/brand';
 import { useAppCapabilities } from '../../shared/config/CapabilitiesProvider';
-import { readLastDemoScenarioHint } from '../../shared/config/demo-scenario-hint';
 import { Logo, Mono } from '../../shared/ui';
 import { DemoCredentialsPanel } from './DemoCredentialsPanel';
 import { LoginForm } from './LoginForm';
 import { RecoveryRequestForm } from './RecoveryRequestForm';
 import { useMockApi } from '../../api/client/http-client';
+import { readDemoLoginHint } from '../../mocks/demo-controls';
 
 export function LoginPage() {
   const { prototypeControls } = useAppCapabilities();
-  const hint = prototypeControls ? readLastDemoScenarioHint() : null;
+  const hint = prototypeControls ? readDemoLoginHint() : null;
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-shell px-4 py-10 text-white">
@@ -17,7 +17,7 @@ export function LoginPage() {
         <header className="space-y-4 text-center">
           <Logo size="lg" className="mx-auto" />
           <div>
-            <h1 className="text-2xl font-bold text-white">{APP_NAME}</h1>
+            <h1 className="text-2xl font-bold tracking-[0.18em] text-white">{APP_NAME}</h1>
             <p className="mt-2 text-sm text-white/70">Inicie sesión con usuario y contraseña.</p>
           </div>
         </header>

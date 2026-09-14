@@ -27,10 +27,6 @@ function matchesQuery(customer: Customer, query: string): boolean {
   );
 }
 
-function invoiceCountFor(state: AppState, customerId: string): number {
-  return state.invoices.filter((invoice) => invoice.customerId === customerId).length;
-}
-
 function sortDirectory(rows: CustomerListRow[]): CustomerListRow[] {
   return [...rows].sort((left, right) => {
     if (left.isDefault && !right.isDefault) {
@@ -43,13 +39,9 @@ function sortDirectory(rows: CustomerListRow[]): CustomerListRow[] {
   });
 }
 
-/** Directory rows with invoice counts; search is name or RNC/Cédula only. */
+/** Directory rows; search is name or RNC/Cédula only. */
 export function buildCustomerDirectory(state: AppState, query = ''): CustomerListRow[] {
-  const rows = state.customers.filter((customer) => matchesQuery(customer, query)).map((customer) => ({
-    ...customer,
-    invoiceCount: invoiceCountFor(state, customer.id),
-  }));
-
+  const rows = state.customers.filter((customer) => matchesQuery(customer, query));
   return sortDirectory(rows);
 }
 

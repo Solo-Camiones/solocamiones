@@ -1,7 +1,8 @@
-import { useLayoutEffect, useRef, type MouseEvent, type ReactNode } from 'react';
+import { useEffect, useLayoutEffect, useRef, type MouseEvent, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 
 import { setBackgroundInert, trapTabKey } from '../ui/focus-dialog';
+import { useTransition } from '../ui/useTransition';
 import { COMMERCIAL_SIDEBAR_ID } from './breakpoints';
 
 export type NavDrawerProps = {
@@ -15,6 +16,7 @@ export type NavDrawerProps = {
  * hide it; reuses the same tab-trap helpers as Modal.
  */
 export function NavDrawer({ open, children, onClose }: NavDrawerProps) {
+  const state = useTransition(open, 200);
   const overlayRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const previouslyFocused = useRef<HTMLElement | null>(null);
@@ -59,11 +61,17 @@ export function NavDrawer({ open, children, onClose }: NavDrawerProps) {
       document.removeEventListener('keydown', handleKeyDown, true);
       document.body.style.overflow = previousOverflow;
       setBackgroundInert(overlay, false);
-      previouslyFocused.current?.focus();
     };
   }, [open]);
 
-  if (!open) {
+  useEffect(() => {
+    if (open) {
+      return;
+    }
+    previouslyFocused.current?.focus();
+  }, [open]);
+
+  if (state === 'unmounted') {
     return null;
   }
 
@@ -73,13 +81,25 @@ export function NavDrawer({ open, children, onClose }: NavDrawerProps) {
     }
   }
 
+  const isEntering = state === 'enter';
+  const pointerNoneWhileExiting = open ? '' : ' pointer-events-none';
+
   return createPortal(
     <div
       ref={overlayRef}
-      className="fixed inset-0 z-40 flex bg-navy/50"
+      className={`fixed inset-0 z-40 flex bg-navy/50 ${
+        isEntering ? 'animate-fade-in' : 'animate-fade-out'
+      }${pointerNoneWhileExiting}`}
+      aria-hidden={open ? undefined : true}
+      inert={!open}
       onMouseDown={handleOverlayMouseDown}
     >
-      <div ref={panelRef} className="h-full outline-none">
+      <div
+        ref={panelRef}
+        className={`h-full outline-none ${
+          isEntering ? 'animate-slide-in-left' : 'animate-slide-out-left'
+        }${pointerNoneWhileExiting}`}
+      >
         {children}
       </div>
     </div>,

@@ -65,14 +65,10 @@ export function invoiceItbis(invoice: Invoice): number {
   );
 }
 
-/** Taxable-line bases only; non-fiscal invoices have no taxable base. */
+/** Sum of already-rounded line bases. Non-fiscal and non-taxable lines use gross as base. */
 export function invoiceTaxableBase(invoice: Invoice): number {
-  if (!invoice.fiscal) {
-    return 0;
-  }
-
   return roundMoney(
-    invoice.lines.reduce((sum, line) => sum + (line.taxable ? lineBase(line, true) : 0), 0),
+    invoice.lines.reduce((sum, line) => sum + lineBase(line, invoice.fiscal), 0),
   );
 }
 

@@ -1,15 +1,18 @@
 import { useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 
 import type {
   ManagedUser,
   PasswordRecoveryRequest,
   SaveUserInput,
 } from '../../api/contracts/users';
+import { parseListPage, setListPageParam } from '../../api/contracts/pagination';
 import {
   Button,
   ConfirmActionModal,
   Info,
   Modal,
+  PaginationBar,
   SearchInput,
   Skeleton,
   toPageLoadMessage,
@@ -28,7 +31,9 @@ type RecoveryAction = {
 };
 
 export function UsersPage() {
-  const { query, setQuery, result, isSaving, save } = useUsers();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const page = parseListPage(searchParams.get('page'));
+  const { query, setQuery, result, isSaving, save } = useUsers(page);
   const recovery = useRecoveryRequests();
   const { pushToast } = useToast();
   const [modalOpen, setModalOpen] = useState(false);
@@ -39,6 +44,7 @@ export function UsersPage() {
   const [recoveryAction, setRecoveryAction] = useState<RecoveryAction | null>(null);
   const [identityVerified, setIdentityVerified] = useState(false);
   const [temporaryPassword, setTemporaryPassword] = useState<string | null>(null);
+  const [initialPassword, setInitialPassword] = useState<string | null>(null);
 
   function openCreate() {
     setEditing(null);
@@ -66,6 +72,13 @@ export function UsersPage() {
     pushToast(input.id ? 'Usuario actualizado' : 'Usuario creado', 'success');
     setModalOpen(false);
     setEditing(null);
+    if (!input.id) {
+      if (response.value.initialPassword) {
+        setInitialPassword(response.value.initialPassword);
+      } else {
+        pushToast('El usuario fue creado, pero no se recibió la contraseña inicial.', 'error');
+      }
+    }
   }
 
   async function handleToggleActive(row: ManagedUser) {
@@ -132,7 +145,7 @@ export function UsersPage() {
     <>
       <PageHeader
         title="Usuarios"
-        description="Cuentas individuales. El sistema asigna la contraseña inicial; desactivar revoca el acceso."
+        description="Gestione cuentas y el acceso al sistema."
         actions={
           <Button onClick={openCreate} disabled={result.status === 'loading'}>
             Nuevo usuario
@@ -146,23 +159,50 @@ export function UsersPage() {
           label="Buscar por nombre o usuario"
           placeholder="Nombre o usuario"
           value={query}
-          onChange={(event) => setQuery(event.target.value)}
+          onChange={(event) => {
+            setQuery(event.target.value);
+            setSearchParams(
+              (prev) => {
+                const nextParams = new URLSearchParams(prev);
+                setListPageParam(nextParams, 1);
+                return nextParams;
+              },
+              { replace: true },
+            );
+          }}
         />
       </div>
 
       {result.status === 'loading' ? (
         <Skeleton label="Cargando usuarios" />
       ) : (
-        <UserTable
-          rows={result.rows}
-          togglingId={togglingId}
-          onEdit={(row) => {
-            setEditing(row);
-            setFormError(null);
-            setModalOpen(true);
-          }}
-          onToggleActive={setPendingToggle}
-        />
+        <>
+          <UserTable
+            rows={result.rows}
+            togglingId={togglingId}
+            onEdit={(row) => {
+              setEditing(row);
+              setFormError(null);
+              setModalOpen(true);
+            }}
+            onToggleActive={setPendingToggle}
+          />
+          <PaginationBar
+            page={result.page}
+            pageSize={result.pageSize}
+            total={result.total}
+            onPageChange={(nextPage) => {
+              setSearchParams(
+                (prev) => {
+                  const nextParams = new URLSearchParams(prev);
+                  setListPageParam(nextParams, nextPage);
+                  return nextParams;
+                },
+                { replace: true },
+              );
+            }}
+          />
+        </>
       )}
 
       <RecoveryRequestsPanel
@@ -267,6 +307,27 @@ export function UsersPage() {
             </div>
           </div>
         )}
+      </Modal>
+
+      <Modal
+        open={initialPassword != null}
+        title="Contraseña inicial"
+        onClose={() => setInitialPassword(null)}
+      >
+        <div className="space-y-4">
+          <Info tone="warning" title="Entrega única">
+            Entréguela personalmente. Al cerrar este cuadro no podrá consultarla nuevamente.
+          </Info>
+          <p
+            className="break-all rounded-lg bg-navy-50 p-3 font-mono text-sm"
+            data-testid="initial-password"
+          >
+            {initialPassword}
+          </p>
+          <div className="flex justify-end">
+            <Button onClick={() => setInitialPassword(null)}>Ya la entregué</Button>
+          </div>
+        </div>
       </Modal>
 
       <Modal

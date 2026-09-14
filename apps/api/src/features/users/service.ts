@@ -20,7 +20,15 @@ import {
   userIdSchema,
 } from './validation.js';
 
-export const INITIAL_PASSWORD = 'solocamiones';
+/** Read at use/boot time so importing this module does not require the env var. */
+export function getInitialPassword(): string {
+  const value = process.env.INITIAL_PASSWORD;
+  if (!value) {
+    throw new Error('INITIAL_PASSWORD is required');
+  }
+  return value;
+}
+
 export const RECOVERY_REQUEST_TTL_MS = 24 * 60 * 60 * 1000;
 export const RECOVERY_REQUEST_MESSAGE =
   'If the account is eligible, its recovery request will be available to an administrator.';
@@ -33,7 +41,8 @@ export class UserService {
 
   async create(actorId: string, input: unknown) {
     const profile = createAdministrativeUserSchema.parse(input);
-    const passwordHash = await hashPassword(INITIAL_PASSWORD);
+    const initialPassword = getInitialPassword();
+    const passwordHash = await hashPassword(initialPassword);
     return this.transaction(async ({ users, history }) => {
       assertAdministrator(await users.findById(actorId));
       const user = await users.create({ ...profile, passwordHash, mustChangePassword: true });
@@ -50,7 +59,8 @@ export class UserService {
           source: 'ADMINISTRATION',
         },
       });
-      return toPublicProfile(user);
+      // Plaintext exists only in this 201 body; history and later reads stay hash-only.
+      return { ...toPublicProfile(user), initialPassword };
     });
   }
 

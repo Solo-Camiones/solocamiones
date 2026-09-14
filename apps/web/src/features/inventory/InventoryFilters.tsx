@@ -223,6 +223,8 @@ export function InventoryFilters({ filters, categories, onChange }: InventoryFil
             <Select
               id="inventory-category"
               value={filters.categoryId ?? ''}
+              searchable
+              searchPlaceholder="Buscar categoría"
               onChange={(event) => onChange({ categoryId: event.target.value || undefined })}
             >
               <option value="">Todas</option>

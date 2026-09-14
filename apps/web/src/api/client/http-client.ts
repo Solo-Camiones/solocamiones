@@ -1,4 +1,5 @@
 import type { AppError, AppErrorCode } from '../../shared/auth/types';
+import { presentError } from '../../shared/errors/present-app-error';
 
 export type HttpClientOptions = RequestInit & { parseJson?: boolean };
 
@@ -51,24 +52,20 @@ function mapResponseError(status: number, body: unknown): AppError {
     !Array.isArray(error.details)
       ? (error.details as Record<string, unknown>)
       : undefined;
-  let message = ERROR_MESSAGES[code];
-  if (code === 'VALIDATION' && 'message' in error) {
-    if (error.message === 'Current password is incorrect')
-      message = 'La contraseña actual es incorrecta.';
-    if (error.message === 'New password must differ from current password')
-      message = 'La nueva contraseña debe ser diferente de la actual.';
-  }
-  if (details?.reason === 'PASSWORD_CHANGE_REQUIRED')
-    message = 'Debe cambiar su contraseña desde Mi perfil para continuar.';
+  const serverMessage = 'message' in error && typeof error.message === 'string' ? error.message : undefined;
+  const presented = presentError({
+    details,
+    fallbackMessage: ERROR_MESSAGES[code],
+    serverMessage,
+  });
   const errorId =
     'errorId' in error && typeof error.errorId === 'string' ? error.errorId : undefined;
+  let message = presented.summary;
   if (code === 'INTERNAL' && errorId) message += ` Referencia: ${errorId}`;
   return { code, message, details, ...(errorId ? { errorId } : {}) };
 }
 
-/** Same-origin cookies are managed by the browser, never by application storage. */
-export async function httpClient<T>(path: string, options: HttpClientOptions = {}): Promise<T> {
-  const { parseJson = true, ...init } = options;
+async function request(path: string, init: RequestInit): Promise<Response> {
   const headers = new Headers(init.headers);
   if (init.body !== undefined && !headers.has('Content-Type'))
     headers.set('Content-Type', 'application/json');
@@ -82,8 +79,37 @@ export async function httpClient<T>(path: string, options: HttpClientOptions = {
     const body: unknown = await response.json().catch(() => null);
     throw new HttpError(response.status, mapResponseError(response.status, body));
   }
+  return response;
+}
+
+function contentDispositionFilename(header: string | null): string | undefined {
+  if (!header) return undefined;
+  const quoted = /filename="([^"]+)"/i.exec(header)?.[1];
+  const raw = quoted ?? /filename=([^;]+)/i.exec(header)?.[1]?.trim();
+  if (!raw) return undefined;
+  const base = raw.split(/[/\\]/).pop()?.trim();
+  if (!base || base === '.' || base === '..') return undefined;
+  return base;
+}
+
+/** Same-origin cookies are managed by the browser, never by application storage. */
+export async function httpClient<T>(path: string, options: HttpClientOptions = {}): Promise<T> {
+  const { parseJson = true, ...init } = options;
+  const response = await request(path, init);
   if (!parseJson || response.status === 204) return undefined as T;
   return response.json() as Promise<T>;
+}
+
+export async function httpClientBlob(
+  path: string,
+  options: RequestInit = {},
+): Promise<{ blob: Blob; filename: string }> {
+  const response = await request(path, options);
+  const blob = await response.blob();
+  return {
+    blob,
+    filename: contentDispositionFilename(response.headers.get('Content-Disposition')) ?? 'invoice.pdf',
+  };
 }
 
 export function toAppError(error: unknown): AppError {

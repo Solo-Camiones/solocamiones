@@ -67,6 +67,14 @@ beforeEach(() => {
       }
       return json({ ...identity(), active: true, phone: null, email: null });
     }
+    const url = String(path);
+    if (url.startsWith('/api/sales')) {
+      return json({ items: [], total: 0, page: 1, pageSize: 10 });
+    }
+    if (url.startsWith('/api/customers')) {
+      return json({ items: [], total: 0, page: 1, pageSize: 10 });
+    }
+    if (url === '/api/catalogs/services') return json({ items: [] });
     throw new Error(`Unexpected endpoint: ${path}`);
   });
   vi.stubGlobal('fetch', fetchMock);
@@ -133,7 +141,11 @@ describe('Release 1 HTTP auth UI', () => {
       } else {
         expect(screen.queryByRole('link', { name: 'Usuarios' })).not.toBeInTheDocument();
       }
-      expect(screen.queryByRole('link', { name: 'Ventas y Facturas' })).not.toBeInTheDocument();
+      if (testRole === 'MECHANIC') {
+        expect(screen.queryByRole('link', { name: 'Ventas y Facturas' })).not.toBeInTheDocument();
+      } else {
+        expect(screen.getByRole('link', { name: 'Ventas y Facturas' })).toBeVisible();
+      }
       await user.click(screen.getByRole('button', { name: /Cuenta de/ }));
       await user.click(screen.getByRole('menuitem', { name: 'Cerrar sesión' }));
       const logoutDialog = await screen.findByRole('dialog', { name: 'Cerrar sesión' });

@@ -10,6 +10,8 @@ The old consolidated requirements/validation files are intentionally no longer r
 
 **Release 3 handles purely financial/non-inventory invoices; Release 5/7 completes inventory and physical-work branches**
 
+**Implementation (2026-09-10):** Early financial slice **pulled forward** — production API + HTTP UI (`POST /api/sales/:id/cancel`, additive refund, Cancelled PDF). Inventory and Work-Order checklist `[x]` items below are **prototype mock only**; there is no Item/Work-Order persistence. Future Releases 5/7 must implement those branches in the API, not treat the mock as done.
+
 ## What this feature does
 
 Cancel completed invoices without deletion, register actual refunds additively, restore eligible commercial inventory exactly once, and coordinate validated branches with linked Dismantling state.
@@ -38,7 +40,9 @@ Controllers translate HTTP only. Business rules belong in services. Prisma/datab
 
 Cancellation is an Administrator-only compensating business operation, never destructive edit/delete. The cancellation service must reread current invoice/payment/inventory/Work-Order state, preview the applicable effects, require a reason, and commit one valid branch atomically.
 
-Refunds are additive money-returned records in the invoice currency. They never erase original payments.
+Refunds are additive money-returned records in the invoice currency. They never erase original payments. For the validated non-inventory flow, cancellation and refund are one atomic, idempotent operation: if net money was received, the complete net amount must be refunded using cash, transfer, or cheque; there is no partial or deferred cancellation refund. A cancelled invoice has zero outstanding balance.
+
+A cancelled PDF remains downloadable. It preserves the original lines, prices, tax and total while adding a prominent `CANCELADA` mark plus cancellation date, reason and Administrator name.
 
 For non-inventory invoices, cancellation can be delivered early because there is no stock/physical branch. Once inventory is enabled, cancellation restores eligible commercial availability exactly once. Once Work Orders are enabled, choose the validated branch based on linked Dismantling state:
 
@@ -60,24 +64,29 @@ Use transaction/version checks for races between cancellation, payment, Work-Ord
 
 ## Implementation checklist
 
-### Early financial slice
+### Early financial slice (production API + HTTP — pulled forward)
+
 - [x] Administrator cancellation command with reason.
 - [x] Non-inventory invoice cancellation.
 - [x] Additive same-currency refund record.
 - [x] Cancellation/refund history and idempotency.
+- [x] Mandatory full-net refund in the same cancellation transaction.
+- [x] Downloadable Cancelled PDF with preserved invoice facts and cancellation attribution.
 
-### Inventory slice
-- [x] Eligible Sold → Available restoration rules.
-- [x] Quantity restoration rule where applicable.
-- [x] Prevent double restoration.
+### Inventory slice (prototype mock only — production API not started; Release 5)
 
-### Work-Order slice
-- [x] Pending linked Desarme branch.
-- [x] In-Progress verified stop branch.
-- [x] In-Progress continue-work branch.
-- [x] Completed Desarme branch.
-- [x] Resale/create-or-reuse interaction.
-- [ ] Concurrency/version tests versus Work-Order completion and payments.
+- [x] Eligible Sold → Available restoration rules. _(mock)_
+- [x] Quantity restoration rule where applicable. _(mock)_
+- [x] Prevent double restoration. _(mock)_
+
+### Work-Order slice (prototype mock only — production API not started; Release 7)
+
+- [x] Pending linked Desarme branch. _(mock)_
+- [x] In-Progress verified stop branch. _(mock)_
+- [x] In-Progress continue-work branch. _(mock)_
+- [x] Completed Desarme branch. _(mock)_
+- [x] Resale/create-or-reuse interaction. _(mock)_
+- [ ] Concurrency/version tests versus Work-Order completion and payments. _(API + mock still open)_
 
 ## Canonical validated requirements
 

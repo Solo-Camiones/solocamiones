@@ -192,13 +192,30 @@ describe('prepareServiceSave', () => {
   it('can deactivate an existing service', () => {
     const result = prepareServiceSave(seedServices, {
       id: 'SVC-INST',
-      name: 'Instalación mecánica',
       active: false,
     });
 
     expect(result.ok).toBe(true);
     if (result.ok) {
-      expect(result.value.active).toBe(false);
+      expect(result.value).toMatchObject({
+        name: 'Instalación mecánica',
+        active: false,
+      });
+    }
+  });
+
+  it('can rename an existing service without changing its active state', () => {
+    const result = prepareServiceSave(seedServices, {
+      id: 'SVC-INST',
+      name: 'Instalación especializada',
+    });
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value).toMatchObject({
+        name: 'Instalación especializada',
+        active: true,
+      });
     }
   });
 });

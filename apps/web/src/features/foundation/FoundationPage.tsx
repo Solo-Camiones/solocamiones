@@ -50,11 +50,11 @@ async function loadSeedSummary(): Promise<SeedSummary> {
   }
 
   return {
-    users: users.value.length,
+    users: users.value.total,
     items: items.value.length,
     qtyProducts: qtyProducts.value.length,
     customers: customers.value.length,
-    invoices: invoices.value.length,
+    invoices: invoices.value.total,
     workOrders: workOrders.value.length,
   };
 }

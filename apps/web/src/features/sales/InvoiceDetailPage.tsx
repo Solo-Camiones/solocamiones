@@ -5,8 +5,9 @@ import { useAuth } from '../auth/useAuth';
 import { InvoiceStatusChip, PaymentChip } from '../../shared/domain';
 import { can } from '../../shared/auth/policies';
 import { useAppCapabilities } from '../../shared/config/CapabilitiesProvider';
-import { Button, Card, Chip, Info, money, Mono } from '../../shared/ui';
+import { Button, Card, Chip, Info, money, Mono, Skeleton } from '../../shared/ui';
 import { PageHeader } from '../../shared/layout/PageHeader';
+import { BackToSalesLink } from './BackToSalesLink';
 import { CancelInvoiceModal } from './CancelInvoiceModal';
 import { CurrencyCorrectionModal } from './CurrencyCorrectionModal';
 import { InvoiceHistory } from './InvoiceHistory';
@@ -21,12 +22,28 @@ export function InvoiceDetailPage() {
   const { id } = useParams();
   const { user } = useAuth();
   const capabilities = useAppCapabilities();
-  const { result, isMutating, addPayment, cancelInvoice, correctCurrency } = useInvoiceDetail(id);
+  const {
+    result,
+    isMutating,
+    addPayment,
+    cancelInvoice,
+    correctCurrency,
+    getInvoicePdf,
+    regenerateInvoicePdf,
+  } = useInvoiceDetail(id);
   const [payOpen, setPayOpen] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
   const [currencyOpen, setCurrencyOpen] = useState(false);
   const [pdfOpen, setPdfOpen] = useState(false);
+  const [pdfFile, setPdfFile] = useState<{ url: string; filename: string } | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+
+  function revokePdfFile() {
+    setPdfFile((current) => {
+      if (current) URL.revokeObjectURL(current.url);
+      return null;
+    });
+  }
 
   if (result.status === 'error') {
     return (
@@ -37,11 +54,7 @@ export function InvoiceDetailPage() {
   }
 
   if (result.status === 'loading') {
-    return (
-      <p className="text-sm text-navy-400" aria-live="polite">
-        Cargando factura…
-      </p>
-    );
+    return <Skeleton label="Cargando factura" lines={6} />;
   }
 
   const detail = result.detail;
@@ -51,13 +64,48 @@ export function InvoiceDetailPage() {
   return (
     <>
       <PageHeader
-        title={detail.number ?? detail.id}
+        leading={<BackToSalesLink />}
+        title={detail.number ?? 'Factura'}
         description={`${detail.customerName}${detail.customerRnc ? ` · ${detail.customerRnc}` : ''}`}
         actions={
           <div className="flex flex-wrap gap-2">
             {detail.actions.canViewPdf && (
-              <Button variant="secondary" onClick={() => setPdfOpen(true)}>
+              <Button
+                variant="secondary"
+                disabled={isMutating}
+                onClick={async () => {
+                  setActionError(null);
+                  if (detail.document?.status === 'READY') {
+                    const response = await getInvoicePdf(detail.id);
+                    if (!response.ok) {
+                      setActionError(response.error.message);
+                      return;
+                    }
+                    revokePdfFile();
+                    setPdfFile({
+                      url: URL.createObjectURL(response.value.blob),
+                      filename: response.value.filename,
+                    });
+                  }
+                  setPdfOpen(true);
+                }}
+              >
                 Vista previa del documento
+              </Button>
+            )}
+            {detail.actions.canRegeneratePdf && can(user, 'recovery.manage') && (
+              <Button
+                variant="secondary"
+                disabled={isMutating}
+                onClick={async () => {
+                  setActionError(null);
+                  const response = await regenerateInvoicePdf(detail.id);
+                  if (!response.ok) {
+                    setActionError(response.error.message);
+                  }
+                }}
+              >
+                Regenerar documento
               </Button>
             )}
             {detail.actions.canPay && can(user, 'sales.manage') && capabilities.payments && (
@@ -84,30 +132,30 @@ export function InvoiceDetailPage() {
             {detail.actions.canCancel &&
               can(user, 'sales.cancel') &&
               capabilities.invoiceCancellation && (
-              <Button
-                variant="danger"
-                onClick={() => {
-                  setActionError(null);
-                  setCancelOpen(true);
-                }}
-              >
-                Cancelar factura
-              </Button>
-            )}
+                <Button
+                  variant="danger"
+                  onClick={() => {
+                    setActionError(null);
+                    setCancelOpen(true);
+                  }}
+                >
+                  Cancelar factura
+                </Button>
+              )}
           </div>
         }
       />
 
       <div className="mb-6 flex flex-wrap items-center gap-2">
         <InvoiceStatusChip status={detail.status} />
-        {detail.status !== 'DRAFT' && capabilities.payments && (
-          <PaymentChip state={detail.paymentState} />
-        )}
+        {detail.status === 'COMPLETED' &&
+          capabilities.payments &&
+          detail.paymentState !== 'PENDING' &&
+          detail.paymentState !== 'UNPAID' && (
+            <PaymentChip state={detail.paymentState} />
+          )}
         {detail.fiscal ? <Chip tone="brand">Fiscal</Chip> : <Chip>Sin comprobante fiscal</Chip>}
         <Chip>{detail.currency}</Chip>
-        <Link to="/sales" className="text-sm text-brand hover:underline">
-          Volver al listado
-        </Link>
       </div>
 
       <div className="mb-8 grid gap-4 sm:grid-cols-3">
@@ -121,9 +169,28 @@ export function InvoiceDetailPage() {
         </Card>
         <Card>
           <p className="text-xs font-medium uppercase tracking-wide text-navy-400">Saldo</p>
-          <p className="mt-1 font-mono text-xl text-navy">{money(detail.balance, detail.currency)}</p>
+          <p className="mt-1 font-mono text-xl text-navy">
+            {money(detail.balance, detail.currency)}
+          </p>
         </Card>
       </div>
+
+      {actionError && !payOpen && !cancelOpen && !currencyOpen && (
+        <div className="mb-6">
+          <Info tone="error" title="No se pudo completar la operación">
+            {actionError}
+          </Info>
+        </div>
+      )}
+
+      {detail.document?.status === 'FAILED' && (
+        <div className="mb-6">
+          <Info tone="error" title="No se pudo generar el documento">
+            La generación del PDF falló.
+            {detail.document.errorId ? ` Referencia: ${detail.document.errorId}` : ''}
+          </Info>
+        </div>
+      )}
 
       {detail.cancelReason && (
         <div className="mb-6">
@@ -134,7 +201,7 @@ export function InvoiceDetailPage() {
       )}
 
       <div className="mb-8">
-        <InvoiceLinesTable lines={detail.lines} currency={detail.currency} fiscal={detail.fiscal} />
+        <InvoiceLinesTable lines={detail.lines} currency={detail.currency} />
       </div>
 
       {detail.deliveredAssemblies && detail.deliveredAssemblies.length > 0 && (
@@ -197,6 +264,7 @@ export function InvoiceDetailPage() {
         invoiceId={detail.id}
         currency={detail.currency}
         balance={detail.balance}
+        confirmedAt={detail.confirmedAt}
         isSaving={isMutating}
         error={payOpen ? actionError : null}
         onClose={() => {
@@ -217,7 +285,7 @@ export function InvoiceDetailPage() {
 
       <CancelInvoiceModal
         open={cancelOpen}
-        paid={detail.paid}
+        paid={detail.paid - detail.refunded}
         currency={detail.currency}
         workOrders={detail.linkedWorkOrders}
         isSaving={isMutating}
@@ -259,7 +327,15 @@ export function InvoiceDetailPage() {
         }}
       />
 
-      <PdfPreviewModal open={pdfOpen} detail={detail} onClose={() => setPdfOpen(false)} />
+      <PdfPreviewModal
+        open={pdfOpen}
+        detail={detail}
+        pdfFile={pdfFile ?? undefined}
+        onClose={() => {
+          setPdfOpen(false);
+          revokePdfFile();
+        }}
+      />
     </>
   );
 }

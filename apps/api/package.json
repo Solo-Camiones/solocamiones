@@ -1,6 +1,6 @@
 {
   "name": "@truck-parts/api",
-  "version": "0.0.0",
+  "version": "1.0.0",
   "private": true,
   "type": "module",
   "scripts": {
@@ -13,6 +13,9 @@
     "test:watch": "prisma generate && vitest",
     "test:unit": "prisma generate && vitest run tests/unit",
     "test:integration": "prisma generate && vitest run --config vitest.integration.config.ts",
+    "test:coverage:unit": "prisma generate && vitest run tests/unit --coverage",
+    "test:coverage:integration": "prisma generate && vitest run --config vitest.integration.config.ts --coverage",
+    "test:coverage": "npm run test:coverage:unit && npm run test:coverage:integration",
     "db:generate": "dotenv -e ../../.env -- prisma generate",
     "db:migrate": "dotenv -e ../../.env -- prisma migrate dev",
     "db:migrate:deploy": "dotenv -e ../../.env -- prisma migrate deploy",
@@ -25,13 +28,16 @@
     "express": "^5.1.0",
     "express-rate-limit": "^8.7.0",
     "helmet": "^8.3.0",
+    "pdfkit": "^0.20.2",
     "pino": "^10.3.1",
     "zod": "^4.5.4"
   },
   "devDependencies": {
     "@types/express": "^5.0.3",
     "@types/node": "^24.3.0",
+    "@types/pdfkit": "^0.17.6",
     "@types/supertest": "^7.2.1",
+    "@vitest/coverage-v8": "^4.1.11",
     "dotenv-cli": "^11.0.0",
     "prisma": "^6.19.3",
     "supertest": "^7.2.2",

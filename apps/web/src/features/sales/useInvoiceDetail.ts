@@ -6,6 +6,7 @@ import type {
   CancelInvoiceInput,
   CorrectCurrencyInput,
   InvoiceDetailView,
+  InvoicePdfDownload,
 } from '../../api/contracts/sales';
 import type { AppError, Result } from '../../shared/auth/types';
 import { salesRepository } from '../../api/repositories';
@@ -90,11 +91,28 @@ export function useInvoiceDetail(id: string | undefined) {
     return { ok: true, value: undefined };
   }, [reload]);
 
+  const getInvoicePdf = useCallback(async (invoiceId: string): Promise<Result<InvoicePdfDownload>> => {
+    return salesRepository.getInvoicePdf(invoiceId);
+  }, []);
+
+  const regenerateInvoicePdf = useCallback(async (invoiceId: string): Promise<Result<void>> => {
+    setIsMutating(true);
+    const response = await salesRepository.regenerateInvoicePdf(invoiceId);
+    setIsMutating(false);
+    if (!response.ok) {
+      return response;
+    }
+    reload();
+    return { ok: true, value: undefined };
+  }, [reload]);
+
   return {
     result,
     isMutating,
     addPayment,
     cancelInvoice,
     correctCurrency,
+    getInvoicePdf,
+    regenerateInvoicePdf,
   };
 }

@@ -1,5 +1,7 @@
 import type { ButtonHTMLAttributes } from 'react';
 
+import { SpinnerIcon } from './icons';
+
 type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger';
 type ButtonSize = 'sm' | 'md' | 'lg' | 'icon';
 
@@ -31,15 +33,19 @@ export function Button({
   type = 'button',
   busy = false,
   disabled,
+  children,
   ...props
 }: ButtonProps) {
   return (
     <button
       type={type}
-      className={`inline-flex items-center justify-center rounded-lg font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 disabled:cursor-not-allowed disabled:opacity-50 ${variantClasses[variant]} ${sizeClasses[size]} ${className}`}
+      className={`inline-flex items-center justify-center gap-2 rounded-lg font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 disabled:cursor-not-allowed disabled:opacity-50 ${variantClasses[variant]} ${sizeClasses[size]} ${className}`}
       {...props}
       disabled={Boolean(disabled) || busy}
       aria-busy={busy || undefined}
-    />
+    >
+      {busy ? <SpinnerIcon /> : null}
+      {children}
+    </button>
   );
 }

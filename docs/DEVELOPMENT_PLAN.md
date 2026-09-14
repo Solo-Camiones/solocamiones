@@ -28,11 +28,48 @@ For every task:
 4. Read `ARCHITECTURE_PLAN.md` only when architecture, module boundaries, transaction rules, or technical tradeoffs are relevant.
 5. Read `ROLES_AND_PERMISSIONS.md` for authorization behavior.
 6. Read `USE_CASE_FLOWS.md` for cross-feature workflows.
-7. Never implement a later-release business workflow merely because its feature spec exists.
+7. Never implement a later-release business workflow merely because its feature spec exists, **unless this plan already records that the owner pulled that slice forward**.
 8. Never weaken a confirmed invariant to make an early release faster.
 9. Unsupported later paths must be explicitly unavailable/rejected, not approximated.
 10. Production data created in an early release must remain valid after later releases are enabled.
 11. `FEATURES/15_ACCOUNTS_PAYABLE_PENDING_VALIDATION.md` is not implementable until promoted to `CONFIRMED`.
+12. Prototype-mock checklists marked `[x]` are **not** production API. Prefer the snapshot below over an old `[x]` when they disagree.
+
+---
+
+# Current implementation snapshot (2026-09-11)
+
+Owner pulled **Release 3 financial work** into the local codebase before Release 2’s web profitability swap and exit gate. Future tasks must not re-build payments, CxC, or non-inventory cancellation, and must not treat inventory/Work-Order `[x]` mock items as PostgreSQL/API.
+
+**Owner decisions (2026-09-10 / exit gate 2026-09-11):**
+
+1. Release 2 **Billing Core is COMPLETED** locally (M25 closed 2026-09-11: browser walkthrough + full test suites). First production deploy still requires the operational gate in this file.
+2. Release 3 stays **open**. The pulled-forward slice is not the full spec: remaining Feature 12/13 checklist items that belong to this release must still be implemented. Do not skip them.
+3. No `plans_api/plan_release_3.md` for now; `docs/done_api/release_3.md` is the delivery record.
+4. Prototype-mock `[x]` items stay `[x]` with mock/API notes; do not uncheck them.
+5. Invoice **document activity** (detail GET + HTTP UI) is pulled forward: confirm, payment, PDF, cancel, and Administrator-only profit/FX. Draft meta edits and line add/update/remove are **not** invoice activity: do not append them, and hide any already-stored rows of those types. Do not delete `HistoryEvent` rows.
+
+| Slice | Production API + tests | HTTP UI (`VITE_USE_MOCK_API` ≠ `true`) | Prototype mock only |
+|---|---|---|---|
+| Release 1 Access/Users | Done | Done | Done |
+| Release 2 Billing Core (customers, service catalog, non-inventory lines, confirm/`FAC-`, PDF, cost/FX/profit, profitability HTTP) | Done | Done (M25 closed 2026-09-11) | Full demo including profit |
+| Release 3 payments, balances, basic CxC, non-inventory cancel/refund | **Pulled forward — done** (`InvoicePayment`, due date, `POST /payments`, `GET /receivables`, `POST /cancel`) | **Pulled forward — done** (pay, CxC `/receivables`, cancel). Confirm may record an initial payment | Done |
+| Release 3 remaining | **Still required** now that R2 is closed: Feature 12 open checklist (receivables filters by customer, invoice, payment state including Paid/Paid-late, date, and currency; UI must use API query params). Aging/collections stay deferred as specified. Inventory/WO cancellation is R5/R7, not this remainder. | Same filters on `/receivables` HTTP UI | — |
+| Release 3B Accounts Payable | Not started | Not started | Not in confirmed scope |
+| Release 4 inventory / quantity / inventory categories | **Not started** (no Item/Qty models) | Service catalog only; inventory category UI hidden | Registration, qty, category attributes |
+| Release 5 reservations and ITEM/QTY sales | **Not started**; ITEM/QTY draft lines return business **409** | Capabilities off | Lines, reserve, consume |
+| Release 6 hierarchy / baseline | **Not started** | Off | Checklist, tree, No desarmar |
+| Release 7 Work Orders / installed-assembly sale | **Not started** | Off | Desktop + mechanic flows |
+| Release 8 protected corrections, recovery, diagnostics | PDF regenerate **done**. USD profit retry is **`POST /api/profitability/:invoiceId/retry`**, not a recovery module. Cost/currency/baseline corrections **not** in API | PDF regenerate in invoice detail. Profit retry/manual gross-profit **HTTP wired (M24)** on `/profitability`. Recovery module still mock | Currency correction, recovery screens, WO/reservation recovery |
+
+**Partial modules (do not “finish” by duplicating the done half):**
+
+- **Profitability:** API (DOP, COST-005, FX pending/retry) and HTTP UI swap (M24) exist. Dashboard KPIs are not swapped.
+- **Catalogs:** mechanical **services** are Release 2 HTTP; **inventory categories/attributes** remain Release 4.
+- **Sales confirmation:** Billing Core plus pulled-forward optional initial payment and `dueDate` (Release 3). `Cliente contado` requires a full initial payment (owner 2026-09-11).
+- **Cancellation:** financial/non-inventory API+HTTP done; inventory restoration and Work-Order branches are mock-only until Releases 5/7.
+- **History:** envelope + user/customer/catalog/invoice confirmation/payment/PDF/cancellation events in the writing transaction; invoice detail GET + HTTP UI project that timeline (profit/FX Administrator-only). Draft meta and line add/update/remove are not appended and are hidden if already stored. No standalone history API; no per-item/order projections; ADMIN-002 mostly open.
+- **CxC:** ledger + open-receivables read model done; remaining Feature 12 filters are **still in scope** (implement now that R2 M25 is closed).
 
 ---
 
@@ -105,7 +142,7 @@ This is a short gate, not another broad requirements exercise.
 
 # Release 1 — Application Foundation and Access (Local Development)
 
-**Status: ACTIVE.**
+**Status: COMPLETED.**
 
 ## Business outcome
 
@@ -123,6 +160,7 @@ An optional local Docker Compose path (nginx on host port 5173, unpublished API,
 ## Scope
 
 ### Project foundation
+
 - Frontend/backend project structure.
 - TypeScript configuration.
 - Modular feature conventions.
@@ -133,6 +171,7 @@ An optional local Docker Compose path (nginx on host port 5173, unpublished API,
 - Test harness and CI checks runnable locally or in CI without deployment.
 
 ### Authentication and authorization
+
 - Individual login by unique `username`.
 - Administrator / Seller / Mechanic fixed role model.
 - Session management.
@@ -141,10 +180,12 @@ An optional local Docker Compose path (nginx on host port 5173, unpublished API,
 - Server-side authorization.
 
 ### Minimum history
+
 - Reusable event envelope.
 - User-lifecycle events only in this release.
 
 ### Local development environment
+
 - Local frontend/backend execution.
 - Local PostgreSQL (native or container).
 - `.env.example` with secret names only.
@@ -184,6 +225,8 @@ Release 1 work must not be blocked waiting for these decisions, but Release 2 mu
 
 # Release 2 — Billing Core
 
+**Status: COMPLETED (local, 2026-09-11).** M25 exit gate closed: owner browser walkthrough plus unit, web, and API integration suites. Payments, CxC, and non-inventory cancellation were **pulled into this codebase** (see Release 3); they are not remaining R2 work. First production use still requires the operational gate above. This completion does **not** complete Release 3 or the Final MVP.
+
 ## Business outcome
 
 The company can create, confirm, and print internal invoices before the complex inventory module is finished.
@@ -205,15 +248,18 @@ Permissions:
 ## Scope
 
 ### Customers
+
 - Customer search/create/edit.
 - `Cliente contado`.
 - Fiscal customer identity validation.
 - Immutable completed-invoice customer snapshot.
 
 ### Invoice lifecycle
+
 - Draft.
 - Completed.
 - Cancelled state exists in the domain; full physical restoration branches come later.
+- Non-inventory **cancel/refund and payments** were pulled forward (Release 3 financial slice); they are implemented in this codebase, not deferred.
 - DOP or USD per invoice.
 - Shared unique never-reused `FAC-` numbering assigned only at successful confirmation.
 - Decimal-safe per-line calculations.
@@ -231,6 +277,7 @@ Enable line types that do **not** require inventory synchronization:
 Do **not** enable tracked-item or quantity inventory lines yet.
 
 ### Tax/output
+
 - Fixed 18% included ITBIS for taxable merchandise lines.
 - Service and delivery non-taxable.
 - Internal printable PDF.
@@ -239,6 +286,7 @@ Do **not** enable tracked-item or quantity inventory lines yet.
 - PDF regeneration from immutable invoice facts.
 
 ### Cost/profitability needed by enabled lines
+
 - Negotiated final selling price.
 - DOP acquisition cost where applicable.
 - Actual/estimated/unknown behavior.
@@ -289,6 +337,8 @@ without any fake inventory side effect.
 
 # Release 3 — Payments and Basic Accounts Receivable
 
+**Status: PARTIALLY IMPLEMENTED (pulled forward during Release 2).** Do not re-implement the financial slice that already exists. **This release is not done:** remaining Feature 12 checklist items (and any other R3-owned open items) must still be implemented now that Release 2 is closed. Inventory/Work-Order cancellation is **not** part of this remainder (Releases 5/7).
+
 ## Business outcome
 
 The company can immediately track credit sales and know who owes money.
@@ -303,18 +353,21 @@ The company can immediately track credit sales and know who owes money.
 ## Scope
 
 ### Payments
+
 - No initial payment / credit.
 - Full payment.
 - Partial payment.
 - Multiple payments.
-- Mixed payment methods using separate records.
+- Cash, transfer, and cheque payment methods using separate records.
 - Same invoice currency.
 - Additive ledger.
 - Duplicate-submission protection.
-- Derived Unpaid / Partially Paid / Paid.
+- Fixed due date at the end of the local calendar day 30 days after confirmation.
+- Derived Pending / Overdue / Paid / Paid late / Cancelled state.
 - Derived outstanding balance.
 
 ### Basic Accounts Receivable
+
 Deliver read models that answer:
 
 - Who owes?
@@ -331,6 +384,7 @@ Required views:
 3. Invoice receivable/payment detail.
 
 ### Early cancellation/refund
+
 For invoices that have **no inventory effects**, implement:
 
 - Administrator-only cancellation.
@@ -340,8 +394,6 @@ For invoices that have **no inventory effects**, implement:
 
 ## Intentionally deferred AR behavior
 
-- due-date policy unless separately validated;
-- overdue logic;
 - aging buckets;
 - credit limits;
 - interest;
@@ -409,6 +461,8 @@ If CxP validation is delayed, continue to Release 4. Release 3B does not block t
 
 # Release 4 — Base Inventory
 
+**Status: NOT STARTED in production API.** Prototype mock UI exists; do not mark inventory persistence complete. Mechanical service catalog is already Release 2.
+
 ## Business outcome
 
 Register and find real stock accurately before linking it to invoice reservations/sales.
@@ -424,6 +478,7 @@ Register and find real stock accurately before linking it to invoice reservation
 ## Scope
 
 ### Individually tracked items
+
 - immutable internal identity (UUID + assigned public `internalCode`);
 - practical minimum registration;
 - enrichment later;
@@ -432,6 +487,7 @@ Register and find real stock accurately before linking it to invoice reservation
 - protected correction.
 
 ### Quantity stock
+
 - quantity products;
 - normal receipts;
 - weighted-average DOP cost;
@@ -439,11 +495,13 @@ Register and find real stock accurately before linking it to invoice reservation
 - availability derived from on-hand minus reserved.
 
 ### Categories
+
 - category minimums/attributes;
 - Tire/Rim validated fields;
 - Administrator maintenance.
 
 ### Search/location/photos
+
 - operational search;
 - free-text location;
 - independent-item location;
@@ -451,6 +509,7 @@ Register and find real stock accurately before linking it to invoice reservation
 - historical sold search infrastructure as applicable.
 
 ### Cost
+
 - DOP acquisition cost.
 - actual / estimated / unknown.
 - Seller/Admin cost visibility.
@@ -471,6 +530,8 @@ Real independent and quantity inventory can be registered, corrected through app
 
 # Release 5 — Reservations and Inventory-Backed Sales
 
+**Status: NOT STARTED in production API.** Prototype mock can add ITEM/QTY lines; HTTP API must keep rejecting them until this release.
+
 ## Business outcome
 
 Invoices now synchronize with independent tracked items and quantity stock.
@@ -487,6 +548,7 @@ Invoices now synchronize with independent tracked items and quantity stock.
 ## Scope
 
 ### Draft reservation
+
 - unique-item holds;
 - quantity holds;
 - release on line removal/discard;
@@ -495,17 +557,20 @@ Invoices now synchronize with independent tracked items and quantity stock.
 - Administrator abandoned-reservation recovery.
 
 ### Inventory invoice lines
+
 - individually tracked item line;
 - quantity product line;
 - external resale remains non-local-stock line.
 
 ### Confirmation
+
 - atomic independent tracked-item sale;
 - atomic quantity consumption;
 - revalidate reservation/state at confirmation;
 - safe retry/conflict behavior.
 
 ### Financial integration
+
 - existing payment/CxC behavior continues unchanged.
 - invoice/payment state remains separate from inventory state.
 - inventory-backed cancellations restore eligible commercial stock exactly once.
@@ -517,6 +582,8 @@ Concurrent Drafts cannot oversell, a confirmed inventory invoice updates the cor
 ---
 
 # Release 6 — Hierarchical Inventory and Received Assemblies
+
+**Status: NOT STARTED in production API.** Prototype mock baseline/tree only.
 
 ## Business outcome
 
@@ -560,6 +627,8 @@ A newly received assembly can be represented exactly as observed, including inco
 
 # Release 7 — Mechanic Work Orders and Installed/Assembly Sales
 
+**Status: NOT STARTED in production API.** Prototype mock Work Orders only.
+
 ## Business outcome
 
 Complete the product's core differentiator: sell installed parts while commercial sale and physical Desarme remain separate, controlled, and traceable.
@@ -575,6 +644,7 @@ Complete the product's core differentiator: sell installed parts while commercia
 ## Scope
 
 ### Work Orders
+
 - Dismantling and Installation.
 - one piece per order.
 - Pending → In Progress → Completed.
@@ -585,6 +655,7 @@ Complete the product's core differentiator: sell installed parts while commercia
 - immutable completed history.
 
 ### Installed-item sale
+
 At confirmation:
 
 - consume reservation;
@@ -604,17 +675,20 @@ At Dismantling completion:
 - higher ancestors unchanged.
 
 ### Installation
+
 - Administrator creates order.
 - creation does not change hierarchy.
 - Mechanic completion creates valid relationship and resolves compatible missing condition.
 
 ### Complete assembly sale
+
 - reject unstable delivered subtree while relevant active physical work exists;
 - reread current tree after resolution;
 - atomically sell root/current descendants;
 - preserve immutable delivered hierarchy snapshot.
 
 ### Physical cancellation branches
+
 Complete Pending / In-Progress / Completed Desarme invoice-cancellation behavior.
 
 ## Exit gate
@@ -635,6 +709,8 @@ with linked immutable history.
 
 # Release 8 — Administration, Recovery, Hardening, and MVP Acceptance
 
+**Status: PARTIAL.** Failed-PDF regenerate is already in the sales/PDF API and invoice HTTP UI. Pending-FX retry lives on the profitability API, not on a recovery router. Other ADMIN-002 commands, diagnostics, and production operational hardening remain this release.
+
 ## Business outcome
 
 Close the remaining confirmed Final-MVP requirements and make the integrated system supportable without raw database intervention.
@@ -647,6 +723,7 @@ Close the remaining confirmed Final-MVP requirements and make the integrated sys
 ## Scope
 
 ### Protected administration
+
 - user/catalog controls;
 - acquisition-cost correction;
 - initial-baseline correction;
@@ -655,6 +732,7 @@ Close the remaining confirmed Final-MVP requirements and make the integrated sys
 - other confirmed protected operations.
 
 ### Recovery
+
 - abandoned Draft/reservation release;
 - Work-Order release/reassign/cancel;
 - PDF regeneration;
@@ -662,6 +740,7 @@ Close the remaining confirmed Final-MVP requirements and make the integrated sys
 - pending USD profitability retry.
 
 ### Diagnostics
+
 - negative/invalid quantity state;
 - orphan/stuck reservations;
 - multiple parents/cycles;
@@ -672,6 +751,7 @@ Close the remaining confirmed Final-MVP requirements and make the integrated sys
 - cross-store PDF/photo/evidence inconsistencies where applicable.
 
 ### Final operational readiness
+
 - full authorization regression;
 - PostgreSQL concurrency regression;
 - backup/restore drill including object storage now in use;

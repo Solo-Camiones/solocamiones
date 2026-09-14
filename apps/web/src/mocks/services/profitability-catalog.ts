@@ -2,7 +2,13 @@ import type {
   ProfitabilityInvoiceRow,
   ProfitabilitySnapshot,
 } from '../../api/contracts/profitability';
-import type { AppState, Invoice, User } from '../../api/contracts/entities';
+import type { AppState, Invoice, Payment, User } from '../../api/contracts/entities';
+import {
+  buildProfitabilitySeries,
+  businessDateFromTimestamp,
+  type ProfitabilitySeriesInvoice,
+  type ProfitabilitySeriesReceipt,
+} from '../../api/client/profitability-series';
 import { can } from '../../shared/auth/policies';
 import { invoiceTotal, roundMoney } from './invoice-money';
 import { canRecordManualGrossProfit, profitabilityForInvoice } from './profitability-view';
@@ -38,6 +44,28 @@ function toRow(state: AppState, invoice: Invoice, actor: User): ProfitabilityInv
     reason: view.reason,
     rateDopPerUsd: view.rateDopPerUsd,
     href: `/sales/${invoice.id}`,
+    confirmedAt: invoice.confirmedAt ?? null,
+  };
+}
+
+function toReceipt(payment: Payment): ProfitabilitySeriesReceipt {
+  return {
+    kind: payment.kind === 'REFUND' ? 'REFUND' : 'PAYMENT',
+    amount: payment.amount,
+    effectiveDate: payment.effectiveDate ?? businessDateFromTimestamp(payment.createdAt),
+  };
+}
+
+function toSeriesInvoice(state: AppState, invoice: Invoice, actor: User): ProfitabilitySeriesInvoice {
+  const view = profitabilityForInvoice(state, invoice, actor);
+  return {
+    status: invoice.status,
+    currency: invoice.currency,
+    confirmedAt: invoice.confirmedAt ?? null,
+    profit: invoice.status === 'COMPLETED' ? (view?.profit ?? null) : null,
+    pendingFx: view?.pendingFx === true,
+    rateDopPerUsd: view?.rateDopPerUsd ?? invoice.fxRateDopPerUsd ?? null,
+    receipts: invoice.payments.map(toReceipt),
   };
 }
 
@@ -54,6 +82,10 @@ export function buildProfitabilitySnapshot(
     .filter((row): row is ProfitabilityInvoiceRow => row != null)
     .sort((left, right) => left.number.localeCompare(right.number, 'es'));
 
+  const series = buildProfitabilitySeries(
+    state.invoices.map((invoice) => toSeriesInvoice(state, invoice, actor)),
+  );
+
   return {
     fxAvailable: state.fxAvailable,
     fxRateDopPerUsd: state.fxRateDopPerUsd,
@@ -62,7 +94,11 @@ export function buildProfitabilitySnapshot(
         .filter((row) => row.profit != null && !row.pendingFx)
         .reduce((sum, row) => sum + (row.profit ?? 0), 0),
     ),
+    collectedDop: series.collectedDop,
     pendingFxCount: invoices.filter((row) => row.pendingFx).length,
+    invoicesMissingProfitCount: series.invoicesMissingProfitCount,
+    omittedUsdReceiptCount: series.omittedUsdReceiptCount,
+    charts: series.charts,
     invoices,
   };
 }

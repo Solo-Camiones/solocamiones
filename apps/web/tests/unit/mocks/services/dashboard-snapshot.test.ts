@@ -5,6 +5,7 @@ import { backfillPendingExpectedComponents } from '../../../../src/mocks/service
 import { invoiceProfitDop } from '../../../../src/mocks/services/gross-profit';
 import {
   invoiceBalance,
+  invoiceTaxableBase,
   invoiceTotal,
   lineItbis,
 } from '../../../../src/mocks/services/invoice-money';
@@ -18,6 +19,7 @@ describe('invoice-money', () => {
     const invoice = state.invoices.find((entry) => entry.id === 'INV-099');
     expect(invoice).toBeDefined();
     expect(invoiceTotal(invoice!)).toBe(7200);
+    expect(invoiceTaxableBase(invoice!)).toBe(7200);
     expect(lineItbis(invoice!.lines[0], invoice!.fiscal)).toBe(0);
     expect(invoiceBalance(invoice!)).toBe(3600);
   });

@@ -9,6 +9,7 @@ import { inventoryRepository } from '../../../src/api/repositories';
 import { InventoryPage } from '../../../src/features/inventory/InventoryPage';
 import { getMockState, resetMockState } from '../../../src/mocks/state';
 import { renderWithProviders } from '../../support/render';
+import { chooseSelectOption } from '../../support/select-menu';
 import { signInAs } from '../../support/session';
 import '../../support/dom';
 
@@ -65,7 +66,7 @@ describe('InventoryPage', () => {
     await user.click(screen.getByRole('button', { name: 'Registrar inventario' }));
     const dialog = screen.getByRole('dialog');
     await user.type(within(dialog).getByLabelText('Nombre'), 'Alternador de mostrador');
-    await user.selectOptions(within(dialog).getByLabelText('Categoría'), 'CAT-ALT');
+    await chooseSelectOption(user, 'Categoría', 'CAT-ALT', dialog);
     expect(within(dialog).getByText('Código interno')).toBeVisible();
     expect(within(dialog).getByText('Se asignará al guardar con prefijo ALT.')).toBeVisible();
     await user.click(within(dialog).getByRole('button', { name: 'Registrar' }));
@@ -85,7 +86,7 @@ describe('InventoryPage', () => {
 
     await user.click(screen.getByRole('button', { name: 'Registrar inventario' }));
     const dialog = screen.getByRole('dialog');
-    await user.selectOptions(within(dialog).getByLabelText('Categoría'), 'CAT-TIR');
+    await chooseSelectOption(user, 'Categoría', 'CAT-TIR', dialog);
 
     expect(within(dialog).getByLabelText('Tipo')).toBeVisible();
     expect(within(dialog).getByLabelText('Medida')).toBeVisible();
@@ -103,7 +104,7 @@ describe('InventoryPage', () => {
     await user.click(within(dialog).getByLabelText('Producto por cantidad'));
     await user.type(within(dialog).getByLabelText('Código de producto'), 'QTY-FIL-NEW');
     await user.type(within(dialog).getByLabelText('Nombre'), 'Filtro por caja');
-    await user.selectOptions(within(dialog).getByLabelText('Categoría'), 'CAT-FIL');
+    await chooseSelectOption(user, 'Categoría', 'CAT-FIL', dialog);
     await user.clear(within(dialog).getByLabelText('Existencia inicial'));
     await user.type(within(dialog).getByLabelText('Existencia inicial'), '8');
     await user.type(within(dialog).getByLabelText('Costo unitario en pesos'), '300');
@@ -123,7 +124,7 @@ describe('InventoryPage', () => {
     await user.click(screen.getByRole('button', { name: 'Registrar inventario' }));
     const dialog = screen.getByRole('dialog');
     await user.type(within(dialog).getByLabelText('Nombre'), 'Camión con motor recibido');
-    await user.selectOptions(within(dialog).getByLabelText('Categoría'), 'CAT-TRK');
+    await chooseSelectOption(user, 'Categoría', 'CAT-TRK', dialog);
     await user.click(within(dialog).getByRole('button', { name: 'Continuar' }));
 
     const motorGroup = within(dialog).getByRole('group', { name: 'Motor' });
@@ -209,7 +210,7 @@ describe('InventoryPage', () => {
     await user.click(screen.getByRole('button', { name: 'Registrar inventario' }));
     const dialog = screen.getByRole('dialog');
     await user.type(within(dialog).getByLabelText('Nombre'), 'Registro en curso');
-    await user.selectOptions(within(dialog).getByLabelText('Categoría'), 'CAT-ALT');
+    await chooseSelectOption(user, 'Categoría', 'CAT-ALT', dialog);
     await user.click(within(dialog).getByRole('button', { name: 'Registrar' }));
 
     expect(within(dialog).getByRole('button', { name: 'Cerrar' })).toBeDisabled();
@@ -227,7 +228,7 @@ describe('InventoryPage', () => {
     await user.click(screen.getByRole('button', { name: 'Registrar inventario' }));
     const dialog = screen.getByRole('dialog');
     await user.type(within(dialog).getByLabelText('Nombre'), 'Camión para volver atrás');
-    await user.selectOptions(within(dialog).getByLabelText('Categoría'), 'CAT-TRK');
+    await chooseSelectOption(user, 'Categoría', 'CAT-TRK', dialog);
     expect(within(dialog).getByText('Paso 1 de 2 — Información del ensamblaje')).toBeVisible();
     await user.click(within(dialog).getByRole('button', { name: 'Continuar' }));
 

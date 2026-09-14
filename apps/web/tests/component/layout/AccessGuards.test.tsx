@@ -2,14 +2,19 @@
 
 import { screen } from '@testing-library/react';
 import { Route, Routes } from 'react-router-dom';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 
 import { GuestRoute } from '../../../src/shared/layout/GuestRoute';
+import { markLogoutDiscardsReturnPath } from '../../../src/shared/layout/login-return-path';
 import { ProtectedRoute } from '../../../src/shared/layout/ProtectedRoute';
 import { RouteAccessGuard } from '../../../src/shared/layout/RouteAccessGuard';
 import { CAPABILITY_PRESETS } from '../../../src/shared/config/capabilities';
 import { createAuthValue, renderWithProviders } from '../../support/render';
 import '../../support/dom';
+
+afterEach(() => {
+  sessionStorage.clear();
+});
 
 describe('access guards', () => {
   it('redirects guests from a protected route to login', async () => {
@@ -76,6 +81,33 @@ describe('access guards', () => {
 
     expect(await screen.findByText('Inicio mecánico')).toBeVisible();
     expect(screen.queryByText('Usuarios')).not.toBeInTheDocument();
+  });
+
+  it('sends an administrator to the role home after logout instead of a previous seller screen', async () => {
+    markLogoutDiscardsReturnPath();
+
+    renderWithProviders(
+      <Routes>
+        <Route
+          path="/login"
+          element={
+            <GuestRoute>
+              <div>Inicio de sesión</div>
+            </GuestRoute>
+          }
+        />
+        <Route path="/customers" element={<div>Clientes</div>} />
+        <Route path="/dashboard" element={<div>Inicio administrador</div>} />
+      </Routes>,
+      {
+        route: '/login',
+        locationState: { from: { pathname: '/customers' } },
+        auth: createAuthValue('ADMINISTRATOR'),
+      },
+    );
+
+    expect(await screen.findByText('Inicio administrador')).toBeVisible();
+    expect(screen.queryByText('Clientes')).not.toBeInTheDocument();
   });
 
   it('returns a seller to an allowed previous URL after login', async () => {

@@ -1,13 +1,13 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 
-import type { SalesListRow, SalesListTab } from '../../api/contracts/sales';
-import { Button, Chip, Info, SearchInput, Skeleton, toPageLoadMessage } from '../../shared/ui';
+import type { SalesListTab } from '../../api/contracts/sales';
+import { parseListPage, setListPageParam } from '../../api/contracts/pagination';
+import { Button, Chip, Info, PaginationBar, SearchInput, Skeleton, toPageLoadMessage } from '../../shared/ui';
 import { PageHeader } from '../../shared/layout/PageHeader';
 import { TabBar } from '../../shared/layout/TabBar';
 import { SalesTable } from './SalesTable';
 import {
-  applySalesUrlFilters,
   parseSalesListTab,
   parseSalesUrlFilters,
   salesUrlFiltersActive,
@@ -20,19 +20,6 @@ const TABS: { id: SalesListTab; label: string }[] = [
   { id: 'COMPLETED', label: 'Completada' },
   { id: 'CANCELLED', label: 'Cancelada' },
 ];
-
-function matchesSalesQuery(row: SalesListRow, query: string): boolean {
-  const normalized = query.trim().toLowerCase();
-  if (normalized.length === 0) {
-    return true;
-  }
-
-  return (
-    row.number.toLowerCase().includes(normalized) ||
-    row.customerName.toLowerCase().includes(normalized) ||
-    row.id.toLowerCase().includes(normalized)
-  );
-}
 
 function kpiFilterLabels(filters: ReturnType<typeof parseSalesUrlFilters>): string[] {
   const labels: string[] = [];
@@ -52,17 +39,11 @@ export function SalesPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [query, setQuery] = useState('');
   const tab = parseSalesListTab(searchParams.get('tab')) ?? 'ALL';
+  const page = parseListPage(searchParams.get('page'));
   const kpiFilters = parseSalesUrlFilters(searchParams);
-  const { result } = useSalesList(tab);
+  const { result } = useSalesList(tab, page, query, kpiFilters);
   const navigate = useNavigate();
-  const visibleRows = useMemo(() => {
-    if (result.status !== 'ready') {
-      return [];
-    }
-    return applySalesUrlFilters(result.rows, kpiFilters).filter((row) =>
-      matchesSalesQuery(row, query),
-    );
-  }, [kpiFilters, query, result]);
+  const visibleRows = result.status === 'ready' ? result.rows : [];
 
   function handleTabChange(next: SalesListTab) {
     setSearchParams(
@@ -73,6 +54,7 @@ export function SalesPage() {
         } else {
           nextParams.set('tab', next);
         }
+        setListPageParam(nextParams, 1);
         return nextParams;
       },
       { replace: true },
@@ -86,6 +68,7 @@ export function SalesPage() {
         nextParams.delete('today');
         nextParams.delete('outstanding');
         nextParams.delete('payments');
+        setListPageParam(nextParams, 1);
         return nextParams;
       },
       { replace: true },
@@ -103,11 +86,22 @@ export function SalesPage() {
   const activeKpiLabels = kpiFilterLabels(kpiFilters);
   const hasKpiFilter = salesUrlFiltersActive(kpiFilters);
 
+  function goToPage(nextPage: number) {
+    setSearchParams(
+      (prev) => {
+        const nextParams = new URLSearchParams(prev);
+        setListPageParam(nextParams, nextPage);
+        return nextParams;
+      },
+      { replace: true },
+    );
+  }
+
   return (
     <>
       <PageHeader
         title="Ventas y Facturas"
-        description="Consulta de documentos, pagos y cancelación. Abra un borrador para confirmar una venta."
+        description="Facturas, pagos y cancelación."
         actions={
           <Button onClick={() => navigate('/sales/draft/new')}>Nuevo borrador</Button>
         }
@@ -119,7 +113,17 @@ export function SalesPage() {
           label="Buscar por número o cliente"
           placeholder="FAC-000098, nombre del cliente…"
           value={query}
-          onChange={(event) => setQuery(event.target.value)}
+          onChange={(event) => {
+            setQuery(event.target.value);
+            setSearchParams(
+              (prev) => {
+                const nextParams = new URLSearchParams(prev);
+                setListPageParam(nextParams, 1);
+                return nextParams;
+              },
+              { replace: true },
+            );
+          }}
         />
       </div>
 
@@ -141,10 +145,18 @@ export function SalesPage() {
       {result.status === 'loading' ? (
         <Skeleton label="Cargando facturas" />
       ) : (
-        <SalesTable
-          rows={visibleRows}
-          hasQuery={query.trim().length > 0 || hasKpiFilter}
-        />
+        <>
+          <SalesTable
+            rows={visibleRows}
+            hasQuery={query.trim().length > 0 || hasKpiFilter}
+          />
+          <PaginationBar
+            page={result.page}
+            pageSize={result.pageSize}
+            total={result.total}
+            onPageChange={goToPage}
+          />
+        </>
       )}
     </>
   );

@@ -1,10 +1,13 @@
 import type { AppState, Invoice, User } from '../../api/contracts/entities';
 import type {
+  CustomerOutstandingRow,
   InvoiceDetailView,
   InvoiceLineView,
+  ReceivablesSnapshot,
   SalesListRow,
   SalesListTab,
 } from '../../api/contracts/sales';
+import { LIST_PAGE_SIZE } from '../../api/contracts/pagination';
 import { can } from '../../shared/auth/policies';
 import {
   invoiceBalance,
@@ -14,6 +17,7 @@ import {
   lineBase,
   lineGross,
   lineItbis,
+  roundMoney,
 } from './invoice-money';
 import { profitabilityForInvoice } from './profitability-view';
 import { resolveActorName, toHistoryEventView } from './history-view';
@@ -34,7 +38,7 @@ function displayNumber(invoice: Invoice): string {
   if (invoice.number) {
     return invoice.number;
   }
-  return invoice.status === 'DRAFT' ? `Borrador ${invoice.id}` : invoice.id;
+  return invoice.status === 'DRAFT' ? 'Borrador' : 'Factura';
 }
 
 export function toSalesListRow(state: AppState, invoice: Invoice): SalesListRow {
@@ -51,6 +55,7 @@ export function toSalesListRow(state: AppState, invoice: Invoice): SalesListRow 
     balance: invoiceBalance(invoice),
     createdAt: invoice.createdAt,
     confirmedAt: invoice.confirmedAt,
+    dueDate: invoice.dueDate,
     href: draftHref(invoice),
   };
 }
@@ -62,7 +67,24 @@ export function matchesSalesTab(invoice: Invoice, tab: SalesListTab): boolean {
   return invoice.status === tab;
 }
 
-export function buildSalesList(state: AppState, tab: SalesListTab = 'ALL'): SalesListRow[] {
+export function matchesSalesSearch(row: SalesListRow, query: string): boolean {
+  const normalized = query.trim().toLowerCase();
+  if (normalized.length === 0) {
+    return true;
+  }
+
+  return (
+    row.number.toLowerCase().includes(normalized) ||
+    row.customerName.toLowerCase().includes(normalized) ||
+    row.id.toLowerCase().includes(normalized)
+  );
+}
+
+export function buildSalesList(
+  state: AppState,
+  tab: SalesListTab = 'ALL',
+  q = '',
+): SalesListRow[] {
   return [...state.invoices]
     .filter((invoice) => matchesSalesTab(invoice, tab))
     .sort((left, right) => {
@@ -70,7 +92,48 @@ export function buildSalesList(state: AppState, tab: SalesListTab = 'ALL'): Sale
       const rightKey = right.confirmedAt ?? right.createdAt;
       return rightKey.localeCompare(leftKey);
     })
+    .map((invoice) => toSalesListRow(state, invoice))
+    .filter((row) => matchesSalesSearch(row, q));
+}
+
+export function buildReceivables(state: AppState): ReceivablesSnapshot {
+  const invoices = [...state.invoices]
+    .filter((invoice) => invoice.status === 'COMPLETED' && invoiceBalance(invoice) > 0)
+    .sort((left, right) => (left.dueDate ?? left.createdAt).localeCompare(right.dueDate ?? right.createdAt))
     .map((invoice) => toSalesListRow(state, invoice));
+
+  const grouped = new Map<string, CustomerOutstandingRow>();
+  for (const row of invoices) {
+    const key = `${row.customerId}:${row.currency}`;
+    const existing = grouped.get(key);
+    if (existing) {
+      existing.invoiceCount += 1;
+      existing.invoiced = roundMoney(existing.invoiced + row.total);
+      existing.paid = roundMoney(existing.paid + (row.total - row.balance));
+      existing.balance = roundMoney(existing.balance + row.balance);
+      continue;
+    }
+    grouped.set(key, {
+      customerId: row.customerId,
+      customerName: row.customerName,
+      currency: row.currency,
+      invoiceCount: 1,
+      invoiced: row.total,
+      paid: roundMoney(row.total - row.balance),
+      balance: row.balance,
+    });
+  }
+
+  return {
+    invoices,
+    customers: [...grouped.values()].sort((left, right) => {
+      const name = left.customerName.localeCompare(right.customerName, 'es');
+      return name !== 0 ? name : left.currency.localeCompare(right.currency);
+    }),
+    total: invoices.length,
+    page: 1,
+    pageSize: LIST_PAGE_SIZE,
+  };
 }
 
 function toLineView(line: Invoice['lines'][number], fiscal: boolean): InvoiceLineView {
@@ -78,6 +141,7 @@ function toLineView(line: Invoice['lines'][number], fiscal: boolean): InvoiceLin
     id: line.id,
     type: line.type,
     description: line.description,
+    notes: line.notes,
     quantity: line.quantity,
     unitPrice: line.unitPrice,
     taxable: line.taxable,
@@ -152,6 +216,7 @@ export function buildInvoiceDetail(state: AppState, invoice: Invoice, actor: Use
       canCancel: completed && can(actor, 'sales.cancel'),
       canCorrectCurrency: completed && can(actor, 'sales.correctCurrency') && invoice.payments.length === 0 && invoice.paymentState !== 'PAID',
       canViewPdf: numbered && Boolean(invoice.number),
+      canRegeneratePdf: false,
     },
     deliveredAssemblies: invoice.deliveredAssemblies,
   };

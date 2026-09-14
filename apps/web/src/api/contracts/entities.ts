@@ -127,7 +127,8 @@ export type Service = {
 };
 
 export type InvoiceStatus = 'DRAFT' | 'COMPLETED' | 'CANCELLED';
-export type PaymentState = 'UNPAID' | 'PARTIALLY_PAID' | 'PAID';
+export type PaymentState =
+  'UNPAID' | 'PARTIALLY_PAID' | 'PENDING' | 'OVERDUE' | 'PAID' | 'PAID_LATE' | 'CANCELLED';
 export type Currency = 'DOP' | 'USD';
 
 export type LineType = 'ITEM' | 'QTY' | 'GENERIC' | 'EXTERNAL' | 'SERVICE' | 'DELIVERY';
@@ -149,6 +150,7 @@ export type InvoiceLine = {
   id: string;
   type: LineType;
   description: string;
+  notes?: string;
   itemId?: string;
   qtyProductId?: string;
   serviceId?: string;
@@ -158,6 +160,7 @@ export type InvoiceLine = {
   pricePending?: boolean;
   /** DOP cost copied at line creation so later inventory edits do not rewrite the sale. */
   acquisitionCostDop?: number;
+  costProvenance?: 'ACTUAL' | 'ESTIMATED' | 'UNKNOWN';
 };
 
 export type PaymentMethod = 'CASH' | 'CARD' | 'TRANSFER' | 'CHECK';
@@ -169,6 +172,7 @@ export type Payment = {
   amount: number;
   method: PaymentMethod;
   createdAt: string;
+  effectiveDate?: string;
   /** Omitted on seed receipts — treated as PAYMENT. */
   kind?: PaymentKind;
   actorId?: string;
@@ -188,6 +192,7 @@ export type Invoice = {
   paymentState: PaymentState;
   createdAt: string;
   confirmedAt?: string;
+  dueDate?: string;
   cancelledAt?: string;
   cancelReason?: string;
   profitabilityUsd?: number | null;

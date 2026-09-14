@@ -1,4 +1,5 @@
 import type { Result } from '../../shared/auth/types';
+import type { ListPage } from './pagination';
 import type { AuthSession, PublicUser } from './auth';
 import type { SaveCategoryInput, SaveServiceInput } from './catalogs';
 import type { CustomerListRow, SaveCustomerInput } from './customers';
@@ -9,6 +10,7 @@ import type {
   ResolveRecoveryInput,
   ResolveRecoveryResult,
   SaveUserInput,
+  SaveUserResult,
 } from './users';
 import type { DashboardSnapshot } from './dashboard';
 import type {
@@ -50,11 +52,14 @@ import type {
   CorrectCurrencyInput,
   CreateDraftResult,
   InvoiceDetailView,
+  InvoicePdfDownload,
   PosDraftView,
+  ReceivablesSnapshot,
   RemoveDraftLineInput,
   SalesListRow,
   SalesListTab,
   SetDraftLinePriceInput,
+  SetDraftLineQuantityInput,
   SetDraftMetaInput,
 } from './sales';
 import type {
@@ -89,8 +94,8 @@ export type AuthRepository = {
 };
 
 export type UserRepository = {
-  list(): Promise<Result<ManagedUser[]>>;
-  save(input: SaveUserInput): Promise<Result<ManagedUser>>;
+  list(page?: number): Promise<Result<ListPage<ManagedUser>>>;
+  save(input: SaveUserInput): Promise<Result<SaveUserResult>>;
   listRecoveryRequests(): Promise<Result<PasswordRecoveryRequest[]>>;
   resolveRecovery(input: ResolveRecoveryInput): Promise<Result<ResolveRecoveryResult>>;
 };
@@ -118,15 +123,23 @@ export type InventoryRepository = {
 };
 
 export type CustomerRepository = {
+  /** Full directory for POS lookups. The customers page uses `search` with paging. */
   list(): Promise<Result<CustomerListRow[]>>;
-  search(query: string): Promise<Result<CustomerListRow[]>>;
+  search(query: string, page?: number): Promise<Result<ListPage<CustomerListRow>>>;
   getById(id: string): Promise<Result<Customer>>;
   save(input: SaveCustomerInput): Promise<Result<Customer>>;
 };
 
 export type SalesRepository = {
-  listInvoices(tab?: SalesListTab): Promise<Result<SalesListRow[]>>;
+  listInvoices(
+    tab?: SalesListTab,
+    page?: number,
+    q?: string,
+  ): Promise<Result<ListPage<SalesListRow>>>;
+  listReceivables(page?: number): Promise<Result<ReceivablesSnapshot>>;
   getInvoice(id: string): Promise<Result<InvoiceDetailView>>;
+  getInvoicePdf(id: string): Promise<Result<InvoicePdfDownload>>;
+  regenerateInvoicePdf(id: string): Promise<Result<InvoiceDetailView>>;
   addPayment(input: AddPaymentInput): Promise<Result<InvoiceDetailView>>;
   cancelInvoice(input: CancelInvoiceInput): Promise<Result<InvoiceDetailView>>;
   correctCurrency(input: CorrectCurrencyInput): Promise<Result<InvoiceDetailView>>;
@@ -135,6 +148,7 @@ export type SalesRepository = {
   addLine(input: AddDraftLineInput): Promise<Result<PosDraftView>>;
   removeLine(input: RemoveDraftLineInput): Promise<Result<PosDraftView>>;
   setLinePrice(input: SetDraftLinePriceInput): Promise<Result<PosDraftView>>;
+  setLineQuantity(input: SetDraftLineQuantityInput): Promise<Result<PosDraftView>>;
   setDraftMeta(input: SetDraftMetaInput): Promise<Result<PosDraftView>>;
   confirmInvoice(draftId: string, payment?: ConfirmInvoicePayment): Promise<Result<PosDraftView>>;
   discardDraft(draftId: string): Promise<Result<void>>;

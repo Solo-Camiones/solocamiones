@@ -267,8 +267,8 @@ export function DashboardPage() {
         title="Inicio"
         description={
           isAdmin
-            ? 'Qué necesita atención, la operación del día y las finanzas. Cada indicador abre el listado filtrado.'
-            : 'Resumen operativo de inventario, ventas y cobros. Cada indicador abre el listado filtrado.'
+            ? 'Atención, operación del día y finanzas.'
+            : 'Resumen de inventario, ventas y cobros.'
         }
       />
 

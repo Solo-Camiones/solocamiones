@@ -23,16 +23,51 @@ import {
   requestRecoveryWithHttp,
 } from '../client/auth-api';
 import {
+  listServicesWithHttp,
+  saveServiceWithHttp,
+} from '../client/catalogs-api';
+import {
+  getCustomerByIdWithHttp,
+  listCustomersWithHttp,
+  saveCustomerWithHttp,
+  searchCustomersWithHttp,
+} from '../client/customers-api';
+import {
+  addDraftLineWithHttp,
+  addPaymentWithHttp,
+  cancelInvoiceWithHttp,
+  confirmInvoiceWithHttp,
+  correctCurrencyWithHttp,
+  createDraftWithHttp,
+  discardDraftWithHttp,
+  getDraftWithHttp,
+  getInvoiceWithHttp,
+  getInvoicePdfWithHttp,
+  listInvoicesWithHttp,
+  listReceivablesWithHttp,
+  regenerateInvoicePdfWithHttp,
+  removeDraftLineWithHttp,
+  setDraftLinePriceWithHttp,
+  setDraftLineQuantityWithHttp,
+  setDraftMetaWithHttp,
+} from '../client/sales-api';
+import {
   listRecoveryRequestsWithHttp,
   listUsersWithHttp,
   resolveRecoveryWithHttp,
   saveUserWithHttp,
 } from '../client/users-api';
+import {
+  getProfitabilitySnapshotWithHttp,
+  recordManualGrossProfitWithHttp,
+  retryUsdProfitabilityWithHttp,
+} from '../client/profitability-api';
 import { httpNotImplemented } from '../client/http-not-implemented';
 
 /**
- * Access/profile uses the real M6–M8 API. Other repositories remain unavailable
- * until their integration milestone; capability guards keep their screens out of HTTP mode.
+ * Access/profile (R1), customers (M19), services (M20), POS drafts (M21),
+ * confirmation (M22), PDF (M23) and profitability (M24) use the real API.
+ * Dashboard KPIs, recovery and inventory remain stubbed.
  */
 export class HttpAuthRepository implements AuthRepository {
   async login(username: string, password: string) {
@@ -61,8 +96,8 @@ export class HttpAuthRepository implements AuthRepository {
 }
 
 export class HttpUserRepository implements UserRepository {
-  async list() {
-    return listUsersWithHttp();
+  async list(page = 1) {
+    return listUsersWithHttp(page);
   }
 
   async save(input: Parameters<UserRepository['save']>[0]) {
@@ -158,73 +193,93 @@ export class HttpInventoryRepository implements InventoryRepository {
 
 export class HttpCustomerRepository implements CustomerRepository {
   async list() {
-    return httpNotImplemented('HttpCustomerRepository', 'list');
+    return listCustomersWithHttp();
   }
 
-  async search() {
-    return httpNotImplemented('HttpCustomerRepository', 'search');
+  async search(query: string, page = 1) {
+    return searchCustomersWithHttp(query, page);
   }
 
-  async getById() {
-    return httpNotImplemented('HttpCustomerRepository', 'getById');
+  async getById(id: string) {
+    return getCustomerByIdWithHttp(id);
   }
 
-  async save() {
-    return httpNotImplemented('HttpCustomerRepository', 'save');
+  async save(input: Parameters<CustomerRepository['save']>[0]) {
+    return saveCustomerWithHttp(input);
   }
 }
 
 export class HttpSalesRepository implements SalesRepository {
-  async listInvoices() {
-    return httpNotImplemented('HttpSalesRepository', 'listInvoices');
+  async listInvoices(
+    tab?: Parameters<SalesRepository['listInvoices']>[0],
+    page = 1,
+    q?: string,
+  ) {
+    return listInvoicesWithHttp(tab, page, q);
   }
 
-  async getInvoice() {
-    return httpNotImplemented('HttpSalesRepository', 'getInvoice');
+  async listReceivables(page = 1) {
+    return listReceivablesWithHttp(page);
   }
 
-  async addPayment() {
-    return httpNotImplemented('HttpSalesRepository', 'addPayment');
+  async getInvoice(id: string) {
+    return getInvoiceWithHttp(id);
   }
 
-  async cancelInvoice() {
-    return httpNotImplemented('HttpSalesRepository', 'cancelInvoice');
+  async getInvoicePdf(id: string) {
+    return getInvoicePdfWithHttp(id);
   }
 
-  async correctCurrency() {
-    return httpNotImplemented('HttpSalesRepository', 'correctCurrency');
+  async regenerateInvoicePdf(id: string) {
+    return regenerateInvoicePdfWithHttp(id);
+  }
+
+  async addPayment(input: Parameters<SalesRepository['addPayment']>[0]) {
+    return addPaymentWithHttp(input);
+  }
+
+  async cancelInvoice(input: Parameters<SalesRepository['cancelInvoice']>[0]) {
+    return cancelInvoiceWithHttp(input);
+  }
+
+  async correctCurrency(input: Parameters<SalesRepository['correctCurrency']>[0]) {
+    return correctCurrencyWithHttp(input);
   }
 
   async createDraft() {
-    return httpNotImplemented('HttpSalesRepository', 'createDraft');
+    return createDraftWithHttp();
   }
 
-  async getDraft() {
-    return httpNotImplemented('HttpSalesRepository', 'getDraft');
+  async getDraft(id: string) {
+    return getDraftWithHttp(id);
   }
 
-  async addLine() {
-    return httpNotImplemented('HttpSalesRepository', 'addLine');
+  async addLine(input: Parameters<SalesRepository['addLine']>[0]) {
+    return addDraftLineWithHttp(input);
   }
 
-  async removeLine() {
-    return httpNotImplemented('HttpSalesRepository', 'removeLine');
+  async removeLine(input: Parameters<SalesRepository['removeLine']>[0]) {
+    return removeDraftLineWithHttp(input);
   }
 
-  async setLinePrice() {
-    return httpNotImplemented('HttpSalesRepository', 'setLinePrice');
+  async setLinePrice(input: Parameters<SalesRepository['setLinePrice']>[0]) {
+    return setDraftLinePriceWithHttp(input);
   }
 
-  async setDraftMeta() {
-    return httpNotImplemented('HttpSalesRepository', 'setDraftMeta');
+  async setLineQuantity(input: Parameters<SalesRepository['setLineQuantity']>[0]) {
+    return setDraftLineQuantityWithHttp(input);
   }
 
-  async confirmInvoice(_draftId: string, _payment?: ConfirmInvoicePayment) {
-    return httpNotImplemented('HttpSalesRepository', 'confirmInvoice');
+  async setDraftMeta(input: Parameters<SalesRepository['setDraftMeta']>[0]) {
+    return setDraftMetaWithHttp(input);
   }
 
-  async discardDraft() {
-    return httpNotImplemented('HttpSalesRepository', 'discardDraft');
+  async confirmInvoice(draftId: string, payment?: ConfirmInvoicePayment) {
+    return confirmInvoiceWithHttp(draftId, payment);
+  }
+
+  async discardDraft(draftId: string) {
+    return discardDraftWithHttp(draftId);
   }
 }
 
@@ -290,11 +345,11 @@ export class HttpCategoryRepository implements CategoryRepository {
 
 export class HttpServiceRepository implements ServiceRepository {
   async list() {
-    return httpNotImplemented('HttpServiceRepository', 'list');
+    return listServicesWithHttp();
   }
 
-  async save() {
-    return httpNotImplemented('HttpServiceRepository', 'save');
+  async save(input: Parameters<ServiceRepository['save']>[0]) {
+    return saveServiceWithHttp(input);
   }
 }
 
@@ -312,19 +367,21 @@ export class HttpDashboardRepository implements DashboardRepository {
 
 export class HttpProfitabilityRepository implements ProfitabilityRepository {
   async getSnapshot() {
-    return httpNotImplemented('HttpProfitabilityRepository', 'getSnapshot');
+    return getProfitabilitySnapshotWithHttp();
   }
 
-  async setFxAvailable() {
+  async setFxAvailable(_input: Parameters<ProfitabilityRepository['setFxAvailable']>[0]) {
     return httpNotImplemented('HttpProfitabilityRepository', 'setFxAvailable');
   }
 
-  async retryUsd() {
-    return httpNotImplemented('HttpProfitabilityRepository', 'retryUsd');
+  async retryUsd(input: Parameters<ProfitabilityRepository['retryUsd']>[0]) {
+    return retryUsdProfitabilityWithHttp(input);
   }
 
-  async recordManualGrossProfit() {
-    return httpNotImplemented('HttpProfitabilityRepository', 'recordManualGrossProfit');
+  async recordManualGrossProfit(
+    input: Parameters<ProfitabilityRepository['recordManualGrossProfit']>[0],
+  ) {
+    return recordManualGrossProfitWithHttp(input);
   }
 }
 

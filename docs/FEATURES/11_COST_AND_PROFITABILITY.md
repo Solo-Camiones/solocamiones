@@ -8,7 +8,9 @@ The old consolidated requirements/validation files are intentionally no longer r
 
 ## Delivery
 
-**Release 2 minimal support for resale/cost fields; completed in Release 4/5 with inventory and USD profitability**
+**Release 2 invoice-line cost, DOP profit, USD FX, COST-005, and FX retry; inventory-weighted cost completes in Release 4/5**
+
+**Implementation (2026-09-11):** Production **API is done** for invoice-line cost snapshots, Administrator profit projection, FX pending/retry, and COST-005. HTTP UI swap is **done** (R2 M24: `HttpProfitabilityRepository` composes the snapshot from completed sales; retry and COST-005 POSTs are wired). Protected acquisition-cost correction is **prototype mock / Release 8**, not an API command.
 
 ## What this feature does
 
@@ -42,7 +44,7 @@ Profitability is derived from immutable sale snapshots, not live current invento
 
 `costUsd = storedCostDop / exchangeRateDopPerUsd`
 
-then `profitUsd = sellingPriceUsd - costUsd`. Administrator reporting converts that result to pesos with the same stored rate:
+then `profitUsd = sellingPriceUsd - costUsd`. Keep `costUsd` and `profitUsd` at full decimal precision during the calculation; round only the final displayed profitability values. For example, `USD 118.00` with `DOP 80.00` cost and a `61.50` rate reports `DOP 7,177.00` profit. Administrator reporting converts that result to pesos with the same stored rate:
 
 `profitDop = profitUsd * exchangeRateDopPerUsd`
 
@@ -67,22 +69,22 @@ Seller and Administrator may view acquisition cost. Only Administrator may view 
 ### Domain / persistence
 - [x] Define cost amount + actual/estimated/unknown provenance.
 - [x] Snapshot applicable cost basis on completed sale lines.
-- [x] Implement DOP gross-profit calculation.
-- [x] Implement FX adapter interface and normalization to DOP-per-USD.
-- [x] Persist FX provenance and profitability status.
-- [x] Implement pending-profitability retry command.
-- [x] Implement protected acquisition-cost correction with history.
-- [x] Enforce Administrator-only profitability projections.
-- [x] Persist Administrator-recorded DOP gross profit when calculation is unavailable.
+- [x] Implement DOP gross-profit calculation. *(API R2 M13: derivado del snapshot completed, Administrator-only)*
+- [x] Implement FX adapter interface and normalization to DOP-per-USD. *(API R2 M15: ExchangeRate-API Pair USD/DOP)*
+- [x] Persist FX provenance and profitability status. *(API R2 M15: tasa persistida; pending derivado si falta)*
+- [x] Implement pending-profitability retry command. *(API R2 M16: `POST /api/profitability/:invoiceId/retry`, tasa histórica del día UTC de `confirmedAt`; HTTP UI M24)*
+- [ ] Implement protected acquisition-cost correction with history. _(Prototype mock may exist; production API not started — inventory INV-006 / Release 8)_
+- [x] Enforce Administrator-only profitability projections. *(API R2 M13: GET/confirm/list omiten profit para Seller)*
+- [x] Persist Administrator-recorded DOP gross profit when calculation is unavailable. *(API R2 M14: COST-005, `POST /api/profitability/:invoiceId/manual-gross-profit`)*
 
 ### Tests
-- [x] Known/estimated/unknown cost cases.
-- [x] DOP calculation.
-- [x] USD division/rate-direction tests.
-- [ ] FX timeout/error still confirms sale.
-- [x] Retry never reruns sale or changes payments.
-- [x] Seller profit endpoint/field denial.
-- [x] Administrator-recorded unknown-cost profit; denial for seller, pending FX, and already-calculated invoices.
+- [x] Known/estimated/unknown cost cases. *(API R2 M13: unit + HTTP. PATCH de línea: un cambio de precio no pisa provenance; UNKNOWN no persiste como cero — `cost-provenance-http.test.ts`)*
+- [x] DOP calculation. *(API R2 M13)*
+- [x] USD division/rate-direction tests. *(API R2 M15)*
+- [x] FX timeout/error still confirms sale. *(API R2 M15)*
+- [x] Retry never reruns sale or changes payments. *(API R2 M16)*
+- [x] Seller profit endpoint/field denial. *(API R2 M13: omisión de campos en GET/confirm/list)*
+- [x] Administrator-recorded unknown-cost profit; denial for seller, pending FX, and already-calculated invoices. *(API R2 M14)*
 
 ## Canonical validated requirements
 
@@ -127,7 +129,7 @@ The blocks below are the final reconciled requirements retained from the previou
 **Business Reason:** The owner wants profitability statistics in pesos. Cost is stored in one currency; a `USD` invoice still needs an exchange rate so its dollar profit can be converted to pesos and added to the DOP gross-profit total.  
 **Preconditions:** A known actual or estimated `DOP` cost basis exists for calculation. A `USD` invoice additionally needs an applicable exchange rate.  
 **Main Flow:** Confirmation snapshots final price, the `DOP` cost basis, and provenance. For a `DOP` invoice the system subtracts the stored `DOP` cost directly, for example `DOP 18,000.00` minus `DOP 12,300.00` giving `DOP 5,700.00`. For a `USD` invoice the system obtains an applicable exchange rate from the external FX-rate provider, normalizes it to `exchangeRateDopPerUsd`, derives `costUsd = storedCostDop / exchangeRateDopPerUsd`, subtracts that USD-equivalent basis from the `USD` selling price, then converts that `profitUsd` to pesos with `profitDop = profitUsd * exchangeRateDopPerUsd` for administrator reporting and aggregation. When cost is unknown or a required rate is unavailable, profit is recorded as unavailable for authorized administration.  
-**Business Rules:** This is gross profit, not full accounting net profit; unknown cost is not zero cost and the system must never invent profit; displayed invoice profitability values use two decimal places. An Administrator may separately record a judged amount under COST-005 without changing stored acquisition cost. The stored `DOP` acquisition cost is never changed by a profitability calculation. `exchangeRateDopPerUsd` means the `DOP` required for `1 USD`, so `1 USD = DOP 61.50` gives `61.50`; a provider returning the inverse or another representation must be normalized to this convention before calculating. A successful `USD` calculation preserves the normalized rate value, the provider or source, the relevant rate date/time, and the time the rate was obtained and the calculation completed. A completed profitability result must not silently change because live rates moved. Conversion here is only a profitability calculation and never authorizes cross-currency invoices, payments, balances, or refunds.  
+**Business Rules:** This is gross profit, not full accounting net profit; unknown cost is not zero cost and the system must never invent profit. If any applicable line has unknown cost, sale-level profitability is `UNAVAILABLE / UNKNOWN_COST`; the system must not omit that line and present the sum of known lines as the sale's total profit. Lines with known costs retain their individual calculated result. USD conversion intermediates retain full decimal precision; only final displayed profitability values use two decimal places. An Administrator may separately record a judged amount under COST-005 without changing stored acquisition cost. The stored `DOP` acquisition cost is never changed by a profitability calculation. `exchangeRateDopPerUsd` means the `DOP` required for `1 USD`, so `1 USD = DOP 61.50` gives `61.50`; a provider returning the inverse or another representation must be normalized to this convention before calculating. A successful `USD` calculation preserves the normalized rate value, the provider or source, the relevant rate date/time, and the time the rate was obtained and the calculation completed. A completed profitability result must not silently change because live rates moved. Conversion here is only a profitability calculation and never authorizes cross-currency invoices, payments, balances, or refunds.  
 **Important Exceptions/Edge Cases:** An unavailable FX provider must not reject invoice confirmation, block the sale, block reservation consumption, or block inventory becoming `Sold`, and must not invent a rate or a profit; the invoice confirms normally and profitability becomes `UNAVAILABLE / PENDING FX RATE` with a reason such as `Exchange rate unavailable for USD profitability calculation.` A later safe retry may complete the calculation once the applicable rate is available, preserving the rate provenance without rerunning the sale, reselling inventory, modifying payments, or reconfirming the PDF as a sale; recovery must not present an unrelated later live rate as though it had been the sale-time rate. An audited `Completed`/no-payment currency correction under INV-006 invalidates any manual gross-profit value associated with the obsolete currency, preserves that value in history, and re-derives profitability under the corrected currency. Estimated-cost profit is allowed but must remain distinguishable from actual-cost profit; quantity stock uses weighted average and assembly components are never automatically allocated cost.  
 **Dependencies:** COST-001, COST-002, QTY-003.  
 **Acceptance Notes:** A `DOP` invoice calculates profit with no exchange rate involved; a `USD` invoice divides the stored `DOP` cost by `exchangeRateDopPerUsd`, preserves the rate and its provenance, then reports `profitUsd * exchangeRateDopPerUsd` in pesos on profitability screens and in the DOP gross-profit total; actual and estimated examples calculate correctly with provenance; unknown-cost examples show profit unavailable rather than a numeric result; an unavailable rate leaves a valid confirmed sale with pending profitability rather than a rejected sale or an invented number.
@@ -158,7 +160,7 @@ The blocks below are the final reconciled requirements retained from the previou
 **Business Reason:** Some sold lines (generic/external/component without known cost) otherwise stay permanently unavailable on profitability screens, even though the owner can judge the result.  
 **Preconditions:** The invoice is completed; calculated profit is unavailable due to unknown cost, not pending FX; the actor is Administrator.  
 **Main Flow:** Administrator opens profitability, chooses a row showing unavailable profit, enters a `DOP` amount; the system stores that amount as administrator-recorded (not as invented cost), appends history with actor and before/after values, and includes it in administrator `DOP` totals.  
-**Business Rules:** Recording profit does not set unknown cost to zero, does not rewrite line prices, payments, inventory, or invoice status, and does not convert currencies. Calculated profit always takes precedence over a recorded amount if cost later becomes calculable. A later edit of a recorded amount is additive history with before/after values. Seller and Mechanic are denied.  
+**Business Rules:** Recording profit does not set unknown cost to zero, does not rewrite line prices, payments, inventory, or invoice status, and does not convert operational monetary records. Because the recorded amount and Administrator profitability reporting are in `DOP`, its margin uses the selling-price denominator in `DOP`; for a `USD` invoice with a preserved rate, convert the invoice selling total to `DOP` with that rate before calculating the margin. Calculated profit always takes precedence over a recorded amount if cost later becomes calculable. A later edit of a recorded amount is additive history with before/after values. Seller and Mechanic are denied.  
 **Important Exceptions/Edge Cases:** Zero and negative amounts are allowed (break-even or loss). Blank or non-numeric amounts are rejected. Pending FX remains the retry path. Estimated cost already yields a calculated result and cannot be replaced by this command.  
 **Dependencies:** COST-003, COST-004, HIST-003.  
-**Acceptance Notes:** Unknown-cost invoices can receive a numbered `DOP` profit with provenance `MANUAL`; calculated invoices cannot; pending-FX invoices cannot; sellers are denied; totals include the recorded amount.
+**Acceptance Notes:** Unknown-cost invoices can receive a numbered `DOP` profit with provenance `MANUAL`; calculated invoices cannot; pending-FX invoices cannot; sellers are denied; totals include the recorded amount. For a `USD 100.00` selling total at a preserved `60.00` rate, a manual profit of `DOP 3,000.00` reports a `50.00%` margin.

@@ -9,6 +9,7 @@ import { WorkOrdersPage } from '../../../src/features/work-orders/WorkOrdersPage
 import { WorkOrderDetailPage } from '../../../src/features/work-orders/WorkOrderDetailPage';
 import { resetMockState } from '../../../src/mocks/state';
 import { createAuthValue, renderWithProviders } from '../../support/render';
+import { chooseSelectOption } from '../../support/select-menu';
 import { signInAs } from '../../support/session';
 import '../../support/dom';
 
@@ -95,7 +96,7 @@ describe('WorkOrdersPage', () => {
     await user.click(screen.getByRole('button', { name: 'Nueva orden de trabajo' }));
 
     const dialog = await screen.findByRole('dialog');
-    await user.selectOptions(within(dialog).getByLabelText('Pieza'), 'MOT-001');
+    await chooseSelectOption(user, 'Pieza', 'MOT-001', dialog);
     await user.click(within(dialog).getByRole('button', { name: 'Crear orden de trabajo' }));
 
     expect(await screen.findByRole('heading', { name: 'OD-DEMO-064' })).toBeVisible();

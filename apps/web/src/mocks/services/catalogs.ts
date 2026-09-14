@@ -271,18 +271,24 @@ export function prepareCategoryStateChange(
 }
 
 export function prepareServiceSave(services: Service[], input: SaveServiceInput): Result<Service> {
-  const name = optionalText(input.name);
+  const existing = 'id' in input
+    ? services.find((service) => service.id === input.id)
+    : undefined;
+  if ('id' in input && !existing) {
+    return err({ code: 'NOT_FOUND', message: 'Servicio no encontrado' });
+  }
+  if ('id' in input && input.name === undefined && input.active === undefined) {
+    return err({ code: 'VALIDATION', message: 'No hay cambios para guardar' });
+  }
+
+  const name = input.name === undefined ? existing?.name : optionalText(input.name);
   if (!name) {
     return err({ code: 'VALIDATION', message: 'El nombre del servicio es obligatorio' });
   }
 
-  const existing = input.id ? services.find((service) => service.id === input.id) : undefined;
-  if (input.id && !existing) {
-    return err({ code: 'NOT_FOUND', message: 'Servicio no encontrado' });
-  }
-
   const duplicateName = services.some(
-    (service) => service.name.toLowerCase() === name.toLowerCase() && service.id !== input.id,
+    (service) =>
+      service.name.toLowerCase() === name.toLowerCase() && service.id !== existing?.id,
   );
   if (duplicateName) {
     return err({ code: 'CONFLICT', message: 'Ya existe un servicio con ese nombre' });
@@ -291,6 +297,6 @@ export function prepareServiceSave(services: Service[], input: SaveServiceInput)
   return ok({
     id: existing?.id ?? nextServiceId(services, name),
     name,
-    active: input.active,
+    active: input.active ?? existing?.active ?? true,
   });
 }

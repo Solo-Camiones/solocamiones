@@ -2,9 +2,9 @@ import { useEffect, useState } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 
 import { useAuth } from '../../features/auth/useAuth';
-import { APP_NAME } from '../config/brand';
 import { useAppCapabilities } from '../config/CapabilitiesProvider';
-import { Button } from '../ui';
+import { BrandMark, Button } from '../ui';
+import { ChevronLeftIcon, XIcon } from '../ui/icons';
 import { COMMERCIAL_SIDEBAR_ID } from './breakpoints';
 import { CommercialSidebar } from './CommercialSidebar';
 import { DemoControls } from './DemoControls';
@@ -75,9 +75,7 @@ export function AppShell() {
       aria-expanded
       onClick={() => setCompactCollapsed(true)}
     >
-      <span aria-hidden className="text-lg leading-none">
-        ‹
-      </span>
+      <ChevronLeftIcon />
     </Button>
   );
 
@@ -89,12 +87,12 @@ export function AppShell() {
       aria-label="Cerrar menú"
       onClick={closeOverlayNav}
     >
-      ✕
+      <XIcon />
     </Button>
   );
 
   return (
-    <div className="flex h-dvh">
+    <div className="flex h-dvh overflow-hidden">
       {showInlineSidebar ? (
         <CommercialSidebar
           role={user.role}
@@ -125,16 +123,18 @@ export function AppShell() {
             </Button>
           ) : null}
 
-          <p className="min-w-0 flex-1 truncate text-sm text-navy-400">
-            {capabilities.prototypeControls ? `Prototipo ${APP_NAME}` : APP_NAME}
-          </p>
+          <BrandMark
+            className="min-w-0 flex-1"
+            showLogo={showMenuButton}
+            eyebrow={capabilities.prototypeControls ? 'Prototipo' : undefined}
+          />
           <div className="flex shrink-0 items-center gap-2 sm:gap-3">
             {!user.mustChangePassword && <DemoControls />}
             <UserMenu user={user} onLogout={logout} />
           </div>
         </header>
 
-        <main className="min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto">
+        <main className="min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-y-contain">
           <div className="mx-auto min-w-0 max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
             <Outlet />
           </div>

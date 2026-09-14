@@ -47,15 +47,15 @@ export function SalesTable({ rows, hasQuery = false }: SalesTableProps) {
               <InvoiceStatusChip status={row.status} />
             </td>
             <td className="px-4 py-3">
-              {row.status === 'DRAFT' ? (
-                <span className="text-navy-400">—</span>
-              ) : (
+              {row.status === 'COMPLETED' ? (
                 <PaymentChip state={row.paymentState} />
+              ) : (
+                <span className="text-navy-400">—</span>
               )}
             </td>
             <td className="px-4 py-3 text-right font-mono">{money(row.total, row.currency)}</td>
             <td className="px-4 py-3 text-right font-mono">
-              {row.status === 'COMPLETED' ? money(row.balance, row.currency) : '—'}
+              {row.status !== 'DRAFT' ? money(row.balance, row.currency) : '—'}
             </td>
           </HoverRow>
         ))}

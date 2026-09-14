@@ -16,6 +16,7 @@ export type Toast = {
   id: string;
   message: string;
   tone: ToastTone;
+  durationMs: number;
   action?: ToastAction;
 };
 

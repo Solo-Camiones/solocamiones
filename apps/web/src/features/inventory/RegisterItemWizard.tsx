@@ -269,6 +269,8 @@ export function RegisterItemWizard({
                 <Select
                   id="register-category"
                   value={item.categoryId}
+                  searchable
+                  searchPlaceholder="Buscar categoría"
                   onChange={(event) =>
                     patchItem({ categoryId: event.target.value, attributes: undefined })
                   }

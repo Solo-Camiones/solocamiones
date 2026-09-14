@@ -1,8 +1,13 @@
 import type { ReactNode } from 'react';
+import { useEffect } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 
 import { useAuth } from '../../features/auth/useAuth';
 import { useAppCapabilities } from '../config/CapabilitiesProvider';
+import {
+  clearDiscardedLoginReturnPath,
+  resolvePostLoginRequestedPath,
+} from './login-return-path';
 import { postLoginPath } from './navigation';
 
 export type GuestRouteProps = {
@@ -33,6 +38,12 @@ export function GuestRoute({ children }: GuestRouteProps) {
   const location = useLocation();
   const capabilities = useAppCapabilities();
 
+  useEffect(() => {
+    if (user) {
+      clearDiscardedLoginReturnPath();
+    }
+  }, [user]);
+
   if (isLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-shell text-white">
@@ -47,7 +58,11 @@ export function GuestRoute({ children }: GuestRouteProps) {
     }
     return (
       <Navigate
-        to={postLoginPath(resolveReturnPath(location.state), user.role, capabilities)}
+        to={postLoginPath(
+          resolvePostLoginRequestedPath(resolveReturnPath(location.state)),
+          user.role,
+          capabilities,
+        )}
         replace
       />
     );

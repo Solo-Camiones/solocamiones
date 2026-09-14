@@ -33,6 +33,60 @@
   --color-amber-900: #78350f;
 
   --color-surface: #f1f5f9;
+
+  /* Animaciones personalizadas para UI (Modales, Toasts, Drawers) */
+  --animate-fade-in: fade-in 150ms ease-out forwards;
+  --animate-fade-out: fade-out 150ms ease-in forwards;
+  
+  --animate-scale-in: scale-in 150ms ease-out forwards;
+  --animate-scale-out: scale-out 150ms ease-in forwards;
+  
+  --animate-slide-in-left: slide-in-left 200ms ease-out forwards;
+  --animate-slide-out-left: slide-out-left 200ms ease-in forwards;
+  
+  --animate-slide-up-in: slide-up-in 200ms ease-out forwards;
+  --animate-slide-up-out: slide-up-out 200ms ease-in forwards;
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes fade-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+  
+  @keyframes scale-in {
+    from { opacity: 0; transform: scale(0.95); }
+    to { opacity: 1; transform: scale(1); }
+  }
+  @keyframes scale-out {
+    from { opacity: 1; transform: scale(1); }
+    to { opacity: 0; transform: scale(0.95); }
+  }
+  
+  @keyframes slide-in-left {
+    from { transform: translateX(-100%); }
+    to { transform: translateX(0); }
+  }
+  @keyframes slide-out-left {
+    from { transform: translateX(0); }
+    to { transform: translateX(-100%); }
+  }
+  
+  @keyframes slide-up-in {
+    from { opacity: 0; transform: translateY(1rem); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes slide-up-out {
+    from { opacity: 1; transform: translateY(0); }
+    to { opacity: 0; transform: translateY(1rem); }
+  }
+
+@keyframes toast-progress {
+  from { width: 100%; }
+  to { width: 0%; }
 }
 
 body {

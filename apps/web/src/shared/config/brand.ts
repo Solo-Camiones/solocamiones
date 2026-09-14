@@ -1,5 +1,5 @@
 /** Nombre comercial visible en la UI. Mantener en sync con apps/web/index.html <title>. */
-export const APP_NAME = 'SoloCamiones';
+export const APP_NAME = 'SOLO CAMIONES';
 
 /** Logo principal: apps/web/src/shared/assets/brand/SoloCamionesLogo.png */
 /** Favicon (pestaña): apps/web/public/favicon.png — copia del logo; actualizar ambos si cambia. */

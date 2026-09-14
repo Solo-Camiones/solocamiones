@@ -10,6 +10,8 @@ The old consolidated requirements/validation files are intentionally no longer r
 
 **Release 4 — Base Inventory**
 
+**Implementation (2026-09-10):** Production API **not started**. Frontend `[x]` is prototype mock.
+
 ## What this feature does
 
 Support interchangeable products tracked by quantity rather than individual physical identity, including safe receipts, reservations, sales, weighted-average cost, and audited corrections.

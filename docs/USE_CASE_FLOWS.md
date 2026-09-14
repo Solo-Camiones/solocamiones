@@ -247,7 +247,7 @@ For quantity stock, `availableToReserve = physical/on-hand quantity - currently 
 
 1. The actor reviews the reserved item, customer, final negotiated price, taxes, and Payment State expected at confirmation.
 2. Confirmation revalidates the Draft and reservation.
-3. Atomically, the invoice becomes `Completed`, receives the next shared internal number such as `FAC-000101`, the item changes `Available → Sold`, the reservation is consumed, same-currency initial payments are appended, and history is recorded.
+3. Atomically, the invoice becomes `Completed`, receives the next shared internal number such as `FAC-000101`, the item changes `Available → Sold`, the reservation is consumed, same-currency initial payments are appended, and history is recorded. If the customer is `Cliente contado`, confirmation is rejected unless that initial payment equals the invoice total.
 4. Profitability is derived after that commercial transaction. A `DOP` invoice subtracts the stored `DOP` cost directly. A `USD` invoice converts the stored `DOP` cost with `exchangeRateDopPerUsd` and preserves the normalized rate and its provenance; if the rate cannot be obtained, the confirmation above still stands and profitability becomes `UNAVAILABLE / PENDING FX RATE`.
 
 **State Result:** Physical Relationship stays `Independent`. Payment State may be `Unpaid`, `Partially Paid`, or `Paid`; all are valid with `Sold`. A pending profitability result does not change any of these states.
