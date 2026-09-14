@@ -1,4 +1,4 @@
-﻿# Milestone 8 — WM8: Punto de venta y borradores (POS)
+# Milestone 8 — WM8: Punto de venta y borradores (POS)
 
 | Campo          | Valor                                                          |
 | -------------- | -------------------------------------------------------------- |
@@ -94,9 +94,9 @@ apps/web/src/
 ## 6. Verificación
 
 ```bash
-npm run typecheck -w @truck-parts/web
-npm run typecheck:test -w @truck-parts/web
-npm test -w @truck-parts/web
+npm run typecheck -w @solocamiones/web
+npm run typecheck:test -w @solocamiones/web
+npm test -w @solocamiones/web
 ```
 
 Resultado: 26 archivos de prueba frontend y 170 pruebas aprobadas. Incluye las pruebas WM7 de listado, detalle, pagos, cancelación y PDF.

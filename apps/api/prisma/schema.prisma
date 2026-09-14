@@ -30,6 +30,9 @@ model User {
   recoveryRequests   PasswordRecoveryRequest[] @relation("RecoverySubject")
   resolvedRecoveries PasswordRecoveryRequest[] @relation("RecoveryResolver")
   historyEvents      HistoryEvent[]
+  confirmedInvoices  Invoice[]                 @relation("InvoiceConfirmedBy")
+  cancelledInvoices  Invoice[]                 @relation("InvoiceCancelledBy")
+  invoicePayments    InvoicePayment[]
 }
 
 enum HistoryActorType {
@@ -86,4 +89,180 @@ model Session {
 
   @@index([userId])
   @@index([expiresAt])
+}
+
+model Customer {
+  id        String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name      String
+  rnc       String?           @unique
+  address   String?
+  notes     String?
+  isDefault Boolean           @default(false)
+  createdAt DateTime          @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime          @updatedAt @db.Timestamptz(3)
+  contacts  CustomerContact[]
+  invoices  Invoice[]
+
+  @@index([name])
+}
+
+model CustomerContact {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  customerId String   @db.Uuid
+  name       String?
+  phone      String?
+  email      String?
+  title      String?
+  isPrimary  Boolean  @default(false)
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([customerId])
+}
+
+model MechanicalService {
+  id           String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name         String
+  description  String?
+  active       Boolean       @default(true)
+  createdAt    DateTime      @default(now()) @db.Timestamptz(3)
+  updatedAt    DateTime      @updatedAt @db.Timestamptz(3)
+  invoiceLines InvoiceLine[]
+
+  @@index([active, name])
+}
+
+enum InvoiceStatus {
+  DRAFT
+  COMPLETED
+  CANCELLED
+}
+
+enum InvoiceCurrency {
+  DOP
+  USD
+}
+
+enum InvoiceLineType {
+  GENERIC
+  SERVICE
+  DELIVERY
+  EXTERNAL
+  ITEM
+  QTY
+}
+
+enum CostProvenance {
+  ACTUAL
+  ESTIMATED
+  UNKNOWN
+}
+
+enum InvoicePdfStatus {
+  READY
+  FAILED
+}
+
+enum PaymentKind {
+  PAYMENT
+  REFUND
+}
+
+enum PaymentMethod {
+  CASH
+  TRANSFER
+  CHECK
+}
+
+model Invoice {
+  id           String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  status       InvoiceStatus
+  currency     InvoiceCurrency
+  fiscal       Boolean
+  customerId   String          @db.Uuid
+  number       String?         @unique
+  confirmedAt  DateTime?       @db.Timestamptz(3)
+  dueDate      DateTime?       @db.Date
+  customerName String?
+  customerRnc  String?
+  customerPhone String?
+  confirmedByUserId String?     @db.Uuid
+  confirmedByName   String?
+  cancelledAt       DateTime?   @db.Timestamptz(3)
+  cancelReason      String?
+  cancelledByUserId String?     @db.Uuid
+  cancelledByName   String?
+  cancellationIdempotencyKey String? @db.VarChar(100)
+  gross        Decimal?        @db.Decimal(12, 2)
+  base         Decimal?        @db.Decimal(12, 2)
+  itbis        Decimal?        @db.Decimal(12, 2)
+  manualGrossProfitDop Decimal?  @db.Decimal(12, 2)
+  manualGrossProfitAt  DateTime? @db.Timestamptz(3)
+  exchangeRateDopPerUsd Decimal?  @db.Decimal(18, 8)
+  fxRateSource          String?
+  fxRateUpdatedAt       DateTime? @db.Timestamptz(3)
+  fxRateObtainedAt      DateTime? @db.Timestamptz(3)
+  pdfStatus             InvoicePdfStatus?
+  pdfErrorId            String?           @db.Uuid
+  pdfGeneratedAt        DateTime?         @db.Timestamptz(3)
+  pdfTemplateVersion    String?
+  createdAt    DateTime        @default(now()) @db.Timestamptz(3)
+  updatedAt    DateTime        @updatedAt @db.Timestamptz(3)
+  customer     Customer        @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  confirmedBy  User?           @relation("InvoiceConfirmedBy", fields: [confirmedByUserId], references: [id], onDelete: Restrict)
+  cancelledBy  User?           @relation("InvoiceCancelledBy", fields: [cancelledByUserId], references: [id], onDelete: Restrict)
+  lines        InvoiceLine[]
+  payments     InvoicePayment[]
+
+  @@index([customerId])
+  @@index([confirmedByUserId])
+  @@index([cancelledByUserId])
+  @@index([dueDate])
+}
+
+model InvoicePayment {
+  id             String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  invoiceId      String          @db.Uuid
+  kind           PaymentKind
+  amount         Decimal         @db.Decimal(12, 2)
+  currency       InvoiceCurrency
+  method         PaymentMethod
+  effectiveDate  DateTime        @db.Date
+  reference      String?
+  actorUserId    String          @db.Uuid
+  idempotencyKey String?
+  createdAt      DateTime        @default(now()) @db.Timestamptz(3)
+  invoice        Invoice         @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
+  actor          User            @relation(fields: [actorUserId], references: [id], onDelete: Restrict)
+
+  @@unique([invoiceId, idempotencyKey])
+  @@index([invoiceId, effectiveDate, createdAt])
+  @@index([actorUserId])
+}
+
+model InvoiceLine {
+  id                 String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  invoiceId          String             @db.Uuid
+  type               InvoiceLineType
+  description        String
+  notes              String?
+  quantity           Decimal            @default(1) @db.Decimal(12, 2)
+  unitPrice          Decimal            @db.Decimal(12, 2)
+  acquisitionCostDop Decimal?           @db.Decimal(12, 2)
+  costProvenance     CostProvenance?
+  serviceId          String?            @db.Uuid
+  gross              Decimal?           @db.Decimal(12, 2)
+  base               Decimal?           @db.Decimal(12, 2)
+  itbis              Decimal?           @db.Decimal(12, 2)
+  createdAt          DateTime           @default(now()) @db.Timestamptz(3)
+  invoice            Invoice            @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  service            MechanicalService? @relation(fields: [serviceId], references: [id], onDelete: Restrict)
+
+  @@index([invoiceId])
+  @@index([serviceId])
+  // Partial unique InvoiceLine_one_delivery_per_invoice is defined in SQL.
+}
+
+model InvoiceSequence {
+  name      String @id
+  nextValue Int
 }

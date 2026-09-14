@@ -1,4 +1,4 @@
-﻿# Milestone 6 — WM6: Registro de inventario
+# Milestone 6 — WM6: Registro de inventario
 
 | Campo          | Valor                                                                |
 | -------------- | -------------------------------------------------------------------- |
@@ -70,9 +70,9 @@ apps/web/src/
 ## 6. Verificación
 
 ```bash
-npm run typecheck -w @truck-parts/web
-npm run typecheck:test -w @truck-parts/web
-npm run test -w @truck-parts/web
+npm run typecheck -w @solocamiones/web
+npm run typecheck:test -w @solocamiones/web
+npm run test -w @solocamiones/web
 npm run lint -- --quiet
 ```
 

@@ -10,6 +10,8 @@ The old consolidated requirements/validation files are intentionally no longer r
 
 **Release 4, with expected-component definitions also used by Release 6 hierarchy baseline**
 
+**Implementation (2026-09-10):** Inventory category/attribute persistence **not started**. Mechanical **service** catalog is a different module (Release 2 `/api/catalogs/services`). Prototype `/catalogs` category UI is mock-only.
+
 ## What this feature does
 
 Give Administrator-controlled categories, small category-specific field sets, and expected-component definitions without turning the system into a generic metadata/BOM platform.

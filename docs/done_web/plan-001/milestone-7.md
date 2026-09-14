@@ -1,4 +1,4 @@
-﻿# Milestone 7 — WM7: Ventas, detalle, pagos y cancelación
+# Milestone 7 — WM7: Ventas, detalle, pagos y cancelación
 
 | Campo          | Valor                                                                          |
 | -------------- | ------------------------------------------------------------------------------ |
@@ -70,8 +70,8 @@ apps/web/src/
 ## 6. Verificación
 
 ```bash
-npm run typecheck -w @truck-parts/web
-npm run typecheck:test -w @truck-parts/web
+npm run typecheck -w @solocamiones/web
+npm run typecheck:test -w @solocamiones/web
 npx vitest run tests/unit/mocks/services/sales.test.ts tests/integration/mocks/repositories/sales.repository.test.ts tests/component/sales
 ```
 

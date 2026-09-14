@@ -74,8 +74,8 @@ apps/web/tests/unit/shared/config/capabilities.test.ts
 ## 5. Cómo verificar
 
 ```bash
-npm run test:unit -w @truck-parts/web
-npm run test:component -w @truck-parts/web
+npm run test:unit -w @solocamiones/web
+npm run test:component -w @solocamiones/web
 ```
 
 En local: `VITE_CAPABILITIES_PRESET=release-1` y reiniciar Vite. Inventario no debe aparecer en el menú; `/inventory` debe quedar bloqueado. El login no debe mostrar usuarios de prueba. Volver a `prototype` (o quitar la variable) restaura el demo completo.

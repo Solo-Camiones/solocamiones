@@ -10,6 +10,8 @@ The old consolidated requirements/validation files are intentionally no longer r
 
 **Release 2 Billing Core starts this feature; Release 5/7 complete inventory-backed and installed/assembly sale paths**
 
+**Implementation (2026-09-10):** Release 2 non-inventory lines, confirm/`FAC-`, PDF generate/regenerate, and HTTP POS/detail/PDF are done. Invoice detail HTTP shows **document activity** from history (confirm, payment, PDF, cancel; not draft/line churn — Feature 14). Confirm may record a **pulled-forward** initial payment and `dueDate` (Feature 12). Release 5/7 checklist `[x]` items are **prototype mock**; HTTP API still rejects ITEM/QTY with 409.
+
 ## What this feature does
 
 Provide Draft/Completed/Cancelled internal invoices, a shared FAC sequence, DOP/USD single-currency behavior, validated line types, included ITBIS, printable PDF output, and atomic confirmation semantics.
@@ -51,11 +53,13 @@ For fast financial delivery, the first production slice may enable non-inventory
 
 Each invoice uses exactly one currency (`DOP` or `USD`). Line amounts, invoice totals, payments, balances, and refunds use that currency. There is no operational currency conversion.
 
+Every line may include optional `notes`, independent of `description`. Notes are at most 100 characters, allow internal line breaks, treat blank/whitespace as absent, can be set when adding a line or edited in Draft (Seller and Administrator), freeze on Completed, and display below the description as secondary text on POS, invoice detail, and the internal PDF. Notes never change tax, inventory, or money.
+
 Taxable merchandise/product line prices are entered **tax-inclusive**. Derive taxable base and included 18% ITBIS; do not add 18% on top. Mechanical service and delivery are non-taxable. Calculate/round every line to two decimals first, then sum the already-rounded lines.
 
 Confirmation is a coordinating service/transaction. For inventory-backed paths it revalidates reservation, stock, hierarchy, `No desarmar`, and active physical operations before atomically committing sale state. Installed-item confirmation marks the piece `Sold` but keeps it `Installed` and creates/reuses a Dismantling Work Order; physical relation changes later at Work-Order completion.
 
-Invoice PDF rendering is secondary to sale validity. Preserve all invoice facts needed for deterministic regeneration, include a blank `NCF: ______________________`, and never imply DGII/NCF/e-CF integration.
+Invoice PDF rendering is secondary to sale validity. Preserve all invoice facts needed for deterministic regeneration, including confirmation seller, customer phone and fixed due date; historical rows leave non-reconstructable seller/phone snapshots blank. The current color template uses the Solo Camiones logo and fixed business identity, a sober industrial layout, line table, totals, current outstanding balance, thank-you message and Seller/Customer signature spaces. It includes a blank `NCF: ______________________` and never implies DGII/NCF/e-CF integration. Payment movements remain private in the invoice detail; the customer PDF shows only the current balance and the timestamp when that balance was calculated. A newly downloaded Cancelled invoice preserves original commercial facts and adds a prominent cancellation mark, reason, date and Administrator.
 
 ## Feature-level acceptance criteria
 
@@ -73,37 +77,42 @@ Invoice PDF rendering is secondary to sale validity. Preserve all invoice facts 
 ## Implementation checklist
 
 ### Release 2 — Billing Core
+
 - [x] Invoice aggregate and Draft/Completed/Cancelled state model.
-- [x] DOP/USD single-currency rule. *(prototipo mock — WM8)*
-- [x] Shared transactional `FAC-` sequence. *(prototipo mock — `facSeq`; un hilo)*
-- [x] Customer snapshot integration. *(prototipo mock — WM8)*
-- [x] Generic merchandise line. *(prototipo mock — WM8)*
-- [x] Mechanical service catalog selection + negotiated price. *(prototipo mock — WM8)*
-- [x] Delivery paid/free/omitted line. *(prototipo mock — WM8)*
-- [x] External resale line if its cost dependency is enabled. *(prototipo mock — WM8)*
+- [x] DOP/USD single-currency rule. _(prototipo mock — WM8)_
+- [x] Shared transactional `FAC-` sequence. _(prototipo mock — `facSeq`; API R2 M12: lock + `FAC-000001`, DOP/USD compartida)_
+- [x] Customer and confirmation snapshot integration. _(API: customer name/RNC/primary phone, confirming Seller and fixed due date)_
+- [x] Generic merchandise line. _(prototipo mock — WM8; API draft HTTP — R2 M8)_
+- [x] Mechanical service catalog selection + negotiated price. _(prototipo mock — WM8; catálogo HTTP Admin — R2 M4/M20; selección POS HTTP — R2 M21)_
+- [x] Delivery paid/free/omitted line. _(prototipo mock — WM8; API draft HTTP — R2 M10)_
+- [x] Optional per-line notes (independent of description; Draft edit; frozen on confirm; POS, detail, PDF).
+- [x] External resale line if its cost dependency is enabled. _(prototipo mock — WM8; API draft HTTP — R2 M11)_
 - [x] Tax-inclusive 18% calculation and per-line rounding.
-- [x] Printable/regenerable internal PDF with blank NCF field.
-- [ ] Explicitly reject unavailable inventory-backed line actions until their feature release. *(superseded in the mock: WM8 already sells inventory-backed lines)*
+- [x] Printable/regenerable branded internal PDF with logo, blank NCF, balance/state, pagination, signatures and Cancelled rendering. _(API template `internal-v3`; UI preview/download and Administrator regeneration)_
+- [x] Explicitly reject unavailable inventory-backed line actions until their feature release. _(API R2 M8: ITEM/QTY 409; POS HTTP M21: capabilities apagan ITEM/QTY)_
 
-### Release 5 — Inventory-backed sales
-- [x] Individual inventory line. *(prototipo mock — WM8)*
-- [x] Quantity product line. *(prototipo mock — WM8)*
-- [x] Reservation ownership/revalidation. *(prototipo mock — WM8)*
-- [x] Atomic independent-item Sold transition. *(prototipo mock — WM8)*
-- [x] Atomic quantity consumption. *(prototipo mock — WM8)*
+### Release 5 — Inventory-backed sales (prototype mock only — production API not started)
 
-### Release 7 — Hierarchy-linked sales
-- [x] Installed-piece sale + Dismantling create-or-reuse. *(prototipo mock — WM8; completar desarme es WM10)*
-- [x] Complete-assembly subtree validation/snapshot. *(prototipo mock — bloqueo por OT activa; marca Sold; snapshot inmutable `deliveredAssemblies`)*
+- [x] Individual inventory line. _(prototipo mock — WM8; API 409)_
+- [x] Quantity product line. _(prototipo mock — WM8; API 409)_
+- [x] Reservation ownership/revalidation. _(prototipo mock — WM8)_
+- [x] Atomic independent-item Sold transition. _(prototipo mock — WM8)_
+- [x] Atomic quantity consumption. _(prototipo mock — WM8)_
+
+### Release 7 — Hierarchy-linked sales (prototype mock only — production API not started)
+
+- [x] Installed-piece sale + Dismantling create-or-reuse. _(prototipo mock — WM8; completar desarme es WM10)_
+- [x] Complete-assembly subtree validation/snapshot. _(prototipo mock — bloqueo por OT activa; marca Sold; snapshot inmutable `deliveredAssemblies`)_
 - [ ] Race handling versus hierarchy/Work-Order changes.
 
 ### Tests
+
 - [x] Decimal-safe invoice calculations.
-- [x] FAC uniqueness/non-reuse under concurrency/retry. *(prototipo mock — idempotencia de `confirmInvoice`; un hilo)*
-- [x] Mixed-currency rejection. *(una moneda por factura; el draft no mezcla líneas)*
-- [ ] PDF failure/regeneration without sale rerun.
-- [x] Forced transaction failure leaves no partial sale/inventory/WO state. *(prototipo mock — validar todo antes de mutar)*
-- [x] Duplicate confirmation is idempotent or safely conflicts.
+- [x] FAC uniqueness/non-reuse under concurrency/retry. _(prototipo mock — idempotencia de `confirmInvoice`; API R2 M12: HTTP concurrente + retry idempotente)_
+- [x] Mixed-currency rejection. _(una moneda por factura; el draft no mezcla líneas)_
+- [x] PDF failure/regeneration without sale rerun. _(API R2 M17: fallo simulado no revierte la venta; M18: `POST /api/sales/:id/pdf/regenerate` Administrator, solo `FAILED`; UI HTTP M23: Seller ve el fallo y no regenera)_
+- [x] Forced transaction failure leaves no partial sale/inventory/WO state. _(prototipo mock — validar todo antes de mutar; API R2 M12: fallo de history no consume `FAC-`)_
+- [x] Duplicate confirmation is idempotent or safely conflicts. _(API R2 M12: segundo POST → 200 y el mismo número)_
 
 ## Canonical validated requirements
 
@@ -117,7 +126,7 @@ The blocks below are the final reconciled requirements retained from the previou
 **Requirement:** Internal invoices must have Draft, Completed, and Cancelled states and exactly one currency, `DOP` or `USD`. A unique automatic number using `FAC-` plus an initially six-digit zero-padded sequence is assigned only when a valid Draft is successfully confirmed.  
 **Business Reason:** Sales need an editable preparation stage and immutable completed history.  
 **Main Flow:** Seller or Administrator creates a Draft, selects and may edit its currency, then confirms it or Administrator later cancels it through the cancellation flow. Successful confirmation atomically assigns the next number, such as `FAC-000001`.  
-**Business Rules:** Users never type the internal number; DOP and USD share one sequence; numbers are unique and never reused; cancelled invoices keep their original number; Completed invoices are not edited as drafts or physically deleted.  
+**Business Rules:** Users never type the internal number; DOP and USD share one sequence; numbers are unique and never reused; cancelled invoices keep their original number; Completed invoices are not edited as drafts or physically deleted. Optional line `notes` may be added or edited only while Draft and become immutable with the completed document.  
 **Important Exceptions/Edge Cases:** Failed confirmation consumes no number. Draft currency is normally editable; completed currency follows INV-006 correction rules.  
 **Dependencies:** AUTH-001, HIST-001.  
 **Acceptance Notes:** Allowed state transitions preserve the original document and reject direct deletion.
@@ -164,7 +173,7 @@ The blocks below are the final reconciled requirements retained from the previou
 **Requirement:** The MVP must produce a printable internal PDF invoice with its `FAC-` internal number and the visibly blank field `NCF: ______________________`, and must not communicate with DGII or generate, validate, or assign NCF/e-CF.  
 **Business Reason:** The owner needs internal fiscal/nonfiscal handling without expanding the MVP into government integration.  
 **Main Flow:** Confirmation preserves the invoice; the system renders its printable PDF for the external manual NCF process.  
-**Business Rules:** The internal invoice number is not the NCF. DGII integration, NCF generation/validation/assignment, e-CF, fiscal XML, and fiscal credit notes are outside MVP; thermal printing is not assumed.  
+**Business Rules:** The internal invoice number is not the NCF. DGII integration, NCF generation/validation/assignment, e-CF, fiscal XML, and fiscal credit notes are outside MVP; thermal printing is not assumed. When a line has `notes`, the PDF shows them below that line's `description` as secondary text.  
 **Important Exceptions/Edge Cases:** Document wording must not imply legal capabilities the system lacks; template design remains a later output decision.  
 **Dependencies:** SALE-003.  
 **Acceptance Notes:** A PDF can be produced without external fiscal services and always shows the intentionally blank NCF field.
@@ -179,8 +188,8 @@ The blocks below are the final reconciled requirements retained from the previou
 **Requirement:** An invoice may be sold for immediate payment or on credit, including delivery before full payment, and must track its outstanding balance in the invoice's single currency.  
 **Business Reason:** Credit is normal business operation.  
 **Main Flow:** User records sale terms and initial payments; confirmation calculates the remaining balance.  
-**Business Rules:** Invoice state, payment state, and inventory state remain separate; all payments and balances use the invoice currency, while the preserved acquisition-cost basis remains in `DOP` under COST-001.  
-**Important Exceptions/Edge Cases:** A completed unpaid invoice still has Sold inventory. A valid sale also stands when a `USD` invoice's profitability is pending an exchange rate under COST-003.  
+**Business Rules:** Invoice state, payment state, and inventory state remain separate; all payments and balances use the invoice currency, while the preserved acquisition-cost basis remains in `DOP` under COST-001. `Cliente contado` (`isDefault`) is cash-only: confirmation must settle the gross total in the initial payment (owner decision 2026-09-11). Credit (zero or partial initial payment) remains valid only for named customers.  
+**Important Exceptions/Edge Cases:** A completed unpaid invoice still has Sold inventory. A valid sale also stands when a `USD` invoice's profitability is pending an exchange rate under COST-003. Confirming `Cliente contado` without a full initial payment is rejected.  
 **Dependencies:** SALE-002, PAY-001, PAY-002.  
 **Acceptance Notes:** Fully paid, partially paid, and unpaid completed invoices show correct balances.
 
@@ -319,7 +328,7 @@ The blocks below are the final reconciled requirements retained from the previou
 **Requirement:** An invoice may omit delivery, include delivery with a positive charged amount, or include provided no-charge delivery with numeric monetary amount `0`.  
 **Business Reason:** Delivery is sometimes billed and sometimes provided to selected customers.  
 **Main Flow:** If delivery applies, the user adds it, records a description and a nonnegative numeric amount, then confirms.  
-**Business Rules:** Delivery is non-taxable; all displayed delivery amounts use two decimal places; free delivery uses numeric `0`, never textual `N/A` or another nonnumeric monetary placeholder.  
-**Important Exceptions/Edge Cases:** No delivery line is required when delivery is not part of the invoice; charged delivery must use a positive numeric amount.  
+**Business Rules:** A delivery line requires a nonempty description; an invoice has at most one delivery line; delivery is non-taxable; all displayed delivery amounts use two decimal places; free delivery uses numeric `0`, never textual `N/A` or another nonnumeric monetary placeholder.  
+**Important Exceptions/Edge Cases:** No delivery line is required when delivery is not part of the invoice; charged delivery must use a positive numeric amount; concurrent attempts to add a second delivery line safely conflict without creating a duplicate.  
 **Dependencies:** SALE-002, COST-002.  
-**Acceptance Notes:** Charged delivery displays its positive amount; provided free delivery displays `RD$0`; an absent delivery creates no line.
+**Acceptance Notes:** Charged delivery displays its positive amount; provided free delivery displays `RD$0`; an absent delivery creates no line; missing or blank descriptions are rejected; a second delivery line returns a conflict.

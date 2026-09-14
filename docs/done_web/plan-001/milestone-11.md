@@ -1,4 +1,4 @@
-﻿# Milestone 11 — WM11: Catálogos y usuarios (admin)
+# Milestone 11 — WM11: Catálogos y usuarios (admin)
 
 | Campo          | Valor                                                           |
 | -------------- | --------------------------------------------------------------- |
@@ -83,9 +83,9 @@ apps/web/src/
 ## 6. Verificación
 
 ```bash
-npm run typecheck -w @truck-parts/web
-npm run typecheck:test -w @truck-parts/web
-npm test -w @truck-parts/web
+npm run typecheck -w @solocamiones/web
+npm run typecheck:test -w @solocamiones/web
+npm test -w @solocamiones/web
 ```
 
 Resultado: 40 archivos de prueba frontend y 251 pruebas aprobadas.

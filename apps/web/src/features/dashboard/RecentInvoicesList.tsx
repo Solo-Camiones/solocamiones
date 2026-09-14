@@ -7,6 +7,13 @@ function paymentTone(state: RecentInvoiceRow['paymentState']) {
   switch (state) {
     case 'PAID':
       return 'success' as const;
+    case 'PAID_LATE':
+      return 'amber' as const;
+    case 'PENDING':
+      return 'amber' as const;
+    case 'OVERDUE':
+    case 'CANCELLED':
+      return 'danger' as const;
     case 'PARTIALLY_PAID':
       return 'amber' as const;
     case 'UNPAID':
@@ -18,6 +25,14 @@ function paymentLabel(state: RecentInvoiceRow['paymentState']) {
   switch (state) {
     case 'PAID':
       return 'Pagada';
+    case 'PAID_LATE':
+      return 'Pagada con retraso';
+    case 'PENDING':
+      return 'Pendiente';
+    case 'OVERDUE':
+      return 'Vencida';
+    case 'CANCELLED':
+      return 'Cancelada';
     case 'PARTIALLY_PAID':
       return 'Parcial';
     case 'UNPAID':
@@ -32,7 +47,10 @@ export type RecentInvoicesListProps = {
 export function RecentInvoicesList({ invoices }: RecentInvoicesListProps) {
   return (
     <section>
-      <SectionTitle title="Facturas recientes" subtitle="Completadas, de la más reciente a la más antigua" />
+      <SectionTitle
+        title="Facturas recientes"
+        subtitle="Completadas, de la más reciente a la más antigua"
+      />
 
       {invoices.length === 0 ? (
         <Empty title="No hay facturas completadas" />
@@ -49,7 +67,9 @@ export function RecentInvoicesList({ invoices }: RecentInvoicesListProps) {
                   <p className="mt-0.5 text-sm text-navy-400">{invoice.customerName}</p>
                 </div>
                 <div className="flex flex-wrap items-center gap-3">
-                  <Chip tone={paymentTone(invoice.paymentState)}>{paymentLabel(invoice.paymentState)}</Chip>
+                  <Chip tone={paymentTone(invoice.paymentState)}>
+                    {paymentLabel(invoice.paymentState)}
+                  </Chip>
                   <span className="font-mono text-sm text-navy">
                     {money(invoice.total, invoice.currency)}
                   </span>

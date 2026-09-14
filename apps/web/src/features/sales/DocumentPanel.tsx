@@ -1,4 +1,4 @@
-import { currencyLabel, Field, Info, Select } from '../../shared/ui';
+import { currencyLabel, Field, Info, SelectMenu } from '../../shared/ui';
 import type { Currency } from '../../api/contracts/entities';
 import type { PosDraftView } from '../../api/contracts/sales';
 
@@ -22,6 +22,11 @@ export function DocumentPanel({
   onFiscalChange,
 }: DocumentPanelProps) {
   const fiscalLocked = draft.customerIsDefault || !draft.customerRnc;
+  const customerOptions = draft.customers.map((customer) => ({
+    value: customer.id,
+    label: customer.isDefault ? `${customer.name} (predeterminado)` : customer.name,
+    description: customer.rnc,
+  }));
 
   return (
     <section className="flex flex-col gap-4">
@@ -31,33 +36,30 @@ export function DocumentPanel({
         </Info>
       )}
       <Field htmlFor="pos-customer" label="Cliente">
-        <Select
+        <SelectMenu
           id="pos-customer"
           data-pos-field="customer"
           value={draft.customerId}
           disabled={readOnly || isMutating}
-          onChange={(event) => onCustomerChange(event.target.value)}
-        >
-          {draft.customers.map((customer) => (
-            <option key={customer.id} value={customer.id}>
-              {customer.name}
-              {customer.isDefault ? ' (predeterminado)' : ''}
-              {customer.rnc ? ` · ${customer.rnc}` : ''}
-            </option>
-          ))}
-        </Select>
+          searchable
+          searchPlaceholder="Buscar cliente"
+          emptyMessage="Ningún cliente coincide"
+          options={customerOptions}
+          onChange={onCustomerChange}
+        />
       </Field>
       <Field htmlFor="pos-currency" label="Moneda">
-        <Select
+        <SelectMenu
           id="pos-currency"
           data-pos-field="currency"
           value={draft.currency}
           disabled={readOnly || isMutating}
-          onChange={(event) => onCurrencyChange(event.target.value as Currency)}
-        >
-          <option value="DOP">{currencyLabel('DOP')}</option>
-          <option value="USD">{currencyLabel('USD')}</option>
-        </Select>
+          options={[
+            { value: 'DOP', label: currencyLabel('DOP') },
+            { value: 'USD', label: currencyLabel('USD') },
+          ]}
+          onChange={(next) => onCurrencyChange(next as Currency)}
+        />
       </Field>
       <label className="flex items-start gap-2 text-sm text-navy">
         <input
@@ -72,7 +74,7 @@ export function DocumentPanel({
         <span>
           <span className="font-medium">Factura con comprobante fiscal</span>
           <span className="mt-0.5 block text-xs text-navy-400">
-            Activa el impuesto ITBIS (18% incluido) en las líneas gravadas. Requiere cliente con RNC o cédula.
+            Activa el ITBIS (18% incluido) en las líneas gravadas. Requiere cliente con RNC o cédula.
           </span>
         </span>
       </label>

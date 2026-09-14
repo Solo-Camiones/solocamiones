@@ -10,6 +10,8 @@ The old consolidated requirements/validation files are intentionally no longer r
 
 **History is cross-cutting from Release 1; full Administration/Recovery closes in Release 8**
 
+**Implementation (2026-09-10):** User/customer/catalog/invoice confirmation/payment/PDF/cancellation events append in the writing transaction. Invoice detail `GET /api/sales/:id` plus HTTP UI project a Seller/Administrator timeline (profit/FX events Administrator-only). Owner: draft meta edits and line add/update/remove are not invoice activity — they are not appended; already-stored rows of those types are hidden, not deleted. No standalone history HTTP API or admin screen. PDF regeneration is production (sales). Pending USD retry is production on **profitability**, not recovery. Cost/currency/baseline corrections, reservation/WO recovery, and diagnostics remain open. Mock recovery screens do not count.
+
 ## What this feature does
 
 Keep critical business state explainable through append-only events and provide narrow Administrator-only corrections/recovery/diagnostics without raw data editing.
@@ -75,14 +77,17 @@ Diagnostics should surface affected business records and safe next-action contex
 ## Implementation checklist
 
 ### History
+
 - [x] Define event envelope and typed event categories (R1 user events).
 - [x] Append events inside the same DB transaction as business changes (R1; extend per owning release).
 - [x] Preserve relevant immutable references/before-after values (R1 profiles, roles and recovery references).
-- [ ] Add history projections per item/invoice/order as needed.
+- [x] Append invoice confirmation, payment and cancellation/refund evidence in their owning transactions.
+- [ ] Add history projections per item/invoice/order as needed. _(Invoice detail GET + HTTP UI timeline done for document-level events; draft/line churn excluded; item/Work Order projections remain open)_
 
 Release 1 automated closure coverage revalidates user creation, deactivation and recovery events through the API/integration suite. M11 intentionally adds no history endpoint or screen.
 
 ### Protected administration
+
 - [ ] Cost correction.
 - [ ] Receipt-baseline correction.
 - [ ] Completed/no-payment invoice-currency correction.
@@ -90,18 +95,23 @@ Release 1 automated closure coverage revalidates user creation, deactivation and
 - [ ] All corrections require reason and additive history.
 
 ### Recovery
+
 - [ ] Abandoned reservation release.
 - [ ] Work-Order release/reassign/cancel.
-- [ ] PDF regeneration.
+- [x] PDF regeneration. _(API R2 M18: `POST /api/sales/:id/pdf/regenerate` solo Administrator y `pdfStatus FAILED`; UI HTTP M23 en el detalle; el resto de ADMIN-002 sigue Release 8)_
 - [ ] Evidence recovery where safe.
-- [ ] Pending USD profitability retry.
+- [ ] Pending USD profitability retry. _(Command exists as API R2 M16 `POST /api/profitability/:invoiceId/retry`. HTTP UI is R2 M24 on `/profitability`, not the recovery module. Recovery packaging and ADMIN-002 remain Release 8.)_
 
-The abandoned-reservation, Work-Order and profitability items previously marked as
+The abandoned-reservation and Work-Order items previously marked as
 complete are available only in the mock prototype. Their HTTP repositories remain
-explicitly unimplemented; mock behavior does not complete ADMIN-002. The production
-API, authorization, audit history and tests remain Release 8 scope.
+explicitly unimplemented; mock behavior does not complete ADMIN-002. Failed invoice
+PDF regeneration is implemented in the production API as Release 2 M18 and wired in
+the invoice detail UI as M23. Pending USD retry is implemented on the profitability
+API and HTTP profitability page (M16/M24), not as a recovery-module command.
+The rest of ADMIN-002 remains Release 8.
 
 ### Diagnostics
+
 - [ ] Negative/invalid quantity states.
 - [ ] Stuck/orphan reservations.
 - [ ] Multiple parents/cycles/broken relationships.
@@ -125,7 +135,7 @@ The blocks below are the final reconciled requirements retained from the previou
 **Business Reason:** Current state must be explainable without enterprise-scale audit tooling.  
 **Main Flow:** Each qualifying business operation appends its event in the same transaction as the state change.  
 **Business Rules:** History is not a substitute for current state and cannot be silently deleted; baseline-origin and Work-Order-origin relationships remain distinguishable.  
-**Important Exceptions/Edge Cases:** Failed operations produce no success event or partial business state; a Known Missing Component history event does not imply a physical inventory item exists.  
+**Important Exceptions/Edge Cases:** Failed operations produce no success event or partial business state; a Known Missing Component history event does not imply a physical inventory item exists. **Owner (2026-09-10):** invoice *activity* does not treat draft meta edits (customer/currency/fiscal) or line add/update/remove as relevant events. Those types are no longer appended; existing rows stay in `HistoryEvent` (HIST-003) but are omitted from the invoice detail timeline. Current invoice and line rows remain the source of truth for those edits. Document-level events still recorded: draft created/discarded, confirmation (`FAC-`), payment, PDF generate/fail, cancellation/refund, Administrator-only gross-profit and USD FX retry.  
 **Dependencies:** AUTH-001, WO-002, WO-010.  
 **Acceptance Notes:** Each critical flow produces the expected linked events once, including a received baseline with `PRESENT`, `MISSING`, and `NOT_APPLICABLE` results but no Work Order.
 

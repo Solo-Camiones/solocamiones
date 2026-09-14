@@ -4,10 +4,12 @@ import { screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
+import { INITIAL_USER_PASSWORD } from '../../../src/mocks/services/users';
 import { UsersPage } from '../../../src/features/users/UsersPage';
 import { mockAuthRepository } from '../../../src/mocks/repositories/MockAuthRepository';
-import { resetMockState } from '../../../src/mocks/state';
+import { getMockState, resetMockState } from '../../../src/mocks/state';
 import { renderWithProviders } from '../../support/render';
+import { chooseSelectOption } from '../../support/select-menu';
 import { signInAs } from '../../support/session';
 import '../../support/dom';
 
@@ -30,11 +32,16 @@ describe('UsersPage', () => {
     await user.type(screen.getByLabelText('Nombre'), 'María López');
     await user.type(screen.getByLabelText('Usuario'), 'maria');
     expect(screen.queryByLabelText('Contraseña')).not.toBeInTheDocument();
-    expect(screen.getByText('solocamiones')).toBeVisible();
-    await user.selectOptions(screen.getByLabelText('Rol'), 'SELLER');
+    expect(screen.queryByText(INITIAL_USER_PASSWORD)).not.toBeInTheDocument();
+    expect(screen.getByText(/se mostrará una sola vez/i)).toBeVisible();
+    await chooseSelectOption(user, 'Rol', 'SELLER');
     await user.click(screen.getByRole('button', { name: 'Crear usuario' }));
+    expect(screen.queryByTestId('initial-password')).not.toBeInTheDocument();
+    expect(screen.getByText('maria')).toBeVisible();
+    await user.click(screen.getByRole('button', { name: 'Confirmar creación' }));
 
     expect(await screen.findByText('Usuario creado')).toBeVisible();
+    expect(await screen.findByTestId('initial-password')).toHaveTextContent(INITIAL_USER_PASSWORD);
     expect(await screen.findByText('María López')).toBeVisible();
 
     const login = await mockAuthRepository.login('maria', 'solocamiones');
@@ -61,6 +68,30 @@ describe('UsersPage', () => {
     await user.type(screen.getByLabelText('Buscar por nombre o usuario'), 'pedro');
     expect(await screen.findByText('Pedro Santana')).toBeVisible();
     expect(screen.queryByText('Laura Pérez')).not.toBeInTheDocument();
+  });
+
+  it('finds a user outside the current page', async () => {
+    const state = getMockState();
+    for (let index = 0; index < 10; index += 1) {
+      state.users.push({
+        id: `U-PAGE-${index}`,
+        name: index === 9 ? 'Zeta Remoto' : `Usuario ${String(index).padStart(2, '0')}`,
+        username: index === 9 ? 'zeta' : `usuario-${index}`,
+        password: 'demo1234',
+        role: 'SELLER',
+        active: true,
+      });
+    }
+
+    const user = userEvent.setup();
+    renderWithProviders(<UsersPage />, { route: '/users' });
+    expect(await screen.findByText('Mostrando 1–10 de 14')).toBeVisible();
+    expect(screen.queryByText('Zeta Remoto')).not.toBeInTheDocument();
+
+    await user.type(screen.getByLabelText('Buscar por nombre o usuario'), 'zeta');
+
+    expect(await screen.findByText('Zeta Remoto')).toBeVisible();
+    expect(screen.getByText('Mostrando 1–1 de 1')).toBeVisible();
   });
 
   it('asks before deactivating and keeps the account if cancelled', async () => {

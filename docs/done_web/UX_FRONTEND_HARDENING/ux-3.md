@@ -55,8 +55,8 @@ apps/web/tests/component/inventory/InventoryPage.test.tsx
 ## 4. Cómo verificar
 
 ```bash
-npm run test:unit -w @truck-parts/web
-npm run test:component -w @truck-parts/web
+npm run test:unit -w @solocamiones/web
+npm run test:component -w @solocamiones/web
 ```
 
 Manual (preset `prototype`, login vendedor o admin): Inventario → Registrar. Alta mínima de una pieza: la primera pantalla no muestra serial/fotos. Producto por cantidad sigue siendo un flujo distinto. Ensamblaje Camión: Paso 1 de 2, Continuar, Paso 2 de 2; Atrás conserva IDs. Tras guardar, el mensaje lista pendientes y Ver artículo abre el detalle.

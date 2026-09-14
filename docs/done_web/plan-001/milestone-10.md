@@ -1,4 +1,4 @@
-﻿# Milestone 10 — WM10: Experiencia Mecánico (móvil)
+# Milestone 10 — WM10: Experiencia Mecánico (móvil)
 
 | Campo          | Valor                                                           |
 | -------------- | --------------------------------------------------------------- |
@@ -78,9 +78,9 @@ apps/web/src/
 ## 6. Verificación
 
 ```bash
-npm run typecheck -w @truck-parts/web
-npm run typecheck:test -w @truck-parts/web
-npm test -w @truck-parts/web
+npm run typecheck -w @solocamiones/web
+npm run typecheck:test -w @solocamiones/web
+npm test -w @solocamiones/web
 ```
 
 Resultado: 34 archivos de prueba frontend y 224 pruebas aprobadas.

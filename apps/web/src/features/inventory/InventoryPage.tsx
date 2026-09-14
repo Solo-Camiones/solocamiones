@@ -27,7 +27,7 @@ export function InventoryPage() {
     <>
       <PageHeader
         title="Inventario"
-        description="Piezas individuales y productos por cantidad. Los vendidos se ocultan salvo que active el histórico."
+        description="Piezas y productos por cantidad."
         actions={
           canRegister ? (
             <Button onClick={() => setRegisterOpen(true)}>Registrar inventario</Button>

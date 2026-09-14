@@ -55,5 +55,9 @@ export function loadTestEnvironment(
       dotenv.config({ path: candidate, quiet: true, processEnv: environment });
     }
   }
+  // CI has no committed .env; user-creation tests still need a known initial credential.
+  if (!environment.INITIAL_PASSWORD) {
+    environment.INITIAL_PASSWORD = 'test-initial-password';
+  }
   configureTestDatabase(environment);
 }

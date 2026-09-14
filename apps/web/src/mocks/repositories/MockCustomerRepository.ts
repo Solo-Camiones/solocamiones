@@ -1,5 +1,6 @@
 import type { SaveCustomerInput } from '../../api/contracts/customers';
 import type { CustomerRepository } from '../../api/contracts/repositories';
+import { toListPage } from '../../api/contracts/pagination';
 import { err, ok } from '../../shared/auth/types';
 import { buildCustomerDirectory, prepareCustomerSave } from '../services/customers';
 import { requirePermission } from '../services/require-permission';
@@ -7,16 +8,21 @@ import { cloneForRead, getMockState } from '../state';
 
 export class MockCustomerRepository implements CustomerRepository {
   async list() {
-    return this.search('');
-  }
-
-  async search(query: string) {
     const permission = requirePermission('customers.manage');
     if (!permission.ok) {
       return permission;
     }
 
-    return ok(cloneForRead(buildCustomerDirectory(getMockState(), query)));
+    return ok(cloneForRead(buildCustomerDirectory(getMockState(), '')));
+  }
+
+  async search(query: string, page = 1) {
+    const permission = requirePermission('customers.manage');
+    if (!permission.ok) {
+      return permission;
+    }
+
+    return ok(toListPage(cloneForRead(buildCustomerDirectory(getMockState(), query)), page));
   }
 
   async getById(id: string) {

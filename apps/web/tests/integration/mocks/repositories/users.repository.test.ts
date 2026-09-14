@@ -71,8 +71,8 @@ describe('MockUserRepository', () => {
 
     expect(listed.ok).toBe(true);
     if (listed.ok) {
-      expect(listed.value).toHaveLength(4);
-      expect(listed.value.every((user) => !('password' in user))).toBe(true);
+      expect(listed.value.items).toHaveLength(4);
+      expect(listed.value.items.every((user) => !('password' in user))).toBe(true);
     }
   });
 

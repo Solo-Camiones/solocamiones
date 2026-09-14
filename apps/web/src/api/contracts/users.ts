@@ -24,6 +24,9 @@ export type SaveUserInput = {
   email?: string;
 };
 
+/** Create may include the assigned plaintext once; list/update never do. */
+export type SaveUserResult = ManagedUser & { initialPassword?: string };
+
 export type PasswordRecoveryRequest = {
   id: string;
   userId: string;

@@ -8,5 +8,9 @@ export default defineConfig({
     ...baseConfig.test,
     globalSetup: ['./tests/integration/setup.ts'],
     include: ['tests/integration/**/*.test.ts'],
+    coverage: {
+      ...baseConfig.test?.coverage,
+      reportsDirectory: './coverage/integration',
+    },
   },
 });

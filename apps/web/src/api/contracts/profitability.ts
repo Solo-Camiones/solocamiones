@@ -1,6 +1,21 @@
 import type { Currency } from './entities';
 import type { InvoiceProfitabilityView, ProfitabilitySource } from './sales';
 
+export type ProfitabilityChartPoint = {
+  key: string;
+  label: string;
+  amount: number;
+};
+
+export type ProfitabilityCharts = {
+  fromDay: string;
+  toDay: string;
+  profitByDay: ProfitabilityChartPoint[];
+  profitByMonth: ProfitabilityChartPoint[];
+  collectedByDay: ProfitabilityChartPoint[];
+  collectedByMonth: ProfitabilityChartPoint[];
+};
+
 export type ProfitabilityInvoiceRow = {
   id: string;
   number: string;
@@ -16,6 +31,7 @@ export type ProfitabilityInvoiceRow = {
   reason?: string;
   rateDopPerUsd?: number;
   href: string;
+  confirmedAt: string | null;
 };
 
 export type ProfitabilitySnapshot = {
@@ -23,7 +39,12 @@ export type ProfitabilitySnapshot = {
   fxRateDopPerUsd: number;
   /** Gross profit in pesos, including USD invoices converted with their stored FX rate. */
   profitDop: number;
+  /** Net receipts in pesos (USD uses the invoice's stored profitability rate). */
+  collectedDop: number;
   pendingFxCount: number;
+  invoicesMissingProfitCount: number;
+  omittedUsdReceiptCount: number;
+  charts: ProfitabilityCharts | null;
   invoices: ProfitabilityInvoiceRow[];
 };
 

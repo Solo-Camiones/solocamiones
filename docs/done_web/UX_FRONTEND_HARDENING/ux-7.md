@@ -56,8 +56,8 @@ apps/web/tests/component/layout/RoleNav.test.tsx
 ## 4. Cómo verificar
 
 ```bash
-npm run test:unit -w @truck-parts/web
-npm run test:component -w @truck-parts/web
+npm run test:unit -w @solocamiones/web
+npm run test:component -w @solocamiones/web
 ```
 
 Manual (admin, prototipo): 1920 y 1440 sidebar completo; 1024×768 compacto y «Ocultar menú»; 640px «Abrir menú» y overlay; zoom 200% en 1280 completar login y una pantalla principal; POS en 1024 apilado; modal de alta con mucho contenido; mecánico a 360–430px.

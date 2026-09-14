@@ -1,6 +1,6 @@
 import type { AppState } from '../../api/contracts/entities';
 import { err, ok, type Result } from '../../shared/auth/types';
-import { addDraftLine, createDraft, discardDraft } from '../services/sales-pos-commands';
+import { addDraftLine, createDraft, discardDraft, setDraftMeta } from '../services/sales-pos-commands';
 
 export type DemoScenario = {
   id: number;
@@ -183,6 +183,14 @@ function prepareFullAssemblySale(state: AppState): Result<void> {
   });
   if (!added.ok) {
     return added;
+  }
+
+  const assigned = setDraftMeta(state, seller, {
+    draftId: created.value.draftId,
+    customerId: 'C1',
+  });
+  if (!assigned.ok) {
+    return assigned;
   }
 
   return ok(undefined);

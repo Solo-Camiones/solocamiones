@@ -1,4 +1,4 @@
-﻿# Milestone 9 — WM9: Órdenes de trabajo (escritorio)
+# Milestone 9 — WM9: Órdenes de trabajo (escritorio)
 
 | Campo          | Valor                                                          |
 | -------------- | -------------------------------------------------------------- |
@@ -75,9 +75,9 @@ apps/web/src/
 ## 6. Verificación
 
 ```bash
-npm run typecheck -w @truck-parts/web
-npm run typecheck:test -w @truck-parts/web
-npm test -w @truck-parts/web
+npm run typecheck -w @solocamiones/web
+npm run typecheck:test -w @solocamiones/web
+npm test -w @solocamiones/web
 ```
 
 Resultado: 33 archivos de prueba frontend y 209 pruebas aprobadas.

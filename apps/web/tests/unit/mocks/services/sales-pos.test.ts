@@ -190,6 +190,7 @@ describe('POS draft commands', () => {
     expect(setDraftLinePrice(state, seller, { draftId, lineId, unitPrice: 200_000 }).ok).toBe(true);
 
     const truckCompleteBefore = state.items.find((item) => item.id === 'CAM-001')!.complete;
+    expect(setDraftMeta(state, seller, { draftId, customerId: 'C1' }).ok).toBe(true);
     const result = confirmInvoice(state, seller, draftId);
 
     expect(result.ok).toBe(true);
@@ -224,6 +225,7 @@ describe('POS draft commands', () => {
     const woCountBefore = state.workOrders.filter(
       (order) => order.type === 'DISMANTLING' && order.pieceId === 'MOT-003',
     ).length;
+    expect(setDraftMeta(state, seller, { draftId, customerId: 'C1' }).ok).toBe(true);
     const result = confirmInvoice(state, seller, draftId);
 
     expect(result.ok).toBe(true);
@@ -247,6 +249,7 @@ describe('POS draft commands', () => {
     const lineId = state.invoices.find((entry) => entry.id === draftId)!.lines[0]!.id;
     expect(setDraftLinePrice(state, seller, { draftId, lineId, unitPrice: 150_000 }).ok).toBe(true);
 
+    expect(setDraftMeta(state, seller, { draftId, customerId: 'C1' }).ok).toBe(true);
     const result = confirmInvoice(state, seller, draftId);
     expect(result.ok).toBe(true);
 
@@ -376,6 +379,47 @@ describe('POS draft commands', () => {
     expect(line.acquisitionCostDop).toBe(unitCostDop);
   });
 
+  it('does not partially edit a line when a later field is invalid', () => {
+    const state = createInitialState();
+    const created = createDraft(state, seller);
+    expect(created.ok).toBe(true);
+    if (!created.ok) {
+      return;
+    }
+
+    const draftId = created.value.draftId;
+    expect(
+      addDraftLine(state, seller, {
+        draftId,
+        type: 'GENERIC',
+        description: 'Filtro',
+        notes: 'Original',
+        quantity: 1,
+        unitPrice: 100,
+      }).ok,
+    ).toBe(true);
+    const line = state.invoices.find((entry) => entry.id === draftId)!.lines[0]!;
+
+    const result = setDraftLinePrice(state, seller, {
+      draftId,
+      lineId: line.id,
+      unitPrice: 125,
+      quantity: 3,
+      description: 'Filtro de aire',
+      notes: 'Modificada',
+      acquisitionCostDop: Number.NaN,
+    });
+
+    expect(result.ok).toBe(false);
+    expect(line).toMatchObject({
+      description: 'Filtro',
+      notes: 'Original',
+      quantity: 1,
+      unitPrice: 100,
+    });
+    expect(line.acquisitionCostDop).toBeUndefined();
+  });
+
   it('freezes line acquisitionCostDop on confirm so later live cost edits do not change profit', () => {
     const state = createInitialState();
     expect(confirmInvoice(state, seller, 'INV-DRAFT-01').ok).toBe(true);
@@ -420,6 +464,7 @@ describe('POS draft commands', () => {
     expect(addDraftLine(state, seller, { draftId, type: 'ITEM', itemId: 'TUR-009' }).ok).toBe(true);
     const lineId = state.invoices.find((entry) => entry.id === draftId)!.lines[0]!.id;
     expect(setDraftLinePrice(state, seller, { draftId, lineId, unitPrice: 85_000 }).ok).toBe(true);
+    expect(setDraftMeta(state, seller, { draftId, customerId: 'C1' }).ok).toBe(true);
     expect(confirmInvoice(state, seller, draftId).ok).toBe(true);
 
     const wo = state.workOrders.find((order) => order.id === 'OD-DEMO-060')!;
@@ -516,5 +561,37 @@ describe('POS draft commands', () => {
       }),
     ]);
     expect(invoiceBalance(invoice)).toBe(total - partial);
+  });
+
+  it('rejects confirming Cliente contado unless the initial payment covers the total', () => {
+    const state = createInitialState();
+    const created = createDraft(state, seller);
+    expect(created.ok).toBe(true);
+    if (!created.ok) {
+      return;
+    }
+    const draftId = created.value.draftId;
+    expect(
+      addDraftLine(state, seller, {
+        draftId,
+        type: 'GENERIC',
+        description: 'Filtro',
+        quantity: 1,
+        unitPrice: 100,
+      }).ok,
+    ).toBe(true);
+
+    const unpaid = confirmInvoice(state, seller, draftId);
+    expect(unpaid.ok).toBe(false);
+    if (!unpaid.ok) {
+      expect(unpaid.error.message).toBe('A Cliente contado no se le puede vender a crédito');
+    }
+
+    const partial = confirmInvoice(state, seller, draftId, { amount: 40, method: 'CASH' });
+    expect(partial.ok).toBe(false);
+
+    const paid = confirmInvoice(state, seller, draftId, { amount: 100, method: 'CASH' });
+    expect(paid.ok).toBe(true);
+    expect(state.invoices.find((entry) => entry.id === draftId)?.paymentState).toBe('PAID');
   });
 });

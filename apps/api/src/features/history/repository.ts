@@ -10,4 +10,18 @@ export class HistoryRepository {
     const { actor, ...event } = historyEventSchema.parse(input);
     return this.database.historyEvent.create({ data: { ...event, ...actor } });
   }
+
+  listBySubject(subjectType: string, subjectId: string) {
+    return this.database.historyEvent.findMany({
+      where: { subjectType, subjectId },
+      orderBy: [{ occurredAt: 'desc' }, { id: 'desc' }],
+      select: {
+        id: true,
+        occurredAt: true,
+        eventType: true,
+        payload: true,
+        actor: { select: { name: true } },
+      },
+    });
+  }
 }

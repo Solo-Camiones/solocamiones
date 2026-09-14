@@ -56,8 +56,8 @@ apps/web/tests/component/layout/RoleNav.test.tsx
 ## 4. Cómo verificar
 
 ```bash
-npm run test:unit -w @truck-parts/web
-npm run test:component -w @truck-parts/web
+npm run test:unit -w @solocamiones/web
+npm run test:component -w @solocamiones/web
 ```
 
 Manual: login `admin` (preset `prototype`) → tres grupos en el sidebar. Login `laura` → lista plana sin encabezados. `VITE_CAPABILITIES_PRESET=release-1` → Inicio + Usuarios, sin Finanzas. Mecánico sigue en la app de cola.

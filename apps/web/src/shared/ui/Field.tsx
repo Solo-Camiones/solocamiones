@@ -3,7 +3,6 @@ import {
   useId,
   type InputHTMLAttributes,
   type ReactNode,
-  type SelectHTMLAttributes,
   type TextareaHTMLAttributes,
 } from 'react';
 
@@ -99,10 +98,13 @@ export type InputProps = InputHTMLAttributes<HTMLInputElement>;
 
 export function Input({ className = '', id, ...props }: InputProps) {
   const a11y = useControlA11y(id, props['aria-describedby'], props['aria-invalid']);
+  const borderClass = a11y.invalid
+    ? 'border-red-400 focus:border-red-500 focus:ring-red-300/30'
+    : 'border-navy-200 focus:border-brand focus:ring-brand-light/30';
 
   return (
     <input
-      className={`w-full rounded-lg border border-navy-200 bg-white px-3 py-2 text-sm text-navy placeholder:text-navy-300 focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand-light/30 ${className}`}
+      className={`w-full rounded-lg border bg-white px-3 py-2 text-sm text-navy placeholder:text-navy-300 focus:outline-none focus:ring-2 ${borderClass} ${className}`}
       {...props}
       id={a11y.id}
       aria-describedby={a11y.describedBy}
@@ -111,32 +113,17 @@ export function Input({ className = '', id, ...props }: InputProps) {
   );
 }
 
-export type SelectProps = SelectHTMLAttributes<HTMLSelectElement>;
-
-export function Select({ className = '', id, children, ...props }: SelectProps) {
-  const a11y = useControlA11y(id, props['aria-describedby'], props['aria-invalid']);
-
-  return (
-    <select
-      className={`w-full rounded-lg border border-navy-200 bg-white px-3 py-2 text-sm text-navy focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand-light/30 ${className}`}
-      {...props}
-      id={a11y.id}
-      aria-describedby={a11y.describedBy}
-      aria-invalid={a11y.invalid}
-    >
-      {children}
-    </select>
-  );
-}
-
 export type TextareaProps = TextareaHTMLAttributes<HTMLTextAreaElement>;
 
 export function Textarea({ className = '', id, ...props }: TextareaProps) {
   const a11y = useControlA11y(id, props['aria-describedby'], props['aria-invalid']);
+  const borderClass = a11y.invalid
+    ? 'border-red-400 focus:border-red-500 focus:ring-red-300/30'
+    : 'border-navy-200 focus:border-brand focus:ring-brand-light/30';
 
   return (
     <textarea
-      className={`w-full rounded-lg border border-navy-200 bg-white px-3 py-2 text-sm text-navy placeholder:text-navy-300 focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand-light/30 ${className}`}
+      className={`w-full rounded-lg border bg-white px-3 py-2 text-sm text-navy placeholder:text-navy-300 focus:outline-none focus:ring-2 ${borderClass} ${className}`}
       {...props}
       id={a11y.id}
       aria-describedby={a11y.describedBy}

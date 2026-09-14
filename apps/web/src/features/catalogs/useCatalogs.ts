@@ -4,6 +4,7 @@ import type { SaveCategoryInput, SaveServiceInput } from '../../api/contracts/ca
 import type { Category, Service } from '../../api/contracts/entities';
 import type { AppError, Result } from '../../shared/auth/types';
 import { categoryRepository, serviceRepository } from '../../api/repositories';
+import { useAppCapabilities } from '../../shared/config/CapabilitiesProvider';
 
 type CatalogTab = 'categories' | 'services';
 
@@ -18,21 +19,35 @@ type ServicesQuery =
   | { status: 'ready'; rows: Service[] };
 
 /**
- * Loads category and service catalogs. Features never import seed or catalog services.
+ * Loads catalogs for the active release. Inventory categories stay off until that
+ * capability is on so HTTP R2 never calls the unimplemented category API.
  */
 export function useCatalogs() {
-  const [tab, setTab] = useState<CatalogTab>('categories');
+  const { inventory } = useAppCapabilities();
+  const showCategories = inventory;
+  const [tab, setTab] = useState<CatalogTab>(showCategories ? 'categories' : 'services');
   const [reloadToken, setReloadToken] = useState(0);
-  const [categories, setCategories] = useState<CategoriesQuery>({ status: 'loading' });
+  const [categories, setCategories] = useState<CategoriesQuery>(
+    showCategories ? { status: 'loading' } : { status: 'ready', rows: [] },
+  );
   const [services, setServices] = useState<ServicesQuery>({ status: 'loading' });
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
-    setCategories({ status: 'loading' });
     setServices({ status: 'loading' });
+    if (showCategories) {
+      setCategories({ status: 'loading' });
+    } else {
+      setCategories({ status: 'ready', rows: [] });
+      setTab('services');
+    }
 
-    Promise.all([categoryRepository.list(), serviceRepository.list()]).then(
+    const categoryRequest = showCategories
+      ? categoryRepository.list()
+      : Promise.resolve({ ok: true as const, value: [] as Category[] });
+
+    Promise.all([categoryRequest, serviceRepository.list()]).then(
       ([categoryResponse, serviceResponse]) => {
         if (cancelled) {
           return;
@@ -55,7 +70,7 @@ export function useCatalogs() {
     return () => {
       cancelled = true;
     };
-  }, [reloadToken]);
+  }, [reloadToken, showCategories]);
 
   const reload = useCallback(() => {
     setReloadToken((token) => token + 1);
@@ -90,6 +105,7 @@ export function useCatalogs() {
   return {
     tab,
     setTab,
+    showCategories,
     categories,
     services,
     isSaving,

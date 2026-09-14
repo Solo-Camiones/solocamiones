@@ -27,6 +27,7 @@ import {
   hasRecordedReceipts,
   invoiceBalance,
   invoicePaid,
+  invoiceRefunded,
   roundMoney,
 } from './invoice-money';
 
@@ -259,35 +260,21 @@ export function cancelInvoice(state: AppState, actor: User, input: CancelInvoice
   }
 
   let refund: Payment | undefined;
-  const paid = invoicePaid(invoice);
+  const netReceived = roundMoney(invoicePaid(invoice) - invoiceRefunded(invoice));
 
-  // CANCEL-002: paid/partial invoices must record a refund in the same cancellation.
-  // Staged refunds are out of prototype scope; unpaid invoices still cancel without refund fields.
-  if (paid > 0) {
-    const refundAmount = parsePositiveMoney(input.refundAmount);
-    if (!refundAmount.ok) {
-      return err({
-        code: 'VALIDATION',
-        message:
-          'La cancelación de una factura pagada o parcialmente pagada requiere un reembolso mayor que cero',
-      });
-    }
-
-    if (refundAmount.value > paid) {
-      return err({
-        code: 'VALIDATION',
-        message: 'El reembolso no puede superar el monto pagado',
-      });
-    }
-
+  // Cancellation refunds the complete net received in the same operation.
+  if (netReceived > 0) {
     if (!input.refundMethod) {
-      return err({ code: 'VALIDATION', message: 'El reembolso requiere un método' });
+      return err({
+        code: 'VALIDATION',
+        message: 'La cancelación requiere el método del reembolso neto total',
+      });
     }
 
     refund = {
       id: nextNumericId(allPaymentIds(state), 'PAY-', 3),
       invoiceId: invoice.id,
-      amount: refundAmount.value,
+      amount: netReceived,
       method: input.refundMethod,
       createdAt: DEMO_NOW_ISO,
       kind: 'REFUND',
@@ -406,5 +393,6 @@ export {
   discardDraft,
   removeDraftLine,
   setDraftLinePrice,
+  setDraftLineQuantity,
   setDraftMeta,
 } from './sales-pos-commands';

@@ -1,6 +1,6 @@
 # UX & Frontend Hardening Plan
 
-## Truck Parts System — Web Application
+## Solo Camiones — Web Application
 
 **Objetivo:** mejorar la facilidad de uso, consistencia, accesibilidad y seguridad de interacción del frontend sin alterar las reglas de negocio ya definidas ni rediseñar innecesariamente la aplicación.
 

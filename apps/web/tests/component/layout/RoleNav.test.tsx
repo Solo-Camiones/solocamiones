@@ -5,6 +5,7 @@ import userEvent from '@testing-library/user-event';
 import { Route, Routes } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { APP_NAME } from '../../../src/shared/config/brand';
 import { CAPABILITY_PRESETS } from '../../../src/shared/config/capabilities';
 import { AppShell } from '../../../src/shared/layout/AppShell';
 import { RoleNav } from '../../../src/shared/layout/RoleNav';
@@ -55,14 +56,16 @@ describe('RoleNav', () => {
     expect(screen.getByRole('link', { name: 'Inicio' })).not.toHaveAttribute('aria-current');
   });
 
-  it('keeps the seller menu flat because every item shares one intent', () => {
+  it('groups seller links into operation and receivables', () => {
     renderWithProviders(<RoleNav role="SELLER" />, {
       route: '/dashboard',
       auth: createAuthValue('SELLER'),
     });
 
-    expect(screen.queryByRole('heading', { name: 'Operación' })).not.toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Operación' })).toBeVisible();
+    expect(screen.getByRole('heading', { name: 'Finanzas y control' })).toBeVisible();
     expect(screen.getByRole('link', { name: 'Clientes' })).toBeVisible();
+    expect(screen.getByRole('link', { name: 'Cuentas por cobrar' })).toBeVisible();
     expect(screen.queryByRole('link', { name: 'Usuarios' })).not.toBeInTheDocument();
   });
 
@@ -93,6 +96,7 @@ describe('AppShell sidebar', () => {
     renderShell();
 
     expect(screen.queryByText(/sección/i)).not.toBeInTheDocument();
+    expect(screen.getByText(APP_NAME)).toBeVisible();
     expect(screen.getByRole('navigation', { name: 'Navegación principal' })).toBeVisible();
     expect(screen.queryByRole('button', { name: 'Abrir menú' })).not.toBeInTheDocument();
   });

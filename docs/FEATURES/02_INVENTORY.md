@@ -10,6 +10,8 @@ The old consolidated requirements/validation files are intentionally no longer r
 
 **Release 4 — Base Inventory**
 
+**Implementation (2026-09-10):** Production API **not started** (no Item model). Frontend checklist `[x]` is prototype mock.
+
 ## What this feature does
 
 Represent each uniquely tracked physical part/assembly with immutable identity, practical partial registration, separate operational concepts, normal edits, and protected corrections.

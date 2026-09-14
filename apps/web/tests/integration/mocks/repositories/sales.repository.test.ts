@@ -19,13 +19,30 @@ describe('MockSalesRepository', () => {
 
     expect(listed.ok).toBe(true);
     if (listed.ok) {
-      expect(listed.value.some((row) => row.number === 'FAC-000098' && row.paymentState === 'UNPAID')).toBe(
-        true,
-      );
       expect(
-        listed.value.some((row) => row.number === 'FAC-000099' && row.paymentState === 'PARTIALLY_PAID'),
+        listed.value.items.some((row) => row.number === 'FAC-000098' && row.paymentState === 'UNPAID'),
+      ).toBe(true);
+      expect(
+        listed.value.items.some(
+          (row) => row.number === 'FAC-000099' && row.paymentState === 'PARTIALLY_PAID',
+        ),
       ).toBe(true);
     }
+  });
+
+  it('lists open receivables grouped by customer and currency', async () => {
+    signInAs('SELLER');
+    const receivables = await mockSalesRepository.listReceivables();
+
+    expect(receivables.ok).toBe(true);
+    if (!receivables.ok) return;
+    expect(receivables.value.invoices.every((row) => row.balance > 0)).toBe(true);
+    expect(receivables.value.invoices.some((row) => row.number === 'FAC-000098')).toBe(true);
+    expect(receivables.value.customers.every((row) => row.balance > 0)).toBe(true);
+    const currencies = new Set(
+      receivables.value.customers.map((row) => `${row.customerId}:${row.currency}`),
+    );
+    expect(currencies.size).toBe(receivables.value.customers.length);
   });
 
   it('persists a payment and returns the updated detail', async () => {
@@ -34,12 +51,15 @@ describe('MockSalesRepository', () => {
       invoiceId: 'INV-098',
       amount: 19_500,
       method: 'CASH',
+      effectiveDate: '2026-09-09',
     });
     const loaded = await mockSalesRepository.getInvoice('INV-098');
 
     expect(paid.ok && paid.value.paymentState).toBe('PAID');
     expect(loaded.ok && loaded.value.balance).toBe(0);
-    expect(getMockState().invoices.find((entry) => entry.id === 'INV-098')?.payments).toHaveLength(1);
+    expect(getMockState().invoices.find((entry) => entry.id === 'INV-098')?.payments).toHaveLength(
+      1,
+    );
   });
 
   it('denies cancellation and currency correction to the seller', async () => {
@@ -95,7 +115,7 @@ describe('MockSalesRepository', () => {
     const detail = await mockSalesRepository.getInvoice('INV-DRAFT-01');
 
     expect(confirmed.ok && confirmed.value.number).toBe('FAC-000100');
-    expect(listed.ok && listed.value.some((row) => row.number === 'FAC-000100')).toBe(true);
+    expect(listed.ok && listed.value.items.some((row) => row.number === 'FAC-000100')).toBe(true);
     expect(detail.ok && detail.value.status).toBe('COMPLETED');
     expect(detail.ok && detail.value.actions.canPay).toBe(true);
     expect(detail.ok && detail.value.paymentState).toBe('UNPAID');

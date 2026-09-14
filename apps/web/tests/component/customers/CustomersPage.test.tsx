@@ -25,6 +25,7 @@ describe('CustomersPage', () => {
     renderWithProviders(<CustomersPage />, { route: '/customers' });
 
     expect(await screen.findByText('Transportes del Caribe SRL')).toBeVisible();
+    expect(screen.queryByRole('columnheader', { name: 'Facturas' })).not.toBeInTheDocument();
     await user.type(screen.getByLabelText('Buscar por nombre o identificación fiscal'), '101-98765');
 
     expect(await screen.findByText('Logística Norte SA')).toBeVisible();
@@ -39,9 +40,37 @@ describe('CustomersPage', () => {
     await user.click(screen.getByRole('button', { name: 'Nuevo cliente' }));
     await user.type(screen.getByLabelText('Nombre'), 'Flota Este');
     await user.click(screen.getByRole('button', { name: 'Guardar' }));
+    await user.click(screen.getByRole('button', { name: 'Confirmar creación' }));
 
     expect(await screen.findByText('Cliente creado')).toBeVisible();
     expect(await screen.findByText('Flota Este')).toBeVisible();
+  });
+
+  it('expands extra contacts without opening the editor', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<CustomersPage />, { route: '/customers' });
+
+    const customer = await screen.findByText('Transportes del Caribe SRL');
+    const row = customer.closest('tr');
+    expect(row).not.toBeNull();
+
+    expect(within(row!).getByText('809-555-0200')).toBeVisible();
+    expect(screen.queryByText('Carlos Peña')).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Ver 2 contactos' }),
+    ).toBeVisible();
+    expect(screen.queryByRole('button', { name: 'Ver 1 contactos' })).not.toBeInTheDocument();
+
+    await user.click(within(row!).getByRole('button', { name: 'Ver 2 contactos' }));
+
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(screen.getByText('Carlos Peña')).toBeVisible();
+    expect(screen.getByText('809-555-0201')).toBeVisible();
+    expect(screen.getByText('operaciones@tdc.example')).toBeVisible();
+    expect(screen.getByText('María Reyes')).toBeVisible();
+
+    await user.click(screen.getByRole('button', { name: 'Ocultar contactos' }));
+    expect(screen.queryByText('Carlos Peña')).not.toBeInTheDocument();
   });
 
   it('keeps Cliente Contado visible but without an edit action', async () => {

@@ -1,12 +1,39 @@
+import type { ReactNode } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 
 import type { Role } from '../../api/contracts/entities';
 import { useAppCapabilities } from '../config/CapabilitiesProvider';
 import {
+  BoxIcon,
+  ChartIcon,
+  ClipboardIcon,
+  HomeIcon,
+  PeopleIcon,
+  ReceiptIcon,
+  ShieldIcon,
+  UserIcon,
+  WalletIcon,
+  WrenchIcon,
+} from '../ui/icons';
+import {
   isNavItemActive,
   navGroupsForRole,
   shouldShowNavGroupHeadings,
 } from './navigation';
+
+/** Maps nav item id to its sidebar icon. */
+const NAV_ICONS: Record<string, ReactNode> = {
+  dashboard: <HomeIcon />,
+  inventory: <BoxIcon />,
+  sales: <ReceiptIcon />,
+  customers: <PeopleIcon />,
+  receivables: <WalletIcon />,
+  'work-orders': <WrenchIcon />,
+  catalogs: <ClipboardIcon />,
+  users: <UserIcon />,
+  profitability: <ChartIcon />,
+  recovery: <ShieldIcon />,
+};
 
 export type RoleNavProps = {
   role: Role;
@@ -53,7 +80,7 @@ export function RoleNav({ role, compact = false, onNavigate }: RoleNavProps) {
                   to={item.path}
                   onClick={onNavigate}
                   aria-current={isActive ? 'page' : undefined}
-                  className={`block rounded-lg text-sm font-medium transition-colors ${
+                  className={`flex items-center gap-2.5 rounded-lg text-sm font-medium transition-colors ${
                     compact ? 'px-2 py-2' : 'px-3 py-2'
                   } ${
                     isActive
@@ -61,6 +88,7 @@ export function RoleNav({ role, compact = false, onNavigate }: RoleNavProps) {
                       : 'text-white/70 hover:bg-shell-muted hover:text-white'
                   }`}
                 >
+                  <span className="h-[18px] w-[18px] shrink-0">{NAV_ICONS[item.id]}</span>
                   {item.label}
                 </NavLink>
               );

@@ -10,6 +10,8 @@ The old consolidated requirements/validation files are intentionally no longer r
 
 **Release 2 — Billing Core**
 
+**Implementation (2026-09-10):** Production API + HTTP UI done (`/api/customers`, POS customer select, confirmation snapshot).
+
 ## What this feature does
 
 Support reusable customer information, a default `Cliente contado` for eligible nonfiscal sales, and immutable customer details on completed invoices.
@@ -42,12 +44,13 @@ Provide a stable generic customer such as `Cliente contado` for eligible nonfisc
 
 A customer may have **multiple contacts** (name, phone, email, optional title). Phone and email belong on contacts, not on the customer record. Contacts may be empty (`Cliente Contado`). Directory search remains name/RNC only.
 
-At invoice confirmation, copy the applicable customer data into an immutable invoice customer snapshot. Later edits to the reusable customer record must not alter already completed invoices.
+At invoice confirmation, copy the applicable customer data into an immutable invoice customer snapshot. This includes the primary contact's phone; if that contact has no phone, preserve a blank value without falling back to another contact. Later edits to the reusable customer record must not alter already completed invoices. Historical invoices keep the phone blank when its confirmation-time value cannot be reconstructed reliably.
 
 ## Feature-level acceptance criteria
 
 - Seller/Administrator can find, create, and edit ordinary customer data.
 - Eligible nonfiscal sale can use `Cliente contado`.
+- `Cliente contado` cannot be sold on credit: confirmation requires a full initial payment equal to the invoice total.
 - Fiscal-value invoice rejects missing required customer identity.
 - Completed invoice preserves its customer snapshot when the source customer is later edited.
 - Mechanic has no customer access.
@@ -55,24 +58,27 @@ At invoice confirmation, copy the applicable customer data into an immutable inv
 ## Implementation checklist
 
 ### Backend
-- [x] Define customer record and generic-customer strategy. *(prototipo mock: C0 bloqueado; persistencia en sesión)*
-- [x] Implement create/search/edit. *(WM4 — `MockCustomerRepository`)*
-- [x] Implement fiscal identity validation hook used by Sales. *(prototipo mock — WM8 `setDraftMeta` / `confirmInvoice`)*
-- [x] Implement immutable invoice customer snapshot at confirmation. *(prototipo mock — WM8)*
-- [x] Prevent completed snapshots from following later customer edits. *(prototipo mock — WM8)*
+
+- [x] Define customer record and generic-customer strategy. _(API R2 M1: `Customer` + `Cliente contado`; prototipo mock: C0 bloqueado)_
+- [x] Implement create/search/edit. _(API R2 M2: `/api/customers`; WM4 mock)_
+- [x] Implement fiscal identity validation hook used by Sales. _(API R2 M2: `satisfiesFiscalIdentity`; confirmación fiscal en M7/M12)_
+- [x] Implement immutable invoice customer snapshot at confirmation. _(prototipo mock — WM8; API: `customerName`, `customerRnc` y teléfono principal al confirmar)_
+- [x] Prevent completed snapshots from following later customer edits. _(prototipo mock — WM8; API R2 M12: GET completed usa el snapshot)_
 
 ### Frontend
-- [x] Customer search/select/create inside Draft flow. *(WM8: selector en POS; alta sigue en `/customers`)*
-- [x] Default `Cliente contado` behavior. *(WM8 `createDraft` usa C0; fiscal lo rechaza)*
-- [x] Fiscal-required field feedback. *(checkbox bloqueado + rechazo en servicio)*
-- [x] Basic customer maintenance. *(WM4 — `/customers`)*
-- [x] Multiple contacts on a customer. *(prototipo mock — lista dinámica; `prepareCustomerSave`)*
+
+- [x] Customer search/select/create inside Draft flow. _(WM8: selector en POS; alta sigue en `/customers`)_
+- [x] Default `Cliente contado` behavior. _(WM8 `createDraft` usa C0; fiscal lo rechaza; confirmación HTTP/API exige pago inicial completo — owner 2026-09-11)_
+- [x] Fiscal-required field feedback. _(checkbox bloqueado + rechazo en servicio)_
+- [x] Basic customer maintenance. _(WM4 mock; API R2 M19 HTTP `/customers`)_
+- [x] Multiple contacts on a customer. _(prototipo mock — lista dinámica; `prepareCustomerSave`)_
 
 ### Tests
-- [x] Generic nonfiscal sale succeeds. *(prototipo mock — C0 + `fiscal: false`)*
-- [x] Generic fiscal sale rejected. *(prototipo mock — WM8)*
-- [x] Later customer edit leaves completed invoice unchanged. *(prototipo mock — WM8 snapshot)*
-- [x] Mechanic access denied. *(WM4 — `customers.manage` en repositorio)*
+
+- [x] Generic nonfiscal sale succeeds. _(prototipo mock — C0 + `fiscal: false`; API: pago inicial completo)_
+- [x] Generic fiscal sale rejected. _(prototipo mock — WM8)_
+- [x] Later customer edit leaves completed invoice unchanged. _(prototipo mock — WM8 snapshot; API R2 M12 HTTP)_
+- [x] Mechanic access denied. _(WM4 mock `customers.manage`; API R2 M19 HTTP 403 y sin nav)_
 
 ## Canonical validated requirements
 
@@ -101,10 +107,10 @@ The blocks below are the final reconciled requirements retained from the previou
 **Requirement:** The system must permit a generic default customer such as `Cliente contado` for eligible nonfiscal sales.  
 **Business Reason:** Many counter sales do not require named-customer registration.  
 **Main Flow:** User retains the default customer and completes a nonfiscal invoice.  
-**Business Rules:** Generic customer cannot satisfy a fiscal requirement for customer RNC/Cédula.  
-**Important Exceptions/Edge Cases:** A sale requiring fiscal identification must select or create a qualifying customer.  
+**Business Rules:** Generic customer cannot satisfy a fiscal requirement for customer RNC/Cédula. Generic customer cannot be sold on credit: confirmation must record an initial payment equal to the invoice total (owner decision 2026-09-11). Named customers may still confirm unpaid or partially paid.  
+**Important Exceptions/Edge Cases:** A sale requiring fiscal identification must select or create a qualifying customer. Confirming `Cliente contado` without a full initial payment is rejected and does not assign a `FAC-` number.  
 **Dependencies:** CUST-001, SALE-003.  
-**Acceptance Notes:** Nonfiscal generic sale succeeds; fiscal validation rejects missing required identity.
+**Acceptance Notes:** Nonfiscal generic sale succeeds when paid in full at confirmation; fiscal validation rejects missing required identity; credit terms on `Cliente contado` are rejected.
 
 ---
 

@@ -2,7 +2,14 @@ import { useState } from 'react';
 
 import type { SaveCategoryInput, SaveServiceInput } from '../../api/contracts/catalogs';
 import type { Category, Service } from '../../api/contracts/entities';
-import { Button, Info, Skeleton, toPageLoadMessage, useToast } from '../../shared/ui';
+import {
+  Button,
+  ConfirmActionModal,
+  Info,
+  Skeleton,
+  toPageLoadMessage,
+  useToast,
+} from '../../shared/ui';
 import { PageHeader } from '../../shared/layout/PageHeader';
 import { Tabs } from '../../shared/layout/Tabs';
 import { CategoryFormModal } from './CategoryFormModal';
@@ -17,7 +24,16 @@ const TABS: { id: CatalogTab; label: string }[] = [
 ];
 
 export function CatalogsPage() {
-  const { tab, setTab, categories, services, isSaving, saveCategory, saveService } = useCatalogs();
+  const {
+    tab,
+    setTab,
+    showCategories,
+    categories,
+    services,
+    isSaving,
+    saveCategory,
+    saveService,
+  } = useCatalogs();
   const { pushToast } = useToast();
   const [categoryModalOpen, setCategoryModalOpen] = useState(false);
   const [serviceModalOpen, setServiceModalOpen] = useState(false);
@@ -25,6 +41,7 @@ export function CatalogsPage() {
   const [editingService, setEditingService] = useState<Service | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [togglingServiceId, setTogglingServiceId] = useState<string | null>(null);
+  const [pendingToggle, setPendingToggle] = useState<Service | null>(null);
 
   function openCreateCategory() {
     setEditingCategory(null);
@@ -77,7 +94,7 @@ export function CatalogsPage() {
       return;
     }
 
-    pushToast(input.id ? 'Servicio actualizado' : 'Servicio creado', 'success');
+    pushToast('id' in input ? 'Servicio actualizado' : 'Servicio creado', 'success');
     setServiceModalOpen(false);
     setEditingService(null);
   }
@@ -86,7 +103,6 @@ export function CatalogsPage() {
     setTogglingServiceId(row.id);
     const response = await saveService({
       id: row.id,
-      name: row.name,
       active: !row.active,
     });
     setTogglingServiceId(null);
@@ -96,6 +112,7 @@ export function CatalogsPage() {
       return;
     }
 
+    setPendingToggle(null);
     pushToast(row.active ? 'Servicio desactivado' : 'Servicio activado', 'success');
   }
 
@@ -114,15 +131,34 @@ export function CatalogsPage() {
     );
   }
 
-  const isLoading = categories.status === 'loading' || services.status === 'loading';
+  const isLoading =
+    services.status === 'loading' || (showCategories && categories.status === 'loading');
+  const servicePanel = isLoading ? (
+    <Skeleton label="Cargando catálogos" />
+  ) : services.status === 'ready' ? (
+    <ServiceList
+      rows={services.rows}
+      togglingId={togglingServiceId}
+      onEdit={(row) => {
+        setEditingService(row);
+        setFormError(null);
+        setServiceModalOpen(true);
+      }}
+      onToggleActive={setPendingToggle}
+    />
+  ) : null;
 
   return (
     <>
       <PageHeader
         title="Catálogos"
-        description="Categorías de inventario y servicios mecánicos. El vendedor usa estas definiciones; no puede cambiarlas."
+        description={
+          showCategories
+            ? 'Categorías y servicios.'
+            : 'Servicios mecánicos.'
+        }
         actions={
-          tab === 'categories' ? (
+          showCategories && tab === 'categories' ? (
             <Button onClick={openCreateCategory} disabled={isLoading}>
               Nueva categoría
             </Button>
@@ -134,53 +170,44 @@ export function CatalogsPage() {
         }
       />
 
-      <Tabs
-        aria-label="Tipo de catálogo"
-        tabs={TABS}
-        value={tab}
-        onChange={setTab}
-        panels={{
-          categories: isLoading ? (
-            <Skeleton label="Cargando catálogos" />
-          ) : categories.status === 'ready' ? (
-            <CategoryList
-              rows={categories.rows}
-              onEdit={(row) => {
-                setEditingCategory(row);
-                setFormError(null);
-                setCategoryModalOpen(true);
-              }}
-            />
-          ) : null,
-          services: isLoading ? (
-            <Skeleton label="Cargando catálogos" />
-          ) : services.status === 'ready' ? (
-            <ServiceList
-              rows={services.rows}
-              togglingId={togglingServiceId}
-              onEdit={(row) => {
-                setEditingService(row);
-                setFormError(null);
-                setServiceModalOpen(true);
-              }}
-              onToggleActive={(row) => {
-                void handleToggleService(row);
-              }}
-            />
-          ) : null,
-        }}
-      />
+      {showCategories ? (
+        <Tabs
+          aria-label="Tipo de catálogo"
+          tabs={TABS}
+          value={tab}
+          onChange={setTab}
+          panels={{
+            categories: isLoading ? (
+              <Skeleton label="Cargando catálogos" />
+            ) : categories.status === 'ready' ? (
+              <CategoryList
+                rows={categories.rows}
+                onEdit={(row) => {
+                  setEditingCategory(row);
+                  setFormError(null);
+                  setCategoryModalOpen(true);
+                }}
+              />
+            ) : null,
+            services: servicePanel,
+          }}
+        />
+      ) : (
+        servicePanel
+      )}
 
-      <CategoryFormModal
-        open={categoryModalOpen}
-        category={editingCategory}
-        isSaving={isSaving}
-        error={formError}
-        onClose={closeCategoryModal}
-        onSubmit={(input) => {
-          void handleCategorySubmit(input);
-        }}
-      />
+      {showCategories ? (
+        <CategoryFormModal
+          open={categoryModalOpen}
+          category={editingCategory}
+          isSaving={isSaving}
+          error={formError}
+          onClose={closeCategoryModal}
+          onSubmit={(input) => {
+            void handleCategorySubmit(input);
+          }}
+        />
+      ) : null}
 
       <ServiceFormModal
         open={serviceModalOpen}
@@ -192,6 +219,30 @@ export function CatalogsPage() {
           void handleServiceSubmit(input);
         }}
       />
+
+      <ConfirmActionModal
+        open={pendingToggle != null}
+        title={pendingToggle?.active ? 'Desactivar servicio' : 'Activar servicio'}
+        confirmLabel={pendingToggle?.active ? 'Desactivar' : 'Activar'}
+        confirmVariant={pendingToggle?.active ? 'danger' : 'primary'}
+        busy={Boolean(pendingToggle && togglingServiceId === pendingToggle.id)}
+        onCancel={() => {
+          if (!togglingServiceId) setPendingToggle(null);
+        }}
+        onConfirm={() => {
+          if (pendingToggle) void handleToggleService(pendingToggle);
+        }}
+      >
+        {pendingToggle?.active ? (
+          <Info tone="warning" title="Dejará de ofrecerse en ventas">
+            {pendingToggle.name} no aparecerá al facturar. Las facturas existentes no cambian.
+          </Info>
+        ) : (
+          <p className="text-sm text-navy-700">
+            Se volverá a ofrecer <strong>{pendingToggle?.name}</strong> en el punto de venta.
+          </p>
+        )}
+      </ConfirmActionModal>
     </>
   );
 }

@@ -2,12 +2,12 @@ FROM node:22-bookworm-slim AS build
 
 WORKDIR /app
 
-RUN npm install --global npm@11.19.1
+RUN npm install --ignore-scripts --global npm@11.19.1
 
 COPY package.json package-lock.json .npmrc ./
 COPY apps/api/package.json apps/api/package.json
 COPY apps/web/package.json apps/web/package.json
-RUN npm ci
+RUN npm ci --ignore-scripts
 
 COPY apps/web apps/web
 
@@ -19,14 +19,16 @@ ENV VITE_ENABLE_DEMO_CONTROLS=$VITE_ENABLE_DEMO_CONTROLS
 ENV VITE_CAPABILITIES_PRESET=$VITE_CAPABILITIES_PRESET
 ENV VITE_USE_MOCK_API=$VITE_USE_MOCK_API
 
-RUN npm run build --workspace @truck-parts/web
+RUN npm run build --workspace @solocamiones/web
 
-FROM nginx:1.27-alpine AS runtime
+FROM nginxinc/nginx-unprivileged:1.27-alpine AS runtime
 
+USER root
 COPY apps/web/nginx.conf /etc/nginx/conf.d/default.conf
-COPY --from=build /app/apps/web/dist /usr/share/nginx/html
+COPY --from=build --chown=root:root /app/apps/web/dist /usr/share/nginx/html
+USER nginx
 
-EXPOSE 80
+EXPOSE 8081 8080
 
 CMD ["nginx", "-g", "daemon off;"]
 

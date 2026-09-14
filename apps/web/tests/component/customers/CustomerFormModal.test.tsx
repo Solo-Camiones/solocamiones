@@ -29,6 +29,12 @@ describe('CustomerFormModal', () => {
     await user.type(screen.getByLabelText('Notas'), 'Cliente nuevo');
     await user.click(screen.getByRole('button', { name: 'Guardar' }));
 
+    expect(onSubmit).not.toHaveBeenCalled();
+    expect(screen.getByText('Revisa los datos antes de crear el cliente.')).toBeVisible();
+    expect(screen.getByText('131000001')).toBeVisible();
+
+    await user.click(screen.getByRole('button', { name: 'Confirmar creación' }));
+
     expect(onSubmit).toHaveBeenCalledWith({
       id: undefined,
       name: 'Flota Este',
@@ -70,6 +76,10 @@ describe('CustomerFormModal', () => {
     await user.type(phones[1]!, '809-555-0101');
 
     await user.click(screen.getByRole('button', { name: 'Guardar' }));
+    expect(onSubmit).not.toHaveBeenCalled();
+    expect(screen.getByText('Contacto 1')).toBeVisible();
+    expect(screen.getByText('María Reyes')).toBeVisible();
+    await user.click(screen.getByRole('button', { name: 'Confirmar creación' }));
 
     expect(onSubmit).toHaveBeenCalledWith({
       id: undefined,
@@ -104,7 +114,10 @@ describe('CustomerFormModal', () => {
         open
         customer={{ id: 'C1', name: 'Transportes del Caribe', contacts: [] }}
         isSaving={false}
-        error="El RNC ya existe"
+        error="Ya existe un cliente con esta identificación fiscal / cédula."
+        fieldErrors={{
+          rnc: 'Ya existe un cliente con esta identificación fiscal / cédula.',
+        }}
         onClose={vi.fn()}
         onSubmit={vi.fn()}
       />,
@@ -112,7 +125,44 @@ describe('CustomerFormModal', () => {
 
     expect(screen.getByRole('dialog', { name: 'Editar cliente' })).toBeVisible();
     expect(screen.getByLabelText('Nombre')).toHaveValue('Transportes del Caribe');
-    expect(screen.getByText('El RNC ya existe')).toBeVisible();
+    expect(
+      screen.getAllByText('Ya existe un cliente con esta identificación fiscal / cédula.').length,
+    ).toBeGreaterThan(0);
+    expect(screen.getByLabelText('Identificación fiscal / cédula')).toHaveAttribute(
+      'aria-invalid',
+      'true',
+    );
+  });
+
+  it('clears indexed contact errors when removing a contact', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(
+      <CustomerFormModal
+        open
+        customer={{
+          id: 'C1',
+          name: 'Transportes del Caribe',
+          contacts: [
+            { id: 'CT1', phone: '', email: '' },
+            { id: 'CT2', phone: '809-555-0100' },
+          ],
+        }}
+        isSaving={false}
+        error="Cada contacto debe tener teléfono o correo."
+        fieldErrors={{
+          'contacts.0': 'Cada contacto debe tener teléfono o correo.',
+        }}
+        onClose={vi.fn()}
+        onSubmit={vi.fn()}
+      />,
+    );
+
+    expect(screen.getAllByText('Cada contacto debe tener teléfono o correo.')).not.toHaveLength(0);
+
+    await user.click(screen.getAllByRole('button', { name: 'Quitar' })[0]!);
+
+    expect(screen.getAllByText('Cada contacto debe tener teléfono o correo.')).toHaveLength(1);
+    expect(screen.getByLabelText('Teléfono')).not.toHaveAttribute('aria-invalid', 'true');
   });
 
   it('asks before discarding typed customer data', async () => {
@@ -137,5 +187,29 @@ describe('CustomerFormModal', () => {
     expect(onClose).not.toHaveBeenCalled();
     await user.click(within(dialog).getByRole('button', { name: 'Seguir editando' }));
     expect(within(dialog).getByLabelText('Nombre')).toHaveValue('Flota que no debe perderse');
+  });
+
+  it('returns to the form from review without submitting', async () => {
+    const user = userEvent.setup();
+    const onSubmit = vi.fn();
+    renderWithProviders(
+      <CustomerFormModal
+        open
+        customer={null}
+        isSaving={false}
+        error={null}
+        onClose={vi.fn()}
+        onSubmit={onSubmit}
+      />,
+    );
+
+    await user.type(screen.getByLabelText('Nombre'), 'Flota Este');
+    await user.click(screen.getByRole('button', { name: 'Guardar' }));
+    expect(screen.queryByLabelText('Nombre')).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Volver a editar' }));
+
+    expect(screen.getByLabelText('Nombre')).toHaveValue('Flota Este');
+    expect(onSubmit).not.toHaveBeenCalled();
   });
 });

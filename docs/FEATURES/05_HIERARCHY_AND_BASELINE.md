@@ -10,6 +10,8 @@ The old consolidated requirements/validation files are intentionally no longer r
 
 **Release 6 — Hierarchical Inventory**
 
+**Implementation (2026-09-10):** Production API **not started**. Frontend `[x]` is prototype mock.
+
 ## What this feature does
 
 Represent multi-level assemblies, one current parent, initial observed receipt baselines, Known Missing Components, derived direct-parent completeness, relationship history, and protected `No desarmar` behavior.

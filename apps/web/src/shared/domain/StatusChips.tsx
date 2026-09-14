@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import type { PaymentState } from '../../api/contracts/entities';
 
 import { UX_TERMS } from '../copy/glossary';
 import { Chip } from '../ui';
@@ -28,7 +29,11 @@ export function CommercialChip({
 
   if (commercialAvailabilityLayer(state) === 'primary') {
     return (
-      <span className={size === 'md' ? 'text-lg font-semibold text-navy' : 'text-sm font-semibold text-navy'}>
+      <span
+        className={
+          size === 'md' ? 'text-lg font-semibold text-navy' : 'text-sm font-semibold text-navy'
+        }
+      >
         {label}
       </span>
     );
@@ -119,13 +124,7 @@ export function NoDesarmarChip({
   return <Chip tone="danger">{showRoot ? `No desarmar · ${rootId}` : 'No desarmar'}</Chip>;
 }
 
-function StatusFact({
-  label,
-  children,
-}: {
-  label: string;
-  children: ReactNode;
-}) {
+function StatusFact({ label, children }: { label: string; children: ReactNode }) {
   return (
     <>
       <dt className="text-[11px] font-medium leading-5 text-navy-400">{label}</dt>
@@ -172,7 +171,11 @@ export function InventoryStatusCluster({
   const alerts = (
     <>
       {resolvedLayout !== 'panel' ? <CompleteChip complete={complete} /> : null}
-      <ReservationChip reserved={reserved} draftId={reservedByDraftId} compact={compact || resolvedLayout !== 'panel'} />
+      <ReservationChip
+        reserved={reserved}
+        draftId={reservedByDraftId}
+        compact={compact || resolvedLayout !== 'panel'}
+      />
       <NoDesarmarChip
         active={noDesarmar}
         rootId={protectedRootId}
@@ -226,7 +229,11 @@ export function InventoryStatusCluster({
       )}
       {completeness && (
         <StatusFact label="Completitud">
-          <span className={complete === false ? 'text-sm font-medium text-amber-900' : 'text-sm text-navy'}>
+          <span
+            className={
+              complete === false ? 'text-sm font-medium text-amber-900' : 'text-sm text-navy'
+            }
+          >
             {completeness}
           </span>
         </StatusFact>
@@ -245,11 +252,7 @@ export function InventoryStatusCluster({
   );
 }
 
-export function InvoiceStatusChip({
-  status,
-}: {
-  status: 'DRAFT' | 'COMPLETED' | 'CANCELLED';
-}) {
+export function InvoiceStatusChip({ status }: { status: 'DRAFT' | 'COMPLETED' | 'CANCELLED' }) {
   if (status === 'DRAFT') {
     return <Chip tone="amber">Borrador</Chip>;
   }
@@ -259,11 +262,11 @@ export function InvoiceStatusChip({
   return <Chip tone="success">Completada</Chip>;
 }
 
-export function PaymentChip({
-  state,
-}: {
-  state: 'UNPAID' | 'PARTIALLY_PAID' | 'PAID';
-}) {
+export function PaymentChip({ state }: { state: PaymentState }) {
+  if (state === 'CANCELLED') return <Chip tone="danger">Cancelada</Chip>;
+  if (state === 'OVERDUE') return <Chip tone="danger">Vencida</Chip>;
+  if (state === 'PAID_LATE') return <Chip tone="amber">Pagada con retraso</Chip>;
+  if (state === 'PENDING') return <Chip tone="amber">Pendiente</Chip>;
   if (state === 'PAID') {
     return <Chip tone="success">Pagada</Chip>;
   }
@@ -273,11 +276,7 @@ export function PaymentChip({
   return <Chip tone="danger">Sin pagar</Chip>;
 }
 
-export function WOTypeChip({
-  type,
-}: {
-  type: 'DISMANTLING' | 'INSTALLATION';
-}) {
+export function WOTypeChip({ type }: { type: 'DISMANTLING' | 'INSTALLATION' }) {
   return (
     <span className="text-sm text-navy-500">
       {type === 'INSTALLATION' ? 'Instalación' : UX_TERMS.dismantling}

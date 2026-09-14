@@ -22,7 +22,7 @@ export function getInitialFocus(root: HTMLElement): HTMLElement {
   }
 
   const firstField = root.querySelector<HTMLElement>(
-    'input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled])',
+    'input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), button[aria-haspopup="listbox"]:not([disabled])',
   );
   if (firstField) {
     return firstField;

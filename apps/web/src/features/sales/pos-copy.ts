@@ -5,7 +5,12 @@ import type { AppCapabilities } from '../../shared/config/capabilities';
 
 export const POS_VIEW_REQUIREMENTS_LABEL = 'Ver requisitos';
 export const POS_LINE_REMOVED_TOAST = 'Producto eliminado.';
+export const POS_REMOVE_LINE_TITLE = 'Quitar línea';
+export const POS_REMOVE_LINE_CONFIRM = 'Quitar';
 export const POS_DRAFT_DISCARDED_TOAST = 'Borrador descartado.';
+export const POS_DISCARD_DRAFT_TITLE = 'Descartar borrador';
+export const POS_DISCARD_DRAFT_CONFIRM = 'Sí, descartar';
+export const POS_DISCARD_DRAFT_CANCEL = 'Seguir editando';
 export const POS_UNDO_LABEL = 'Deshacer';
 
 export const POS_FIELD_IDS = {
@@ -110,7 +115,7 @@ export function focusPosElement(elementId: string): void {
  */
 export function posDraftDescription(capabilities: AppCapabilities): string {
   if (capabilities.inventorySales || capabilities.quantitySales) {
-    return 'Edite el borrador, asigne precios y confirme. Las piezas de inventario quedan reservadas hasta confirmar o descartar.';
+    return 'Edite el borrador: las piezas de inventario quedan reservadas hasta confirmar o descartar.';
   }
 
   return 'Edite el borrador, asigne precios y confirme la factura.';

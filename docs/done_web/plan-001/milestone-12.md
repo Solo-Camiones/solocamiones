@@ -1,4 +1,4 @@
-﻿# Milestone 12 — WM12: Rentabilidad, recuperación, escenarios demo y preparación API
+# Milestone 12 — WM12: Rentabilidad, recuperación, escenarios demo y preparación API
 
 | Campo          | Valor                                                           |
 | -------------- | --------------------------------------------------------------- |
@@ -79,9 +79,9 @@ apps/web/src/
 ## 6. Verificación
 
 ```bash
-npm run typecheck -w @truck-parts/web
-npm run typecheck:test -w @truck-parts/web
-npm test -w @truck-parts/web
+npm run typecheck -w @solocamiones/web
+npm run typecheck:test -w @solocamiones/web
+npm test -w @solocamiones/web
 ```
 
 Resultado: 47 archivos de prueba frontend y 295 pruebas aprobadas.

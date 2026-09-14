@@ -98,6 +98,8 @@ export function CreateWorkOrderModal({
           <Select
             id="create-wo-piece"
             required
+            searchable
+            searchPlaceholder="Buscar pieza"
             value={pieceId}
             onChange={(event) => setPieceId(event.target.value)}
           >
@@ -114,6 +116,8 @@ export function CreateWorkOrderModal({
             <Select
               id="create-wo-dest"
               required
+              searchable
+              searchPlaceholder="Buscar ensamblaje"
               value={destinationParentId}
               onChange={(event) => setDestinationParentId(event.target.value)}
             >

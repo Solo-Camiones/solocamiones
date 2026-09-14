@@ -10,6 +10,8 @@ The old consolidated requirements/validation files are intentionally no longer r
 
 **Release 4 — Base Inventory; hierarchy-aware projections expand in Release 6**
 
+**Implementation (2026-09-10):** Production API **not started** (no search/photo persistence). Frontend search `[x]` is prototype mock.
+
 ## What this feature does
 
 Make used parts findable by practical identifiers, show independent/installed/quantity/historical results correctly, provide effective free-text location, and support multiple photos with a primary image.

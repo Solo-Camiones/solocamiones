@@ -7,13 +7,13 @@ import { customerRepository } from '../../api/repositories';
 type CustomersQuery =
   | { status: 'loading' }
   | { status: 'error'; error: AppError }
-  | { status: 'ready'; rows: CustomerListRow[] };
+  | { status: 'ready'; rows: CustomerListRow[]; total: number; page: number; pageSize: number };
 
 /**
  * Loads the customer directory from the repository.
  * Features never import seed or customer services.
  */
-export function useCustomers() {
+export function useCustomers(page: number) {
   const [query, setQuery] = useState('');
   const [reloadToken, setReloadToken] = useState(0);
   const [result, setResult] = useState<CustomersQuery>({ status: 'loading' });
@@ -23,7 +23,7 @@ export function useCustomers() {
     let cancelled = false;
     setResult({ status: 'loading' });
 
-    customerRepository.search(query).then((response) => {
+    customerRepository.search(query, page).then((response) => {
       if (cancelled) {
         return;
       }
@@ -33,13 +33,19 @@ export function useCustomers() {
         return;
       }
 
-      setResult({ status: 'ready', rows: response.value });
+      setResult({
+        status: 'ready',
+        rows: response.value.items,
+        total: response.value.total,
+        page: response.value.page,
+        pageSize: response.value.pageSize,
+      });
     });
 
     return () => {
       cancelled = true;
     };
-  }, [query, reloadToken]);
+  }, [query, page, reloadToken]);
 
   const reload = useCallback(() => {
     setReloadToken((token) => token + 1);

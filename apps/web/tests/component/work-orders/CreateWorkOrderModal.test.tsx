@@ -6,6 +6,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { CreateWorkOrderModal } from '../../../src/features/work-orders/CreateWorkOrderModal';
 import { renderWithProviders } from '../../support/render';
+import { chooseSelectOption } from '../../support/select-menu';
 import '../../support/dom';
 
 const OPTIONS = {
@@ -30,7 +31,7 @@ describe('CreateWorkOrderModal', () => {
       />,
     );
 
-    await user.selectOptions(screen.getByLabelText('Pieza'), 'MOT-001');
+    await chooseSelectOption(user, 'Pieza', 'MOT-001');
     await user.type(screen.getByLabelText('Notas'), 'Desarme de patio');
     await user.click(screen.getByRole('button', { name: 'Crear orden de trabajo' }));
 
@@ -56,9 +57,9 @@ describe('CreateWorkOrderModal', () => {
       />,
     );
 
-    await user.selectOptions(screen.getByLabelText('Tipo'), 'INSTALLATION');
-    await user.selectOptions(screen.getByLabelText('Pieza'), 'ALT-010');
-    await user.selectOptions(screen.getByLabelText('Padre destino'), 'MOT-002');
+    await chooseSelectOption(user, 'Tipo', 'INSTALLATION');
+    await chooseSelectOption(user, 'Pieza', 'ALT-010');
+    await chooseSelectOption(user, 'Padre destino', 'MOT-002');
     await user.click(screen.getByRole('button', { name: 'Crear orden de trabajo' }));
 
     expect(onSubmit).toHaveBeenCalledWith({

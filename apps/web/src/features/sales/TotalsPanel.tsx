@@ -5,10 +5,9 @@ import type { PosDraftTotals } from '../../api/contracts/sales';
 type TotalsPanelProps = {
   totals: PosDraftTotals;
   currency: Currency;
-  fiscal: boolean;
 };
 
-export function TotalsPanel({ totals, currency, fiscal }: TotalsPanelProps) {
+export function TotalsPanel({ totals, currency }: TotalsPanelProps) {
   return (
     <dl className="grid gap-2 text-sm">
       <div className="flex justify-between">
@@ -16,11 +15,11 @@ export function TotalsPanel({ totals, currency, fiscal }: TotalsPanelProps) {
         <dd className="font-medium text-navy">{totals.lineCount}</dd>
       </div>
       <div className="flex justify-between">
-        <dt className="text-navy-400">Base imponible</dt>
+        <dt className="text-navy-400">Base</dt>
         <dd className="font-medium text-navy">{money(totals.taxableBase, currency)}</dd>
       </div>
       <div className="flex justify-between">
-        <dt className="text-navy-400">Impuesto ITBIS {fiscal ? '18% incluido' : ''}</dt>
+        <dt className="text-navy-400">ITBIS incluido</dt>
         <dd className="font-medium text-navy" data-testid="pos-itbis">
           {money(totals.itbis, currency)}
         </dd>

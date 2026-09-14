@@ -1,6 +1,10 @@
 import { err, ok, type Result } from '../shared/auth/types';
 import { getAppCapabilities } from '../shared/config/capabilities';
-import { writeLastDemoScenarioHint } from '../shared/config/demo-scenario-hint';
+import {
+  readLastDemoScenarioHint,
+  writeLastDemoScenarioHint,
+  type StoredDemoScenarioHint,
+} from '../shared/config/demo-scenario-hint';
 import { applyDemoScenario, DEMO_SCENARIOS, type DemoScenario } from './scenarios';
 import { clearSession } from './session';
 import { getMockState, resetMockState } from './state';
@@ -48,11 +52,43 @@ export function runDemoScenario(scenarioId: number): Result<DemoScenario> {
   }
 
   writeLastDemoScenarioHint({
+    scenarioId: scenario.id,
     title: scenario.title,
     suggestedUsername: scenario.suggestedUsername,
-    suggestedPassword: scenario.suggestedPassword,
     nextSteps: scenario.nextSteps,
   });
 
   return ok(scenario);
+}
+
+/** Resolves the in-memory demo password; never reads a password from storage. */
+export function findDemoScenarioForHint(hint: StoredDemoScenarioHint): DemoScenario | undefined {
+  return (
+    (hint.scenarioId !== undefined
+      ? DEMO_SCENARIOS.find((entry) => entry.id === hint.scenarioId)
+      : undefined) ??
+    DEMO_SCENARIOS.find(
+      (entry) =>
+        entry.suggestedUsername === hint.suggestedUsername && entry.title === hint.title,
+    ) ??
+    DEMO_SCENARIOS.find((entry) => entry.suggestedUsername === hint.suggestedUsername)
+  );
+}
+
+/** Login aside payload: stored hint plus password from DEMO_SCENARIOS. */
+export function readDemoLoginHint(): (StoredDemoScenarioHint & { suggestedPassword: string }) | null {
+  const stored = readLastDemoScenarioHint();
+  if (!stored) {
+    return null;
+  }
+
+  const scenario = findDemoScenarioForHint(stored);
+  if (!scenario) {
+    return null;
+  }
+
+  return {
+    ...stored,
+    suggestedPassword: scenario.suggestedPassword,
+  };
 }

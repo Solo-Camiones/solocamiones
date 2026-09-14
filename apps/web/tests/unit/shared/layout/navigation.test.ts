@@ -18,13 +18,14 @@ import { CAPABILITY_PRESETS } from '../../../../src/shared/config/capabilities';
 const prototype = CAPABILITY_PRESETS.prototype;
 
 describe('role navigation', () => {
-  it('shows nine desktop entries to administrators and four to sellers', () => {
-    expect(navItemsForRole('ADMINISTRATOR', prototype)).toHaveLength(9);
+  it('shows ten desktop entries to administrators and five to sellers', () => {
+    expect(navItemsForRole('ADMINISTRATOR', prototype)).toHaveLength(10);
     expect(navItemsForRole('SELLER', prototype).map((item) => item.id)).toEqual([
       'dashboard',
       'inventory',
       'sales',
       'customers',
+      'receivables',
     ]);
     expect(navItemsForRole('MECHANIC', prototype)).toEqual([]);
   });
@@ -44,11 +45,14 @@ describe('role navigation', () => {
       'customers',
       'work-orders',
     ]);
-    expect(shouldShowNavGroupHeadings(adminGroups)).toBe(true);
-
+    expect(adminGroups[2]?.items.map((item) => item.id)).toEqual([
+      'receivables',
+      'profitability',
+      'recovery',
+    ]);
     const sellerGroups = navGroupsForRole('SELLER', prototype);
-    expect(sellerGroups.map((group) => group.id)).toEqual(['operation']);
-    expect(shouldShowNavGroupHeadings(sellerGroups)).toBe(false);
+    expect(sellerGroups.map((group) => group.id)).toEqual(['operation', 'finance']);
+    expect(shouldShowNavGroupHeadings(sellerGroups)).toBe(true);
     expect(navGroupsForRole('MECHANIC', prototype)).toEqual([]);
 
     const releaseOneAdmin = navGroupsForRole('ADMINISTRATOR', CAPABILITY_PRESETS['release-1']);
@@ -68,6 +72,7 @@ describe('role navigation', () => {
     expect(isKnownDesktopRoute('/inventory/MOT-001')).toBe(true);
     expect(isKnownDesktopRoute('/sales/draft/INV-DRAFT-01')).toBe(true);
     expect(isKnownDesktopRoute('/work-orders/OD-DEMO-060')).toBe(true);
+    expect(isKnownDesktopRoute('/receivables')).toBe(true);
     expect(isKnownDesktopRoute('/profile')).toBe(true);
     expect(isKnownDesktopRoute('/invenray')).toBe(false);
     expect(isKnownMechanicRoute('/mechanic/pending')).toBe(true);

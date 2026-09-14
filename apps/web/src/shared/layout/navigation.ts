@@ -1,4 +1,5 @@
 import type { Role } from '../../api/contracts/entities';
+import { useMockApi } from '../../api/client/http-client';
 import {
   getAppCapabilities,
   type AppCapabilities,
@@ -30,7 +31,7 @@ export type NavGroup = {
   items: NavItem[];
 };
 
-/** Desktop sidebar entries — Admin sees 9, Seller sees the first 4 when all capabilities are on. */
+/** Desktop sidebar entries — Admin sees 10, Seller sees 5 when all capabilities are on. */
 export const DESKTOP_NAV_ITEMS: NavItem[] = [
   {
     id: 'dashboard',
@@ -63,6 +64,14 @@ export const DESKTOP_NAV_ITEMS: NavItem[] = [
     roles: ['ADMINISTRATOR', 'SELLER'],
     group: 'operation',
     capability: 'customers',
+  },
+  {
+    id: 'receivables',
+    label: 'Cuentas por cobrar',
+    path: '/receivables',
+    roles: ['ADMINISTRATOR', 'SELLER'],
+    group: 'finance',
+    capability: 'payments',
   },
   {
     id: 'work-orders',
@@ -107,6 +116,10 @@ export const DESKTOP_NAV_ITEMS: NavItem[] = [
 ];
 
 function isNavItemEnabled(item: NavItem, capabilities: AppCapabilities): boolean {
+  // Inicio is keyed off `sales`, but dashboard HTTP is not part of M21.
+  if (item.id === 'dashboard' && !useMockApi) {
+    return false;
+  }
   return !item.capability || capabilities[item.capability];
 }
 
@@ -148,6 +161,7 @@ const KNOWN_DESKTOP_ROUTE_PATTERNS: RegExp[] = [
   /^\/sales\/draft\/[^/]+$/,
   /^\/sales\/[^/]+$/,
   /^\/customers$/,
+  /^\/receivables$/,
   /^\/work-orders$/,
   /^\/work-orders\/[^/]+$/,
   /^\/catalogs$/,
@@ -272,16 +286,22 @@ export function defaultPathForRole(
     case 'MECHANIC':
       return capabilities.workOrders ? '/mechanic' : '/mechanic/profile';
     case 'ADMINISTRATOR':
-      return capabilities.sales ? '/dashboard' : capabilities.users ? '/users' : '/profile';
+      if (capabilities.sales) {
+        return useMockApi ? '/dashboard' : '/sales';
+      }
+      return capabilities.users ? '/users' : '/profile';
     case 'SELLER':
-      return capabilities.sales ? '/dashboard' : '/profile';
+      if (capabilities.sales) {
+        return useMockApi ? '/dashboard' : '/sales';
+      }
+      return '/profile';
   }
 }
 
 /**
  * Whether this identity may land on the URL after login.
- * Logout preserves the previous path as login `state.from`; that path belongs to
- * the previous user and must not send a different role to UnauthorizedPage.
+ * Session expiry may restore `state.from`; explicit logout discards it. A path
+ * from another role must not send the new user to UnauthorizedPage.
  */
 export function isPathAllowedForRole(
   pathname: string,

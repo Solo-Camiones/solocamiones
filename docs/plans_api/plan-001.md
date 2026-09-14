@@ -1,7 +1,7 @@
 # Plan 001 — Release 1 Milestones: Foundation + Access and Users
 
 **Release:** 1 — Application Foundation and Access (Local Development)  
-**Estado:** Milestone 11 completado y verificado en local, incluido el exit gate manual de navegador confirmado por el owner el 2026-09-07. Milestone 4 mantiene pendiente la verificación en GitHub.
+**Estado:** Release 1 cerrado. Milestone 11 completado y verificado en local (exit gate de navegador confirmado por el owner el 2026-09-07). Milestone 4 cerrado: CI GitHub y check obligatorio `R1 quality` verificados.
 **Último milestone:** Milestone 11 — Integrar users HTTP + exit gate Release 1
 
 ---
@@ -14,7 +14,7 @@
 - **Primer despliegue productivo:** después de completar Release 2 — Billing Core ([`../DEVELOPMENT_PLAN.md`](../DEVELOPMENT_PLAN.md) §First production deployment).
 - **Features en alcance:** [`../FEATURES/01_ACCESS_AND_USERS.md`](../FEATURES/01_ACCESS_AND_USERS.md) + slice R1 de [`../FEATURES/14_HISTORY_ADMIN_AND_RECOVERY.md`](../FEATURES/14_HISTORY_ADMIN_AND_RECOVERY.md).
 - **Frontend:** el prototipo mock de [`../plans_web/plan-001.md`](../plans_web/plan-001.md) está **cerrado** (WM12). M10–M11 ya conectaron login, shell por rol, perfil, usuarios y recuperación de contraseña a HTTP cuando `VITE_USE_MOCK_API=false`; el prototipo completo se conserva con `true`.
-- **Estado API:** M1–M3 y M5–M11 completados y verificados en local; M4 mantiene pendientes externos. Auth HTTP, `requireAuth`/`requireRole`, gestión y recuperación de contraseña están disponibles. History M9 persiste eventos atómicos de usuarios, perfil, contraseña y recuperación.
+- **Estado API:** M1–M11 completados. Auth HTTP, `requireAuth`/`requireRole`, gestión y recuperación de contraseña están disponibles. History M9 persiste eventos atómicos de usuarios, perfil, contraseña y recuperación. CI GitHub (`R1 quality`) verificado.
 - **Ciclo por milestone:** plan → implementación → pruebas → revisión → commit. La integración web se hace **solo** cuando la función API cumple el criterio de la sección Integración API → Web.
 
 
@@ -141,7 +141,7 @@ flowchart TD
 | M1 | Scaffold monorepo FE/BE + convenciones + health stub | completado | Health stub (histórico; ya no es UI de producto) |
 | M2 | PostgreSQL + Prisma + health readiness | completado | **Nada de producto.** Health solo CI/ops |
 | M3 | Errores, logging, validación HTTP | completado | Contrato de errores; aún sin pantallas HTTP |
-| M4 | Test harness + CI baseline (smoke R1) | en curso | Ninguna |
+| M4 | Test harness + CI baseline (smoke R1) | completado | Ninguna |
 | M5 | Modelo User/Session + bootstrap CLI admin | completado en local | Ninguna (CLI, no HTTP) |
 | M6 | Login/logout/sesiones + perfil propio (AUTH-001) | completado en local | Cliente HTTP auth **preparable**; swap no default |
 | M7 | Autorización server-side (AUTH-002/005) | completado en local | **Listo para M10** (auth + shell); swap no default |
@@ -236,19 +236,21 @@ flowchart TD
 
 ## Milestone 4 — Test harness y CI baseline
 
+**Estado:** completado (local 2026-09-03; GitHub 2026-09-07).
+
 **Avance local:** aislamiento de `DATABASE_URL_TEST`, fallo explícito si PostgreSQL
 no está disponible, preparación global de integración con reset de la BD desechable
 y reaplicación de migraciones, health real y respuestas HTTP negativas verificadas.
 La suite API pasa con 43 pruebas unitarias y 15 de integración; el monorepo suma 501 pruebas.
 Workflow GitHub Actions y smoke R1 documentados en
-[`milestone-4-ci.md`](milestone-4-ci.md). Pendientes: primera ejecución verde en GitHub
-y configuración/verificación del check obligatorio `R1 quality` para merge.
-Se corrigieron las dependencias identificadas: `deepmerge-ts 8.0.0` mediante override
-limitado a `@prisma/config@6.19.3`, y `qs 6.16.0`. npm 11.19.1 queda fijado para aplicar
-el override correctamente en workspaces. La instalación limpia, Prisma, pruebas,
-typecheck, lint y build pasan. El 2026-09-04, `npm audit --audit-level=high` completó
-correctamente con cero vulnerabilidades. El gate de auditoría permanece obligatorio.
-El usuario realizará el PR al terminar Release 1; no se abre un PR para M4 ahora.
+[`milestone-4-ci.md`](milestone-4-ci.md). El owner confirmó el 2026-09-07 que la
+parte GitHub de M4 quedó lista: ejecución de **CI R1** y check obligatorio
+`R1 quality`. Se corrigieron las dependencias identificadas: `deepmerge-ts 8.0.0`
+mediante override limitado a `@prisma/config@6.19.3`, y `qs 6.16.0`. npm 11.19.1
+queda fijado para aplicar el override correctamente en workspaces. La instalación
+limpia, Prisma, pruebas, typecheck, lint y build pasan. El 2026-09-04,
+`npm audit --audit-level=high` completó correctamente con cero vulnerabilidades.
+El gate de auditoría permanece obligatorio.
 
 **Objetivo:** Unit + integration contra PostgreSQL real; CI sin despliegue.
 
@@ -319,7 +321,7 @@ advertencia de tamaño del bundle web. El 2026-09-04,
 `npm audit --audit-level=high` completó correctamente con cero vulnerabilidades;
 esto no equivale a una ejecución aprobada del workflow remoto de CI.
 Evidencia y límites en [`milestone-5-verification.md`](milestone-5-verification.md).
-M5 cumple su definición de terminado local; siguen pendientes los gates externos de M4.
+M5 cumple su definición de terminado local. M4 quedó cerrado en GitHub el 2026-09-07.
 
 **Objetivo:** Modelar usuarios, roles, sesiones y bootstrap del primer Administrator.
 
@@ -556,11 +558,9 @@ Tras **cerrar Release 1**, la siguiente integración web de negocio es Release 2
 
 **Milestone 11:** completado. La integración HTTP de administración de usuarios y recuperación está implementada, cubierta automáticamente y validada manualmente en navegador por el owner.
 
-**Pendientes de Milestone 4:** verificar el primer PR en GitHub y configurar el check
-obligatorio `R1 quality`. Se mantiene la decisión de
-hacer el PR al terminar Release 1.
+**Milestone 4:** cerrado. CI GitHub y el check obligatorio `R1 quality` están verificados.
 
-Auth, perfil, usuarios y recuperación de contraseña usan HTTP con `VITE_USE_MOCK_API=false`. Los módulos de Release 2+ permanecen deshabilitados; el prototipo completo se conserva con `true`.
+Auth, perfil, usuarios y recuperación de contraseña usan HTTP con `VITE_USE_MOCK_API=false`. Los módulos de Release 2+ se planifican en [`plan_release_2.md`](plan_release_2.md); el prototipo completo se conserva con `true`.
 
 Antes de seguir, asegúrate de tener `.env` con un `DATABASE_URL` válido, la base `truck_parts_dev` creada, y haber corrido:
 

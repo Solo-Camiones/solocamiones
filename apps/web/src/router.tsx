@@ -14,6 +14,7 @@ import { MechanicOrderView } from './features/mechanic/MechanicOrderView';
 import { MechanicPendingPage } from './features/mechanic/MechanicPendingPage';
 import { CatalogsPage } from './features/catalogs/CatalogsPage';
 import { UsersPage } from './features/users/UsersPage';
+import { ReceivablesPage } from './features/receivables/ReceivablesPage';
 import { ProfitabilityPage } from './features/profitability/ProfitabilityPage';
 import { AdminRecoveryPage } from './features/admin-recovery/AdminRecoveryPage';
 import { NotFoundPage } from './features/placeholder/NotFoundPage';
@@ -57,6 +58,10 @@ const desktopChildRoutes = [
   {
     path: '/customers',
     element: <CustomersPage />,
+  },
+  {
+    path: '/receivables',
+    element: <ReceivablesPage />,
   },
   {
     path: '/work-orders',

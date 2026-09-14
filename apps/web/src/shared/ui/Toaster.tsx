@@ -8,6 +8,13 @@ import {
   type ToastTone,
   useToast,
 } from './toast-context';
+import {
+  CheckCircleIcon,
+  ErrorCircleIcon,
+  InfoCircleIcon,
+  WarningTriangleIcon,
+  XIcon,
+} from './icons';
 
 const DEFAULT_TOAST_DURATION_MS = 4000;
 
@@ -16,10 +23,11 @@ export function ToastProvider({ children }: { children: ReactNode }) {
 
   const pushToast = useCallback((message: string, tone: ToastTone = 'info', options?: ToastOptions) => {
     const id = crypto.randomUUID();
-    setToasts((current) => [...current, { id, message, tone, action: options?.action }]);
+    const durationMs = options?.durationMs ?? DEFAULT_TOAST_DURATION_MS;
+    setToasts((current) => [...current, { id, message, tone, durationMs, action: options?.action }]);
     window.setTimeout(() => {
       setToasts((current) => current.filter((toast) => toast.id !== id));
-    }, options?.durationMs ?? DEFAULT_TOAST_DURATION_MS);
+    }, durationMs);
   }, []);
 
   const dismissToast = useCallback((id: string) => {
@@ -41,6 +49,13 @@ const toneClasses: Record<ToastTone, string> = {
   error: 'border-red-200 bg-red-50 text-red-900',
 };
 
+const toneIcons: Record<ToastTone, ReactNode> = {
+  info: <InfoCircleIcon className="mt-0.5 h-5 w-5 shrink-0 text-brand" />,
+  success: <CheckCircleIcon className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600" />,
+  warning: <WarningTriangleIcon className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />,
+  error: <ErrorCircleIcon className="mt-0.5 h-5 w-5 shrink-0 text-red-600" />,
+};
+
 export function Toaster() {
   const { toasts, dismissToast } = useToast();
 
@@ -56,10 +71,11 @@ export function Toaster() {
       {toasts.map((toast) => (
         <div
           key={toast.id}
-          className={`rounded-lg border px-4 py-3 text-sm shadow-lg ${toneClasses[toast.tone]}`}
+          className={`relative overflow-hidden rounded-lg border px-4 py-3 text-sm shadow-lg animate-slide-up-in ${toneClasses[toast.tone]}`}
         >
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
+          <div className="flex items-start gap-3">
+            {toneIcons[toast.tone]}
+            <div className="min-w-0 flex-1">
               <span>{toast.message}</span>
               {toast.action ? (
                 <Button
@@ -78,13 +94,21 @@ export function Toaster() {
             <Button
               variant="ghost"
               size="icon"
-              className="shrink-0 text-navy-400 hover:text-navy"
+              className="-mr-1 -mt-1 h-8 w-8 shrink-0 text-navy-400 hover:text-navy"
               onClick={() => dismissToast(toast.id)}
               aria-label="Cerrar notificación"
             >
-              ✕
+              <XIcon className="h-4 w-4" />
             </Button>
           </div>
+          {/* Progress bar */}
+          <div
+            className="absolute bottom-0 left-0 h-1 bg-current opacity-20"
+            style={{
+              animation: 'toast-progress linear forwards',
+              animationDuration: `${toast.durationMs}ms`,
+            }}
+          />
         </div>
       ))}
     </div>

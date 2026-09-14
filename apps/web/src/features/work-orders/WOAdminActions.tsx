@@ -136,6 +136,8 @@ export function WOAdminActions({
             <Select
               id="wo-reassign-mechanic"
               required
+              searchable
+              searchPlaceholder="Buscar mecánico"
               value={mechanicId}
               onChange={(event) => setMechanicId(event.target.value)}
             >

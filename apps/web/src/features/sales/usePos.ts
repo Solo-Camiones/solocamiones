@@ -20,9 +20,11 @@ export type PosLineSnapshot = Pick<
   | 'qtyProductId'
   | 'serviceId'
   | 'description'
+  | 'notes'
   | 'quantity'
   | 'unitPrice'
   | 'acquisitionCostDop'
+  | 'costProvenance'
   | 'pricePending'
 >;
 
@@ -40,9 +42,11 @@ export function snapshotPosLine(line: PosLineView): PosLineSnapshot {
     qtyProductId: line.qtyProductId,
     serviceId: line.serviceId,
     description: line.description,
+    notes: line.notes,
     quantity: line.quantity,
     unitPrice: line.unitPrice,
     acquisitionCostDop: line.acquisitionCostDop,
+    costProvenance: line.costProvenance,
     pricePending: line.pricePending,
   };
 }
@@ -63,9 +67,11 @@ export function toPosAddLineInput(line: PosLineSnapshot): Omit<AddDraftLineInput
     qtyProductId: line.qtyProductId,
     serviceId: line.serviceId,
     description: line.description,
+    notes: line.notes,
     quantity: line.quantity,
     unitPrice: line.unitPrice,
     acquisitionCostDop: line.acquisitionCostDop,
+    costProvenance: line.costProvenance,
   };
 }
 
@@ -213,30 +219,35 @@ export function usePos(draftId: string | undefined) {
 
   const mutationLock = useRef(false);
 
-  const runExclusive = useCallback(async (work: () => Promise<Result<void>>): Promise<Result<void>> => {
-    if (mutationLock.current) {
-      return {
-        ok: false,
-        error: { code: 'VALIDATION', message: 'Hay otra operación en curso. Espere un momento.' },
-      };
-    }
+  const runExclusive = useCallback(
+    async (work: () => Promise<Result<void>>): Promise<Result<void>> => {
+      if (mutationLock.current) {
+        return {
+          ok: false,
+          error: { code: 'VALIDATION', message: 'Hay otra operación en curso. Espere un momento.' },
+        };
+      }
 
-    mutationLock.current = true;
-    setIsMutating(true);
-    try {
-      return await work();
-    } finally {
-      mutationLock.current = false;
-      setIsMutating(false);
-    }
-  }, []);
+      mutationLock.current = true;
+      setIsMutating(true);
+      try {
+        return await work();
+      } finally {
+        mutationLock.current = false;
+        setIsMutating(false);
+      }
+    },
+    [],
+  );
 
   const addLine = useCallback(
     async (input: Omit<AddDraftLineInput, 'draftId'>): Promise<Result<void>> => {
       if (!draftId || draftId === 'new') {
         return { ok: false, error: { code: 'VALIDATION', message: 'Borrador no listo' } };
       }
-      return runExclusive(async () => applyDraftResult(await salesRepository.addLine({ ...input, draftId })));
+      return runExclusive(async () =>
+        applyDraftResult(await salesRepository.addLine({ ...input, draftId })),
+      );
     },
     [applyDraftResult, draftId, runExclusive],
   );
@@ -260,6 +271,51 @@ export function usePos(draftId: string | undefined) {
       }
       return runExclusive(async () =>
         applyDraftResult(await salesRepository.setLinePrice({ draftId, lineId, unitPrice })),
+      );
+    },
+    [applyDraftResult, draftId, runExclusive],
+  );
+
+  const setLineQuantity = useCallback(
+    async (lineId: string, quantity: number): Promise<Result<void>> => {
+      if (!draftId || draftId === 'new') {
+        return { ok: false, error: { code: 'VALIDATION', message: 'Borrador no listo' } };
+      }
+      return runExclusive(async () =>
+        applyDraftResult(await salesRepository.setLineQuantity({ draftId, lineId, quantity })),
+      );
+    },
+    [applyDraftResult, draftId, runExclusive],
+  );
+
+  const updateLine = useCallback(
+    async (
+      lineId: string,
+      patch: {
+        unitPrice: number;
+        quantity?: number;
+        description?: string;
+        notes?: string | null;
+        acquisitionCostDop?: number | null;
+        costProvenance?: PosLineView['costProvenance'];
+      },
+    ): Promise<Result<void>> => {
+      if (!draftId || draftId === 'new') {
+        return { ok: false, error: { code: 'VALIDATION', message: 'Borrador no listo' } };
+      }
+      return runExclusive(async () =>
+        applyDraftResult(
+          await salesRepository.setLinePrice({
+            draftId,
+            lineId,
+            unitPrice: patch.unitPrice,
+            quantity: patch.quantity,
+            description: patch.description,
+            notes: patch.notes,
+            acquisitionCostDop: patch.acquisitionCostDop,
+            costProvenance: patch.costProvenance,
+          }),
+        ),
       );
     },
     [applyDraftResult, draftId, runExclusive],
@@ -324,6 +380,8 @@ export function usePos(draftId: string | undefined) {
     addLine,
     removeLine,
     setLinePrice,
+    setLineQuantity,
+    updateLine,
     setMeta,
     confirm,
     discard,

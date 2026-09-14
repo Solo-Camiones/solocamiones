@@ -53,7 +53,7 @@ export function AdminRecoveryPage() {
     <>
       <PageHeader
         title="Administración y Recuperación"
-        description="Operaciones nombradas: no es un editor de estado arbitrario. Cada acción deja historial aditivo."
+        description="Operaciones de corrección. Cada acción deja un registro en el historial."
       />
 
       <div className="space-y-8">

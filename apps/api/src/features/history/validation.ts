@@ -15,6 +15,94 @@ const profile = z
   })
   .strict();
 const base = { subjectType: z.literal('USER'), subjectId: z.uuid(), actor };
+const customerBase = { subjectType: z.literal('CUSTOMER'), subjectId: z.uuid(), actor };
+const serviceBase = { subjectType: z.literal('MECHANICAL_SERVICE'), subjectId: z.uuid(), actor };
+const invoiceBase = { subjectType: z.literal('INVOICE'), subjectId: z.uuid(), actor };
+const invoiceDraftSnapshot = z
+  .object({
+    status: z.literal('DRAFT'),
+    number: z.null(),
+    currency: z.enum(['DOP', 'USD']),
+    fiscal: z.boolean(),
+    customerId: z.uuid(),
+  })
+  .strict();
+const invoiceCustomerSnapshot = z
+  .object({
+    name: z.string(),
+    rnc: z.string().nullable(),
+    phone: z.string().nullable(),
+  })
+  .strict();
+const invoiceConfirmedSnapshot = z
+  .object({
+    status: z.literal('COMPLETED'),
+    number: z.string(),
+    currency: z.enum(['DOP', 'USD']),
+    fiscal: z.boolean(),
+    customerId: z.uuid(),
+    customerSnapshot: invoiceCustomerSnapshot,
+    totals: z
+      .object({
+        gross: z.string(),
+        base: z.string(),
+        itbis: z.string(),
+      })
+      .strict(),
+    confirmedAt: z.string(),
+    dueDate: z.iso.date(),
+    confirmedByUserId: z.uuid(),
+    confirmedByName: z.string().min(1),
+  })
+  .strict();
+const invoiceFxProvenanceSnapshot = z
+  .object({
+    exchangeRateDopPerUsd: z.string(),
+    source: z.string(),
+    rateUpdatedAt: z.string(),
+    obtainedAt: z.string(),
+  })
+  .strict();
+const invoiceLineSnapshot = z
+  .object({
+    id: z.uuid(),
+    type: z.enum(['GENERIC', 'SERVICE', 'DELIVERY', 'EXTERNAL', 'ITEM', 'QTY']),
+    description: z.string(),
+    notes: z.preprocess((value) => (value === undefined ? null : value), z.string().nullable()),
+    quantity: z.string(),
+    unitPrice: z.string(),
+    acquisitionCostDop: z.string().nullable(),
+    costProvenance: z.enum(['ACTUAL', 'ESTIMATED', 'UNKNOWN']).nullable(),
+    serviceId: z.uuid().nullable(),
+  })
+  .strict();
+const serviceSnapshot = z
+  .object({
+    name: z.string(),
+    description: z.string().nullable(),
+    active: z.boolean(),
+  })
+  .strict();
+const customerSnapshot = z
+  .object({
+    name: z.string(),
+    rnc: z.string().nullable(),
+    address: z.string().nullable(),
+    notes: z.string().nullable(),
+    isDefault: z.boolean(),
+    contacts: z.array(
+      z
+        .object({
+          name: z.string().nullable(),
+          phone: z.string().nullable(),
+          email: z.string().nullable(),
+          title: z.string().nullable(),
+          isPrimary: z.boolean(),
+        })
+        .strict(),
+    ),
+  })
+  .strict();
 const recovery = { requestId: z.uuid(), before: z.literal('PENDING') };
 
 export const historyEventSchema = z
@@ -116,6 +204,179 @@ export const historyEventSchema = z
             ...recovery,
             after: z.literal('CANCELLED'),
             reason: z.enum(['USER_DEACTIVATED', 'PASSWORD_CHANGED']),
+          })
+          .strict(),
+      })
+      .strict(),
+    z
+      .object({
+        ...customerBase,
+        eventType: z.literal('CUSTOMER_CREATED'),
+        payload: customerSnapshot,
+      })
+      .strict(),
+    z
+      .object({
+        ...customerBase,
+        eventType: z.literal('CUSTOMER_UPDATED'),
+        payload: z.object({ before: customerSnapshot, after: customerSnapshot }).strict(),
+      })
+      .strict(),
+    z
+      .object({
+        ...serviceBase,
+        eventType: z.literal('SERVICE_CREATED'),
+        payload: serviceSnapshot,
+      })
+      .strict(),
+    z
+      .object({
+        ...serviceBase,
+        eventType: z.literal('SERVICE_UPDATED'),
+        payload: z.object({ before: serviceSnapshot, after: serviceSnapshot }).strict(),
+      })
+      .strict(),
+    z
+      .object({
+        ...invoiceBase,
+        eventType: z.literal('INVOICE_DRAFT_CREATED'),
+        payload: invoiceDraftSnapshot,
+      })
+      .strict(),
+    z
+      .object({
+        ...invoiceBase,
+        eventType: z.literal('INVOICE_DRAFT_UPDATED'),
+        payload: z.object({ before: invoiceDraftSnapshot, after: invoiceDraftSnapshot }).strict(),
+      })
+      .strict(),
+    z
+      .object({
+        ...invoiceBase,
+        eventType: z.literal('INVOICE_DRAFT_DISCARDED'),
+        payload: invoiceDraftSnapshot,
+      })
+      .strict(),
+    z
+      .object({
+        ...invoiceBase,
+        eventType: z.literal('INVOICE_LINE_ADDED'),
+        payload: invoiceLineSnapshot,
+      })
+      .strict(),
+    z
+      .object({
+        ...invoiceBase,
+        eventType: z.literal('INVOICE_LINE_UPDATED'),
+        payload: z.object({ before: invoiceLineSnapshot, after: invoiceLineSnapshot }).strict(),
+      })
+      .strict(),
+    z
+      .object({
+        ...invoiceBase,
+        eventType: z.literal('INVOICE_LINE_REMOVED'),
+        payload: invoiceLineSnapshot,
+      })
+      .strict(),
+    z
+      .object({
+        ...invoiceBase,
+        eventType: z.literal('INVOICE_CONFIRMED'),
+        payload: invoiceConfirmedSnapshot,
+      })
+      .strict(),
+    z
+      .object({
+        ...invoiceBase,
+        eventType: z.literal('PAYMENT_RECORDED'),
+        payload: z
+          .object({
+            paymentId: z.uuid(),
+            amount: z.string(),
+            currency: z.enum(['DOP', 'USD']),
+            method: z.enum(['CASH', 'TRANSFER', 'CHECK']),
+            effectiveDate: z.iso.date(),
+            reference: z.string().nullable(),
+          })
+          .strict(),
+      })
+      .strict(),
+    z
+      .object({
+        ...invoiceBase,
+        eventType: z.literal('INVOICE_CANCELLED'),
+        payload: z
+          .object({
+            reason: z.string(),
+            cancelledAt: z.iso.datetime(),
+            cancelledByName: z.string(),
+            refundId: z.uuid().nullable(),
+            refundAmount: z.string(),
+            refundMethod: z.enum(['CASH', 'TRANSFER', 'CHECK']).nullable(),
+          })
+          .strict(),
+      })
+      .strict(),
+    z
+      .object({
+        ...invoiceBase,
+        eventType: z.literal('INVOICE_GROSS_PROFIT_RECORDED'),
+        payload: z
+          .object({
+            before: z.string().nullable(),
+            after: z.string(),
+          })
+          .strict(),
+      })
+      .strict(),
+    z
+      .object({
+        ...invoiceBase,
+        eventType: z.literal('INVOICE_USD_FX_RECORDED'),
+        payload: z
+          .object({
+            asOf: z.string(),
+            after: invoiceFxProvenanceSnapshot,
+          })
+          .strict(),
+      })
+      .strict(),
+    z
+      .object({
+        ...invoiceBase,
+        eventType: z.literal('INVOICE_USD_FX_RETRIED'),
+        payload: z
+          .object({
+            outcome: z.enum(['RECORDED', 'UNAVAILABLE']),
+            reason: z.string().nullable(),
+            asOf: z.string(),
+            after: invoiceFxProvenanceSnapshot.nullable(),
+          })
+          .strict(),
+      })
+      .strict(),
+    z
+      .object({
+        ...invoiceBase,
+        eventType: z.literal('INVOICE_PDF_GENERATED'),
+        payload: z
+          .object({
+            status: z.literal('READY'),
+            errorId: z.null(),
+            templateVersion: z.string(),
+          })
+          .strict(),
+      })
+      .strict(),
+    z
+      .object({
+        ...invoiceBase,
+        eventType: z.literal('INVOICE_PDF_FAILED'),
+        payload: z
+          .object({
+            status: z.literal('FAILED'),
+            errorId: z.uuid(),
+            templateVersion: z.string(),
           })
           .strict(),
       })

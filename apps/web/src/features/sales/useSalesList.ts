@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 
+import { toListPage, type ListPage } from '../../api/contracts/pagination';
 import type { SalesListRow, SalesListTab } from '../../api/contracts/sales';
-import type { AppError } from '../../shared/auth/types';
+import type { AppError, Result } from '../../shared/auth/types';
 import { salesRepository } from '../../api/repositories';
 
 export const SALES_LIST_TABS: SalesListTab[] = ['ALL', 'DRAFT', 'COMPLETED', 'CANCELLED'];
@@ -13,6 +14,12 @@ export type SalesUrlFilters = {
   today: boolean;
   outstanding: boolean;
   payments: boolean;
+};
+
+const DEFAULT_SALES_URL_FILTERS: SalesUrlFilters = {
+  today: false,
+  outstanding: false,
+  payments: false,
 };
 
 /**
@@ -81,12 +88,43 @@ export function applySalesUrlFilters(
   });
 }
 
+async function listSales(
+  tab: SalesListTab,
+  page: number,
+  q: string,
+  filters: SalesUrlFilters,
+): Promise<Result<ListPage<SalesListRow>>> {
+  if (!salesUrlFiltersActive(filters)) {
+    return salesRepository.listInvoices(tab, page, q);
+  }
+
+  const rows: SalesListRow[] = [];
+  let currentPage = 1;
+  let total = 0;
+  let pageSize = 10;
+  do {
+    const response = await salesRepository.listInvoices(tab, currentPage, q);
+    if (!response.ok) return response;
+    rows.push(...response.value.items);
+    total = response.value.total;
+    pageSize = response.value.pageSize;
+    currentPage += 1;
+  } while (rows.length < total);
+
+  return { ok: true, value: toListPage(applySalesUrlFilters(rows, filters), page, pageSize) };
+}
+
 type SalesQuery =
   | { status: 'loading' }
   | { status: 'error'; error: AppError }
-  | { status: 'ready'; rows: SalesListRow[] };
+  | { status: 'ready'; rows: SalesListRow[]; total: number; page: number; pageSize: number };
 
-export function useSalesList(tab: SalesListTab) {
+export function useSalesList(
+  tab: SalesListTab,
+  page: number,
+  q = '',
+  filters: SalesUrlFilters = DEFAULT_SALES_URL_FILTERS,
+) {
   const [reloadToken, setReloadToken] = useState(0);
   const [result, setResult] = useState<SalesQuery>({ status: 'loading' });
 
@@ -94,7 +132,7 @@ export function useSalesList(tab: SalesListTab) {
     let cancelled = false;
     setResult({ status: 'loading' });
 
-    salesRepository.listInvoices(tab).then((response) => {
+    listSales(tab, page, q, filters).then((response) => {
       if (cancelled) {
         return;
       }
@@ -104,13 +142,19 @@ export function useSalesList(tab: SalesListTab) {
         return;
       }
 
-      setResult({ status: 'ready', rows: response.value });
+      setResult({
+        status: 'ready',
+        rows: response.value.items,
+        total: response.value.total,
+        page: response.value.page,
+        pageSize: response.value.pageSize,
+      });
     });
 
     return () => {
       cancelled = true;
     };
-  }, [tab, reloadToken]);
+  }, [tab, page, q, filters.today, filters.outstanding, filters.payments, reloadToken]);
 
   const reload = useCallback(() => {
     setReloadToken((token) => token + 1);

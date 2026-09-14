@@ -11,8 +11,15 @@ export type SaveCategoryInput = {
   attributes?: CategoryAttributeDefinition[];
 };
 
-export type SaveServiceInput = {
-  id?: string;
+export type CreateServiceInput = {
   name: string;
   active: boolean;
 };
+
+export type UpdateServiceInput = {
+  id: string;
+  name?: string;
+  active?: boolean;
+};
+
+export type SaveServiceInput = CreateServiceInput | UpdateServiceInput;
