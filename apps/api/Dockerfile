@@ -17,8 +17,6 @@ COPY apps/api apps/api
 COPY apps/web/src/shared/assets/brand/SoloCamionesLogo.png apps/web/src/shared/assets/brand/SoloCamionesLogo.png
 RUN npm run build --workspace @solocamiones/api
 
-USER node
-
 FROM node:22-bookworm-slim AS runtime
 
 WORKDIR /app
