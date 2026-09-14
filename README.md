@@ -159,15 +159,15 @@ Variables relevantes del `.env` (nunca commitear `.env`):
 Unitarias de API no necesitan PostgreSQL:
 
 ```bash
-npm run test:unit -w @truck-parts/api
+npm run test:unit -w @solocamiones/api
 ```
 
-`npm run test:watch -w @truck-parts/api` observa solo unitarias. `npm run test -w @truck-parts/api` corre unitarias e integración (incluye el reset de la base de prueba).
+`npm run test:watch -w @solocamiones/api` observa solo unitarias. `npm run test -w @solocamiones/api` corre unitarias e integración (incluye el reset de la base de prueba).
 
 Para integración de API: `docker compose up -d db`, crear `truck_parts_test` si no existe, y `DATABASE_URL_TEST` en `.env` (puerto 5433 en `.env.example`):
 
 ```bash
-npm run test:integration -w @truck-parts/api
+npm run test:integration -w @solocamiones/api
 ```
 
 El setup valida `DATABASE_URL_TEST` antes de asignarlo a Prisma. Si existen ambas URLs, los **nombres de base** deben ser distintos; credenciales u host distintos no bastan. Un entorno de prueba puede llevar solo `DATABASE_URL_TEST`. Sin ella, se quita el fallback de desarrollo y la suite falla. Las URLs inválidas fallan sin imprimir credenciales.

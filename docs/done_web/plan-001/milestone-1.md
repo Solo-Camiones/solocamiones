@@ -1,4 +1,4 @@
-﻿# Milestone 1 — WM1: Fundación, diseño y capa mock
+# Milestone 1 — WM1: Fundación, diseño y capa mock
 
 > **Plantilla de documentación de milestones web.**  
 > Cada milestone futuro puede replicar esta estructura: contexto → decisiones → entregables → flujo → verificación → pendientes.
@@ -312,7 +312,7 @@ Reglas vigentes:
 
 ```bash
 # Desde la raíz del monorepo
-npm run typecheck -w @truck-parts/web
+npm run typecheck -w @solocamiones/web
 
 # O desde apps/web
 cd apps/web

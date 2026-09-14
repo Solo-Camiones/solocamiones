@@ -23,9 +23,9 @@ La suite se organiza por el límite que cada prueba cruza, no por el nombre del 
 ## Comandos
 
 ```bash
-npm test -w @truck-parts/web
-npm run test:unit -w @truck-parts/web
-npm run test:integration -w @truck-parts/web
-npm run test:component -w @truck-parts/web
-npm run typecheck:test -w @truck-parts/web
+npm test -w @solocamiones/web
+npm run test:unit -w @solocamiones/web
+npm run test:integration -w @solocamiones/web
+npm run test:component -w @solocamiones/web
+npm run typecheck:test -w @solocamiones/web
 ```

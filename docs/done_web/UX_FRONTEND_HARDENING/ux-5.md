@@ -53,8 +53,8 @@ apps/web/tests/component/sales/PosPage.test.tsx
 ## 4. Cómo verificar
 
 ```bash
-npm run test:unit -w @truck-parts/web
-npm run test:component -w @truck-parts/web
+npm run test:unit -w @solocamiones/web
+npm run test:component -w @solocamiones/web
 ```
 
 Manual (vendedor): prototipo — confirmar sigue siendo el botón grande; descartar pide diálogo si hay líneas; agregar línea ITEM explica la reserva. Preset `release-2` — copy sin reserva, sin ITEM/QTY, sin pago inicial ni aviso de OT.

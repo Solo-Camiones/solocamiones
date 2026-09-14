@@ -83,8 +83,8 @@ docs/done_web/UX_FRONTEND_HARDENING/ux-8.md
 ## 5. Cómo verificar
 
 ```bash
-npm run test:unit -w @truck-parts/web
-npm run test:component -w @truck-parts/web
+npm run test:unit -w @solocamiones/web
+npm run test:component -w @solocamiones/web
 ```
 
 Manual (preset `prototype`):

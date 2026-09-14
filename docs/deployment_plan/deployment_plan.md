@@ -1,4 +1,4 @@
-# Deployment Plan — Truck Parts System / SoloCamiones
+# Deployment Plan — Solo Camiones
 
 ## Objetivo
 
@@ -270,14 +270,14 @@ No usar `latest` para componentes propios.
 Ejemplo:
 
 ```text
-truck-parts-api:1.0.0
-truck-parts-web:1.0.0
+solocamiones-api:1.0.0
+solocamiones-web:1.0.0
 ```
 
 o imágenes ligadas al commit:
 
 ```text
-truck-parts-api:sha-82ad91f
+solocamiones-api:sha-82ad91f
 ```
 
 ---

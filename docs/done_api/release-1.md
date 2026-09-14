@@ -54,7 +54,7 @@ Crear la estructura mínima ejecutable del monolito modular (frontend + backend)
 - `npm run typecheck` — OK
 - `npm run build` — OK
 - `npm run lint` — OK
-- Smoke: `GET /api/health` respondía `{ "status": "ok", "service": "truck-parts-api" }`
+- Smoke: `GET /api/health` respondía `{ "status": "ok", "service": "solocamiones-api" }`
 
 ### Fuera de alcance (intencional)
 
@@ -241,7 +241,7 @@ Completar el harness existente de Vitest + Supertest, ejecutar integraciones con
 - `tests/unit/health/routes.test.ts` — liveness independiente de la BD; readiness HTTP `503` para BD caída y migraciones `pending`/`unavailable`, simulando esas condiciones en el repositorio.
 - `tests/integration/health/routes.test.ts` — liveness y readiness `200` contra la aplicación y PostgreSQL real, después de reconstruir la BD.
 - Se conservó la cobertura del contrato HTTP de M3.
-- `npm run test -w @truck-parts/api` ejecuta unitarias y luego integraciones. `test:watch` observa solamente unitarias; `test:integration` usa la configuración específica con reset de BD.
+- `npm run test -w @solocamiones/api` ejecuta unitarias y luego integraciones. `test:watch` observa solamente unitarias; `test:integration` usa la configuración específica con reset de BD.
 
 #### CI y smoke Release 1
 
@@ -502,9 +502,9 @@ Ninguna respuesta JSON incluye `passwordHash` ni el token opaco de sesión.
 
 | Verificación | Resultado |
 |---|---|
-| `npm run test:unit --workspace @truck-parts/api` | **113** aprobadas |
-| `npm run typecheck --workspace @truck-parts/api` | OK |
-| `npm run test:integration --workspace @truck-parts/api` | No ejecutado: Prisma AI safety bloqueó `migrate reset` sobre `truck_parts_test` (localhost:5433). No se usó `PRISMA_USER_CONSENT`. No se tocó `truck_parts_dev` ni producción. |
+| `npm run test:unit --workspace @solocamiones/api` | **113** aprobadas |
+| `npm run typecheck --workspace @solocamiones/api` | OK |
+| `npm run test:integration --workspace @solocamiones/api` | No ejecutado: Prisma AI safety bloqueó `migrate reset` sobre `truck_parts_test` (localhost:5433). No se usó `PRISMA_USER_CONSENT`. No se tocó `truck_parts_dev` ni producción. |
 
 ### Fuera de alcance (intencional)
 
@@ -559,7 +559,7 @@ No gestiona usuarios; existe para tests negativos y smoke hasta que M8 monte `/a
 | Verificación | Resultado |
 |---|---|
 | `npx vitest run tests/unit` (API) | **120** aprobadas |
-| `npm run typecheck --workspace @truck-parts/api` | OK |
+| `npm run typecheck --workspace @solocamiones/api` | OK |
 | Integración HTTP autorización | Escrita; no ejecutada en esta sesión (mismo bloqueo de `migrate reset` sobre `truck_parts_test`) |
 
 ### Fuera de alcance (intencional)

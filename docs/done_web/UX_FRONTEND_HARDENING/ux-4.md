@@ -55,8 +55,8 @@ apps/web/tests/component/inventory/InventoryPage.test.tsx
 ## 4. Cómo verificar
 
 ```bash
-npm run test:unit -w @truck-parts/web
-npm run test:component -w @truck-parts/web
+npm run test:unit -w @solocamiones/web
+npm run test:component -w @solocamiones/web
 ```
 
 Manual (preset `prototype`, vendedor o admin): Inventario — MOT-001 muestra `Instalado en Freightliner Cascadia 2018` sin chip Independiente/Completo; MOT-002 `Incompleto`; MOT-003 `No desarmar`; ALT-004 `Reservado`. Click en ubicación o categoría abre el detalle; Tab sigue llegando al nombre. Ventas: click en la fila o en `FAC-000098`. OT: click en la fila abre la orden; el enlace de factura sigue yendo a ventas.

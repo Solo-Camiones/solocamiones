@@ -19,7 +19,7 @@ ENV VITE_ENABLE_DEMO_CONTROLS=$VITE_ENABLE_DEMO_CONTROLS
 ENV VITE_CAPABILITIES_PRESET=$VITE_CAPABILITIES_PRESET
 ENV VITE_USE_MOCK_API=$VITE_USE_MOCK_API
 
-RUN npm run build --workspace @truck-parts/web
+RUN npm run build --workspace @solocamiones/web
 
 FROM nginxinc/nginx-unprivileged:1.27-alpine AS runtime
 

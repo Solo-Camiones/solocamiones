@@ -50,7 +50,7 @@ jobs:
         run: npm ci --ignore-scripts
 
       - name: Generate Prisma Client
-        run: npm exec --ignore-scripts --workspace @truck-parts/api -- prisma generate
+        run: npm exec --ignore-scripts --workspace @solocamiones/api -- prisma generate
 
       - name: Test with coverage
         run: npm run test:coverage

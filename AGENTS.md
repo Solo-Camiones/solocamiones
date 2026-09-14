@@ -1,4 +1,4 @@
-# AGENTS.md — Truck Parts System
+# AGENTS.md — Solo Camiones
 
 This file defines the engineering instructions Codex must follow when working in this repository.
 

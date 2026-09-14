@@ -90,7 +90,7 @@ the root `.env` for the disposable database. Run from the repository root:
 npm run db:generate
 npm run lint
 npm run typecheck
-npm run typecheck:test --workspace @truck-parts/web
+npm run typecheck:test --workspace @solocamiones/web
 npm run test:unit
 npm run test:integration
 npm run test:web:component

@@ -644,10 +644,10 @@ Regenerar un PDF `FAILED` desde el snapshot completed, sin reabrir la venta ni a
 
 ### Validación
 
-- `npm run typecheck -w @truck-parts/api` — aprobado.
-- `npm exec -w @truck-parts/api -- vitest run tests/unit/infrastructure/invoice-pdf.test.ts tests/unit/sales/history-validation.test.ts` — 2 archivos, 8 pruebas aprobadas.
-- `npm run test:integration -w @truck-parts/api -- tests/integration/sales/pdf-http.test.ts` — 1 archivo, 9 pruebas aprobadas.
-- `npm run test:integration -w @truck-parts/api -- tests/integration/sales` — 4 archivos, 47 pruebas aprobadas.
+- `npm run typecheck -w @solocamiones/api` — aprobado.
+- `npm exec -w @solocamiones/api -- vitest run tests/unit/infrastructure/invoice-pdf.test.ts tests/unit/sales/history-validation.test.ts` — 2 archivos, 8 pruebas aprobadas.
+- `npm run test:integration -w @solocamiones/api -- tests/integration/sales/pdf-http.test.ts` — 1 archivo, 9 pruebas aprobadas.
+- `npm run test:integration -w @solocamiones/api -- tests/integration/sales` — 4 archivos, 47 pruebas aprobadas.
 - La integración cubre éxito, nuevo fallo, autorización/CSRF/estados no elegibles y revocación concurrente del rol durante el render.
 
 ### Fuera de alcance (intencional)

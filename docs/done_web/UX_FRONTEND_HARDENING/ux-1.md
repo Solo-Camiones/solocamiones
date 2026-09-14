@@ -59,8 +59,8 @@ apps/web/tests/component/shared/TabControls.test.tsx
 ## 4. Cómo verificar
 
 ```bash
-npm run test:unit -w @truck-parts/web
-npm run test:component -w @truck-parts/web
+npm run test:unit -w @solocamiones/web
+npm run test:component -w @solocamiones/web
 ```
 
 Manual: Tab / Shift+Tab / Enter / Space / Escape en un modal de alta, un modal de confirmación y el login con credenciales incorrectas.

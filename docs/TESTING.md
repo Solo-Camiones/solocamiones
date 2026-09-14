@@ -180,8 +180,8 @@ Renderizan React en jsdom con Testing Library y validan comportamiento visible. 
 - Endurecimiento posterior en el mismo árbol: SelectMenu, login-return-path, COST-001 PATCH, período `Hoy`.
 - `npm run test:unit` (esta pasada): API **223** / web **349**, todas aprobadas.
 - `npm run test:web:component` — **184** aprobadas (39 archivos).
-- `npm run test:integration -w @truck-parts/web` — **69** aprobadas.
-- `npm run typecheck` y `npm run typecheck:test -w @truck-parts/web` — no reejecutados en esta pasada de inventario.
+- `npm run test:integration -w @solocamiones/web` — **69** aprobadas.
+- `npm run typecheck` y `npm run typecheck:test -w @solocamiones/web` — no reejecutados en esta pasada de inventario.
 - Integración API — **181 / 22 archivos** (inventario: M25 verde + caso FX de history rollback). Esta pasada no reejecutó `prisma migrate reset` sobre `truck_parts_test`.
 - Release 2 queda **COMPLETED** en local. El resto Feature 12 (filtros CxC) es trabajo de Release 3.
 
@@ -311,7 +311,7 @@ Ejercitan persistencia y transacciones contra PostgreSQL y rutas HTTP con Supert
 ### Cobertura añadida en Release 2 M18
 
 - **4 integraciones nuevas:** Administrator regenera `FAILED` al mismo `FAC-`/snapshot; regeneración que vuelve a fallar deja 200 + nuevo `errorId`; revocación del rol durante el render impide persistir estado o history; Seller/READY/draft/Mechanic/CSRF rechazados.
-- **Verificación ejecutada:** `npm run typecheck -w @truck-parts/api`; 8 pruebas unitarias de PDF/history; 9 integraciones focalizadas de `tests/integration/sales/pdf-http.test.ts`; suite completa de integración de sales con 47 pruebas.
+- **Verificación ejecutada:** `npm run typecheck -w @solocamiones/api`; 8 pruebas unitarias de PDF/history; 9 integraciones focalizadas de `tests/integration/sales/pdf-http.test.ts`; suite completa de integración de sales con 47 pruebas.
 - No hay swap web (M23) ni S3/DGII.
 
 Los archivos y conteos completos de M13–M16 también están registrados en las tablas anteriores: `unit/sales/money.test.ts`, `unit/profitability/validation.test.ts`, `unit/infrastructure/fx.test.ts`, `unit/sales/history-validation.test.ts`, `integration/sales/http.test.ts`, `integration/sales/fx-http.test.ts`, `integration/profitability/http.test.ts` e `integration/profitability/fx-retry-http.test.ts`.
@@ -349,21 +349,21 @@ npm run test:web:component
 npm run typecheck
 
 # Tipos de la suite web
-npm run typecheck:test -w @truck-parts/web
+npm run typecheck:test -w @solocamiones/web
 
 # Casos específicos de M9 (la integración prepara y reinicia DATABASE_URL_TEST)
-npm exec -w @truck-parts/api -- vitest run tests/unit/users/history-validation.test.ts
-npm run test:integration -w @truck-parts/api -- tests/integration/users/history.test.ts
+npm exec -w @solocamiones/api -- vitest run tests/unit/users/history-validation.test.ts
+npm run test:integration -w @solocamiones/api -- tests/integration/users/history.test.ts
 
 # Casos específicos de Release 2 M1–M18
-npm exec -w @truck-parts/api -- vitest run tests/unit/customers tests/unit/catalogs tests/unit/sales tests/unit/profitability tests/unit/infrastructure/fx.test.ts tests/unit/infrastructure/invoice-pdf.test.ts
-npm run test:integration -w @truck-parts/api -- tests/integration/customers tests/integration/catalogs tests/integration/sales tests/integration/profitability
+npm exec -w @solocamiones/api -- vitest run tests/unit/customers tests/unit/catalogs tests/unit/sales tests/unit/profitability tests/unit/infrastructure/fx.test.ts tests/unit/infrastructure/invoice-pdf.test.ts
+npm run test:integration -w @solocamiones/api -- tests/integration/customers tests/integration/catalogs tests/integration/sales tests/integration/profitability
 
 # Swaps web M21–M24
-npm exec -w @truck-parts/web -- vitest run tests/unit/api/http-sales.test.ts tests/unit/api/http-profitability.test.ts tests/component/sales/HttpSalesFlow.test.tsx tests/component/profitability/HttpProfitabilityFlow.test.tsx
+npm exec -w @solocamiones/web -- vitest run tests/unit/api/http-sales.test.ts tests/unit/api/http-profitability.test.ts tests/component/sales/HttpSalesFlow.test.tsx tests/component/profitability/HttpProfitabilityFlow.test.tsx
 
 # Slice R3 adelantado (no es M25)
-npm exec -w @truck-parts/api -- vitest run tests/unit/payments tests/unit/sales/policies.test.ts tests/integration/sales/payments-cancellation-http.test.ts
+npm exec -w @solocamiones/api -- vitest run tests/unit/payments tests/unit/sales/policies.test.ts tests/integration/sales/payments-cancellation-http.test.ts
 ```
 
 ## Alcance actual

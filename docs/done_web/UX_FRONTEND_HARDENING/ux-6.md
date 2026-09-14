@@ -44,8 +44,8 @@ apps/web/tests/component/mechanic/MechanicPages.test.tsx
 ## 4. Cómo verificar
 
 ```bash
-npm run test:unit -w @truck-parts/web
-npm run test:component -w @truck-parts/web
+npm run test:unit -w @solocamiones/web
+npm run test:component -w @solocamiones/web
 ```
 
 Manual (mecánico, prototipo, ~360–430 px): tomar una pendiente; en 060 subir AFTER y ver progreso; forzar error de red y reintentar sin perder la foto; completar; ver historial e Ir a pendientes. Preset sin `workOrders`: solo Perfil en la nav.
