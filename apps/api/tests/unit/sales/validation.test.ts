@@ -8,6 +8,8 @@ import {
 } from '../../../src/features/sales/constants.js';
 import {
   addInvoiceLineSchema,
+  addPaymentSchema,
+  cancelInvoiceSchema,
   confirmInvoiceSchema,
   createDraftSchema,
   deliveryDraftLineSchema,
@@ -150,6 +152,8 @@ describe('draft GENERIC line validation', () => {
     expect(lineNotesSchema.safeParse('x'.repeat(101)).success).toBe(false);
     expect(lineNotesSchema.parse('a\nb')).toBe('a\nb');
     expect(lineNotesSchema.parse('  \n  ')).toBe(null);
+    expect(lineNotesSchema.parse(undefined)).toBeUndefined();
+    expect(lineNotesSchema.safeParse(1).success).toBe(false);
   });
 
   it('rejects values that cannot be stored as DECIMAL(12,2)', () => {
@@ -347,5 +351,112 @@ describe('draft DELIVERY line validation', () => {
     ).toBe(false);
     expect(deliveryDraftLineSchema.safeParse({ type: 'DELIVERY' }).success).toBe(false);
     expect(addInvoiceLineSchema.safeParse({ type: 'DELIVERY', extra: true }).success).toBe(false);
+  });
+});
+
+describe('payment and cancellation HTTP validation', () => {
+  it('accepts a confirm payment with optional reference and idempotency key', () => {
+    expect(
+      confirmInvoiceSchema.parse({
+        payment: {
+          amount: '50.00',
+          method: 'CASH',
+          reference: '  REC-1  ',
+          idempotencyKey: 'confirm-key',
+        },
+      }),
+    ).toEqual({
+      payment: {
+        amount: '50.00',
+        method: 'CASH',
+        reference: 'REC-1',
+        idempotencyKey: 'confirm-key',
+      },
+    });
+  });
+
+  it.each(['0', '0.00', '9999999999.991', '10000000000.00', '-1', '10.1.0', 'abc'])(
+    'rejects confirm or later payment amount %s',
+    (amount) => {
+      expect(
+        confirmInvoiceSchema.safeParse({ payment: { amount, method: 'CASH' } }).success,
+      ).toBe(false);
+      expect(
+        addPaymentSchema.safeParse({
+          amount,
+          method: 'CASH',
+          effectiveDate: '2026-09-11',
+          idempotencyKey: 'pay-key',
+        }).success,
+      ).toBe(false);
+    },
+  );
+
+  it.each([
+    {
+      name: 'optional null reference',
+      input: {
+        amount: '18.00',
+        method: 'TRANSFER' as const,
+        effectiveDate: '2026-09-11',
+        reference: null,
+        idempotencyKey: 'pay-key',
+      },
+    },
+    {
+      name: 'omitted optional reference',
+      input: {
+        amount: '18.00',
+        method: 'CHECK' as const,
+        effectiveDate: '2026-09-11',
+        idempotencyKey: 'pay-key',
+      },
+    },
+  ])('accepts a later payment with $name', ({ input }) => {
+    expect(addPaymentSchema.parse(input)).toEqual(input);
+  });
+
+  it.each([
+    { idempotencyKey: '', effectiveDate: '2026-09-11' },
+    { idempotencyKey: 'x'.repeat(101), effectiveDate: '2026-09-11' },
+    { idempotencyKey: 'pay-key', effectiveDate: '13-09-2026' },
+    { idempotencyKey: 'pay-key', effectiveDate: '2026-09-11T12:00:00.000Z' },
+    { idempotencyKey: 'pay-key', effectiveDate: '2026-13-01' },
+  ])('rejects a later payment with invalid identity or date %#', (fields) => {
+    expect(
+      addPaymentSchema.safeParse({
+        amount: '10.00',
+        method: 'CASH',
+        ...fields,
+      }).success,
+    ).toBe(false);
+  });
+
+  it('accepts cancellation with optional refund fields and requires an idempotency key', () => {
+    expect(
+      cancelInvoiceSchema.parse({
+        reason: 'Cliente devolvió las piezas',
+        refundMethod: 'TRANSFER',
+        refundReference: '  CHK-1  ',
+        idempotencyKey: 'cancel-key',
+      }),
+    ).toEqual({
+      reason: 'Cliente devolvió las piezas',
+      refundMethod: 'TRANSFER',
+      refundReference: 'CHK-1',
+      idempotencyKey: 'cancel-key',
+    });
+    expect(cancelInvoiceSchema.parse({ reason: 'Duplicada', idempotencyKey: 'cancel-key' })).toEqual(
+      { reason: 'Duplicada', idempotencyKey: 'cancel-key' },
+    );
+  });
+
+  it.each([
+    { reason: '', idempotencyKey: 'cancel-key' },
+    { reason: 'Duplicada', idempotencyKey: '' },
+    { reason: 'Duplicada' },
+    { reason: 'Duplicada', idempotencyKey: 'cancel-key', refundMethod: 'CARD' },
+  ])('rejects cancellation payload %#', (input) => {
+    expect(cancelInvoiceSchema.safeParse(input).success).toBe(false);
   });
 });

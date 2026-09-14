@@ -132,9 +132,11 @@ describe('HTTP profitability contract', () => {
       const url = String(path);
       if (url.includes(`/api/profitability/${pendingId}/retry`) && init?.method === 'POST') {
         expect(new Headers(init.headers).get('X-Requested-With')).toBe('XMLHttpRequest');
+        expect(JSON.parse(String(init.body))).toEqual({});
         return json({ id: pendingId });
       }
       if (url.includes(`/api/profitability/${unknownId}/manual-gross-profit`) && init?.method === 'POST') {
+        expect(new Headers(init.headers).get('X-Requested-With')).toBe('XMLHttpRequest');
         expect(JSON.parse(String(init.body))).toEqual({ profitDop: '1800.00' });
         return json({ id: unknownId });
       }
@@ -202,6 +204,165 @@ describe('HTTP profitability contract', () => {
       });
       expect(recorded.value.profitDop).toBe(8977);
     }
+  });
+
+  it.each([
+    { name: 'null', rawRate: null, expectedCollected: 0, expectedOmitted: 1 },
+    { name: 'empty', rawRate: '', expectedCollected: 0, expectedOmitted: 1 },
+    { name: 'non-numeric', rawRate: 'not-a-rate', expectedCollected: 0, expectedOmitted: 1 },
+    { name: 'infinite', rawRate: 'Infinity', expectedCollected: 0, expectedOmitted: 1 },
+    { name: 'zero', rawRate: '0', expectedCollected: 0, expectedOmitted: 1 },
+    { name: 'negative', rawRate: '-61.5', expectedCollected: 0, expectedOmitted: 1 },
+    { name: 'valid', rawRate: '61.50', expectedCollected: 123, expectedOmitted: 0 },
+  ])(
+    'handles a $name fallback FX rate without producing invalid collected totals',
+    async ({ rawRate, expectedCollected, expectedOmitted }) => {
+      const usdWithoutProfitFx = {
+        ...pending,
+        profitability: {
+          status: 'CALCULATED' as const,
+          reason: null,
+          profitDop: '10.00',
+          margin: '1.00',
+        },
+        exchangeRateDopPerUsd: rawRate,
+        payments: [
+          { kind: 'PAYMENT' as const, amount: '2.00', method: 'CASH', effectiveDate: '2026-09-01' },
+        ],
+      };
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(async (path: string) => {
+          const url = String(path);
+          if (url.startsWith('/api/sales?status=CANCELLED')) return emptySalesPage();
+          if (url.startsWith('/api/sales?status=COMPLETED')) {
+            return json({ items: [usdWithoutProfitFx], total: 1, page: 1, pageSize: 10 });
+          }
+          throw new Error(`Unexpected ${path}`);
+        }),
+      );
+
+      const result = await repository.getSnapshot();
+
+      expect(result).toMatchObject({
+        ok: true,
+        value: {
+          collectedDop: expectedCollected,
+          omittedUsdReceiptCount: expectedOmitted,
+          invoices: [{ rateDopPerUsd: undefined }],
+        },
+      });
+    },
+  );
+
+  it('ignores drafts and rows without profitability while preserving optional invoice fields', async () => {
+    const rowsWithoutProfit = [
+      {
+        ...calculated,
+        id: 'dddddddd-dddd-4ddd-8ddd-dddddddddddd',
+        status: 'DRAFT',
+        number: null,
+        confirmedAt: null,
+        payments: undefined,
+        profitability: undefined,
+      },
+      {
+        ...calculated,
+        id: 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee',
+        status: 'COMPLETED',
+        number: null,
+        confirmedAt: null,
+        payments: undefined,
+        profitability: undefined,
+      },
+    ];
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (path: string) => {
+        const url = String(path);
+        if (url.startsWith('/api/sales?status=CANCELLED')) return emptySalesPage();
+        if (url.startsWith('/api/sales?status=COMPLETED')) {
+          return json({ items: rowsWithoutProfit, total: 2, page: 1, pageSize: 10 });
+        }
+        throw new Error(`Unexpected ${path}`);
+      }),
+    );
+
+    expect(await repository.getSnapshot()).toMatchObject({
+      ok: true,
+      value: {
+        profitDop: 0,
+        collectedDop: 0,
+        pendingFxCount: 0,
+        invoices: [],
+        charts: null,
+      },
+    });
+  });
+
+  it('uses the invoice id when a profitable completed row has no number', async () => {
+    const unnumbered = {
+      ...calculated,
+      id: 'ffffffff-ffff-4fff-8fff-ffffffffffff',
+      number: null,
+      confirmedAt: null,
+      payments: undefined,
+    };
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (path: string) => {
+        const url = String(path);
+        if (url.startsWith('/api/sales?status=CANCELLED')) return emptySalesPage();
+        if (url.startsWith('/api/sales?status=COMPLETED')) {
+          return json({ items: [unnumbered], total: 1, page: 1, pageSize: 10 });
+        }
+        throw new Error(`Unexpected ${path}`);
+      }),
+    );
+
+    expect(await repository.getSnapshot()).toMatchObject({
+      ok: true,
+      value: {
+        profitDop: 50,
+        invoices: [{ number: 'ffffffff-ffff-4fff-8fff-ffffffffffff', confirmedAt: null }],
+      },
+    });
+  });
+
+  it.each([
+    ['retry', () => repository.retryUsd({ invoiceId: pendingId })],
+    [
+      'manual profit',
+      () => repository.recordManualGrossProfit({ invoiceId: unknownId, profitDop: 10.126 }),
+    ],
+  ])('maps a failed %s request without attempting snapshot lookups', async (_name, mutate) => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(json({ error: { code: 'CONFLICT', message: 'Conflicto' } }, 409));
+    vi.stubGlobal('fetch', fetchMock);
+
+    expect(await mutate()).toMatchObject({ ok: false, error: { code: 'CONFLICT' } });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('serializes manual profit to two decimals', async () => {
+    const fetchMock = vi.fn(async (path: string, init?: RequestInit) => {
+      const url = String(path);
+      if (url.includes(`/api/profitability/${unknownId}/manual-gross-profit`)) {
+        const requestInit = init as RequestInit;
+        expect(init?.method).toBe('POST');
+        expect(new Headers(requestInit.headers).get('X-Requested-With')).toBe('XMLHttpRequest');
+        expect(JSON.parse(String(requestInit.body))).toEqual({ profitDop: '10.13' });
+        return json({ id: unknownId });
+      }
+      if (url.startsWith('/api/sales?status=')) return emptySalesPage();
+      throw new Error(`Unexpected ${path}`);
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    expect(
+      await repository.recordManualGrossProfit({ invoiceId: unknownId, profitDop: 10.126 }),
+    ).toMatchObject({ ok: true, value: { invoices: [], profitDop: 0 } });
   });
 
   it('leaves the demo FX toggle unimplemented', async () => {

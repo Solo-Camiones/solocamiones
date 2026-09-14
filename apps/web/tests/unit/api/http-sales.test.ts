@@ -52,6 +52,16 @@ const invoiceWithTotal = {
   totals: { gross: '118.00', base: '100.00', itbis: '18.00' },
 };
 
+const completedInvoice = {
+  ...invoiceWithTotal,
+  status: 'COMPLETED' as const,
+  number: 'FAC-000010',
+  confirmedAt: '2026-09-09T13:00:00.000Z',
+  paid: '0.00',
+  refunded: '0.00',
+  balance: '118.00',
+};
+
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status });
 }
@@ -258,6 +268,41 @@ describe('HTTP sales draft contract', () => {
     expect(toHttpAddLineBody({ draftId, type: 'ITEM', itemId: 'x' })).toEqual({ type: 'ITEM' });
   });
 
+  it.each([
+    {
+      name: 'blank notes and omitted optional service fields',
+      input: { draftId, type: 'SERVICE' as const, serviceId: installation.id, notes: '   ' },
+      expected: {
+        type: 'SERVICE',
+        serviceId: installation.id,
+        unitPrice: '0.00',
+        notes: null,
+      },
+    },
+    {
+      name: 'a custom delivery description',
+      input: { draftId, type: 'DELIVERY' as const, description: '  Envío expreso  ' },
+      expected: { type: 'DELIVERY', description: 'Envío expreso', unitPrice: '0.00' },
+    },
+    {
+      name: 'a non-finite merchandise cost as unknown',
+      input: {
+        draftId,
+        type: 'GENERIC' as const,
+        description: undefined,
+        acquisitionCostDop: Number.NaN,
+      },
+      expected: {
+        type: 'GENERIC',
+        description: '',
+        unitPrice: '0.00',
+        costProvenance: 'UNKNOWN',
+      },
+    },
+  ])('serializes $name', ({ input, expected }) => {
+    expect(toHttpAddLineBody(input)).toEqual(expected);
+  });
+
   it('adds a GENERIC line and discards with DELETE', async () => {
     const withLine = {
       ...emptyInvoice,
@@ -390,6 +435,101 @@ describe('HTTP sales draft contract', () => {
     }
   });
 
+  it.each([
+    {
+      name: 'omits fields that were not supplied',
+      input: { unitPrice: 125 },
+      expectedBody: { unitPrice: '125.00' },
+    },
+    {
+      name: 'normalizes blank notes and clears acquisition cost',
+      input: {
+        unitPrice: 125.126,
+        notes: '   ',
+        acquisitionCostDop: null,
+        costProvenance: 'UNKNOWN' as const,
+      },
+      expectedBody: {
+        unitPrice: '125.13',
+        notes: null,
+        acquisitionCostDop: null,
+        costProvenance: 'UNKNOWN',
+      },
+    },
+  ])('$name when PATCHing an editable line', async ({ input, expectedBody }) => {
+    const fetchMock = vi.fn(async (path: string, init?: RequestInit) => {
+      if (String(path) === `/api/sales/${draftId}/lines/${lineId}` && init?.method === 'PATCH') {
+        return json(invoiceWithTotal);
+      }
+      if (String(path).startsWith('/api/customers?')) {
+        return json({
+          items: [{ ...cashCustomer, address: null, notes: null, contacts: [] }],
+          total: 1,
+          page: 1,
+          pageSize: 10,
+        });
+      }
+      if (String(path) === '/api/catalogs/services') return json({ items: [installation] });
+      throw new Error(`Unexpected ${path} ${init?.method}`);
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await repository.setLinePrice({ draftId, lineId, ...input });
+
+    expect(result.ok).toBe(true);
+    const patchInit = fetchMock.mock.calls[0]?.[1] as RequestInit;
+    expect(JSON.parse(String(patchInit.body))).toEqual(expectedBody);
+    expect(new Headers(patchInit.headers).get('X-Requested-With')).toBe('XMLHttpRequest');
+  });
+
+  it('serializes quantity and metadata PATCH requests with CSRF', async () => {
+    const fetchMock = vi.fn(async (path: string, init?: RequestInit) => {
+      const url = String(path);
+      if (url === `/api/sales/${draftId}/lines/${lineId}` && init?.method === 'PATCH') {
+        return json(invoiceWithTotal);
+      }
+      if (url === `/api/sales/${draftId}` && init?.method === 'PATCH') {
+        return json({ ...invoiceWithTotal, currency: 'USD', fiscal: true });
+      }
+      if (url.startsWith('/api/customers?')) {
+        return json({
+          items: [{ ...cashCustomer, address: null, notes: null, contacts: [] }],
+          total: 1,
+          page: 1,
+          pageSize: 10,
+        });
+      }
+      if (url === '/api/catalogs/services') return json({ items: [installation] });
+      throw new Error(`Unexpected ${path} ${init?.method}`);
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    expect(await repository.setLineQuantity({ draftId, lineId, quantity: 2.345 })).toMatchObject({
+      ok: true,
+    });
+    expect(
+      await repository.setDraftMeta({
+        draftId,
+        customerId: cashCustomer.id,
+        currency: 'USD',
+        fiscal: true,
+      }),
+    ).toMatchObject({ ok: true, value: { currency: 'USD', fiscal: true } });
+
+    const patchCalls = fetchMock.mock.calls.filter(([, init]) => init?.method === 'PATCH');
+    expect(JSON.parse(String((patchCalls[0]?.[1] as RequestInit).body))).toEqual({
+      quantity: '2.35',
+    });
+    expect(JSON.parse(String((patchCalls[1]?.[1] as RequestInit).body))).toEqual({
+      customerId: cashCustomer.id,
+      currency: 'USD',
+      fiscal: true,
+    });
+    for (const [, init] of patchCalls) {
+      expect(new Headers(init?.headers).get('X-Requested-With')).toBe('XMLHttpRequest');
+    }
+  });
+
   it('keeps a successful line mutation successful when auxiliary lookups fail', async () => {
     const withLine = {
       ...invoiceWithTotal,
@@ -434,6 +574,100 @@ describe('HTTP sales draft contract', () => {
         totals: { gross: 118 },
         customers: [{ id: cashCustomer.id }],
       },
+    });
+  });
+
+  it('keeps a referenced service visible when it is absent from the active lookup', async () => {
+    const invoiceWithMissingService = {
+      ...emptyInvoice,
+      lines: [
+        {
+          id: lineId,
+          type: 'SERVICE',
+          description: 'Servicio histórico',
+          notes: null,
+          quantity: '1.00',
+          unitPrice: '100.00',
+          taxable: true,
+          gross: '100.00',
+          base: '100.00',
+          itbis: '0.00',
+          acquisitionCostDop: null,
+          costProvenance: null,
+          serviceId: '99999999-9999-4999-8999-999999999999',
+        },
+      ],
+    };
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (path: string) => {
+        const url = String(path);
+        if (url === `/api/sales/${draftId}`) return json(invoiceWithMissingService);
+        if (url.startsWith('/api/customers?')) {
+          return json({
+            items: [{ ...cashCustomer, address: null, notes: null, contacts: [] }],
+            total: 1,
+            page: 1,
+            pageSize: 10,
+          });
+        }
+        if (url === '/api/catalogs/services') return json({ items: [] });
+        throw new Error(`Unexpected ${path}`);
+      }),
+    );
+
+    expect(await repository.getDraft(draftId)).toMatchObject({
+      ok: true,
+      value: {
+        services: [
+          { id: '99999999-9999-4999-8999-999999999999', name: 'Servicio histórico' },
+        ],
+      },
+    });
+  });
+
+  it('maps an invoice fetch failure before attempting lookups', async () => {
+    const fetchMock = vi.fn().mockRejectedValue(new TypeError('offline'));
+    vi.stubGlobal('fetch', fetchMock);
+
+    expect(await repository.getDraft(draftId)).toMatchObject({
+      ok: false,
+      error: { code: 'NETWORK' },
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    { name: 'customers', failedPath: '/api/customers?' },
+    { name: 'services', failedPath: '/api/catalogs/services' },
+  ])('returns an error when the $name lookup fails while loading a draft', async ({ failedPath }) => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (path: string) => {
+        const url = String(path);
+        if (url === `/api/sales/${draftId}`) return json(emptyInvoice);
+        if (url.startsWith('/api/customers?')) {
+          return failedPath === '/api/customers?'
+            ? json({ error: { code: 'INTERNAL' } }, 503)
+            : json({
+                items: [{ ...cashCustomer, address: null, notes: null, contacts: [] }],
+                total: 1,
+                page: 1,
+                pageSize: 10,
+              });
+        }
+        if (url === '/api/catalogs/services') {
+          return failedPath === url
+            ? json({ error: { code: 'INTERNAL' } }, 503)
+            : json({ items: [installation] });
+        }
+        throw new Error(`Unexpected ${path}`);
+      }),
+    );
+
+    expect(await repository.getDraft(draftId)).toMatchObject({
+      ok: false,
+      error: { code: 'INTERNAL' },
     });
   });
 
@@ -525,6 +759,209 @@ describe('HTTP sales draft contract', () => {
     expect(JSON.parse(String(confirmInit.body))).toEqual({
       payment: { amount: '50.00', method: 'CASH' },
     });
+  });
+
+  it.each([
+    {
+      name: 'without a payment',
+      payment: undefined,
+      expectedBody: {},
+    },
+    {
+      name: 'with optional payment identity',
+      payment: {
+        amount: 50.126,
+        method: 'TRANSFER' as const,
+        reference: 'TRX-CONFIRM',
+        idempotencyKey: 'confirm-key-1',
+      },
+      expectedBody: {
+        payment: {
+          amount: '50.13',
+          method: 'TRANSFER',
+          reference: 'TRX-CONFIRM',
+          idempotencyKey: 'confirm-key-1',
+        },
+      },
+    },
+  ])('confirms $name using CSRF', async ({ payment, expectedBody }) => {
+    const fetchMock = vi.fn(async (path: string, init?: RequestInit) => {
+      if (String(path) === `/api/sales/${draftId}/confirm` && init?.method === 'POST') {
+        return json({ ...completedInvoice, number: 'FAC-000002' });
+      }
+      if (String(path).startsWith('/api/customers?')) {
+        return json({
+          items: [{ ...cashCustomer, address: null, notes: null, contacts: [] }],
+          total: 1,
+          page: 1,
+          pageSize: 10,
+        });
+      }
+      if (String(path) === '/api/catalogs/services') return json({ items: [installation] });
+      throw new Error(`Unexpected ${path} ${init?.method}`);
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    expect(await repository.confirmInvoice(draftId, payment)).toMatchObject({
+      ok: true,
+      value: { number: 'FAC-000002' },
+    });
+    const init = fetchMock.mock.calls[0]?.[1] as RequestInit;
+    expect(new Headers(init.headers).get('X-Requested-With')).toBe('XMLHttpRequest');
+    expect(JSON.parse(String(init.body))).toEqual(expectedBody);
+  });
+
+  it.each([
+    {
+      name: 'with reference and idempotency key',
+      input: {
+        invoiceId: draftId,
+        amount: 25.126,
+        method: 'TRANSFER' as const,
+        effectiveDate: '2026-09-10',
+        reference: 'TRX-100',
+        idempotencyKey: 'payment-key-1',
+      },
+      expectedBody: {
+        amount: '25.13',
+        method: 'TRANSFER',
+        effectiveDate: '2026-09-10',
+        reference: 'TRX-100',
+        idempotencyKey: 'payment-key-1',
+      },
+    },
+    {
+      name: 'without optional fields',
+      input: {
+        invoiceId: draftId,
+        amount: 18,
+        method: 'CASH' as const,
+        effectiveDate: '2026-09-11',
+      },
+      expectedBody: {
+        amount: '18.00',
+        method: 'CASH',
+        effectiveDate: '2026-09-11',
+      },
+    },
+  ])('adds a payment $name', async ({ input, expectedBody }) => {
+    const payment = {
+      id: 'dddddddd-dddd-4ddd-8ddd-dddddddddddd',
+      kind: 'PAYMENT',
+      amount: expectedBody.amount,
+      method: input.method,
+      effectiveDate: input.effectiveDate,
+      recordedAt: '2026-09-11T14:00:00.000Z',
+      reference: input.reference ?? null,
+      actorName: 'Ana Pérez',
+    };
+    const fetchMock = vi.fn(async (path: string, init?: RequestInit) => {
+      if (String(path) === `/api/sales/${draftId}/payments` && init?.method === 'POST') {
+        return json({
+          ...completedInvoice,
+          payments: [payment],
+          paid: expectedBody.amount,
+          balance: '92.87',
+        });
+      }
+      throw new Error(`Unexpected ${path} ${init?.method}`);
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await repository.addPayment(input);
+
+    expect(result).toMatchObject({
+      ok: true,
+      value: {
+        payments: [
+          {
+            amount: Number(expectedBody.amount),
+            method: input.method,
+            effectiveDate: input.effectiveDate,
+            actorName: 'Ana Pérez',
+          },
+        ],
+      },
+    });
+    if (result.ok) {
+      expect(result.value.payments[0]?.reference).toBe(input.reference);
+    }
+    const init = fetchMock.mock.calls[0]?.[1] as RequestInit;
+    expect(JSON.parse(String(init.body))).toEqual(expectedBody);
+    expect(new Headers(init.headers).get('X-Requested-With')).toBe('XMLHttpRequest');
+  });
+
+  it.each([
+    {
+      name: 'with refund data and idempotency key',
+      input: {
+        invoiceId: draftId,
+        reason: 'Cliente devolvió las piezas',
+        refundMethod: 'CHECK' as const,
+        refundReference: 'CHK-200',
+        idempotencyKey: 'cancel-key-1',
+      },
+      expectedBody: {
+        reason: 'Cliente devolvió las piezas',
+        refundMethod: 'CHECK',
+        refundReference: 'CHK-200',
+        idempotencyKey: 'cancel-key-1',
+      },
+    },
+    {
+      name: 'without optional refund fields',
+      input: { invoiceId: draftId, reason: 'Factura duplicada' },
+      expectedBody: { reason: 'Factura duplicada' },
+    },
+  ])('cancels an invoice $name', async ({ input, expectedBody }) => {
+    const fetchMock = vi.fn(async (path: string, init?: RequestInit) => {
+      if (String(path) === `/api/sales/${draftId}/cancel` && init?.method === 'POST') {
+        return json({
+          ...completedInvoice,
+          status: 'CANCELLED',
+          paymentState: 'CANCELLED',
+          cancelledAt: '2026-09-12T14:00:00.000Z',
+          cancelReason: input.reason,
+          cancelledByName: 'Ana Pérez',
+          balance: '0.00',
+        });
+      }
+      throw new Error(`Unexpected ${path} ${init?.method}`);
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await repository.cancelInvoice(input);
+
+    expect(result).toMatchObject({
+      ok: true,
+      value: {
+        status: 'CANCELLED',
+        paymentState: 'CANCELLED',
+        cancelReason: input.reason,
+        cancelledByName: 'Ana Pérez',
+        actions: { canPay: false, canCancel: false },
+      },
+    });
+    const init = fetchMock.mock.calls[0]?.[1] as RequestInit;
+    expect(JSON.parse(String(init.body))).toEqual(expectedBody);
+    expect(new Headers(init.headers).get('X-Requested-With')).toBe('XMLHttpRequest');
+  });
+
+  it.each([
+    ['payment', () => repository.addPayment({
+      invoiceId: draftId,
+      amount: 10,
+      method: 'CASH',
+      effectiveDate: '2026-09-10',
+    })],
+    ['cancellation', () => repository.cancelInvoice({ invoiceId: draftId, reason: 'Duplicada' })],
+  ])('maps a failed %s mutation to an application error', async (_name, mutate) => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(json({ error: { code: 'CONFLICT', message: 'Conflicto' } }, 409)),
+    );
+
+    expect(await mutate()).toMatchObject({ ok: false, error: { code: 'CONFLICT' } });
   });
 
   it('loads completed invoice detail from the snapshot with PDF ready and mapped profit', async () => {

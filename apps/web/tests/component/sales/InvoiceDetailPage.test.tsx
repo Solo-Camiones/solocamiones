@@ -3,9 +3,11 @@
 import { screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Route, Routes } from 'react-router-dom';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { InvoiceDetailPage } from '../../../src/features/sales/InvoiceDetailPage';
+import type { SalesRepository } from '../../../src/api/contracts/repositories';
+import { mockSalesRepository } from '../../../src/mocks/repositories/MockSalesRepository';
 import { resetMockState } from '../../../src/mocks/state';
 import { createAuthValue, renderWithProviders } from '../../support/render';
 import { signInAs } from '../../support/session';
@@ -27,6 +29,8 @@ describe('InvoiceDetailPage', () => {
 
   afterEach(() => {
     resetMockState();
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
   });
 
   it('lets a seller record a payment and updates the chip', async () => {
@@ -85,6 +89,44 @@ describe('InvoiceDetailPage', () => {
     expect(within(dialog).getByText('NCF: ______________________')).toBeVisible();
     expect(within(dialog).getByText('ITBIS incluido')).toBeVisible();
     expect(within(dialog).getAllByText('RD$0.00').length).toBeGreaterThan(0);
+  });
+
+  it('creates and revokes the downloaded PDF object URL when the preview closes', async () => {
+    signInAs('SELLER');
+    const loaded = await mockSalesRepository.getInvoice('INV-099');
+    expect(loaded.ok).toBe(true);
+    if (!loaded.ok) return;
+    vi.spyOn(mockSalesRepository, 'getInvoice').mockResolvedValue({
+      ok: true,
+      value: { ...loaded.value, document: { status: 'READY' } },
+    });
+    vi.spyOn(mockSalesRepository as SalesRepository, 'getInvoicePdf').mockResolvedValue({
+      ok: true,
+      value: { blob: new Blob(['pdf'], { type: 'application/pdf' }), filename: 'FAC-000099.pdf' },
+    });
+    const createObjectURL = vi.fn(() => 'blob:http://localhost/FAC-000099');
+    const revokeObjectURL = vi.fn();
+    class TestUrl extends URL {}
+    TestUrl.createObjectURL = createObjectURL;
+    TestUrl.revokeObjectURL = revokeObjectURL;
+    vi.stubGlobal('URL', TestUrl);
+    const user = userEvent.setup();
+    renderWithProviders(detailRoute(), {
+      route: '/sales/INV-099',
+      auth: createAuthValue('SELLER'),
+    });
+
+    expect(await screen.findByRole('heading', { name: 'FAC-000099' })).toBeVisible();
+    await user.click(screen.getByRole('button', { name: 'Vista previa del documento' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Vista previa de factura' });
+    expect(within(dialog).getByTitle('FAC-000099.pdf')).toHaveAttribute(
+      'src',
+      'blob:http://localhost/FAC-000099',
+    );
+    expect(createObjectURL).toHaveBeenCalledOnce();
+
+    await user.click(within(dialog).getByText('Cerrar'));
+    expect(revokeObjectURL).toHaveBeenCalledWith('blob:http://localhost/FAC-000099');
   });
 
   it('lets an administrator cancel with a reason', async () => {

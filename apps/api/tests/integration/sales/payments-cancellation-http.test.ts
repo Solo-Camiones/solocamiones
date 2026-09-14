@@ -13,7 +13,14 @@ import {
   invoiceDueDate,
 } from '../../../src/features/payments/dates.js';
 import { UserRepository } from '../../../src/features/users/repository.js';
-import { CASH_CUSTOMER_CREDIT_FORBIDDEN_MESSAGE } from '../../../src/features/sales/constants.js';
+import {
+  CANCELLATION_COMPLETED_ONLY_MESSAGE,
+  CASH_CUSTOMER_CREDIT_FORBIDDEN_MESSAGE,
+  PAYMENT_COMPLETED_ONLY_MESSAGE,
+  PAYMENT_DATE_RANGE_MESSAGE,
+  PAYMENT_EXCEEDS_BALANCE_MESSAGE,
+  PAYMENT_IDEMPOTENCY_MISMATCH_MESSAGE,
+} from '../../../src/features/sales/constants.js';
 import { disconnectPrisma, prisma } from '../../../src/infrastructure/database/index.js';
 import { createTestApp } from '../../helpers/app.js';
 import { clearTestHistory } from '../../helpers/history.js';
@@ -101,6 +108,34 @@ describe('payments, due date, and cancellation HTTP', () => {
     expect(await prisma.invoicePayment.count({ where: { invoiceId: invoice.id } })).toBe(1);
   });
 
+  it.each(['1000.01', '9999999999.99'])(
+    'rejects an initial payment of %s when it exceeds the invoice total',
+    async (amount) => {
+      const seller = await fixture(request.agent(createTestApp()), 'SELLER');
+      const draft = await seller.agent.post(SALES).set(CSRF).send({});
+      await seller.agent.post(`${SALES}/${draft.body.id}/lines`).set(CSRF).send({
+        type: 'GENERIC',
+        description: 'Filtro de aceite',
+        unitPrice: '1000.00',
+        costProvenance: 'UNKNOWN',
+      });
+
+      const response = await seller.agent
+        .post(`${SALES}/${draft.body.id}/confirm`)
+        .set(CSRF)
+        .send({ payment: { amount, method: 'CASH', idempotencyKey: randomUUID() } });
+
+      expect(response.status).toBe(409);
+      expect(response.body.error.message).toBe(PAYMENT_EXCEEDS_BALANCE_MESSAGE);
+      await expect(prisma.invoice.findUnique({ where: { id: draft.body.id } })).resolves.toMatchObject(
+        { status: 'DRAFT', number: null },
+      );
+      await expect(
+        prisma.invoicePayment.count({ where: { invoiceId: draft.body.id } }),
+      ).resolves.toBe(0);
+    },
+  );
+
   it('rejects confirming Cliente contado without a full initial payment', async () => {
     const seller = await fixture(request.agent(createTestApp()), 'SELLER');
     const draft = await seller.agent.post(SALES).set(CSRF).send({});
@@ -169,6 +204,91 @@ describe('payments, due date, and cancellation HTTP', () => {
     expect(await prisma.invoicePayment.count({ where: { invoiceId: invoice.id } })).toBe(1);
   });
 
+  it.each([
+    ['amount', { amount: '251.00' }],
+    ['method', { method: 'CHECK' }],
+    ['effective date', { effectiveDate: '2026-09-01' }],
+    ['reference', { reference: 'REF-DIFFERENT' }],
+  ])('rejects reuse of a payment idempotency key with a different %s', async (_field, change) => {
+    const seller = await fixture(request.agent(createTestApp()), 'SELLER');
+    const invoice = await confirmInvoice(seller.agent);
+    const body = {
+      amount: '250.00',
+      method: 'TRANSFER',
+      effectiveDate: businessDateString(new Date(invoice.confirmedAt)),
+      reference: 'REF-ORIGINAL',
+      idempotencyKey: randomUUID(),
+    };
+    const first = await seller.agent.post(`${SALES}/${invoice.id}/payments`).set(CSRF).send(body);
+
+    const mismatch = await seller.agent
+      .post(`${SALES}/${invoice.id}/payments`)
+      .set(CSRF)
+      .send({ ...body, ...change });
+
+    expect(first.status).toBe(201);
+    expect(mismatch.status).toBe(409);
+    expect(mismatch.body.error.message).toBe(PAYMENT_IDEMPOTENCY_MISMATCH_MESSAGE);
+    await expect(prisma.invoicePayment.count({ where: { invoiceId: invoice.id } })).resolves.toBe(1);
+  });
+
+  it('accepts a payment exactly equal to the outstanding balance', async () => {
+    const seller = await fixture(request.agent(createTestApp()), 'SELLER');
+    const invoice = await confirmInvoice(seller.agent);
+
+    const payment = await seller.agent.post(`${SALES}/${invoice.id}/payments`).set(CSRF).send({
+      amount: '1000.00',
+      method: 'CHECK',
+      effectiveDate: businessDateString(new Date(invoice.confirmedAt)),
+      reference: 'CHK-100',
+      idempotencyKey: randomUUID(),
+    });
+
+    expect(payment.status).toBe(201);
+    expect(payment.body).toMatchObject({ paymentState: 'PAID', paid: '1000.00', balance: '0.00' });
+  });
+
+  it('rejects a payment that exceeds the remaining balance without adding a movement', async () => {
+    const seller = await fixture(request.agent(createTestApp()), 'SELLER');
+    const invoice = await confirmInvoice(seller.agent);
+    const effectiveDate = businessDateString(new Date(invoice.confirmedAt));
+    await seller.agent.post(`${SALES}/${invoice.id}/payments`).set(CSRF).send({
+      amount: '900.00',
+      method: 'CASH',
+      effectiveDate,
+      idempotencyKey: randomUUID(),
+    });
+
+    const overpayment = await seller.agent
+      .post(`${SALES}/${invoice.id}/payments`)
+      .set(CSRF)
+      .send({
+        amount: '100.01',
+        method: 'TRANSFER',
+        effectiveDate,
+        idempotencyKey: randomUUID(),
+      });
+
+    expect(overpayment.status).toBe(409);
+    expect(overpayment.body.error.message).toBe(PAYMENT_EXCEEDS_BALANCE_MESSAGE);
+    await expect(prisma.invoicePayment.count({ where: { invoiceId: invoice.id } })).resolves.toBe(1);
+  });
+
+  it('rejects payments while the invoice is still a draft', async () => {
+    const seller = await fixture(request.agent(createTestApp()), 'SELLER');
+    const draft = await seller.agent.post(SALES).set(CSRF).send({});
+
+    const payment = await seller.agent.post(`${SALES}/${draft.body.id}/payments`).set(CSRF).send({
+      amount: '1.00',
+      method: 'CASH',
+      effectiveDate: businessDateString(new Date()),
+      idempotencyKey: randomUUID(),
+    });
+
+    expect(payment.status).toBe(409);
+    expect(payment.body.error.message).toBe(PAYMENT_COMPLETED_ONLY_MESSAGE);
+  });
+
   it('derives paid late from the effective settlement date and rejects invalid dates', async () => {
     const seller = await fixture(request.agent(createTestApp()), 'SELLER');
     const invoice = await confirmInvoice(seller.agent);
@@ -199,6 +319,29 @@ describe('payments, due date, and cancellation HTTP', () => {
       });
     expect(invalid.status).toBe(409);
   });
+
+  it.each(['before confirmation', 'after today'])(
+    'rejects an effective date %s',
+    async (position) => {
+      const seller = await fixture(request.agent(createTestApp()), 'SELLER');
+      const invoice = await confirmInvoice(seller.agent);
+      const boundary =
+        position === 'before confirmation' ? new Date(invoice.confirmedAt) : new Date();
+      const date = databaseDate(businessDateString(boundary));
+      date.setUTCDate(date.getUTCDate() + (position === 'before confirmation' ? -1 : 1));
+
+      const payment = await seller.agent.post(`${SALES}/${invoice.id}/payments`).set(CSRF).send({
+        amount: '1.00',
+        method: 'CASH',
+        effectiveDate: databaseDateString(date),
+        idempotencyKey: randomUUID(),
+      });
+
+      expect(payment.status).toBe(409);
+      expect(payment.body.error.message).toBe(PAYMENT_DATE_RANGE_MESSAGE);
+      await expect(prisma.invoicePayment.count({ where: { invoiceId: invoice.id } })).resolves.toBe(0);
+    },
+  );
 
   it('allows only Administrator cancellation and refunds the full net received atomically', async () => {
     const app = createTestApp();
@@ -285,6 +428,86 @@ describe('payments, due date, and cancellation HTTP', () => {
       pdfStatus: null,
       pdfTemplateVersion: null,
     });
+  });
+
+  it('requires a refund method when cancelling an invoice with net money received', async () => {
+    const app = createTestApp();
+    const seller = await fixture(request.agent(app), 'SELLER');
+    const admin = await fixture(request.agent(app), 'ADMINISTRATOR');
+    const invoice = await confirmInvoice(seller.agent);
+    await seller.agent.post(`${SALES}/${invoice.id}/payments`).set(CSRF).send({
+      amount: '300.00',
+      method: 'CASH',
+      effectiveDate: businessDateString(new Date(invoice.confirmedAt)),
+      idempotencyKey: randomUUID(),
+    });
+
+    const cancellation = await admin.agent.post(`${SALES}/${invoice.id}/cancel`).set(CSRF).send({
+      reason: 'Venta anulada',
+      idempotencyKey: randomUUID(),
+    });
+
+    expect(cancellation.status).toBe(409);
+    expect(cancellation.body.error.message).toBe(
+      'La cancelación requiere el método del reembolso neto total',
+    );
+    await expect(prisma.invoice.findUnique({ where: { id: invoice.id } })).resolves.toMatchObject({
+      status: 'COMPLETED',
+    });
+    await expect(prisma.invoicePayment.count({ where: { invoiceId: invoice.id } })).resolves.toBe(1);
+  });
+
+  it('cancels an unpaid invoice without inventing a refund movement', async () => {
+    const app = createTestApp();
+    const seller = await fixture(request.agent(app), 'SELLER');
+    const admin = await fixture(request.agent(app), 'ADMINISTRATOR');
+    const invoice = await confirmInvoice(seller.agent);
+
+    const cancellation = await admin.agent.post(`${SALES}/${invoice.id}/cancel`).set(CSRF).send({
+      reason: 'Cliente desistió',
+      idempotencyKey: randomUUID(),
+    });
+
+    expect(cancellation.status).toBe(200);
+    expect(cancellation.body).toMatchObject({
+      status: 'CANCELLED',
+      paymentState: 'CANCELLED',
+      paid: '0.00',
+      refunded: '0.00',
+      balance: '0.00',
+    });
+    await expect(prisma.invoicePayment.count({ where: { invoiceId: invoice.id } })).resolves.toBe(0);
+  });
+
+  it('rejects cancellation retry with a different idempotency key', async () => {
+    const admin = await fixture(request.agent(createTestApp()), 'ADMINISTRATOR');
+    const invoice = await confirmInvoice(admin.agent);
+    const first = await admin.agent.post(`${SALES}/${invoice.id}/cancel`).set(CSRF).send({
+      reason: 'Venta anulada',
+      idempotencyKey: randomUUID(),
+    });
+
+    const retry = await admin.agent.post(`${SALES}/${invoice.id}/cancel`).set(CSRF).send({
+      reason: 'Venta anulada',
+      idempotencyKey: randomUUID(),
+    });
+
+    expect(first.status).toBe(200);
+    expect(retry.status).toBe(409);
+    expect(retry.body.error.message).toBe(CANCELLATION_COMPLETED_ONLY_MESSAGE);
+  });
+
+  it('rejects cancellation while the invoice is still a draft', async () => {
+    const admin = await fixture(request.agent(createTestApp()), 'ADMINISTRATOR');
+    const draft = await admin.agent.post(SALES).set(CSRF).send({});
+
+    const cancellation = await admin.agent.post(`${SALES}/${draft.body.id}/cancel`).set(CSRF).send({
+      reason: 'Venta anulada',
+      idempotencyKey: randomUUID(),
+    });
+
+    expect(cancellation.status).toBe(409);
+    expect(cancellation.body.error.message).toBe(CANCELLATION_COMPLETED_ONLY_MESSAGE);
   });
 
   it('lists open receivables by customer and currency and hides settled invoices', async () => {

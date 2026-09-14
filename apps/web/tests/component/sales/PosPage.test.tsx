@@ -51,6 +51,27 @@ describe('PosPage', () => {
   afterEach(() => {
     resetMockState();
     window.matchMedia = originalMatchMedia;
+    vi.restoreAllMocks();
+  });
+
+  it('shows loading while the draft request is pending', () => {
+    vi.spyOn(mockSalesRepository, 'getDraft').mockReturnValue(new Promise(() => undefined));
+
+    renderPos();
+
+    expect(screen.getByText('Cargando borrador…')).toBeVisible();
+  });
+
+  it('shows the public repository error when the draft cannot load', async () => {
+    vi.spyOn(mockSalesRepository, 'getDraft').mockResolvedValue({
+      ok: false,
+      error: { code: 'NETWORK', message: 'No hay conexión con ventas' },
+    });
+
+    renderPos();
+
+    expect(await screen.findByText('No se pudo cargar el punto de venta')).toBeVisible();
+    expect(screen.getByText('No hay conexión con ventas')).toBeVisible();
   });
 
   it('loads the seed draft with nonfiscal ITBIS at zero', async () => {
@@ -380,6 +401,69 @@ describe('PosPage', () => {
     expect(screen.queryByText('Caja suelta')).not.toBeInTheDocument();
     expect(screen.queryByText('Tornillo suelto')).not.toBeInTheDocument();
     expect(screen.getByText('4')).toBeVisible();
+  });
+
+  it('keeps the edit modal open and presents a failed save', async () => {
+    const created = await mockSalesRepository.createDraft();
+    expect(created.ok).toBe(true);
+    if (!created.ok) return;
+    await mockSalesRepository.addLine({
+      draftId: created.value.draftId,
+      type: 'GENERIC',
+      description: 'Filtro con conflicto',
+      quantity: 1,
+      unitPrice: 25,
+    });
+    vi.spyOn(mockSalesRepository, 'setLinePrice').mockResolvedValue({
+      ok: false,
+      error: { code: 'CONFLICT', message: 'La línea cambió en otra sesión' },
+    });
+    const user = userEvent.setup();
+    renderPos(created.value.draftId);
+    await screen.findByText('Filtro con conflicto');
+
+    await user.click(screen.getByRole('button', { name: 'Editar Filtro con conflicto' }));
+    await user.click(screen.getByRole('button', { name: 'Guardar' }));
+
+    expect(await screen.findByText('No se pudo guardar la línea')).toBeVisible();
+    expect(screen.getByText('La línea cambió en otra sesión')).toBeVisible();
+    expect(screen.getByRole('dialog', { name: 'Editar línea' })).toBeVisible();
+  });
+
+  it('disables POS and edit actions during a save and closes after success', async () => {
+    const created = await mockSalesRepository.createDraft();
+    expect(created.ok).toBe(true);
+    if (!created.ok) return;
+    await mockSalesRepository.addLine({
+      draftId: created.value.draftId,
+      type: 'GENERIC',
+      description: 'Filtro pendiente',
+      quantity: 1,
+      unitPrice: 25,
+    });
+    const current = await mockSalesRepository.getDraft(created.value.draftId);
+    expect(current.ok).toBe(true);
+    if (!current.ok) return;
+    let finishSave!: (result: typeof current) => void;
+    vi.spyOn(mockSalesRepository, 'setLinePrice').mockReturnValue(
+      new Promise((resolve) => {
+        finishSave = resolve;
+      }),
+    );
+    const user = userEvent.setup();
+    renderPos(created.value.draftId);
+    await screen.findByText('Filtro pendiente');
+
+    await user.click(screen.getByRole('button', { name: 'Editar Filtro pendiente' }));
+    await user.click(screen.getByRole('button', { name: 'Guardar' }));
+
+    expect(await screen.findByRole('button', { name: 'Guardando…' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Cancelar' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Agregar línea' })).toBeDisabled();
+
+    finishSave(current);
+    expect(await screen.findByText('Línea actualizada')).toBeVisible();
+    expect(screen.queryByRole('dialog', { name: 'Editar línea' })).not.toBeInTheDocument();
   });
 
   it('allows an estimated acquisition cost when adding a free-form line', async () => {
