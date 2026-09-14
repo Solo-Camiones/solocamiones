@@ -1,8 +1,8 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { createInitialState } from '../../../../src/mocks/data/seed';
 import {
-  INITIAL_USER_PASSWORD,
+  getInitialPassword,
   nextUserId,
   prepareUserSave,
   toManagedUser,
@@ -33,7 +33,7 @@ describe('prepareUserSave', () => {
         id: 'U-MARIA',
         name: 'María López',
         username: 'maria',
-        password: INITIAL_USER_PASSWORD,
+        password: getInitialPassword(),
         mustChangePassword: true,
         role: 'SELLER',
         active: true,
@@ -57,7 +57,7 @@ describe('prepareUserSave', () => {
 
     expect(created.ok).toBe(true);
     if (created.ok) {
-      expect(created.value.password).toBe(INITIAL_USER_PASSWORD);
+      expect(created.value.password).toBe(getInitialPassword());
       expect(created.value.mustChangePassword).toBe(true);
     }
   });
@@ -155,5 +155,21 @@ describe('prepareUserSave', () => {
       expect(result.value.active).toBe(true);
       expect(result.value.password).toBe('demo1234');
     }
+  });
+});
+
+describe('INITIAL_PASSWORD configuration', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it('reads the value when creating users, not when the module is imported', () => {
+    vi.stubEnv('INITIAL_PASSWORD', 'assigned-once');
+    expect(getInitialPassword()).toBe('assigned-once');
+  });
+
+  it('fails only when the password is actually needed', () => {
+    vi.stubEnv('INITIAL_PASSWORD', '');
+    expect(() => getInitialPassword()).toThrow('INITIAL_PASSWORD is required');
   });
 });

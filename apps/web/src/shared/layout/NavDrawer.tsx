@@ -75,10 +75,9 @@ export function NavDrawer({ open, children, onClose }: NavDrawerProps) {
     return null;
   }
 
-  function handleOverlayMouseDown(event: MouseEvent<HTMLDivElement>) {
-    if (event.target === event.currentTarget) {
-      onClose();
-    }
+  function handleBackdropMouseDown(event: MouseEvent<HTMLButtonElement>) {
+    event.preventDefault();
+    onClose();
   }
 
   const isEntering = state === 'enter';
@@ -92,11 +91,17 @@ export function NavDrawer({ open, children, onClose }: NavDrawerProps) {
       }${pointerNoneWhileExiting}`}
       aria-hidden={open ? undefined : true}
       inert={!open}
-      onMouseDown={handleOverlayMouseDown}
     >
+      <button
+        type="button"
+        tabIndex={-1}
+        aria-label="Cerrar"
+        className="absolute inset-0 appearance-none border-0 bg-transparent p-0"
+        onMouseDown={handleBackdropMouseDown}
+      />
       <div
         ref={panelRef}
-        className={`h-full outline-none ${
+        className={`relative z-10 h-full outline-none ${
           isEntering ? 'animate-slide-in-left' : 'animate-slide-out-left'
         }${pointerNoneWhileExiting}`}
       >

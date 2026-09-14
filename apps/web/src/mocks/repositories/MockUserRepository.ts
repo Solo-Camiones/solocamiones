@@ -1,10 +1,14 @@
 import type { UserRepository } from '../../api/contracts/repositories';
 import { toListPage } from '../../api/contracts/pagination';
-import type { ResolveRecoveryInput, SaveUserInput } from '../../api/contracts/users';
-import { err, ok } from '../../shared/auth/types';
+import type {
+  ResolveRecoveryInput,
+  SaveUserInput,
+  SaveUserResult,
+} from '../../api/contracts/users';
+import { err, ok, type Result } from '../../shared/auth/types';
 import { requirePermission } from '../services/require-permission';
 import {
-  INITIAL_USER_PASSWORD,
+  getInitialPassword,
   prepareUserSave,
   sortManagedUsers,
   toManagedUser,
@@ -21,7 +25,7 @@ export class MockUserRepository implements UserRepository {
     return ok(toListPage(cloneForRead(sortManagedUsers(getMockState().users.map(toManagedUser))), page));
   }
 
-  async save(input: SaveUserInput) {
+  async save(input: SaveUserInput): Promise<Result<SaveUserResult>> {
     const permission = requirePermission('users.manage');
     if (!permission.ok) {
       return permission;
@@ -43,7 +47,7 @@ export class MockUserRepository implements UserRepository {
 
     const saved = cloneForRead(toManagedUser(user));
     if (!input.id) {
-      return ok({ ...saved, initialPassword: INITIAL_USER_PASSWORD });
+      return ok({ ...saved, initialPassword: getInitialPassword() });
     }
     return ok(saved);
   }

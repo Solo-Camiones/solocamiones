@@ -1,12 +1,19 @@
 import type { ManagedUser, SaveUserInput } from '../../api/contracts/users';
 import type { Role, User } from '../../api/contracts/entities';
 import { err, ok, type Result } from '../../shared/auth/types';
+import { isValidEmail } from './email';
 
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const USERNAME_PATTERN = /^[a-z0-9][a-z0-9_-]{1,31}$/;
 const ROLES: Role[] = ['ADMINISTRATOR', 'SELLER', 'MECHANIC'];
 
-export const INITIAL_USER_PASSWORD = 'solocamiones';
+/** Read at use time so importing this module does not require the env var. */
+export function getInitialPassword(): string {
+  const value = import.meta.env.INITIAL_PASSWORD;
+  if (!value) {
+    throw new Error('INITIAL_PASSWORD is required');
+  }
+  return value;
+}
 
 function optionalText(value: string | undefined): string | undefined {
   const trimmed = value?.trim();
@@ -108,7 +115,7 @@ export function prepareUserSave(
   }
 
   const email = optionalText(input.email);
-  if (email && !EMAIL_PATTERN.test(email)) {
+  if (email && !isValidEmail(email)) {
     return err({ code: 'VALIDATION', message: 'El correo no es válido' });
   }
 
@@ -139,7 +146,7 @@ export function prepareUserSave(
     id: existing?.id ?? nextUserId(users, username),
     name,
     username,
-    password: existing?.password ?? INITIAL_USER_PASSWORD,
+    password: existing?.password ?? getInitialPassword(),
     mustChangePassword: existing?.mustChangePassword ?? true,
     role: input.role,
     active: input.active,

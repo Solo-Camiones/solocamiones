@@ -6,9 +6,9 @@ import {
 } from '../../api/contracts/customers';
 import type { AppState, Customer, CustomerContact } from '../../api/contracts/entities';
 import { err, ok, type Result } from '../../shared/auth/types';
+import { isValidEmail } from './email';
 
 const CUSTOMER_ID_PATTERN = /^C(\d+)$/;
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 function optionalText(value: string | undefined): string | undefined {
   const trimmed = value?.trim();
@@ -87,7 +87,7 @@ function normalizeContact(input: SaveCustomerContactInput): Result<SaveCustomerC
     });
   }
 
-  if (email && !EMAIL_PATTERN.test(email)) {
+  if (email && !isValidEmail(email)) {
     return err({ code: 'VALIDATION', message: 'El correo no es válido' });
   }
 

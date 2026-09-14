@@ -77,7 +77,7 @@ describe('GuardedModal', () => {
     await user.click(within(dialog).getByRole('button', { name: 'Seguir editando' }));
     expect(within(dialog).getByLabelText('Nombre')).toHaveValue('Texto que no debe perderse');
 
-    await user.click(dialog.parentElement!);
+    await user.click(dialog.previousElementSibling!);
     expect(within(dialog).getByRole('heading', { name: '¿Descartar los cambios?' })).toBeVisible();
     await user.click(within(dialog).getByRole('button', { name: 'Seguir editando' }));
 

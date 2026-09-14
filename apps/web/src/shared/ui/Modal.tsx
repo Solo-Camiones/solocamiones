@@ -114,8 +114,9 @@ function ModalDialog({
     };
   }, []);
 
-  function handleOverlayMouseDown(event: MouseEvent<HTMLDivElement>) {
-    if (dismissible && event.target === event.currentTarget) {
+  function handleBackdropMouseDown(event: MouseEvent<HTMLButtonElement>) {
+    event.preventDefault();
+    if (dismissible) {
       onClose();
     }
   }
@@ -124,15 +125,22 @@ function ModalDialog({
     <div
       ref={overlayRef}
       className="fixed inset-0 z-50 flex animate-fade-in items-start justify-center overflow-y-auto bg-navy/50 p-3 sm:items-center sm:p-4"
-      onMouseDown={handleOverlayMouseDown}
     >
+      <button
+        type="button"
+        tabIndex={-1}
+        aria-label="Cerrar"
+        disabled={!dismissible}
+        className="absolute inset-0 appearance-none border-0 bg-transparent p-0"
+        onMouseDown={handleBackdropMouseDown}
+      />
       <div
         ref={panelRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
         tabIndex={-1}
-        className={`my-auto flex max-h-[min(90dvh,calc(100dvh-1.5rem))] w-full min-w-0 animate-scale-in ${sizeClasses[size]} flex-col overflow-hidden rounded-xl bg-white shadow-xl outline-none focus-visible:ring-2 focus-visible:ring-brand-light/50`}
+        className={`relative z-10 my-auto flex max-h-[min(90dvh,calc(100dvh-1.5rem))] w-full min-w-0 animate-scale-in ${sizeClasses[size]} flex-col overflow-hidden rounded-xl bg-white shadow-xl outline-none focus-visible:ring-2 focus-visible:ring-brand-light/50`}
       >
         <div className="flex shrink-0 items-start justify-between gap-3 border-b border-navy-100 px-4 py-3 sm:px-5 sm:py-4">
           <h2 id={titleId} className="min-w-0 text-lg font-semibold text-navy">

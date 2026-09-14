@@ -1,7 +1,7 @@
 services:
   db:
     image: postgres:16-alpine
-    container_name: truck_parts_db
+    container_name: solocamiones_db
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${DATABASE_USER}
@@ -12,7 +12,7 @@ services:
       - '${DATABASE_PORT}:5432'
 
     volumes:
-      - truck_parts_pgdata:/var/lib/postgresql/data
+      - solocamiones_pgdata:/var/lib/postgresql/data
     healthcheck:
       test: ['CMD-SHELL', 'pg_isready -U ${DATABASE_USER} -d ${DATABASE_NAME}']
       interval: 10s
@@ -23,7 +23,7 @@ services:
     build:
       context: .
       dockerfile: apps/api/Dockerfile
-    container_name: truck_parts_api
+    container_name: solocamiones_api
     restart: unless-stopped
     environment:
       NODE_ENV: ${NODE_ENV}
@@ -58,7 +58,7 @@ services:
         VITE_ENABLE_DEMO_CONTROLS: ${VITE_ENABLE_DEMO_CONTROLS}
         VITE_CAPABILITIES_PRESET: ${VITE_CAPABILITIES_PRESET}
         VITE_USE_MOCK_API: ${VITE_USE_MOCK_API}
-    container_name: truck_parts_web
+    container_name: solocamiones_web
     restart: unless-stopped
     ports:
       - '${WEB_PORT}:8081'
@@ -73,7 +73,7 @@ services:
 
   cloudflared:
     image: cloudflare/cloudflared:latest
-    container_name: truck_parts_cloudflared
+    container_name: solocamiones_cloudflared
     restart: unless-stopped
     # Port 8080 lets nginx distinguish the trusted tunnel from the host-published local path.
     command: tunnel --no-autoupdate --protocol http2 --url http://web:8080/
@@ -82,4 +82,4 @@ services:
         condition: service_healthy
 
 volumes:
-  truck_parts_pgdata:
+  solocamiones_pgdata:

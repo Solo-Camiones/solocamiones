@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { useState } from 'react';
-import { screen } from '@testing-library/react';
+import { screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -47,7 +47,7 @@ describe('Modal', () => {
     await user.tab();
     expect(screen.getByRole('button', { name: 'Guardar' })).toHaveFocus();
     await user.tab();
-    expect(screen.getByRole('button', { name: 'Cerrar' })).toHaveFocus();
+    expect(within(dialog).getByRole('button', { name: 'Cerrar' })).toHaveFocus();
     await user.tab();
     expect(screen.getByLabelText('Nombre')).toHaveFocus();
 
@@ -85,11 +85,11 @@ describe('Modal', () => {
     );
 
     const dialog = screen.getByRole('dialog', { name: 'Guardando' });
-    const closeButton = screen.getByRole('button', { name: 'Cerrar' });
+    const closeButton = within(dialog).getByRole('button', { name: 'Cerrar' });
     expect(closeButton).toBeDisabled();
 
     await user.keyboard('{Escape}');
-    await user.click(dialog.parentElement!);
+    await user.click(dialog.previousElementSibling!);
     expect(onClose).not.toHaveBeenCalled();
     expect(dialog).toBeVisible();
   });
