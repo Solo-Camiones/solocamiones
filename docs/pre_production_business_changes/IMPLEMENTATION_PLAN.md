@@ -50,18 +50,21 @@ Cómo persistir `dueDate` en una venta **contado ya pagada** (`confirmedAt`, `nu
 
 ### Paso 2 — Crear la migración de dominio
 
+**Estado:** **Cerrado 2026-09-15** en código local (migración Prisma + test de dominio). Los comandos de negocio siguen en Pasos 3–6.
+
 **Requisitos cubiertos:** `H-01`, `H-02`, `H-03`, `H-05`, `H-07` y soporte estructural para `M-01/M-03`.
 
 **Tareas:**
 
-- Agregar `customerType`, `creditLimitDop` y `creditTermDays` con constraints.
-- Agregar estado/fechas/número de cotización y secuencia `COT-`.
-- Separar `applyItbis` de `fiscal` y preparar snapshots inmutables de confirmación.
-- Guardar referencia `COT-` en la factura resultante.
-- Añadir índices necesarios para exposición de crédito y CxC por cliente.
-- Clasificar clientes existentes como `CASH` sin cambiar sus nombres.
-- Preservar facturas completadas y preparar recálculo controlado de borradores.
-- Probar migración hacia adelante sobre base limpia y copia realista.
+- [x] Agregar `customerType`, `creditLimitDop` y `creditTermDays` con constraints.
+- [x] Agregar estado/fechas/número de cotización y secuencia `COT-`.
+- [x] Separar `applyItbis` de `fiscal` y preparar snapshots inmutables de confirmación.
+- [x] Guardar referencia `COT-` en la factura resultante.
+- [x] Añadir índices necesarios para exposición de crédito y CxC por cliente.
+- [x] Clasificar clientes existentes como `CASH` sin cambiar sus nombres.
+- [x] Preservar facturas completadas y preparar recálculo controlado de borradores.
+- [x] Probar migración hacia adelante sobre base limpia (test de integración Prisma).
+- [ ] Ensayar la misma migración sobre una copia realista (queda en Paso 10).
 
 **Gate:** migración reproducible, reversible mediante rollback operativo documentado y sin reescribir facturas completadas.
 

@@ -55,7 +55,7 @@ Owner pulled **Release 3 financial work** into the local codebase before Release
 | Release 2 Billing Core (customers, service catalog, non-inventory lines, confirm/`FAC-`, PDF, cost/FX/profit, profitability HTTP) | Done | Done (M25 closed 2026-09-11) | Full demo including profit |
 | Release 3 payments, balances, basic CxC, non-inventory cancel/refund | **Pulled forward — done** (`InvoicePayment`, due date, `POST /payments`, `GET /receivables`, `POST /cancel`) | **Pulled forward — done** (pay, CxC `/receivables`, cancel). Confirm may record an initial payment | Done |
 | Release 3 remaining | **Still required** now that R2 is closed: Feature 12 open checklist (receivables filters by customer, invoice, payment state including Paid/Paid-late, date, and currency; UI must use API query params). Aging/collections stay deferred as specified. Inventory/WO cancellation is R5/R7, not this remainder. | Same filters on `/receivables` HTTP UI | — |
-| **Pre-production business change set** | **Specified 2026-09-15; not implemented.** Customer type/credit (`CUST-004`–`007`), tax-exclusive ITBIS (`SALE-009`/`010`), quotes (`QUOTE-001`/`002`), `ABONADO`/AR auth (`PAY-006`/`007`), statement (`STMT-001`), billing cost removal (`COST-006`), PDF profile (`DOC-001`). Complete this set and its stabilization **before** separate environment configuration. Source of truth is the feature files, sequenced in `docs/pre_production_business_changes/IMPLEMENTATION_PLAN.md`. | Not started | Prototype still shows tax-inclusive POS and Seller CxC until that work ships |
+| **Pre-production business change set** | **Specified 2026-09-15. Paso 2 domain migration done locally (customer `CASH`/`CREDIT` columns, quote statuses/`COT-`, `applyItbis`, confirmation snapshots). Remaining steps 3–10 not implemented.** Customer type/credit write APIs (`CUST-004`–`007`), tax-exclusive ITBIS (`SALE-009`/`010`), quotes (`QUOTE-001`/`002`), `ABONADO`/AR auth (`PAY-006`/`007`), statement (`STMT-001`), billing cost removal (`COST-006`), PDF profile (`DOC-001`). Complete this set and its stabilization **before** separate environment configuration. Source of truth is the feature files, sequenced in `docs/pre_production_business_changes/IMPLEMENTATION_PLAN.md`. | Not started (Paso 3+) | Prototype still shows tax-inclusive POS and Seller CxC until that work ships |
 | Release 3B Accounts Payable | Not started | Not started | Not in confirmed scope |
 | Release 4 inventory / quantity / inventory categories | **Not started** (no Item/Qty models) | Service catalog only; inventory category UI hidden | Registration, qty, category attributes |
 | Release 5 reservations and ITEM/QTY sales | **Not started**; ITEM/QTY draft lines return business **409** | Capabilities off | Lines, reserve, consume |
@@ -89,7 +89,7 @@ This change set is **in front of** environment setup. It amends Release 2/3 beha
 - Billing no longer captures acquisition cost; COST-005 remains the Administrator follow-up.
 - PDF re-download keeps historical money and applies current corporate presentation.
 
-Implementation order: documentation (done) → migration → customer authorization → ITBIS/cost capture → credit confirmation → quotes → CxC/states → statement PDF → invoice/quote PDFs → pre-environment gate.
+Implementation order: documentation (done) → migration (Paso 2 done locally) → customer authorization → ITBIS/cost capture → credit confirmation → quotes → CxC/states → statement PDF → invoice/quote PDFs → pre-environment gate.
 
 ---
 

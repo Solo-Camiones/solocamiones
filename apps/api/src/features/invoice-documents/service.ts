@@ -63,7 +63,7 @@ export class InvoiceDocumentService {
       return existing;
     });
 
-    if (invoice.status === 'DRAFT') {
+    if (invoice.status === 'DRAFT' || invoice.status === 'QUOTE_DRAFT' || invoice.status === 'QUOTE_ISSUED') {
       throw AppError.conflict(PDF_COMPLETED_ONLY_MESSAGE);
     }
     if (invoice.pdfStatus === 'FAILED') {
@@ -103,7 +103,11 @@ export class InvoiceDocumentService {
       return { invoice: existing, actor: { role: actor.role } };
     });
 
-    if (loaded.invoice.status === 'DRAFT') {
+    if (
+      loaded.invoice.status === 'DRAFT' ||
+      loaded.invoice.status === 'QUOTE_DRAFT' ||
+      loaded.invoice.status === 'QUOTE_ISSUED'
+    ) {
       throw AppError.conflict(PDF_COMPLETED_ONLY_MESSAGE);
     }
     if (loaded.invoice.pdfStatus !== 'FAILED') {

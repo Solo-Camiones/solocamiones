@@ -1,6 +1,7 @@
 import type {
   CostProvenance,
   Customer,
+  CustomerType,
   Invoice,
   InvoiceCurrency,
   InvoiceLine,
@@ -126,6 +127,8 @@ export type CompleteInvoiceRecord = {
   customerName: string;
   customerRnc: string | null;
   customerPhone: string | null;
+  snapshotCustomerType: CustomerType;
+  snapshotCreditTermDays: number | null;
   confirmedByUserId: string | null;
   confirmedByName: string | null;
   gross: Prisma.Decimal | string;

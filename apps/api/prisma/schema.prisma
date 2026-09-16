@@ -91,19 +91,29 @@ model Session {
   @@index([expiresAt])
 }
 
+enum CustomerType {
+  CASH
+  CREDIT
+}
+
 model Customer {
-  id        String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  name      String
-  rnc       String?           @unique
-  address   String?
-  notes     String?
-  isDefault Boolean           @default(false)
-  createdAt DateTime          @default(now()) @db.Timestamptz(3)
-  updatedAt DateTime          @updatedAt @db.Timestamptz(3)
-  contacts  CustomerContact[]
-  invoices  Invoice[]
+  id              String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name            String
+  rnc             String?           @unique
+  address         String?
+  notes           String?
+  isDefault       Boolean           @default(false)
+  customerType    CustomerType      @default(CASH)
+  creditLimitDop  Decimal?          @db.Decimal(12, 2)
+  creditTermDays  Int?
+  createdAt       DateTime          @default(now()) @db.Timestamptz(3)
+  updatedAt       DateTime          @updatedAt @db.Timestamptz(3)
+  contacts        CustomerContact[]
+  invoices        Invoice[]
 
   @@index([name])
+  @@index([customerType])
+  // Customer_credit_terms_check is defined in SQL.
 }
 
 model CustomerContact {
@@ -133,6 +143,8 @@ model MechanicalService {
 
 enum InvoiceStatus {
   DRAFT
+  QUOTE_DRAFT
+  QUOTE_ISSUED
   COMPLETED
   CANCELLED
 }
@@ -178,13 +190,19 @@ model Invoice {
   status       InvoiceStatus
   currency     InvoiceCurrency
   fiscal       Boolean
+  applyItbis   Boolean         @default(false)
   customerId   String          @db.Uuid
   number       String?         @unique
+  quoteNumber  String?         @unique
+  quoteIssuedAt DateTime?      @db.Timestamptz(3)
+  quoteExpiresAt DateTime?     @db.Timestamptz(3)
   confirmedAt  DateTime?       @db.Timestamptz(3)
   dueDate      DateTime?       @db.Date
   customerName String?
   customerRnc  String?
   customerPhone String?
+  snapshotCustomerType   CustomerType?
+  snapshotCreditTermDays Int?
   confirmedByUserId String?     @db.Uuid
   confirmedByName   String?
   cancelledAt       DateTime?   @db.Timestamptz(3)
@@ -214,9 +232,13 @@ model Invoice {
   payments     InvoicePayment[]
 
   @@index([customerId])
+  @@index([customerId, status, currency])
   @@index([confirmedByUserId])
   @@index([cancelledByUserId])
   @@index([dueDate])
+  @@index([quoteExpiresAt])
+  // Invoice_number_status_check quote/snapshot branches and
+  // Invoice_completed_customer_currency_idx are defined in SQL.
 }
 
 model InvoicePayment {

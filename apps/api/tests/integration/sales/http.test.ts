@@ -24,7 +24,7 @@ import { UserRepository } from '../../../src/features/users/repository.js';
 import { disconnectPrisma, prisma } from '../../../src/infrastructure/database/index.js';
 import { createTestApp } from '../../helpers/app.js';
 import { clearTestHistory } from '../../helpers/history.js';
-import { assignNamedCustomerForCredit, cashSaleFullPayment } from '../../helpers/sales.js';
+import { assignNamedCustomerForCredit, cashSaleFullPayment, COMPLETED_CASH_SNAPSHOT } from '../../helpers/sales.js';
 
 const app = createTestApp();
 const users = new UserRepository();
@@ -157,6 +157,7 @@ describe('M7 draft HTTP shell (SALE-001 draft)', () => {
         gross: '0.00',
         base: '0.00',
         itbis: '0.00',
+        ...COMPLETED_CASH_SNAPSHOT,
       },
     });
     const blocked = await admin.agent.delete(`${ROOT}/${completed.id}`).set(CSRF);
@@ -220,6 +221,7 @@ describe('M7 draft HTTP shell (SALE-001 draft)', () => {
         gross: '100.00',
         base: '100.00',
         itbis: '0.00',
+        ...COMPLETED_CASH_SNAPSHOT,
         createdAt: new Date('2026-01-01T00:00:00.000Z'),
       },
     });
@@ -236,6 +238,7 @@ describe('M7 draft HTTP shell (SALE-001 draft)', () => {
         gross: '200.00',
         base: '200.00',
         itbis: '0.00',
+        ...COMPLETED_CASH_SNAPSHOT,
         createdAt: new Date('2026-02-01T00:00:00.000Z'),
       },
     });
@@ -543,6 +546,7 @@ describe('M8 draft GENERIC lines (LINE-003)', () => {
         gross: '0.00',
         base: '0.00',
         itbis: '0.00',
+        ...COMPLETED_CASH_SNAPSHOT,
       },
     });
     const blocked = await admin.agent.post(`${ROOT}/${completed.id}/lines`).set(CSRF).send({

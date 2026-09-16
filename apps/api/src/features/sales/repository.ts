@@ -329,6 +329,8 @@ export class SalesRepository {
         customerName: input.customerName,
         customerRnc: input.customerRnc,
         customerPhone: input.customerPhone,
+        snapshotCustomerType: input.snapshotCustomerType,
+        snapshotCreditTermDays: input.snapshotCreditTermDays,
         confirmedByUserId: input.confirmedByUserId,
         confirmedByName: input.confirmedByName,
         gross: input.gross,

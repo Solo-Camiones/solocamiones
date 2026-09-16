@@ -14,7 +14,7 @@ The old consolidated requirements/validation files are intentionally no longer r
 
 **Implementation (2026-09-10):** Production API + HTTP UI done for `CUST-001`–`CUST-003` (`/api/customers`, POS customer select, confirmation snapshot).
 
-**Pre-production change set (2026-09-15):** `CUST-004`–`CUST-007` (customer type, credit terms, classification history, named-cash fiscal eligibility) are **specified and not yet implemented**. Existing named customers remain ordinary records with no `CASH`/`CREDIT` fields until Paso 2/3.
+**Pre-production change set (2026-09-15):** `CUST-004`–`CUST-007` are specified. Paso 2 persisted `customerType` / limit / term with a `CASH` backfill. Administrator/Seller write rules and classification history remain Paso 3.
 
 ## What this feature does
 
@@ -105,10 +105,10 @@ At invoice confirmation, copy the applicable customer data into an immutable inv
 - [x] Later customer edit leaves completed invoice unchanged. _(prototipo mock — WM8 snapshot; API R2 M12 HTTP)_
 - [x] Mechanic access denied. _(WM4 mock `customers.manage`; API R2 M19 HTTP 403 y sin nav)_
 
-### Pre-production customer type and credit (not implemented)
+### Pre-production customer type and credit
 
-- [ ] Persist `customerType`, `creditLimitDop`, and `creditTermDays` with the integrity rules in CUST-004/CUST-005.
-- [ ] Backfill existing named customers as `CASH` without renaming them; keep the generic customer `CASH`.
+- [x] Persist `customerType`, `creditLimitDop`, and `creditTermDays` with the integrity rules in CUST-004/CUST-005. _(API Paso 2: columnas + CHECK SQL; escritura HTTP en Paso 3)_
+- [x] Backfill existing named customers as `CASH` without renaming them; keep the generic customer `CASH`.
 - [ ] Administrator create/edit of `CREDIT`; Seller create-only `CASH` with HTTP 403 on credit fields.
 - [ ] Block `CREDIT` → `CASH` while open receivable balance exists; record classification/limit/term history.
 - [ ] Allow fiscal-value invoices for named `CASH` customers with valid RNC/Cédula (CUST-007).

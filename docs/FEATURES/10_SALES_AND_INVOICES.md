@@ -127,7 +127,7 @@ Invoice PDF rendering is secondary to sale validity. Preserve all invoice facts 
 - [ ] Separate `applyItbis` from fiscal emission; default the ITBIS checkbox off (SALE-009).
 - [ ] Tax-exclusive base + 18% per taxable line; preserve completed invoice money; recalculate open drafts (SALE-010).
 - [ ] Confirm cash vs credit against customer type, DOP-only credit, term snapshot, and credit limit inside the confirmation transaction (SALE-005, CUST-005).
-- [ ] Quote stages on the same aggregate, `COT-` sequence, expiry, duplicate, convert (QUOTE-001, QUOTE-002).
+- [ ] Quote stages on the same aggregate, `COT-` sequence, expiry, duplicate, convert (QUOTE-001, QUOTE-002). _(API Paso 2: estados/columnas/`COT` sequence; comandos en Paso 6)_
 - [ ] PDF `internal-v4` / quote template with DOC-001 immutable facts vs current corporate profile.
 
 ## Canonical validated requirements

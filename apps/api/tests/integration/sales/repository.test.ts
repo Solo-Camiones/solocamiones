@@ -97,6 +97,8 @@ describe('SalesRepository (PostgreSQL)', () => {
         customerPhone: null,
         confirmedByUserId: null,
         confirmedByName: null,
+        snapshotCustomerType: 'CASH',
+        snapshotCreditTermDays: null,
         gross: '118.00',
         base: '118.00',
         itbis: '0.00',

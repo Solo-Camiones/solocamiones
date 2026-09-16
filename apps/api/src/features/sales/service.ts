@@ -456,6 +456,8 @@ export class SalesService {
           customerName: customer.name,
           customerRnc: customer.rnc,
           customerPhone: primaryPhone,
+          snapshotCustomerType: customer.customerType,
+          snapshotCreditTermDays: customer.creditTermDays,
           confirmedByUserId: actorId,
           confirmedByName: actor.name,
           gross: totals.gross,

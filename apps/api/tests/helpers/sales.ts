@@ -32,6 +32,12 @@ export async function assignNamedCustomerForCredit(
   return assignedCustomerId;
 }
 
+/** Completed invoices must snapshot type/term; current customers backfill as CASH. */
+export const COMPLETED_CASH_SNAPSHOT = {
+  snapshotCustomerType: 'CASH' as const,
+  snapshotCreditTermDays: null,
+};
+
 export function cashSaleFullPayment(amount: string) {
   return {
     payment: {

@@ -19,7 +19,12 @@ function persistedLineMoney(line: InvoiceLine) {
 
 export function toInvoicePdfFacts(invoice: InvoiceRecord): InvoicePdfFacts | null {
   if (
-    invoice.status === 'DRAFT' ||
+    invoice.status !== 'COMPLETED' &&
+    invoice.status !== 'CANCELLED'
+  ) {
+    return null;
+  }
+  if (
     invoice.number == null ||
     invoice.confirmedAt == null ||
     invoice.customerName == null ||
