@@ -13,6 +13,7 @@ const customers = new CustomerRepository();
 const catalog = new CatalogRepository();
 
 async function cleanupSales() {
+  await prisma.invoicePayment.deleteMany();
   await prisma.invoice.deleteMany();
   await prisma.mechanicalService.deleteMany();
   await prisma.invoiceSequence.update({

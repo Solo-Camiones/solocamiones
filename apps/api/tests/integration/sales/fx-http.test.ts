@@ -13,7 +13,7 @@ import { disconnectPrisma, prisma } from '../../../src/infrastructure/database/i
 import { createTestApp } from '../../helpers/app.js';
 import { successfulUsdDopRate, staticFxRateProvider } from '../../helpers/fx.js';
 import { clearTestHistory } from '../../helpers/history.js';
-import { assignNamedCustomerForCredit, seedKnownLineCost } from '../../helpers/sales.js';
+import { assignNamedCustomerForCredit, cashSaleFullPayment, seedKnownLineCost } from '../../helpers/sales.js';
 
 const users = new UserRepository();
 const PASSWORD = 'personal-password';
@@ -38,6 +38,7 @@ async function cleanup() {
   vi.restoreAllMocks();
   await resetLoginRateLimit();
   await clearTestHistory();
+  await prisma.invoicePayment.deleteMany();
   await prisma.invoice.deleteMany();
   await prisma.invoiceSequence.update({
     where: { name: 'FAC' },
@@ -73,7 +74,10 @@ describe('M15 FX adapter + pending (COST-003 USD)', () => {
     expect(priced.status).toBe(201);
     await seedKnownLineCost(priced.body.lines[0].id, 'ACTUAL', '80.00');
 
-    const confirmed = await admin.agent.post(`${ROOT}/${draft.body.id}/confirm`).set(CSRF).send({});
+    const confirmed = await admin.agent
+      .post(`${ROOT}/${draft.body.id}/confirm`)
+      .set(CSRF)
+      .send(cashSaleFullPayment('118.00'));
     expect(confirmed.status).toBe(200);
     expect(confirmed.body.number).toMatch(/^FAC-\d{6}$/);
     expect(confirmed.body.profitability).toMatchObject({
@@ -156,7 +160,7 @@ describe('M15 FX adapter + pending (COST-003 USD)', () => {
       const confirmed = await admin.agent
         .post(`${ROOT}/${draft.body.id}/confirm`)
         .set(CSRF)
-        .send({});
+        .send(cashSaleFullPayment('118.00'));
       expect(confirmed.status).toBe(200);
       expect(confirmed.body.number).toMatch(/^FAC-\d{6}$/);
       expect(confirmed.body.status).toBe('COMPLETED');
@@ -196,7 +200,10 @@ describe('M15 FX adapter + pending (COST-003 USD)', () => {
     });
     await assignNamedCustomerForCredit(admin.agent, draft.body.id);
 
-    const confirmed = await admin.agent.post(`${ROOT}/${draft.body.id}/confirm`).set(CSRF).send({});
+    const confirmed = await admin.agent
+      .post(`${ROOT}/${draft.body.id}/confirm`)
+      .set(CSRF)
+      .send(cashSaleFullPayment('118.00'));
 
     expect(confirmed.status).toBe(200);
     expect(confirmed.body).toMatchObject({
@@ -251,7 +258,10 @@ describe('M15 FX adapter + pending (COST-003 USD)', () => {
       unitPrice: '100.00',
     });
     await assignNamedCustomerForCredit(admin.agent, draft.body.id);
-    await admin.agent.post(`${ROOT}/${draft.body.id}/confirm`).set(CSRF).send({});
+    await admin.agent
+      .post(`${ROOT}/${draft.body.id}/confirm`)
+      .set(CSRF)
+      .send(cashSaleFullPayment('100.00'));
 
     const recorded = await admin.agent
       .post(`/api/profitability/${draft.body.id}/manual-gross-profit`)

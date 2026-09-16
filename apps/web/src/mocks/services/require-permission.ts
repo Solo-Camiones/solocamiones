@@ -46,6 +46,19 @@ export function requirePermission(action: PolicyAction): Result<User> {
   return sessionUser;
 }
 
+export function requireAdministrator(): Result<User> {
+  const sessionUser = resolveSessionUser();
+  if (!sessionUser.ok) {
+    return sessionUser;
+  }
+
+  if (sessionUser.value.role !== 'ADMINISTRATOR') {
+    return err({ code: 'FORBIDDEN', message: 'No tiene permiso para realizar esta acción' });
+  }
+
+  return sessionUser;
+}
+
 export function requireAnyPermission(actions: PolicyAction[]): Result<User> {
   const sessionUser = resolveSessionUser();
   if (!sessionUser.ok) {

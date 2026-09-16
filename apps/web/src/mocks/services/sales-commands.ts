@@ -176,6 +176,10 @@ function applyWorkOrderBranch(
 }
 
 export function addPayment(state: AppState, actor: User, input: AddPaymentInput): Result<Invoice> {
+  if (actor.role !== 'ADMINISTRATOR') {
+    return err({ code: 'FORBIDDEN', message: 'No tiene permiso para realizar esta acción' });
+  }
+
   const found = findInvoice(state, input.invoiceId);
   if (!found.ok) {
     return found;

@@ -56,16 +56,16 @@ describe('RoleNav', () => {
     expect(screen.getByRole('link', { name: 'Inicio' })).not.toHaveAttribute('aria-current');
   });
 
-  it('groups seller links into operation and receivables', () => {
+  it('groups seller links into a single operation group without receivables', () => {
     renderWithProviders(<RoleNav role="SELLER" />, {
       route: '/dashboard',
       auth: createAuthValue('SELLER'),
     });
 
-    expect(screen.getByRole('heading', { name: 'Operación' })).toBeVisible();
-    expect(screen.getByRole('heading', { name: 'Finanzas y control' })).toBeVisible();
+    expect(screen.queryByRole('heading', { name: 'Operación' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Finanzas y control' })).not.toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Clientes' })).toBeVisible();
-    expect(screen.getByRole('link', { name: 'Cuentas por cobrar' })).toBeVisible();
+    expect(screen.queryByRole('link', { name: 'Cuentas por cobrar' })).not.toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Usuarios' })).not.toBeInTheDocument();
   });
 

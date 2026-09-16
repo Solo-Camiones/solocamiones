@@ -29,6 +29,7 @@ const draft: PosDraftView = {
   customerId: 'CUSTOMER-1',
   customerName: 'Flota Norte',
   customerIsDefault: false,
+  customerType: 'CASH',
   currency: 'DOP',
   fiscal: false,
   applyItbis: false,

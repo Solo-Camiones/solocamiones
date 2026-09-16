@@ -112,6 +112,7 @@ export function buildPosDraftView(state: AppState, invoice: Invoice): PosDraftVi
     customerName: invoice.customerSnapshot?.name ?? customer?.name ?? invoice.customerId,
     customerRnc: invoice.customerSnapshot?.rnc ?? customer?.rnc,
     customerIsDefault: Boolean(customer?.isDefault),
+    customerType: customer?.customerType === 'CREDIT' ? 'CREDIT' : 'CASH',
     currency: invoice.currency,
     fiscal: invoice.fiscal,
     applyItbis: invoice.applyItbis === true,

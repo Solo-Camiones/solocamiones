@@ -99,11 +99,13 @@ export function OpenReceivablesTable({
             </td>
             <td className="px-4 py-3">{row.customerName}</td>
             <td className="px-4 py-3">
-              <PaymentChip state={row.paymentState} />
+              {row.paymentState ? <PaymentChip state={row.paymentState} /> : '—'}
             </td>
             <td className="px-4 py-3">{formatDueDate(row.dueDate)}</td>
             <td className="px-4 py-3 text-right font-mono">{money(row.total, row.currency)}</td>
-            <td className="px-4 py-3 text-right font-mono">{money(row.balance, row.currency)}</td>
+            <td className="px-4 py-3 text-right font-mono">
+              {money(row.balance ?? 0, row.currency)}
+            </td>
           </HoverRow>
         ))}
       </tbody>

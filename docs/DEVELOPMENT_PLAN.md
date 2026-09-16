@@ -37,7 +37,7 @@ For every task:
 
 ---
 
-# Current implementation snapshot (2026-09-11)
+# Current implementation snapshot (2026-09-16)
 
 Owner pulled **Release 3 financial work** into the local codebase before Release 2’s web profitability swap and exit gate. Future tasks must not re-build payments, CxC, or non-inventory cancellation, and must not treat inventory/Work-Order `[x]` mock items as PostgreSQL/API.
 
@@ -47,7 +47,7 @@ Owner pulled **Release 3 financial work** into the local codebase before Release
 2. Release 3 stays **open**. The pulled-forward slice is not the full spec: remaining Feature 12/13 checklist items that belong to this release must still be implemented. Do not skip them.
 3. No `plans_api/plan_release_3.md` for now; `docs/done_api/release_3.md` is the delivery record.
 4. Prototype-mock `[x]` items stay `[x]` with mock/API notes; do not uncheck them.
-5. Invoice **document activity** (detail GET + HTTP UI) is pulled forward: confirm, payment, PDF, cancel, and Administrator-only profit/FX. Draft meta edits and line add/update/remove are **not** invoice activity: do not append them, and hide any already-stored rows of those types. Do not delete `HistoryEvent` rows.
+5. Invoice **document activity** (detail GET + HTTP UI) is pulled forward: confirm, payment, PDF, cancel, and Administrator-only profit/FX **and payment** events. Draft meta edits and line add/update/remove are **not** invoice activity: do not append them, and hide any already-stored rows of those types. Do not delete `HistoryEvent` rows.
 
 | Slice | Production API + tests | HTTP UI (`VITE_USE_MOCK_API` ≠ `true`) | Prototype mock only |
 |---|---|---|---|
@@ -55,7 +55,7 @@ Owner pulled **Release 3 financial work** into the local codebase before Release
 | Release 2 Billing Core (customers, service catalog, non-inventory lines, confirm/`FAC-`, PDF, cost/FX/profit, profitability HTTP) | Done | Done (M25 closed 2026-09-11) | Full demo including profit |
 | Release 3 payments, balances, basic CxC, non-inventory cancel/refund | **Pulled forward — done** (`InvoicePayment`, due date, `POST /payments`, `GET /receivables`, `POST /cancel`) | **Pulled forward — done** (pay, CxC `/receivables`, cancel). Confirm may record an initial payment | Done |
 | Release 3 remaining | **Still required** now that R2 is closed: Feature 12 open checklist (receivables filters by customer, invoice, payment state including Paid/Paid-late, date, and currency; UI must use API query params). Aging/collections stay deferred as specified. Inventory/WO cancellation is R5/R7, not this remainder. | Same filters on `/receivables` HTTP UI | — |
-| **Pre-production business change set** | **Specified 2026-09-15. Paso 2 domain migration done locally. Paso 3 customer write APIs/UI/mock done locally (`CUST-004`–`007` maintenance; confirmation engine still Paso 5). Paso 4 tax-exclusive ITBIS (`SALE-009`/`010`) and billing cost removal (`COST-006`) done locally.** Remaining steps 5–10: quotes (`QUOTE-001`/`002`), `ABONADO`/AR auth (`PAY-006`/`007`), statement (`STMT-001`), PDF profile (`DOC-001`). Complete this set and its stabilization **before** separate environment configuration. Source of truth is the feature files, sequenced in `docs/pre_production_business_changes/IMPLEMENTATION_PLAN.md`. | Paso 4 ITBIS/cost shipped locally; later pre-production UI not started | Prototype POS now tax-exclusive; Seller CxC remains until later steps |
+| **Pre-production business change set** | **Specified 2026-09-15. Pasos 2–5 done locally:** domain migration; customer write APIs/UI/mock (`CUST-004`–`007`); tax-exclusive ITBIS (`SALE-009`/`010`) and billing cost removal (`COST-006`); confirmation engine (`SALE-005` / `CUST-005`, cash vs credit, limit, term snapshot, Seller 403 on later payments/CxC). Remaining steps 6–10: quotes (`QUOTE-001`/`002`), `ABONADO` + issued-date AR filters (`PAY-006` / remainder of `PAY-007`), statement (`STMT-001`), PDF profile (`DOC-001`). Complete this set and its stabilization **before** separate environment configuration. Source of truth is the feature files, sequenced in `docs/pre_production_business_changes/IMPLEMENTATION_PLAN.md`. | Paso 5 confirmation HTTP shipped locally; Seller CxC nav/API denied. Seller invoice list/detail omit payment state, paid, and balance. Quotes / `ABONADO` / issued-date filters / statement / PDF v4 not started | Prototype POS tax-exclusive; Seller CxC hidden to match HTTP |
 | Release 3B Accounts Payable | Not started | Not started | Not in confirmed scope |
 | Release 4 inventory / quantity / inventory categories | **Not started** (no Item/Qty models) | Service catalog only; inventory category UI hidden | Registration, qty, category attributes |
 | Release 5 reservations and ITEM/QTY sales | **Not started**; ITEM/QTY draft lines return business **409** | Capabilities off | Lines, reserve, consume |
@@ -67,10 +67,10 @@ Owner pulled **Release 3 financial work** into the local codebase before Release
 
 - **Profitability:** API (DOP, COST-005, FX pending/retry) and HTTP UI swap (M24) exist. Dashboard KPIs are not swapped.
 - **Catalogs:** mechanical **services** are Release 2 HTTP; **inventory categories/attributes** remain Release 4.
-- **Sales confirmation:** Billing Core plus pulled-forward optional initial payment and `dueDate` (Release 3). `Cliente contado` requires a full initial payment (owner 2026-09-11).
+- **Sales confirmation:** Billing Core plus pulled-forward optional initial payment and `dueDate` (Release 3). `Cliente contado` / `CASH` requires a full initial payment. Paso 5 (2026-09-16, local): named `CASH` is not credit-eligible; `CREDIT` is DOP-only with limit/term snapshot; cash `dueDate` is the local confirmation day (end of day, `America/Santo_Domingo`).
 - **Cancellation:** financial/non-inventory API+HTTP done; inventory restoration and Work-Order branches are mock-only until Releases 5/7.
-- **History:** envelope + user/customer/catalog/invoice confirmation/payment/PDF/cancellation events in the writing transaction; invoice detail GET + HTTP UI project that timeline (profit/FX Administrator-only). Draft meta and line add/update/remove are not appended and are hidden if already stored. No standalone history API; no per-item/order projections; ADMIN-002 mostly open.
-- **CxC:** ledger + open-receivables read model done; remaining Feature 12 filters are **still in scope** (implement now that R2 M25 is closed). Pre-production adds Administrator-only AR, `ABONADO` states, issued date, and account-statement PDF (`PAY-006`, `PAY-007`, `STMT-001`) before environment configuration.
+- **History:** envelope + user/customer/catalog/invoice confirmation/payment/PDF/cancellation events in the writing transaction; invoice detail GET + HTTP UI project that timeline (profit/FX and payment events Administrator-only). Draft meta and line add/update/remove are not appended and are hidden if already stored. No standalone history API; no per-item/order projections; ADMIN-002 mostly open.
+- **CxC:** ledger + open-receivables read model done; remaining Feature 12 filters are **still in scope**. Paso 5 made later `POST /payments` and `GET /receivables` Administrator-only (Seller 403; nav/deep links denied). Seller invoice list/detail omit payment state, paid, and balance. Pre-production still open: `ABONADO` states, issued date on the AR list, remaining filters, and account-statement PDF (`PAY-006`, remainder of `PAY-007`, `STMT-001`) before environment configuration.
 
 ---
 
@@ -89,7 +89,7 @@ This change set is **in front of** environment setup. It amends Release 2/3 beha
 - Billing no longer captures acquisition cost; COST-005 remains the Administrator follow-up.
 - PDF re-download keeps historical money and applies current corporate presentation.
 
-Implementation order: documentation (done) → migration (Paso 2 done locally) → customer authorization → ITBIS/cost capture → credit confirmation → quotes → CxC/states → statement PDF → invoice/quote PDFs → pre-environment gate.
+Implementation order: documentation (done) → migration (Paso 2 done locally) → customer authorization (Paso 3 done locally) → ITBIS/cost capture (Paso 4 done locally) → credit confirmation (Paso 5 done locally) → quotes → CxC/states (`ABONADO`, issued date, remaining filters) → statement PDF → invoice/quote PDFs → pre-environment gate.
 
 ---
 
@@ -349,7 +349,7 @@ A Seller can:
 1. select/create a `CASH` customer or use Cliente contado where eligible;
 2. create a Draft;
 3. add supported non-inventory lines without billing cost fields;
-4. confirm a valid DOP/USD **cash** invoice (credit confirmation is a later pre-production slice);
+4. confirm a valid DOP/USD invoice under SALE-005 (cash settled in full; credit only for `CREDIT`+DOP with limit/term snapshot — Paso 5 local);
 5. receive a unique FAC number;
 6. print/regenerate the internal PDF;
 
@@ -384,9 +384,9 @@ The company can immediately track credit sales and know who owes money.
 - Same invoice currency.
 - Additive ledger.
 - Duplicate-submission protection.
-- Live API: fixed due date at the end of the local calendar day 30 days after confirmation.
-- Target (CUST-005 / SALE-005): **new credit invoices** due at confirmation + the customer’s chosen term (30, 45, 60, 90, or 120). Do not keep a universal +30 once customer terms exist. Historical completed invoices keep stored due dates.
-- Derived Pending / Partially paid / Overdue / Partially paid overdue / Paid / Paid late / Cancelled state (`PAY-006` target; live API still lacks the partial labels).
+- Live API: cash invoices store `dueDate` as the local confirmation calendar day (end of day, `America/Santo_Domingo`). New credit invoices use the snapshotted customer term (CUST-005 / SALE-005). Historical completed invoices keep stored due dates.
+- Target already applied for new confirmations (CUST-005 / SALE-005): **new credit invoices** due at confirmation + the customer’s chosen term (30, 45, 60, 90, or 120). Do not keep a universal +30. Historical completed invoices keep stored due dates.
+- Derived Pending / Partially paid / Overdue / Partially paid overdue / Paid / Paid late / Cancelled state (`PAY-006` target; live API still lacks the partial labels `ABONADO` / `ABONADA VENCIDA`).
 - Derived outstanding balance.
 
 ### Basic Accounts Receivable

@@ -34,6 +34,7 @@ async function fixture() {
 async function cleanup() {
   await resetLoginRateLimit();
   await clearTestHistory();
+  await prisma.invoicePayment.deleteMany();
   await prisma.invoice.deleteMany();
   await prisma.session.deleteMany();
   await prisma.user.deleteMany();

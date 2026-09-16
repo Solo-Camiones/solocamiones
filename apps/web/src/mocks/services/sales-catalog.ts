@@ -22,6 +22,8 @@ import {
 import { profitabilityForInvoice } from './profitability-view';
 import { resolveActorName, toHistoryEventView } from './history-view';
 
+const ADMINISTRATOR_ONLY_INVOICE_EVENTS = new Set(['PAYMENT_RECORDED']);
+
 function customerName(state: AppState, invoice: Invoice): string {
   return (
     invoice.customerSnapshot?.name ??
@@ -41,22 +43,28 @@ function displayNumber(invoice: Invoice): string {
   return invoice.status === 'DRAFT' ? 'Borrador' : 'Factura';
 }
 
-export function toSalesListRow(state: AppState, invoice: Invoice): SalesListRow {
+export function toSalesListRow(
+  state: AppState,
+  invoice: Invoice,
+  options: { includePaymentSettlement?: boolean } = {},
+): SalesListRow {
+  const includePaymentSettlement = options.includePaymentSettlement !== false;
   return {
     id: invoice.id,
     number: displayNumber(invoice),
     status: invoice.status,
-    paymentState: invoice.paymentState,
     customerId: invoice.customerId,
     customerName: customerName(state, invoice),
     currency: invoice.currency,
     fiscal: invoice.fiscal,
     total: invoiceTotal(invoice),
-    balance: invoiceBalance(invoice),
     createdAt: invoice.createdAt,
     confirmedAt: invoice.confirmedAt,
     dueDate: invoice.dueDate,
     href: draftHref(invoice),
+    ...(includePaymentSettlement
+      ? { paymentState: invoice.paymentState, balance: invoiceBalance(invoice) }
+      : {}),
   };
 }
 
@@ -84,7 +92,9 @@ export function buildSalesList(
   state: AppState,
   tab: SalesListTab = 'ALL',
   q = '',
+  actor?: User,
 ): SalesListRow[] {
+  const includePaymentSettlement = actor?.role !== 'SELLER';
   return [...state.invoices]
     .filter((invoice) => matchesSalesTab(invoice, tab))
     .sort((left, right) => {
@@ -92,7 +102,7 @@ export function buildSalesList(
       const rightKey = right.confirmedAt ?? right.createdAt;
       return rightKey.localeCompare(leftKey);
     })
-    .map((invoice) => toSalesListRow(state, invoice))
+    .map((invoice) => toSalesListRow(state, invoice, { includePaymentSettlement }))
     .filter((row) => matchesSalesSearch(row, q));
 }
 
@@ -109,8 +119,8 @@ export function buildReceivables(state: AppState): ReceivablesSnapshot {
     if (existing) {
       existing.invoiceCount += 1;
       existing.invoiced = roundMoney(existing.invoiced + row.total);
-      existing.paid = roundMoney(existing.paid + (row.total - row.balance));
-      existing.balance = roundMoney(existing.balance + row.balance);
+      existing.paid = roundMoney(existing.paid + (row.total - (row.balance ?? 0)));
+      existing.balance = roundMoney(existing.balance + (row.balance ?? 0));
       continue;
     }
     grouped.set(key, {
@@ -119,8 +129,8 @@ export function buildReceivables(state: AppState): ReceivablesSnapshot {
       currency: row.currency,
       invoiceCount: 1,
       invoiced: row.total,
-      paid: roundMoney(row.total - row.balance),
-      balance: row.balance,
+      paid: roundMoney(row.total - (row.balance ?? 0)),
+      balance: row.balance ?? 0,
     });
   }
 
@@ -170,7 +180,6 @@ export function buildInvoiceDetail(state: AppState, invoice: Invoice, actor: Use
     id: invoice.id,
     number: invoice.number,
     status: invoice.status,
-    paymentState: invoice.paymentState,
     customerId: invoice.customerId,
     customerName: invoice.customerSnapshot?.name ?? customer?.name ?? invoice.customerId,
     customerRnc: invoice.customerSnapshot?.rnc ?? customer?.rnc,
@@ -178,19 +187,27 @@ export function buildInvoiceDetail(state: AppState, invoice: Invoice, actor: Use
     fiscal: invoice.fiscal,
     applyItbis: invoice.applyItbis === true,
     lines: invoice.lines.map((line) => toLineView(line, invoice.applyItbis === true)),
-    payments: invoice.payments.map((payment) => ({
-      id: payment.id,
-      kind: payment.kind === 'REFUND' ? 'REFUND' : 'PAYMENT',
-      amount: payment.amount,
-      method: payment.method,
-      createdAt: payment.createdAt,
-      reference: payment.reference,
-      actorName: resolveActorName(state.users, payment.actorId),
-    })),
+    payments:
+      actor.role === 'ADMINISTRATOR'
+        ? invoice.payments.map((payment) => ({
+            id: payment.id,
+            kind: payment.kind === 'REFUND' ? 'REFUND' : 'PAYMENT',
+            amount: payment.amount,
+            method: payment.method,
+            createdAt: payment.createdAt,
+            reference: payment.reference,
+            actorName: resolveActorName(state.users, payment.actorId),
+          }))
+        : [],
     total: invoiceTotal(invoice),
-    paid: invoicePaid(invoice),
-    refunded: invoiceRefunded(invoice),
-    balance: invoiceBalance(invoice),
+    ...(actor.role === 'ADMINISTRATOR'
+      ? {
+          paymentState: invoice.paymentState,
+          paid: invoicePaid(invoice),
+          refunded: invoiceRefunded(invoice),
+          balance: invoiceBalance(invoice),
+        }
+      : {}),
     createdAt: invoice.createdAt,
     confirmedAt: invoice.confirmedAt,
     cancelledAt: invoice.cancelledAt,
@@ -209,11 +226,19 @@ export function buildInvoiceDetail(state: AppState, invoice: Invoice, actor: Use
       })),
     history: state.events
       .filter((event) => isLinkedInvoiceEvent(event, invoice))
+      .filter(
+        (event) =>
+          actor.role === 'ADMINISTRATOR' || !ADMINISTRATOR_ONLY_INVOICE_EVENTS.has(event.type),
+      )
       .sort((left, right) => right.createdAt.localeCompare(left.createdAt))
       .map((event) => toHistoryEventView(event, state.users)),
     profitability: profitabilityForInvoice(state, invoice, actor),
     actions: {
-      canPay: completed && can(actor, 'sales.manage') && invoiceBalance(invoice) > 0,
+      canPay:
+        completed &&
+        actor.role === 'ADMINISTRATOR' &&
+        can(actor, 'sales.manage') &&
+        invoiceBalance(invoice) > 0,
       canCancel: completed && can(actor, 'sales.cancel'),
       canCorrectCurrency: completed && can(actor, 'sales.correctCurrency') && invoice.payments.length === 0 && invoice.paymentState !== 'PAID',
       canViewPdf: numbered && Boolean(invoice.number),

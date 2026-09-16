@@ -224,6 +224,8 @@ export type Invoice = {
   customerSnapshot?: {
     name: string;
     rnc?: string;
+    customerType?: CustomerType;
+    creditTermDays?: CreditTermDays;
   };
   /**
    * SALE-008: exact hierarchy delivered for each assembly line, frozen at confirm.

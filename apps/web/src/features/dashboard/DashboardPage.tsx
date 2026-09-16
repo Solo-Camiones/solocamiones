@@ -203,7 +203,7 @@ function buildFinanceKpis(
 ): DashboardKpiCard[] {
   const cards: DashboardKpiCard[] = [];
 
-  if (capabilities.payments) {
+  if (capabilities.payments && user?.role === 'ADMINISTRATOR') {
     cards.push({
       label: 'Saldo pendiente',
       value: money(kpis.outstandingDop, 'DOP'),
@@ -226,7 +226,7 @@ function buildFinanceKpis(
     });
   }
 
-  if (capabilities.payments) {
+  if (capabilities.payments && user?.role === 'ADMINISTRATOR') {
     cards.push({
       label: 'Cobros',
       value: 'Historial',
@@ -268,7 +268,7 @@ export function DashboardPage() {
         description={
           isAdmin
             ? 'Atención, operación del día y finanzas.'
-            : 'Resumen de inventario, ventas y cobros.'
+            : 'Resumen de inventario y ventas.'
         }
       />
 
@@ -289,7 +289,10 @@ export function DashboardPage() {
         <div className="grid gap-8 lg:grid-cols-5">
           {capabilities.sales && (
             <div className="lg:col-span-3">
-              <RecentInvoicesList invoices={snapshot.recentInvoices} />
+              <RecentInvoicesList
+                invoices={snapshot.recentInvoices}
+                showPaymentState={user?.role === 'ADMINISTRATOR'}
+              />
             </div>
           )}
           <div className={capabilities.sales ? 'lg:col-span-2' : 'lg:col-span-5'}>

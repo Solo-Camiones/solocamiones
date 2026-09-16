@@ -203,6 +203,7 @@ describe('HTTP sales draft contract', () => {
       value: {
         id: draftId,
         customerIsDefault: true,
+        customerType: 'CASH',
         currency: 'DOP',
         items: [],
         qtyProducts: [],

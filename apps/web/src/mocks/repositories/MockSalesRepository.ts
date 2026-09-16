@@ -28,7 +28,7 @@ import {
 } from '../services/sales-commands';
 import { buildInvoiceDetail, buildReceivables, buildSalesList } from '../services/sales-catalog';
 import { buildPosDraftView } from '../services/sales-draft';
-import { requirePermission } from '../services/require-permission';
+import { requireAdministrator, requirePermission } from '../services/require-permission';
 import { cloneForRead, getMockState } from '../state';
 
 export class MockSalesRepository implements SalesRepository {
@@ -38,11 +38,11 @@ export class MockSalesRepository implements SalesRepository {
       return permission;
     }
 
-    return ok(toListPage(cloneForRead(buildSalesList(getMockState(), tab, q)), page));
+    return ok(toListPage(cloneForRead(buildSalesList(getMockState(), tab, q, permission.value)), page));
   }
 
   async listReceivables(page = 1) {
-    const permission = requirePermission('sales.manage');
+    const permission = requireAdministrator();
     if (!permission.ok) {
       return permission;
     }
@@ -81,7 +81,7 @@ export class MockSalesRepository implements SalesRepository {
   }
 
   async addPayment(input: AddPaymentInput) {
-    const permission = requirePermission('sales.manage');
+    const permission = requireAdministrator();
     if (!permission.ok) {
       return permission;
     }

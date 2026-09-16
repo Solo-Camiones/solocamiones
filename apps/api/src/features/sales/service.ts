@@ -43,7 +43,12 @@ import {
   sumInvoiceMoney,
 } from './money/index.js';
 import {
-  assertCashCustomerPaidInFull,
+  assertCreditExposureWithinLimit,
+  assertInitialPaymentPolicy,
+  confirmationDueTermDays,
+  invoiceNewBalance,
+} from './credit-confirmation.js';
+import {
   assertDraftLineDescriptionEditable,
   assertDraftLineQuantityEditable,
   assertDraftLineTypeEnabled,
@@ -212,6 +217,7 @@ export class SalesService {
     const filters = listReceivablesSchema.parse(query);
     return this.transaction(async ({ sales, users }) => {
       const actor = requireInvoiceManager(await users.findById(actorId));
+      assertAdministrator(actor);
       const receivables = await sales.listReceivables({
         customerId: filters.customerId,
         currency: filters.currency,
@@ -400,6 +406,7 @@ export class SalesService {
           assertDraftLineTypeEnabled(line.type);
         }
 
+        await customers.lockById(existing.customerId);
         const customer = await customers.findById(existing.customerId);
         if (!customer) throw AppError.notFound('Customer not found');
         assertFiscalCustomer(customer, existing.fiscal);
@@ -420,7 +427,25 @@ export class SalesService {
         if (initialPaymentAmount?.greaterThan(totals.gross)) {
           throw AppError.conflict(PAYMENT_EXCEEDS_BALANCE_MESSAGE);
         }
-        assertCashCustomerPaidInFull(customer, totals.gross, initialPaymentAmount);
+        assertInitialPaymentPolicy({
+          customer,
+          currency: existing.currency,
+          actorRole: actor.role,
+          invoiceGross: totals.gross,
+          initialPaymentAmount,
+        });
+        const newBalance = invoiceNewBalance(totals.gross, initialPaymentAmount);
+        const openInvoices = await customers.findCompletedInvoicesWithPayments(customer.id);
+        const openExposure = openInvoices.reduce(
+          (sum, invoice) => sum.plus(summarizePayments(invoice).balance),
+          new Prisma.Decimal(0),
+        );
+        assertCreditExposureWithinLimit({
+          customer,
+          currency: existing.currency,
+          openExposure,
+          newBalance,
+        });
         const number = await sales.allocateNextNumber();
         const confirmedAt = new Date();
         const primaryPhone = customer.contacts.find((contact) => contact.isPrimary)?.phone ?? null;
@@ -428,7 +453,7 @@ export class SalesService {
           id,
           number,
           confirmedAt,
-          dueDate: invoiceDueDate(confirmedAt),
+          dueDate: invoiceDueDate(confirmedAt, confirmationDueTermDays(customer, existing.currency)),
           customerName: customer.name,
           customerRnc: customer.rnc,
           customerPhone: primaryPhone,
@@ -497,6 +522,7 @@ export class SalesService {
     const profile = addPaymentSchema.parse(input);
     return this.transaction(async ({ sales, payments, users, history }) => {
       const actor = requireInvoiceManager(await users.findById(actorId));
+      assertAdministrator(actor);
       await sales.lockById(id);
       let invoice = await sales.findById(id);
       if (!invoice) throw AppError.notFound('Invoice not found');

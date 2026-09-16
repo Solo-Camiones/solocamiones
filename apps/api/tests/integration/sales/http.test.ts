@@ -1033,7 +1033,10 @@ describe('M12 confirmation FAC- snapshot (SALE-001, CUST-003)', () => {
       .send({ currency: 'USD', customerId: identified.id, fiscal: true });
     expect(usdDraft.status).toBe(201);
     await addGenericLine(seller.agent, usdDraft.body.id);
-    const usd = await seller.agent.post(`${ROOT}/${usdDraft.body.id}/confirm`).set(CSRF).send({});
+    const usd = await seller.agent
+      .post(`${ROOT}/${usdDraft.body.id}/confirm`)
+      .set(CSRF)
+      .send(cashSaleFullPayment('118.00'));
     expect(usd.status).toBe(200);
     expect(usd.body).toMatchObject({
       status: 'COMPLETED',
@@ -1041,7 +1044,7 @@ describe('M12 confirmation FAC- snapshot (SALE-001, CUST-003)', () => {
       currency: 'USD',
       fiscal: true,
       customerSnapshot: { name: 'Taller Norte', rnc: '131123456', phone: null },
-      totals: { gross: '118.00', base: '100.00', itbis: '18.00' },
+      totals: { gross: '118.00', base: '118.00', itbis: '0.00' },
     });
     expect(await prisma.invoiceSequence.findUnique({ where: { name: 'FAC' } })).toMatchObject({
       nextValue: 3,
@@ -1103,7 +1106,10 @@ describe('M12 confirmation FAC- snapshot (SALE-001, CUST-003)', () => {
       .set(CSRF)
       .send({ customerId: identified.id, fiscal: true });
     await addGenericLine(admin.agent, draft.body.id);
-    const confirmed = await admin.agent.post(`${ROOT}/${draft.body.id}/confirm`).set(CSRF).send({});
+    const confirmed = await admin.agent
+      .post(`${ROOT}/${draft.body.id}/confirm`)
+      .set(CSRF)
+      .send(cashSaleFullPayment('118.00'));
     expect(confirmed.status).toBe(200);
     expect(confirmed.body.customerSnapshot).toEqual({
       name: 'Taller Norte',
@@ -1376,7 +1382,10 @@ describe('M13 DOP profitability Administrator boundary (COST-001..004)', () => {
     });
     expect(usdLine.status).toBe(201);
     await seedKnownLineCost(usdLine.body.lines[0].id, 'ACTUAL', '80.00');
-    const usd = await admin.agent.post(`${ROOT}/${usdDraft.body.id}/confirm`).set(CSRF).send({});
+    const usd = await admin.agent
+      .post(`${ROOT}/${usdDraft.body.id}/confirm`)
+      .set(CSRF)
+      .send(cashSaleFullPayment('118.00'));
     expect(usd.status).toBe(200);
     expect(usd.body.profitability).toEqual({
       status: 'UNAVAILABLE',

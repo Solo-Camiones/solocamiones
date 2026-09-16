@@ -16,10 +16,12 @@ export type InvoiceHistoryEntryView = {
   actorName?: string;
 };
 
+// Profit/FX stay Administrator-only. PAY-007 also hides payment movements from Seller.
 const ADMINISTRATOR_ONLY_EVENTS = new Set([
   'INVOICE_GROSS_PROFIT_RECORDED',
   'INVOICE_USD_FX_RECORDED',
   'INVOICE_USD_FX_RETRIED',
+  'PAYMENT_RECORDED',
 ]);
 
 const HIDDEN_INVOICE_TIMELINE_EVENTS = new Set([

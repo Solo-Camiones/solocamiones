@@ -30,13 +30,18 @@ import {
   overlappingReservation,
   protectedAncestor,
 } from './inventory-helpers';
-import { derivePaymentState, invoiceTotal, roundMoney } from './invoice-money';
+import { derivePaymentState, invoiceBalance, invoiceTotal, roundMoney } from './invoice-money';
 import {
   activeWorkAffectingAssembly,
   CASH_CUSTOMER_CREDIT_FORBIDDEN_MESSAGE,
   CASH_CUSTOMER_ID,
+  confirmationDueDate,
+  confirmationRequiresFullPayment,
+  CREDIT_LIMIT_EXCEEDED_MESSAGE,
   customerQualifiesForFiscal,
-  isCashCustomer,
+  isCreditDopConfirmation,
+  SELLER_CREDIT_PAYMENT_FORBIDDEN_MESSAGE,
+  USD_INVOICE_MUST_BE_PAID_IN_FULL_MESSAGE,
 } from './sales-helpers';
 import { applyUsdProfitability } from './usd-profitability';
 
@@ -858,6 +863,12 @@ export function confirmInvoice(
   const invoiceGross = invoiceTotal(invoice);
   let initialPaymentAmount: number | undefined;
   if (payment) {
+    if (isCreditDopConfirmation(customer, invoice.currency) && actor.role === 'SELLER') {
+      return err({
+        code: 'FORBIDDEN',
+        message: SELLER_CREDIT_PAYMENT_FORBIDDEN_MESSAGE,
+      });
+    }
     if (!PAYMENT_METHODS.includes(payment.method)) {
       return err({ code: 'VALIDATION', message: 'El pago requiere un método' });
     }
@@ -874,14 +885,35 @@ export function confirmInvoice(
     initialPaymentAmount = amount.value;
   }
   if (
-    isCashCustomer(customer) &&
+    confirmationRequiresFullPayment(customer, invoice.currency) &&
     invoiceGross > 0 &&
     (initialPaymentAmount == null || initialPaymentAmount !== invoiceGross)
   ) {
     return err({
       code: 'CONFLICT',
-      message: CASH_CUSTOMER_CREDIT_FORBIDDEN_MESSAGE,
+      message:
+        invoice.currency === 'USD'
+          ? USD_INVOICE_MUST_BE_PAID_IN_FULL_MESSAGE
+          : CASH_CUSTOMER_CREDIT_FORBIDDEN_MESSAGE,
     });
+  }
+
+  if (isCreditDopConfirmation(customer, invoice.currency)) {
+    const creditLimitDop = Number(customer.creditLimitDop);
+    const openExposure = state.invoices
+      .filter(
+        (entry) =>
+          entry.id !== invoice.id &&
+          entry.customerId === customer.id &&
+          entry.status === 'COMPLETED' &&
+          entry.currency === 'DOP',
+      )
+      .reduce((sum, entry) => roundMoney(sum + invoiceBalance(entry)), 0);
+    const newBalance = roundMoney(invoiceGross - (initialPaymentAmount ?? 0));
+
+    if (!Number.isFinite(creditLimitDop) || roundMoney(openExposure + newBalance) > creditLimitDop) {
+      return err({ code: 'CONFLICT', message: CREDIT_LIMIT_EXCEEDED_MESSAGE });
+    }
   }
 
   for (const line of invoice.lines) {
@@ -893,8 +925,14 @@ export function confirmInvoice(
   invoice.number = number;
   invoice.status = 'COMPLETED';
   invoice.confirmedAt = DEMO_NOW_ISO;
+  invoice.dueDate = confirmationDueDate(customer, invoice.currency, DEMO_NOW_ISO);
   invoice.paymentState = 'UNPAID';
-  invoice.customerSnapshot = { name: customer.name, rnc: customer.rnc };
+  invoice.customerSnapshot = {
+    name: customer.name,
+    rnc: customer.rnc,
+    customerType: customer.customerType,
+    creditTermDays: customer.creditTermDays,
+  };
   if (invoice.currency === 'USD') {
     applyUsdProfitability(state, invoice);
   }

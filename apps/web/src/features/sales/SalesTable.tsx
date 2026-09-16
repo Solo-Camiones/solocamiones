@@ -5,9 +5,14 @@ import { Empty, EntityLink, HoverRow, money, Mono, TableShell } from '../../shar
 export type SalesTableProps = {
   rows: SalesListRow[];
   hasQuery?: boolean;
+  showPaymentSettlement?: boolean;
 };
 
-export function SalesTable({ rows, hasQuery = false }: SalesTableProps) {
+export function SalesTable({
+  rows,
+  hasQuery = false,
+  showPaymentSettlement = false,
+}: SalesTableProps) {
   if (rows.length === 0) {
     return (
       <Empty
@@ -28,9 +33,11 @@ export function SalesTable({ rows, hasQuery = false }: SalesTableProps) {
           <th className="px-4 py-3 font-medium">Documento</th>
           <th className="px-4 py-3 font-medium">Cliente</th>
           <th className="px-4 py-3 font-medium">Estado</th>
-          <th className="px-4 py-3 font-medium">Pago</th>
+          {showPaymentSettlement ? <th className="px-4 py-3 font-medium">Pago</th> : null}
           <th className="px-4 py-3 font-medium text-right">Total</th>
-          <th className="px-4 py-3 font-medium text-right">Saldo</th>
+          {showPaymentSettlement ? (
+            <th className="px-4 py-3 font-medium text-right">Saldo</th>
+          ) : null}
         </tr>
       </thead>
       <tbody className="divide-y divide-navy-100">
@@ -46,17 +53,23 @@ export function SalesTable({ rows, hasQuery = false }: SalesTableProps) {
             <td className="px-4 py-3">
               <InvoiceStatusChip status={row.status} />
             </td>
-            <td className="px-4 py-3">
-              {row.status === 'COMPLETED' ? (
-                <PaymentChip state={row.paymentState} />
-              ) : (
-                <span className="text-navy-400">—</span>
-              )}
-            </td>
+            {showPaymentSettlement ? (
+              <td className="px-4 py-3">
+                {row.status === 'COMPLETED' && row.paymentState ? (
+                  <PaymentChip state={row.paymentState} />
+                ) : (
+                  <span className="text-navy-400">—</span>
+                )}
+              </td>
+            ) : null}
             <td className="px-4 py-3 text-right font-mono">{money(row.total, row.currency)}</td>
-            <td className="px-4 py-3 text-right font-mono">
-              {row.status !== 'DRAFT' ? money(row.balance, row.currency) : '—'}
-            </td>
+            {showPaymentSettlement ? (
+              <td className="px-4 py-3 text-right font-mono">
+                {row.status !== 'DRAFT' && row.balance != null
+                  ? money(row.balance, row.currency)
+                  : '—'}
+              </td>
+            ) : null}
           </HoverRow>
         ))}
       </tbody>

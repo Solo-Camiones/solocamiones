@@ -33,6 +33,13 @@ describe('sales catalog seed', () => {
     expect(fac099).toMatchObject({ paymentState: 'PARTIALLY_PAID', balance: 3_600, total: 7_200 });
   });
 
+  it('omits payment state and balance from seller list projections', () => {
+    const rows = buildSalesList(createInitialState(), 'COMPLETED', '', seller);
+    expect(rows.every((row) => row.paymentState === undefined && row.balance === undefined)).toBe(
+      true,
+    );
+  });
+
   it('preserves stored money for completed historical invoices', () => {
     const state = createInitialState();
     const fiscal = state.invoices.find((entry) => entry.id === 'INV-098')!;
@@ -70,16 +77,47 @@ describe('sales catalog seed', () => {
     expect(sellerView.profitability).toBeUndefined();
     expect(sellerView.actions.canCancel).toBe(false);
     expect(sellerView.actions.canCorrectCurrency).toBe(false);
+    expect(sellerView.actions.canPay).toBe(false);
+    expect(sellerView.payments).toEqual([]);
+    expect(sellerView.paymentState).toBeUndefined();
+    expect(sellerView.paid).toBeUndefined();
+    expect(sellerView.balance).toBeUndefined();
     expect(adminView.profitability?.profit).toBe(6_700);
+    expect(adminView.actions.canPay).toBe(true);
     expect(adminView.actions.canCancel).toBe(true);
     expect(adminView.actions.canCorrectCurrency).toBe(true);
+  });
+
+  it('omits payment events from seller invoice history', () => {
+    const state = createInitialState();
+    const invoice = state.invoices.find((entry) => entry.id === 'INV-099')!;
+    const sellerView = buildInvoiceDetail(state, invoice, seller);
+    const adminView = buildInvoiceDetail(state, invoice, admin);
+
+    expect(sellerView.history.some((event) => event.type === 'PAYMENT_RECORDED')).toBe(false);
+    expect(adminView.history.some((event) => event.type === 'PAYMENT_RECORDED')).toBe(true);
   });
 });
 
 describe('addPayment', () => {
-  it('records a partial payment and updates the chip state', () => {
+  it('forbids later collections from a seller', () => {
     const state = createInitialState();
     const result = addPayment(state, seller, {
+      invoiceId: 'INV-098',
+      amount: 5_000,
+      method: 'CASH',
+      effectiveDate: '2026-09-09',
+    });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.code).toBe('FORBIDDEN');
+    }
+  });
+
+  it('records a partial payment and updates the chip state', () => {
+    const state = createInitialState();
+    const result = addPayment(state, admin, {
       invoiceId: 'INV-098',
       amount: 5_000,
       method: 'TRANSFER',
@@ -100,7 +138,7 @@ describe('addPayment', () => {
     const state = createInitialState();
 
     expect(
-      addPayment(state, seller, {
+      addPayment(state, admin, {
         invoiceId: 'INV-098',
         amount: 20_000,
         method: 'CASH',
@@ -108,7 +146,7 @@ describe('addPayment', () => {
       }).ok,
     ).toBe(false);
     expect(
-      addPayment(state, seller, {
+      addPayment(state, admin, {
         invoiceId: 'INV-098',
         amount: 0,
         method: 'CASH',
@@ -116,7 +154,7 @@ describe('addPayment', () => {
       }).ok,
     ).toBe(false);
     expect(
-      addPayment(state, seller, {
+      addPayment(state, admin, {
         invoiceId: 'INV-098',
         amount: -10,
         method: 'CASH',
@@ -136,8 +174,8 @@ describe('addPayment', () => {
       idempotencyKey: 'pay-once',
     };
 
-    const first = addPayment(state, seller, input);
-    const second = addPayment(state, seller, input);
+    const first = addPayment(state, admin, input);
+    const second = addPayment(state, admin, input);
 
     expect(first.ok && second.ok).toBe(true);
     expect(state.invoices.find((entry) => entry.id === 'INV-099')?.payments).toHaveLength(2);
@@ -227,6 +265,7 @@ describe('cancelInvoice', () => {
 
   it('CANCEL-003: restoring an assembly sale also restores Sold descendants', () => {
     const state = createInitialState();
+    state.customers.find((customer) => customer.id === 'C1')!.creditLimitDop = '1000000.00';
     const created = createDraft(state, seller);
     expect(created.ok).toBe(true);
     if (!created.ok) {

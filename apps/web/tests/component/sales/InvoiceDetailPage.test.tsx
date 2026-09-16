@@ -33,31 +33,53 @@ describe('InvoiceDetailPage', () => {
     vi.unstubAllGlobals();
   });
 
-  it('lets a seller record a payment and updates the chip', async () => {
+  it('lets a seller see commercial totals without paid amount, balance, or payment state', async () => {
     signInAs('SELLER');
-    const user = userEvent.setup();
     renderWithProviders(detailRoute(), {
       route: '/sales/INV-098',
       auth: createAuthValue('SELLER'),
     });
 
     expect(await screen.findByRole('heading', { name: 'FAC-000098' })).toBeVisible();
-    const backButton = screen.getByRole('button', { name: 'Volver atrás' });
-    expect(backButton).toHaveTextContent('');
-    expect(screen.queryByText('Volver al listado')).not.toBeInTheDocument();
     expect(screen.getByText('Completada')).toBeVisible();
+    expect(screen.queryByText('Saldo')).not.toBeInTheDocument();
+    expect(screen.queryByText('Pagado')).not.toBeInTheDocument();
     expect(screen.queryByText('Sin pagar')).not.toBeInTheDocument();
-    expect(screen.queryByText('Pendiente')).not.toBeInTheDocument();
+    expect(screen.queryByText('Pago parcial')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Registrar pago' })).not.toBeInTheDocument();
+    expect(screen.queryByText('Pagos y reembolsos')).not.toBeInTheDocument();
+    expect(screen.queryByText('Sin movimientos registrados')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Cancelar factura' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Corregir moneda' })).not.toBeInTheDocument();
     expect(screen.queryByText('Rentabilidad')).not.toBeInTheDocument();
+  });
 
+  it('hides recorded payments from seller invoice history', async () => {
+    signInAs('SELLER');
+    renderWithProviders(detailRoute(), {
+      route: '/sales/INV-099',
+      auth: createAuthValue('SELLER'),
+    });
+
+    expect(await screen.findByRole('heading', { name: 'FAC-000099' })).toBeVisible();
+    expect(screen.getByText('Historial')).toBeVisible();
+    expect(screen.queryByText('Pago parcial en FAC-000099')).not.toBeInTheDocument();
+  });
+
+  it('lets an administrator record a payment and updates the chip', async () => {
+    signInAs('ADMINISTRATOR');
+    const user = userEvent.setup();
+    renderWithProviders(detailRoute(), {
+      route: '/sales/INV-098',
+      auth: createAuthValue('ADMINISTRATOR'),
+    });
+
+    expect(await screen.findByRole('heading', { name: 'FAC-000098' })).toBeVisible();
     await user.click(screen.getByRole('button', { name: 'Registrar pago' }));
     await user.type(screen.getByLabelText('Monto'), '5000');
     await user.click(screen.getByRole('button', { name: 'Confirmar pago' }));
 
     expect(await screen.findByText('Pago parcial')).toBeVisible();
-    expect(screen.getAllByText(/por Laura Pérez/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/por Administrador Demo/).length).toBeGreaterThan(0);
   });
 
   it('shows ITBIS breakdown for fiscal invoices', async () => {

@@ -89,7 +89,7 @@ describe('payments, due date, and cancellation HTTP', () => {
   afterEach(cleanup);
 
   it('records a full initial payment atomically with confirmation', async () => {
-    const seller = await fixture(request.agent(createTestApp()), 'SELLER');
+    const seller = await fixture(request.agent(createTestApp()), 'ADMINISTRATOR');
     const payment = {
       amount: '1000.00',
       method: 'CASH',
@@ -110,7 +110,7 @@ describe('payments, due date, and cancellation HTTP', () => {
   it.each(['1000.01', '9999999999.99'])(
     'rejects an initial payment of %s when it exceeds the invoice total',
     async (amount) => {
-      const seller = await fixture(request.agent(createTestApp()), 'SELLER');
+      const seller = await fixture(request.agent(createTestApp()), 'ADMINISTRATOR');
       const draft = await seller.agent.post(SALES).set(CSRF).send({});
       await seller.agent.post(`${SALES}/${draft.body.id}/lines`).set(CSRF).send({
         type: 'GENERIC',
@@ -135,7 +135,7 @@ describe('payments, due date, and cancellation HTTP', () => {
   );
 
   it('rejects confirming Cliente contado without a full initial payment', async () => {
-    const seller = await fixture(request.agent(createTestApp()), 'SELLER');
+    const seller = await fixture(request.agent(createTestApp()), 'ADMINISTRATOR');
     const draft = await seller.agent.post(SALES).set(CSRF).send({});
     await seller.agent.post(`${SALES}/${draft.body.id}/lines`).set(CSRF).send({
       type: 'GENERIC',
@@ -162,17 +162,26 @@ describe('payments, due date, and cancellation HTTP', () => {
     });
   });
 
-  it('snapshots seller and fixed due date, then records an idempotent partial payment', async () => {
-    const seller = await fixture(request.agent(createTestApp()), 'SELLER');
+  it('snapshots seller and customer term due date, then records an idempotent partial payment', async () => {
+    const app = createTestApp();
+    const seller = await fixture(request.agent(app), 'SELLER');
+    const admin = await fixture(request.agent(app), 'ADMINISTRATOR');
     const invoice = await confirmInvoice(seller.agent);
     const confirmedAt = new Date(invoice.confirmedAt);
 
     expect(invoice).toMatchObject({
       sellerName: 'Sara Vendedora',
+    });
+    expect(invoice.paymentState).toBeUndefined();
+    expect(invoice.balance).toBeUndefined();
+
+    const administratorView = await admin.agent.get(`${SALES}/${invoice.id}`);
+    expect(administratorView.status).toBe(200);
+    expect(administratorView.body).toMatchObject({
       paymentState: 'PENDING',
       balance: '1000.00',
     });
-    expect(invoice.dueDate).toBe(databaseDateString(invoiceDueDate(confirmedAt)));
+    expect(invoice.dueDate).toBe(databaseDateString(invoiceDueDate(confirmedAt, 60)));
 
     const body = {
       amount: '250.00',
@@ -181,8 +190,8 @@ describe('payments, due date, and cancellation HTTP', () => {
       reference: null,
       idempotencyKey: randomUUID(),
     };
-    const first = await seller.agent.post(`${SALES}/${invoice.id}/payments`).set(CSRF).send(body);
-    const retry = await seller.agent.post(`${SALES}/${invoice.id}/payments`).set(CSRF).send(body);
+    const first = await admin.agent.post(`${SALES}/${invoice.id}/payments`).set(CSRF).send(body);
+    const retry = await admin.agent.post(`${SALES}/${invoice.id}/payments`).set(CSRF).send(body);
 
     expect(first.status).toBe(201);
     expect(first.body).toMatchObject({
@@ -193,7 +202,19 @@ describe('payments, due date, and cancellation HTTP', () => {
     expect(retry.status).toBe(201);
     expect(await prisma.invoicePayment.count({ where: { invoiceId: invoice.id } })).toBe(1);
 
-    const mismatchedRetry = await seller.agent
+    const sellerDetail = await seller.agent.get(`${SALES}/${invoice.id}`);
+    expect(sellerDetail.status).toBe(200);
+    expect(sellerDetail.body.history.map((event: { type: string }) => event.type)).not.toContain(
+      'PAYMENT_RECORDED',
+    );
+
+    const adminDetail = await admin.agent.get(`${SALES}/${invoice.id}`);
+    expect(adminDetail.status).toBe(200);
+    expect(adminDetail.body.history.map((event: { type: string }) => event.type)).toContain(
+      'PAYMENT_RECORDED',
+    );
+
+    const mismatchedRetry = await admin.agent
       .post(`${SALES}/${invoice.id}/payments`)
       .set(CSRF)
       .send({ ...body, amount: '300.00' });
@@ -207,7 +228,7 @@ describe('payments, due date, and cancellation HTTP', () => {
     ['effective date', { effectiveDate: '2026-09-01' }],
     ['reference', { reference: 'REF-DIFFERENT' }],
   ])('rejects reuse of a payment idempotency key with a different %s', async (_field, change) => {
-    const seller = await fixture(request.agent(createTestApp()), 'SELLER');
+    const seller = await fixture(request.agent(createTestApp()), 'ADMINISTRATOR');
     const invoice = await confirmInvoice(seller.agent);
     const body = {
       amount: '250.00',
@@ -230,7 +251,7 @@ describe('payments, due date, and cancellation HTTP', () => {
   });
 
   it('accepts a payment exactly equal to the outstanding balance', async () => {
-    const seller = await fixture(request.agent(createTestApp()), 'SELLER');
+    const seller = await fixture(request.agent(createTestApp()), 'ADMINISTRATOR');
     const invoice = await confirmInvoice(seller.agent);
 
     const payment = await seller.agent.post(`${SALES}/${invoice.id}/payments`).set(CSRF).send({
@@ -246,7 +267,7 @@ describe('payments, due date, and cancellation HTTP', () => {
   });
 
   it('rejects a payment that exceeds the remaining balance without adding a movement', async () => {
-    const seller = await fixture(request.agent(createTestApp()), 'SELLER');
+    const seller = await fixture(request.agent(createTestApp()), 'ADMINISTRATOR');
     const invoice = await confirmInvoice(seller.agent);
     const effectiveDate = businessDateString(new Date(invoice.confirmedAt));
     await seller.agent.post(`${SALES}/${invoice.id}/payments`).set(CSRF).send({
@@ -272,7 +293,7 @@ describe('payments, due date, and cancellation HTTP', () => {
   });
 
   it('rejects payments while the invoice is still a draft', async () => {
-    const seller = await fixture(request.agent(createTestApp()), 'SELLER');
+    const seller = await fixture(request.agent(createTestApp()), 'ADMINISTRATOR');
     const draft = await seller.agent.post(SALES).set(CSRF).send({});
 
     const payment = await seller.agent.post(`${SALES}/${draft.body.id}/payments`).set(CSRF).send({
@@ -287,7 +308,7 @@ describe('payments, due date, and cancellation HTTP', () => {
   });
 
   it('derives paid late from the effective settlement date and rejects invalid dates', async () => {
-    const seller = await fixture(request.agent(createTestApp()), 'SELLER');
+    const seller = await fixture(request.agent(createTestApp()), 'ADMINISTRATOR');
     const invoice = await confirmInvoice(seller.agent);
     const today = businessDateString(new Date());
     const yesterday = databaseDate(today);
@@ -320,7 +341,7 @@ describe('payments, due date, and cancellation HTTP', () => {
   it.each(['before confirmation', 'after today'])(
     'rejects an effective date %s',
     async (position) => {
-      const seller = await fixture(request.agent(createTestApp()), 'SELLER');
+      const seller = await fixture(request.agent(createTestApp()), 'ADMINISTRATOR');
       const invoice = await confirmInvoice(seller.agent);
       const boundary =
         position === 'before confirmation' ? new Date(invoice.confirmedAt) : new Date();
@@ -345,7 +366,7 @@ describe('payments, due date, and cancellation HTTP', () => {
     const seller = await fixture(request.agent(app), 'SELLER');
     const admin = await fixture(request.agent(app), 'ADMINISTRATOR');
     const invoice = await confirmInvoice(seller.agent);
-    await seller.agent
+    await admin.agent
       .post(`${SALES}/${invoice.id}/payments`)
       .set(CSRF)
       .send({
@@ -432,7 +453,7 @@ describe('payments, due date, and cancellation HTTP', () => {
     const seller = await fixture(request.agent(app), 'SELLER');
     const admin = await fixture(request.agent(app), 'ADMINISTRATOR');
     const invoice = await confirmInvoice(seller.agent);
-    await seller.agent.post(`${SALES}/${invoice.id}/payments`).set(CSRF).send({
+    await admin.agent.post(`${SALES}/${invoice.id}/payments`).set(CSRF).send({
       amount: '300.00',
       method: 'CASH',
       effectiveDate: businessDateString(new Date(invoice.confirmedAt)),
@@ -508,7 +529,7 @@ describe('payments, due date, and cancellation HTTP', () => {
   });
 
   it('lists open receivables by customer and currency and hides settled invoices', async () => {
-    const seller = await fixture(request.agent(createTestApp()), 'SELLER');
+    const seller = await fixture(request.agent(createTestApp()), 'ADMINISTRATOR');
     const open = await confirmInvoice(seller.agent);
     const paid = await confirmInvoice(seller.agent, {
       payment: { amount: '1000.00', method: 'CASH', idempotencyKey: randomUUID() },
@@ -531,7 +552,7 @@ describe('payments, due date, and cancellation HTTP', () => {
   });
 
   it('paginates open receivables while keeping the complete customer aggregate', async () => {
-    const seller = await fixture(request.agent(createTestApp()), 'SELLER');
+    const seller = await fixture(request.agent(createTestApp()), 'ADMINISTRATOR');
     const first = await confirmInvoice(seller.agent);
     const second = await confirmInvoice(seller.agent, {}, first.customer.id);
 

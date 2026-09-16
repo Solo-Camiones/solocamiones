@@ -146,6 +146,9 @@ export type InvoiceCustomerView = {
   name: string;
   rnc: string | null;
   isDefault: boolean;
+  customerType: CustomerType;
+  creditTermDays: number | null;
+  creditLimitDop: string | null;
 };
 
 export type InvoiceCustomerSnapshot = {
@@ -245,11 +248,11 @@ export type PublicInvoice = {
   cancelledAt: string | null;
   cancelReason: string | null;
   cancelledByName: string | null;
-  paymentState: PublicPaymentState;
-  payments: PublicInvoicePayment[];
-  paid: string;
-  refunded: string;
-  balance: string;
+  paymentState?: PublicPaymentState;
+  payments?: PublicInvoicePayment[];
+  paid?: string;
+  refunded?: string;
+  balance?: string;
   lines: PublicInvoiceLine[];
   totals: { gross: string; base: string; itbis: string };
   profitability?: PublicProfitability;
@@ -277,9 +280,9 @@ export type PublicInvoiceListItem = {
   customerSnapshot: InvoiceCustomerSnapshot | null;
   confirmedAt: string | null;
   dueDate: string | null;
-  paymentState: PublicPaymentState;
-  payments: PublicInvoiceListPayment[];
-  balance: string;
+  paymentState?: PublicPaymentState;
+  payments?: PublicInvoiceListPayment[];
+  balance?: string;
   totals: { gross: string; base: string; itbis: string };
   profitability?: PublicProfitability;
   /** Stored profitability FX rate. Administrator-only; used to report USD receipts in DOP. */

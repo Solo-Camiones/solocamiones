@@ -155,9 +155,13 @@ function requireItem(state: AppState, id: string): Result<void> {
 function prepareFullAssemblySale(state: AppState): Result<void> {
   const administrator = state.users.find((user) => user.id === 'U-ADMIN');
   const seller = state.users.find((user) => user.id === 'U-LAURA');
-  if (!administrator || !seller) {
-    return err({ code: 'CONFLICT', message: 'Faltan usuarios demo para preparar la venta' });
+  const customer = state.customers.find((entry) => entry.id === 'C1');
+  if (!administrator || !seller || !customer) {
+    return err({ code: 'CONFLICT', message: 'Faltan datos demo para preparar la venta' });
   }
+
+  // This walkthrough prices a complete assembly above the regular seed limit.
+  customer.creditLimitDop = '1000000.00';
 
   for (const draft of state.invoices.filter((invoice) => invoice.status === 'DRAFT')) {
     const discarded = discardDraft(state, administrator, draft.id);

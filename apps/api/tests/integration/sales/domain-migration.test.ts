@@ -6,6 +6,7 @@ import { disconnectPrisma, prisma } from '../../../src/infrastructure/database/i
 import { COMPLETED_CASH_SNAPSHOT } from '../../helpers/sales.js';
 
 async function cleanup() {
+  await prisma.invoicePayment.deleteMany();
   await prisma.invoice.deleteMany();
   await prisma.customer.deleteMany({ where: { isDefault: false } });
 }

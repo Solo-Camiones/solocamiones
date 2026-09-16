@@ -76,11 +76,15 @@ export function applySalesUrlFilters(
       }
     }
 
-    if (filters.outstanding && !(row.status === 'COMPLETED' && row.balance > 0)) {
+    if (filters.outstanding && !(row.status === 'COMPLETED' && (row.balance ?? 0) > 0)) {
       return false;
     }
 
-    if (filters.payments && row.paymentState !== 'PAID' && row.paymentState !== 'PARTIALLY_PAID') {
+    if (
+      filters.payments &&
+      row.paymentState !== 'PAID' &&
+      row.paymentState !== 'PARTIALLY_PAID'
+    ) {
       return false;
     }
 

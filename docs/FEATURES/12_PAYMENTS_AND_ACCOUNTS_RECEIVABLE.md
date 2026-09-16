@@ -14,7 +14,7 @@ The old consolidated requirements/validation files are intentionally no longer r
 
 **Implementation (2026-09-10):** Pulled forward into the Release 2 local codebase. Production API + HTTP UI for the financial slice are in place (`InvoicePayment`, confirm-time optional payment, `POST /api/sales/:id/payments`, `GET /api/sales/receivables`, invoice payment history). **Do not treat this feature as complete.** Remaining checklist items that belong to Release 3 must still be implemented (Release 2 is closed). Aging and collections stay deferred as specified in this file.
 
-**Pre-production change set (2026-09-15):** Derived `ABONADO` states (`PAY-006`), issued date and Administrator-only CxC (`PAY-007`), Seller payment restrictions, and customer account-statement PDF (`STMT-001`) are **specified and not yet implemented**. Live API still treats partial as `PENDING`/`OVERDUE` and still allows Seller CxC and later payments.
+**Pre-production change set (2026-09-15):** Derived `ABONADO` states (`PAY-006`), issued date on the AR list (`PAY-007`), remaining Release 3 filters, and customer account-statement PDF (`STMT-001`) remain **specified and not yet implemented** (Pasos 7–8). Paso 5 (2026-09-16, local) already restricts later payments and CxC: `POST /payments` and `GET /receivables` are Administrator-only (Seller 403); Seller nav/deep links to CxC are denied. **Owner 2026-09-16:** Seller invoice list and detail also omit payment state, paid amount, and outstanding balance (not only movements). Live API still treats a partial outstanding balance as `PENDING`/`OVERDUE` until PAY-006.
 
 ## What this feature does
 
@@ -58,11 +58,11 @@ Derive the public state from the preserved ledger and due date; do not store a m
 | Zero balance after due date | `PAID_LATE` | `PAGADA CON RETRASO` |
 | Cancelled invoice | `CANCELLED` | `CANCELADA` |
 
-Credit due date **no longer defaults to +30 for every invoice**. For new credit invoices it uses the customer term snapshotted at confirmation (CUST-005): local calendar date in `America/Santo_Domingo` plus `creditTermDays` (30, 45, 60, 90, or 120), expiring at the end of that day. It cannot be overridden per invoice. Settlement timing uses payment effective dates, not record timestamps. Existing completed invoices keep their already stored due dates; only new credit invoices use the customer term.
+Credit due date **no longer defaults to +30 for every invoice**. For new credit invoices it uses the customer term snapshotted at confirmation (CUST-005): local calendar date in `America/Santo_Domingo` plus `creditTermDays` (30, 45, 60, 90, or 120), expiring at the end of that day. It cannot be overridden per invoice. For a fully paid cash invoice (`CASH`, or `USD` settled in full), `dueDate` is that same local confirmation calendar day at end of day — not `null` and not confirmation+30 (SALE-005). Settlement timing uses payment effective dates, not record timestamps. Existing completed invoices keep their already stored due dates; only new credit invoices use the customer term.
 
 Issued date on AR is `confirmedAt` (when `FAC-` is assigned), never draft `createdAt`.
 
-Supported operational methods are `CASH`, `TRANSFER`, and `CHECK`; references are optional. Administrator invoice detail shows each additive movement with effective date, recorded time, method, reference and actor. Seller may see payment state and outstanding balance on the invoice and must not receive the movement list (PAY-007). The customer PDF omits payment movements and methods, showing current outstanding balance and the derived visible label.
+Supported operational methods are `CASH`, `TRANSFER`, and `CHECK`; references are optional. Administrator invoice detail shows each additive movement with effective date, recorded time, method, reference and actor. Seller invoice list and detail omit payment state, paid amount, outstanding balance, and the movement list (PAY-007). The customer PDF omits payment movements and methods, showing current outstanding balance and the derived visible label.
 
 AR list, AR endpoints, later `POST /payments`, and account statements are Administrator-only. Seller may record the full initial payment when confirming a `CASH` sale. Seller confirms `CREDIT` with zero initial payment and cannot record later collections.
 
@@ -81,7 +81,7 @@ Advanced AR such as aging buckets, interest, collection promises/tasks, automate
 
 - Completed `CASH` invoices are fully paid at confirmation; completed `CREDIT` invoices may be unpaid or partially paid.
 - Visible state distinguishes `ABONADO` and `ABONADA VENCIDA` from unpaid pending/overdue.
-- AR screens and payment-collection endpoints are Administrator-only; Seller invoice detail may show state and balance without movements.
+- AR screens and payment-collection endpoints are Administrator-only; Seller invoice list and detail omit payment state, paid amount, balance, and movements.
 - Account statement PDF lists every open DOP invoice for the selected customer and reconciles to the customer’s open total.
 - Multiple payments and mixed payment methods are preserved as separate records.
 - Duplicate submission cannot record the same payment twice.
@@ -100,7 +100,7 @@ Advanced AR such as aging buckets, interest, collection promises/tasks, automate
 - [x] Payment idempotency/retry protection.
 - [x] Same-currency and positive-balance validation.
 - [x] Derived payment state/balance service.
-- [x] Initial payment at confirmation coordination. _(`Cliente contado` / `CASH` must pay the full total; `CREDIT` follows CUST-005 — not yet implemented)_
+- [x] Initial payment at confirmation coordination. _(`Cliente contado` / `CASH` must pay the full total; `CREDIT` follows CUST-005 — API + HTTP local Paso 5)_
 - [x] Additional/partial/mixed-method payment commands.
 - [x] Fixed 30-calendar-day due date and calculated Pending/Overdue/Paid/Paid-late states. _(current live API; superseded for new credit invoices by customer term + PAY-006)_
 - [x] Effective-date range and chronological settlement rules.
@@ -129,11 +129,11 @@ Advanced AR such as aging buckets, interest, collection promises/tasks, automate
 - [x] Overpayment and cross-currency rejection.
 - [x] AR totals equal underlying ledger calculations.
 
-### Pre-production payment states, Seller restrictions, and statements (not implemented)
+### Pre-production payment states, Seller restrictions, and statements
 
 - [ ] Derive `PARTIALLY_PAID` and `PARTIALLY_PAID_OVERDUE` with visible labels `ABONADO` / `ABONADA VENCIDA` (PAY-006).
 - [ ] Project `confirmedAt` as issued date on AR (PAY-007).
-- [ ] Restrict AR UI/API and later payments to Administrator; Seller sees invoice balance/state only (PAY-007).
+- [x] Restrict AR UI/API and later payments to Administrator; Seller invoice omits payment state, paid, balance, and movements (PAY-007). _(Paso 5 2026-09-16: API 403 on `POST /payments` and `GET /receivables`; UI nav + deep links Admin-only. Owner 2026-09-16: Seller GET list/detail omit `paymentState`/`paid`/`balance`/`payments`. 2026-09-16: Seller invoice timeline also omits `PAYMENT_RECORDED`. Do not treat PAY-006, issued date on the AR list, STMT-001, or remaining R3 filters as done.)_
 - [ ] Administrator-only account-statement PDF from CxC customer selector (STMT-001).
 - [ ] Finish remaining Release 3 filters (customer, invoice, payment state including paid/paid-late, date, currency) on the Administrator AR surface.
 
@@ -214,7 +214,7 @@ The blocks below are the final reconciled requirements retained from the previou
 **Requirement:** Payments and refunds must be additive records with amount, invoice currency, method, date, actor, and reference, and must produce an explainable current balance in that same currency.  
 **Business Reason:** Financial history must not be erased when a sale changes or is cancelled.  
 **Main Flow:** An authorized actor appends an eligible payment; Administrator appends an eligible cancellation refund; each record is linked to its invoice and totals are recalculated.  
-**Business Rules:** Seller cannot register cancellation refunds or later collections; Seller may append only the full cash confirmation payment. Every payment and cancellation refund must match the invoice currency; corrections use explicit reversing or correction records rather than silent deletion. Seller invoice projections omit the movement list (PAY-007).  
+**Business Rules:** Seller cannot register cancellation refunds or later collections; Seller may append only the full cash confirmation payment. Every payment and cancellation refund must match the invoice currency; corrections use explicit reversing or correction records rather than silent deletion. Seller invoice projections omit payment state, paid, balance, and the movement list (PAY-007).  
 **Important Exceptions/Edge Cases:** Cross-currency records and conversion of any ledger amount are rejected, which does not restrict the profitability-only cost conversion in COST-003; exact refund method constraints may remain implementation policy if they do not change the currency rule.  
 **Dependencies:** HIST-002, CANCEL-002, PAY-007.  
 **Acceptance Notes:** The ledger reconstructs paid, refunded, and outstanding totals; Mechanic financial access is denied; Seller cannot list or add post-confirmation payments.
@@ -227,10 +227,10 @@ The blocks below are the final reconciled requirements retained from the previou
 
 **Name:** Visible `ABONADO` and overdue partial states  
 **Status:** CONFIRMED  
-**Actors:** Seller (labels on invoice); Administrator (labels on invoice, AR, PDF, statement)  
+**Actors:** Administrator (labels on invoice, AR, PDF, statement)  
 **Requirement:** Payment state remains derived from the ledger and due date. A partial outstanding balance before due date is `PARTIALLY_PAID` / `ABONADO`. A partial outstanding balance after due date is `PARTIALLY_PAID_OVERDUE` / `ABONADA VENCIDA`. Unpaid in-term remains `PENDING` / `PENDIENTE`. Unpaid past-due remains `OVERDUE` / `VENCIDA`.  
 **Business Reason:** Partial collection must be visible instead of looking like an untouched pending invoice.  
-**Main Flow:** Each payment or due-date crossing recalculates the derived state. The same labels appear on invoice detail, Administrator AR, filters, and the customer invoice PDF.  
+**Main Flow:** Each payment or due-date crossing recalculates the derived state. The same labels appear on Administrator invoice detail, Administrator AR, filters, and the customer invoice PDF. Seller invoice list/detail omit these labels (PAY-007).  
 **Business Rules:** Do not persist a mutable status column as source of truth. `PAID` / `PAID_LATE` / `CANCELLED` keep their existing meaning. Filters must accept the new technical states.  
 **Important Exceptions/Edge Cases:** Overdue takes precedence over “unpaid vs partial” by using the dedicated overdue-partial state rather than collapsing both into `OVERDUE`.  
 **Dependencies:** PAY-001, PAY-002, SALE-005.  
@@ -242,14 +242,14 @@ The blocks below are the final reconciled requirements retained from the previou
 
 **Name:** `confirmedAt` as issued date and Administrator-only collections  
 **Status:** CONFIRMED  
-**Actors:** Administrator (AR and collections); Seller (invoice balance/state only)  
-**Requirement:** Accounts Receivable UI, `GET` receivables endpoints, account statements, and later `POST /api/sales/:id/payments` are Administrator-only. Seller may open a completed credit invoice and see derived payment state plus outstanding balance, and must not receive payment movements (amounts, dates, methods, references, or actors). AR lists show issued date as `confirmedAt`, formatted in `America/Santo_Domingo`, never draft `createdAt`.  
-**Business Reason:** Collections and customer statements are administrative; the Seller still needs to know whether an invoice is pending, partial, or overdue.  
-**Main Flow:** Administrator opens `/receivables` with filters. Seller opening invoice detail sees commercial data, state, and balance. Seller navigation and deep links to CxC are denied; direct HTTP is 403.  
-**Business Rules:** Hiding a button is not authorization. Separate sales, payment, AR, and credit-customer policies; do not reuse one `InvoiceManager` capability for all of them. Remaining Feature 12 filters (customer, invoice id, payment state including paid/paid-late, date, currency) stay in scope on the Administrator surface.  
-**Important Exceptions/Edge Cases:** Seller cash confirmation payment remains allowed. Mechanic remains denied all of this surface.  
+**Actors:** Administrator (AR, collections, invoice settlement); Seller (commercial invoice facts only)  
+**Requirement:** Accounts Receivable UI, `GET` receivables endpoints, account statements, and later `POST /api/sales/:id/payments` are Administrator-only. Seller may open a completed invoice and see commercial data (customer, lines, totals, invoice status), and must not receive payment state, paid amount, outstanding balance, or payment movements (amounts, dates, methods, references, or actors). AR lists show issued date as `confirmedAt`, formatted in `America/Santo_Domingo`, never draft `createdAt`.  
+**Business Reason:** Collections, customer statements, and settlement visibility are administrative. The Seller sells and confirms; the Administrator collects.  
+**Main Flow:** Administrator opens `/receivables` with filters. Seller opening invoice detail or the invoices list sees commercial data without settlement fields. Seller navigation and deep links to CxC are denied; direct HTTP is 403.  
+**Business Rules:** Hiding a button is not authorization. Seller GET list/detail omit `paymentState`, `paid`, `refunded`, `balance`, and `payments`. Seller invoice `history` also omits `PAYMENT_RECORDED` (the row remains stored). Separate sales, payment, AR, and credit-customer policies; do not reuse one `InvoiceManager` capability for all of them. Remaining Feature 12 filters (customer, invoice id, payment state including paid/paid-late, date, currency) stay in scope on the Administrator surface.  
+**Important Exceptions/Edge Cases:** Seller cash confirmation payment remains allowed. Mechanic remains denied all of this surface. The customer PDF may still show outstanding balance and the derived label; that document is for the customer, not the Seller screen.  
 **Dependencies:** PAY-001, PAY-005, PAY-006, AUTH-005, STMT-001.  
-**Acceptance Notes:** Seller `GET /api/sales/receivables` returns 403. Seller invoice GET includes state `ABONADO` and balance and omits the payments array. Administrator AR row shows issued date equal to `confirmedAt`.
+**Acceptance Notes:** Seller `GET /api/sales/receivables` returns 403. Seller invoice GET and list omit `paymentState`, `paid`, `balance`, and the payments array. Seller invoice detail `history` omits `PAYMENT_RECORDED`. Administrator AR row shows issued date equal to `confirmedAt`.
 
 ---
 

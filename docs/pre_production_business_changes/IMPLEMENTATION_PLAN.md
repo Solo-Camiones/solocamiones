@@ -44,13 +44,13 @@ Este es el orden que debe seguirse. Cada paso depende de las garantías establec
 | M-03 | 12 | `STMT-001` |
 | L-01, L-02, L-03 | 10 | `DOC-001` |
 
-#### Decisión de implementación aún abierta (no bloquea Paso 1)
+#### Decisión de implementación — `dueDate` de contado (cerrada 2026-09-16)
 
-Cómo persistir `dueDate` en una venta **contado ya pagada** (`confirmedAt`, `null`, u otro valor) se decide en el hito de confirmación. La regla de negocio ya es: el contado no debe aparecer como CxC abierta.
+`dueDate` de una venta **contado ya pagada** (`CASH`, o `USD` liquidada) es la fecha local de confirmación en `America/Santo_Domingo` (mismo día calendario, fin de día). No es `null` y no es confirmación+30. El contado no aparece como CxC abierta. Las facturas históricas `COMPLETED` conservan el `dueDate` ya almacenado.
 
 ### Paso 2 — Crear la migración de dominio
 
-**Estado:** **Cerrado 2026-09-15** en código local (migración Prisma + test de dominio). Los comandos de negocio siguen en Pasos 3–6.
+**Estado:** **Cerrado 2026-09-15** en código local (migración Prisma + test de dominio). Los comandos de negocio abiertos siguen en Pasos 6–10.
 
 **Requisitos cubiertos:** `H-01`, `H-02`, `H-03`, `H-05`, `H-07` y soporte estructural para `M-01/M-03`.
 
@@ -70,7 +70,7 @@ Cómo persistir `dueDate` en una venta **contado ya pagada** (`confirmedAt`, `nu
 
 ### Paso 3 — Implementar clientes y permisos base
 
-**Estado:** **Cerrado 2026-09-15** en código local (API write + UI/mock). El motor de confirmación de crédito sigue en Paso 5.
+**Estado:** **Cerrado 2026-09-15** en código local (API write + UI/mock). El motor de confirmación de crédito está cerrado en Paso 5 (2026-09-16).
 
 **Requisitos cubiertos:** `H-02`, parte de `H-03`, `H-04` y `H-05`.
 
@@ -110,21 +110,23 @@ Cómo persistir `dueDate` en una venta **contado ya pagada** (`confirmedAt`, `nu
 
 ### Paso 5 — Implementar motor de crédito y confirmación
 
-**Requisitos cubiertos:** `H-02`, `H-03`, `H-04`, `H-05` y reglas de pago relacionadas.
+**Estado:** **Cerrado 2026-09-16** en código local (motor de confirmación + HTTP). Cotizaciones, `ABONADO`, fecha emitida en tabla CxC, filtros restantes y STMT-001 siguen en Pasos 6–8.
+
+**Requisitos cubiertos:** `H-02`, `H-03`, `H-04`, `H-05` y reglas de pago relacionadas de confirmación (`PAY-001`/`PAY-002` en confirmación; CxC/pagos posteriores Seller 403). `PAY-006`, fecha emitida en listado CxC y `STMT-001` no forman parte de este cierre.
 
 **Tareas:**
 
-- Restringir crédito a DOP; una factura USD debe quedar pagada completamente.
-- Aplicar el plazo fijo del cliente para calcular `dueDate`.
-- Calcular exposición como saldo abierto más saldo nuevo después del pago inicial autorizado.
-- Validar el límite dentro de la transacción serializable de confirmación.
-- Impedir sobrepaso incluso al Administrador.
-- Permitir pago parcial inicial de crédito al Administrador.
-- Exigir al Vendedor confirmar crédito sin pago inicial y bloquear cobros posteriores.
-- Mantener contado completamente pagado al confirmar.
-- Crear snapshots de tipo/plazo/condición aplicados.
-- Separar policies de venta, pago y CxC; no depender del ocultamiento de botones.
-- Probar dos confirmaciones concurrentes contra el mismo límite.
+- [x] Restringir crédito a DOP; una factura USD debe quedar pagada completamente.
+- [x] Aplicar el plazo fijo del cliente para calcular `dueDate` de crédito; contado ya pagado usa el mismo día local (fin de día en `America/Santo_Domingo`).
+- [x] Calcular exposición como saldo abierto más saldo nuevo después del pago inicial autorizado.
+- [x] Validar el límite dentro de la transacción serializable de confirmación.
+- [x] Impedir sobrepaso incluso al Administrador.
+- [x] Permitir al Administrador omitir el pago inicial en CREDIT+DOP, o registrar `amount` > 0 hasta el gross (parcial o total). No persistir un pago de 0.
+- [x] Exigir al Vendedor confirmar crédito sin pago inicial (403 si envía `payment`); `POST /payments` y `GET /receivables` Admin-only (403 Vendedor).
+- [x] Mantener contado completamente pagado al confirmar.
+- [x] Crear snapshots de tipo/plazo/condición aplicados.
+- [x] Separar policies de venta, pago y CxC; nav/deep links CxC Admin-only; no depender del ocultamiento de botones.
+- [x] Probar dos confirmaciones concurrentes contra el mismo límite.
 
 **Gate:** no se excede crédito bajo concurrencia y cada rol recibe exactamente las operaciones autorizadas.
 
@@ -150,6 +152,8 @@ Cómo persistir `dueDate` en una venta **contado ya pagada** (`confirmedAt`, `nu
 ### Paso 7 — Completar estados de pago y CxC
 
 **Requisitos cubiertos:** `H-04`, `M-01`, `M-02` y pendientes existentes de Feature 12.
+
+**Nota:** API 403 + nav/deep links CxC Admin-only y omisión de movimientos para Vendedor ya se cerraron en Paso 5. Este paso sigue abierto para `ABONADO` / `ABONADA VENCIDA`, fecha emitida en la tabla CxC y filtros restantes.
 
 **Tareas:**
 
@@ -231,6 +235,12 @@ Documentación
 
 Los hitos de la sección 6 desarrollan este mismo orden con mayor detalle.
 
+### Decisiones confirmadas — 2026-09-16 (Paso 5)
+
+- `dueDate` de venta **contado ya pagada** (`CASH` o `USD` liquidada) = fecha local de confirmación en `America/Santo_Domingo` (mismo día, fin de día). No `null`. No +30. Facturas históricas `COMPLETED` conservan el `dueDate` almacenado.
+- Administrador en CREDIT+DOP: puede omitir el pago inicial, o registrar `amount` > 0 hasta el gross (parcial o total). No se persiste un pago de 0.
+- Vendedor CREDIT+DOP: confirma sin pago; 403 si envía `payment`. `POST /payments` y `GET /receivables` son Admin-only (403 Vendedor). Nav/deep links CxC Admin-only. El Vendedor ve estado/saldo de factura, no movimientos. `ABONADO`, fecha emitida en tabla CxC, filtros restantes y STMT-001 siguen en Pasos 7–8.
+
 ### Decisiones confirmadas — 2026-09-15
 
 - La cotización se implementa ahora dentro del mismo agregado que luego será factura.
@@ -250,7 +260,7 @@ Los hitos de la sección 6 desarrollan este mismo orden con mayor detalle.
 - `Aplicar ITBIS` estará desmarcado de forma predeterminada.
 - El crédito se permite únicamente en DOP; el límite considera exposición abierta más el saldo nuevo, no admite sobrepaso administrativo y el plazo queda fijo en el cliente.
 - El Vendedor confirma ventas a crédito sin pago inicial; todos sus cobros posteriores son registrados por el Administrador.
-- El Administrador puede registrar un pago parcial al confirmar una venta crédito; el límite considera únicamente el saldo resultante.
+- El Administrador puede omitir el pago inicial al confirmar CREDIT+DOP, o registrar un importe > 0 hasta el gross (parcial o total); no se persiste un pago de 0. El límite considera únicamente el saldo resultante.
 - Un cliente crédito con saldo pendiente no puede convertirse a contado.
 - La clasificación `CASH/CREDIT` nunca forma parte del nombre del cliente; el Administrador puede editarla sujeto a las restricciones de saldo.
 - Un cliente contado nombrado con RNC/cédula válido puede emitir comprobante fiscal.
@@ -433,7 +443,7 @@ Reglas de integridad recomendadas:
 - Cliente `CREDIT`: solo puede venderse a crédito en DOP. Cuando confirma un Vendedor, el pago inicial debe ser cero y los cobros posteriores pertenecen al Administrador. El Administrador sí puede registrar un pago parcial durante la confirmación; el saldo restante es la nueva exposición de crédito.
 - Al confirmar, copiar al snapshot de factura el tipo y el plazo aplicados; cambios posteriores al cliente no reescriben la factura.
 - `dueDate` de una venta a crédito = fecha local de confirmación + plazo aprobado.
-- Una venta al contado no debería comportarse como CxC; se debe decidir si conserva `dueDate = confirmedAt`, `dueDate = null` o un valor histórico diferente.
+- Una venta al contado no aparece como CxC abierta. `dueDate` de contado ya pagado = fecha local de confirmación en `America/Santo_Domingo` (mismo día, fin de día); no `null`; no +30. Facturas históricas `COMPLETED` conservan el `dueDate` almacenado. *(Cerrado 2026-09-16.)*
 
 #### Control del límite
 
@@ -736,11 +746,13 @@ Antes de implementar código, las fuentes de verdad ya actualizadas (Paso 1) son
 
 ### Hito 3 — Motor de crédito y restricciones de Seller
 
+**Estado:** cerrado 2026-09-16 en código local (Paso 5). `ABONADO`, fecha emitida en listado CxC, filtros restantes y estado de cuenta siguen en Hitos 5–6 / Pasos 7–8.
+
 - Confirmación contado/crédito sobre el cálculo monetario estabilizado.
 - Plazo y snapshot.
 - Control transaccional de límite.
-- Pago inicial parcial de crédito solo por Administrador.
-- Bloqueo de pagos posteriores/CxC para Seller.
+- Pago inicial de crédito: Administrador omite o registra `amount` > 0 hasta el gross; Vendedor sin pago.
+- Bloqueo de pagos posteriores/CxC para Seller (API 403 + nav/deep links).
 - Proyecciones por rol: Seller ve saldo/estado pero no pagos ni costo.
 
 **Salida:** requests directos no pueden saltar las restricciones de UI y dos confirmaciones concurrentes no exceden el límite.
@@ -763,7 +775,7 @@ Antes de implementar código, las fuentes de verdad ya actualizadas (Paso 1) son
 - Estado `ABONADO` según semántica aprobada.
 - Fecha emitida.
 - Completar filtros Release 3 ya pendientes.
-- Restringir CxC a Administrador.
+- Restringir CxC a Administrador. _(API 403 + nav Seller ya cerrados en Hito 3 / Paso 5; este hito sigue abierto.)_
 
 **Salida:** Administrador puede explicar por cliente y moneda cada factura, pago y saldo.
 

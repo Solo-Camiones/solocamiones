@@ -41,7 +41,12 @@ salesRouter.use((_req, res, next) => {
   next();
 });
 salesRouter.get('/', validate({ query: listInvoicesSchema }), getInvoices);
-salesRouter.get('/receivables', validate({ query: listReceivablesSchema }), getReceivables);
+salesRouter.get(
+  '/receivables',
+  requireAdministrator,
+  validate({ query: listReceivablesSchema }),
+  getReceivables,
+);
 salesRouter.get('/:id/pdf', validate({ params: invoiceIdSchema }), getInvoicePdf);
 salesRouter.post(
   '/:id/pdf/regenerate',
@@ -68,6 +73,7 @@ salesRouter.post(
 salesRouter.post(
   '/:id/payments',
   requireCsrfHeader,
+  requireAdministrator,
   validate({ params: invoiceIdSchema, body: addPaymentSchema }),
   postInvoicePayment,
 );

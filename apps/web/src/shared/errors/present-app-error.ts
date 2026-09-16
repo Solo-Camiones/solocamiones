@@ -13,7 +13,11 @@ const COPY = {
   contactPrimary: 'Solo un contacto puede ser principal.',
   emailInvalid: 'El correo no es válido.',
   genericLocked: 'Cliente Contado es el predeterminado y no se puede editar.',
-  cashCustomerCreditForbidden: 'A Cliente contado no se le puede vender a crédito',
+  cashCustomerCreditForbidden: 'Las ventas de contado deben pagarse por completo al confirmar',
+  usdInvoiceMustBePaidInFull: 'Las facturas en USD deben pagarse por completo al confirmar',
+  sellerCreditConfirmPaymentForbidden:
+    'El Vendedor no puede registrar un pago al confirmar una venta a crédito',
+  creditLimitExceeded: 'El límite de crédito del cliente sería excedido',
   fiscalInvoiceIdentity: 'Una factura fiscal requiere un cliente con RNC o cédula.',
   pdfFailed: 'La generación del PDF falló',
   pdfNotReady: 'El PDF de la factura no está disponible',
@@ -65,6 +69,16 @@ const KNOWN_TEXT: Record<string, { text: string; field?: string }> = {
   'At least one field is required': { text: COPY.atLeastOneField },
   'Cliente contado cannot be edited': { text: COPY.genericLocked },
   'A Cliente contado no se le puede vender a crédito': { text: COPY.cashCustomerCreditForbidden },
+  'Las ventas de contado deben pagarse por completo al confirmar': {
+    text: COPY.cashCustomerCreditForbidden,
+  },
+  'Las facturas en USD deben pagarse por completo al confirmar': {
+    text: COPY.usdInvoiceMustBePaidInFull,
+  },
+  'El Vendedor no puede registrar un pago al confirmar una venta a crédito': {
+    text: COPY.sellerCreditConfirmPaymentForbidden,
+  },
+  'El límite de crédito del cliente sería excedido': { text: COPY.creditLimitExceeded },
   'Current password is incorrect': { text: COPY.currentPassword },
   'New password must differ from current password': { text: COPY.passwordMustDiffer },
   'El nombre es obligatorio': { text: COPY.nameRequired, field: 'name' },

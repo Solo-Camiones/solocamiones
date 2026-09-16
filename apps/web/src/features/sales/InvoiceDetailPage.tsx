@@ -60,6 +60,13 @@ export function InvoiceDetailPage() {
   const detail = result.detail;
   const canViewProfit = can(user, 'profit.view');
   const canManageWorkOrders = can(user, 'workOrders.manage');
+  const isAdministrator = user?.role === 'ADMINISTRATOR';
+  const canRegisterPayment =
+    isAdministrator &&
+    capabilities.payments &&
+    detail.actions.canPay &&
+    can(user, 'sales.manage');
+  const canViewPaymentSettlement = isAdministrator;
 
   return (
     <>
@@ -108,7 +115,7 @@ export function InvoiceDetailPage() {
                 Regenerar documento
               </Button>
             )}
-            {detail.actions.canPay && can(user, 'sales.manage') && capabilities.payments && (
+            {canRegisterPayment && (
               <Button
                 onClick={() => {
                   setActionError(null);
@@ -148,8 +155,10 @@ export function InvoiceDetailPage() {
 
       <div className="mb-6 flex flex-wrap items-center gap-2">
         <InvoiceStatusChip status={detail.status} />
-        {detail.status === 'COMPLETED' &&
+        {canViewPaymentSettlement &&
+          detail.status === 'COMPLETED' &&
           capabilities.payments &&
+          detail.paymentState &&
           detail.paymentState !== 'PENDING' &&
           detail.paymentState !== 'UNPAID' && (
             <PaymentChip state={detail.paymentState} />
@@ -158,21 +167,27 @@ export function InvoiceDetailPage() {
         <Chip>{detail.currency}</Chip>
       </div>
 
-      <div className="mb-8 grid gap-4 sm:grid-cols-3">
+      <div className={`mb-8 grid gap-4 ${canViewPaymentSettlement ? 'sm:grid-cols-3' : ''}`}>
         <Card>
           <p className="text-xs font-medium uppercase tracking-wide text-navy-400">Total</p>
           <p className="mt-1 font-mono text-xl text-navy">{money(detail.total, detail.currency)}</p>
         </Card>
-        <Card>
-          <p className="text-xs font-medium uppercase tracking-wide text-navy-400">Pagado</p>
-          <p className="mt-1 font-mono text-xl text-navy">{money(detail.paid, detail.currency)}</p>
-        </Card>
-        <Card>
-          <p className="text-xs font-medium uppercase tracking-wide text-navy-400">Saldo</p>
-          <p className="mt-1 font-mono text-xl text-navy">
-            {money(detail.balance, detail.currency)}
-          </p>
-        </Card>
+        {canViewPaymentSettlement ? (
+          <>
+            <Card>
+              <p className="text-xs font-medium uppercase tracking-wide text-navy-400">Pagado</p>
+              <p className="mt-1 font-mono text-xl text-navy">
+                {money(detail.paid ?? 0, detail.currency)}
+              </p>
+            </Card>
+            <Card>
+              <p className="text-xs font-medium uppercase tracking-wide text-navy-400">Saldo</p>
+              <p className="mt-1 font-mono text-xl text-navy">
+                {money(detail.balance ?? 0, detail.currency)}
+              </p>
+            </Card>
+          </>
+        ) : null}
       </div>
 
       {actionError && !payOpen && !cancelOpen && !currencyOpen && (
@@ -245,7 +260,7 @@ export function InvoiceDetailPage() {
         </section>
       )}
 
-      {capabilities.payments && (
+      {canViewPaymentSettlement && capabilities.payments && (
         <div className="mb-8">
           <PaymentHistory payments={detail.payments} currency={detail.currency} />
         </div>
@@ -259,11 +274,12 @@ export function InvoiceDetailPage() {
 
       <InvoiceHistory events={detail.history} />
 
+      {canRegisterPayment && (
       <PayModal
         open={payOpen}
         invoiceId={detail.id}
         currency={detail.currency}
-        balance={detail.balance}
+        balance={detail.balance ?? 0}
         confirmedAt={detail.confirmedAt}
         isSaving={isMutating}
         error={payOpen ? actionError : null}
@@ -282,10 +298,11 @@ export function InvoiceDetailPage() {
           setPayOpen(false);
         }}
       />
+      )}
 
       <CancelInvoiceModal
         open={cancelOpen}
-        paid={detail.paid - detail.refunded}
+        paid={(detail.paid ?? 0) - (detail.refunded ?? 0)}
         currency={detail.currency}
         workOrders={detail.linkedWorkOrders}
         isSaving={isMutating}

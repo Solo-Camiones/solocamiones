@@ -15,7 +15,7 @@ import { UserRepository } from '../../../src/features/users/repository.js';
 import { disconnectPrisma, prisma } from '../../../src/infrastructure/database/index.js';
 import { createTestApp } from '../../helpers/app.js';
 import { clearTestHistory } from '../../helpers/history.js';
-import { assignNamedCustomerForCredit, seedKnownLineCost } from '../../helpers/sales.js';
+import { assignNamedCustomerForCredit, cashSaleFullPayment, seedKnownLineCost } from '../../helpers/sales.js';
 
 const app = createTestApp();
 const users = new UserRepository();
@@ -42,6 +42,7 @@ async function fixture(role: Role = 'ADMINISTRATOR') {
 async function cleanup() {
   await resetLoginRateLimit();
   await clearTestHistory();
+  await prisma.invoicePayment.deleteMany();
   await prisma.invoice.deleteMany();
   await prisma.invoiceSequence.update({
     where: { name: 'FAC' },
@@ -187,7 +188,10 @@ describe('M14 COST-005 judged gross profit', () => {
       ).status,
     ).toBe(201);
     await assignNamedCustomerForCredit(admin.agent, usdDraft.body.id);
-    const usd = await admin.agent.post(`${SALES}/${usdDraft.body.id}/confirm`).set(CSRF).send({});
+    const usd = await admin.agent
+      .post(`${SALES}/${usdDraft.body.id}/confirm`)
+      .set(CSRF)
+      .send(cashSaleFullPayment('118.00'));
     const usdDenied = await admin.agent
       .post(`${PROFIT}/${usd.body.id}/manual-gross-profit`)
       .set(CSRF)

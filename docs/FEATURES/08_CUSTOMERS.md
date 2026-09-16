@@ -14,7 +14,7 @@ The old consolidated requirements/validation files are intentionally no longer r
 
 **Implementation (2026-09-10):** Production API + HTTP UI done for `CUST-001`–`CUST-003` (`/api/customers`, POS customer select, confirmation snapshot).
 
-**Pre-production change set (2026-09-15):** `CUST-004`–`CUST-007` are specified. Paso 2 persisted `customerType` / limit / term with a `CASH` backfill. Paso 3 implements Administrator/Seller write rules, classification history, and the directory filter.
+**Pre-production change set (2026-09-15):** `CUST-004`–`CUST-007` are specified. Paso 2 persisted `customerType` / limit / term with a `CASH` backfill. Paso 3 implements Administrator/Seller write rules, classification history, and the directory filter. Paso 5 (2026-09-16, local) already applies CUST-004/CUST-005 at confirmation: type and term snapshot, DOP-only credit, and the credit-limit check inside the confirmation transaction. Directory maintenance remains the Paso 3 work already delivered.
 
 ## What this feature does
 
@@ -161,7 +161,7 @@ The blocks below are the final reconciled requirements retained from the previou
 **Business Rules:** Fiscal documents require the validated fiscal identity fields.  
 **Important Exceptions/Edge Cases:** Final PDF placement and legal/footer presentation of fiscal fields remain later output-design details; they do not reopen core invoice behavior.  
 **Dependencies:** CUST-001, CUST-002, CUST-004, CUST-005, SALE-003.  
-**Acceptance Notes:** Editing a customer after sale does not change the completed invoice. Snapshot includes confirmation-time type and credit terms once CUST-004/CUST-005 exist.
+**Acceptance Notes:** Editing a customer after sale does not change the completed invoice. Snapshot includes confirmation-time type and credit terms (CUST-004/CUST-005; applied at confirmation in Paso 5).
 
 ---
 

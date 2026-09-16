@@ -182,11 +182,23 @@ describe('payment summary', () => {
 
 describe('invoice due date', () => {
   it('adds 30 local calendar days instead of 30 exact 24-hour periods', () => {
-    expect(invoiceDueDate(new Date('2026-09-10T02:30:00.000Z'))).toEqual(
+    expect(invoiceDueDate(new Date('2026-09-10T02:30:00.000Z'), 30)).toEqual(
       databaseDate('2026-10-09'),
     );
-    expect(invoiceDueDate(new Date('2026-09-10T04:30:00.000Z'))).toEqual(
+    expect(invoiceDueDate(new Date('2026-09-10T04:30:00.000Z'), 30)).toEqual(
       databaseDate('2026-10-10'),
+    );
+  });
+
+  it('uses the confirmation local date when the term is 0 days', () => {
+    expect(invoiceDueDate(new Date('2026-09-10T04:30:00.000Z'), 0)).toEqual(
+      databaseDate('2026-09-10'),
+    );
+  });
+
+  it('adds 45 local calendar days from an evening Santo Domingo confirmation', () => {
+    expect(invoiceDueDate(new Date('2026-09-16T00:00:00.000Z'), 45)).toEqual(
+      databaseDate('2026-10-30'),
     );
   });
 });

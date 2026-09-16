@@ -83,12 +83,30 @@ function customerSnapshotOf(
 
 function toCustomerView(invoice: InvoiceRecord | InvoiceListRecord) {
   const snapshot = customerSnapshotOf(invoice);
+  const completed = invoice.status !== 'DRAFT';
   return {
     id: invoice.customer.id,
     name: snapshot?.name ?? invoice.customer.name,
     rnc: snapshot ? snapshot.rnc : invoice.customer.rnc,
     isDefault: invoice.customer.isDefault,
+    customerType: completed
+      ? (invoice.snapshotCustomerType ?? invoice.customer.customerType)
+      : invoice.customer.customerType,
+    creditTermDays: completed
+      ? invoice.snapshotCreditTermDays
+      : invoice.customer.creditTermDays,
+    creditLimitDop:
+      completed || invoice.customer.creditLimitDop == null
+        ? null
+        : moneyString(invoice.customer.creditLimitDop),
   };
+}
+
+function administratorLedger<T extends object>(
+  viewer: InvoiceViewer,
+  fields: T,
+): T | Record<string, never> {
+  return viewer.role === 'ADMINISTRATOR' ? fields : {};
 }
 
 function persistedLineMoney(line: InvoiceLine) {
@@ -314,20 +332,22 @@ export function toPublicInvoice(
     cancelledAt: invoice.cancelledAt?.toISOString() ?? null,
     cancelReason: invoice.cancelReason,
     cancelledByName: invoice.cancelledByName,
-    paymentState: payment.state,
-    payments: invoice.payments.map((entry) => ({
-      id: entry.id,
-      kind: entry.kind,
-      amount: moneyString(entry.amount),
-      method: entry.method,
-      effectiveDate: databaseDateString(entry.effectiveDate),
-      recordedAt: entry.createdAt.toISOString(),
-      reference: entry.reference,
-      actorName: entry.actor.name,
-    })),
-    paid: moneyString(payment.paid),
-    refunded: moneyString(payment.refunded),
-    balance: moneyString(payment.balance),
+    ...administratorLedger(viewer, {
+      paymentState: payment.state,
+      payments: invoice.payments.map((entry) => ({
+        id: entry.id,
+        kind: entry.kind,
+        amount: moneyString(entry.amount),
+        method: entry.method,
+        effectiveDate: databaseDateString(entry.effectiveDate),
+        recordedAt: entry.createdAt.toISOString(),
+        reference: entry.reference,
+        actorName: entry.actor.name,
+      })),
+      paid: moneyString(payment.paid),
+      refunded: moneyString(payment.refunded),
+      balance: moneyString(payment.balance),
+    }),
     lines: invoice.lines.map((line, index) =>
       toPublicLine(line, invoice.applyItbis, profitability?.lines[index]),
     ),
@@ -370,9 +390,11 @@ export function toPublicInvoiceListItem(
     customerSnapshot: customerSnapshotOf(invoice),
     confirmedAt: invoice.confirmedAt?.toISOString() ?? null,
     dueDate: invoice.dueDate ? databaseDateString(invoice.dueDate) : null,
-    paymentState: payment.state,
-    payments: toPublicListPayments(invoice),
-    balance: moneyString(payment.balance),
+    ...administratorLedger(viewer, {
+      paymentState: payment.state,
+      payments: toPublicListPayments(invoice),
+      balance: moneyString(payment.balance),
+    }),
     totals: invoiceTotals(invoice),
     ...(profitability ? { profitability: profitability.invoice } : {}),
     ...(storedRate ? { exchangeRateDopPerUsd: storedRate } : {}),

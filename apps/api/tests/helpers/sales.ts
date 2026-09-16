@@ -18,7 +18,7 @@ export function validCreditCustomerBody(name = `Crédito ${randomUUID().slice(0,
   };
 }
 
-/** Named customers may confirm unpaid (credit). Cliente contado may not. */
+/** Named CREDIT customers may confirm unpaid DOP invoices. Cliente contado / CASH may not. */
 export async function assignNamedCustomerForCredit(
   agent: request.Agent,
   draftId: string,
@@ -28,14 +28,21 @@ export async function assignNamedCustomerForCredit(
   if (customerId) {
     assignedCustomerId = customerId;
   } else {
-    const created = await agent
-      .post('/api/customers')
-      .set(TEST_CSRF_HEADERS)
-      .send({
-        name: `Cliente crédito ${randomUUID().slice(0, 8)}`,
-      });
-    expect(created.status).toBe(201);
-    assignedCustomerId = created.body.id as string;
+    const body = {
+      ...validCreditCustomerBody(`Cliente crédito ${randomUUID().slice(0, 8)}`),
+      creditLimitDop: '999999.99',
+      rnc: Array.from({ length: 11 }, () => String(Math.floor(Math.random() * 10))).join(''),
+    };
+    const created = await prisma.customer.create({
+      data: {
+        name: body.name,
+        rnc: body.rnc,
+        customerType: body.customerType,
+        creditLimitDop: body.creditLimitDop,
+        creditTermDays: body.creditTermDays,
+      },
+    });
+    assignedCustomerId = created.id;
   }
   const patched = await agent
     .patch(`/api/sales/${draftId}`)

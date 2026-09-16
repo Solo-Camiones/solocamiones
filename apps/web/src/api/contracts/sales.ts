@@ -18,13 +18,13 @@ export type SalesListRow = {
   id: string;
   number: string;
   status: InvoiceStatus;
-  paymentState: PaymentState;
+  paymentState?: PaymentState;
   customerId: string;
   customerName: string;
   currency: Currency;
   fiscal: boolean;
   total: number;
-  balance: number;
+  balance?: number;
   createdAt: string;
   confirmedAt?: string;
   dueDate?: string;
@@ -123,7 +123,7 @@ export type InvoiceDetailView = {
   id: string;
   number?: string;
   status: InvoiceStatus;
-  paymentState: PaymentState;
+  paymentState?: PaymentState;
   customerId: string;
   customerName: string;
   customerRnc?: string;
@@ -133,9 +133,9 @@ export type InvoiceDetailView = {
   lines: InvoiceLineView[];
   payments: PaymentView[];
   total: number;
-  paid: number;
-  refunded: number;
-  balance: number;
+  paid?: number;
+  refunded?: number;
+  balance?: number;
   createdAt: string;
   confirmedAt?: string;
   dueDate?: string;
@@ -226,6 +226,7 @@ export type PosDraftView = {
   customerName: string;
   customerRnc?: string;
   customerIsDefault: boolean;
+  customerType: 'CASH' | 'CREDIT';
   currency: Currency;
   fiscal: boolean;
   applyItbis: boolean;

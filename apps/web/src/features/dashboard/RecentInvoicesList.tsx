@@ -42,9 +42,13 @@ function paymentLabel(state: RecentInvoiceRow['paymentState']) {
 
 export type RecentInvoicesListProps = {
   invoices: RecentInvoiceRow[];
+  showPaymentState?: boolean;
 };
 
-export function RecentInvoicesList({ invoices }: RecentInvoicesListProps) {
+export function RecentInvoicesList({
+  invoices,
+  showPaymentState = true,
+}: RecentInvoicesListProps) {
   return (
     <section>
       <SectionTitle
@@ -67,9 +71,11 @@ export function RecentInvoicesList({ invoices }: RecentInvoicesListProps) {
                   <p className="mt-0.5 text-sm text-navy-400">{invoice.customerName}</p>
                 </div>
                 <div className="flex flex-wrap items-center gap-3">
-                  <Chip tone={paymentTone(invoice.paymentState)}>
-                    {paymentLabel(invoice.paymentState)}
-                  </Chip>
+                  {showPaymentState ? (
+                    <Chip tone={paymentTone(invoice.paymentState)}>
+                      {paymentLabel(invoice.paymentState)}
+                    </Chip>
+                  ) : null}
                   <span className="font-mono text-sm text-navy">
                     {money(invoice.total, invoice.currency)}
                   </span>

@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 
 import type { SalesListTab } from '../../api/contracts/sales';
 import { parseListPage, setListPageParam } from '../../api/contracts/pagination';
+import { useAuth } from '../auth/useAuth';
 import { Button, Chip, Info, PaginationBar, SearchInput, Skeleton, toPageLoadMessage } from '../../shared/ui';
 import { PageHeader } from '../../shared/layout/PageHeader';
 import { TabBar } from '../../shared/layout/TabBar';
@@ -38,12 +39,14 @@ function kpiFilterLabels(filters: ReturnType<typeof parseSalesUrlFilters>): stri
 export function SalesPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [query, setQuery] = useState('');
+  const { user } = useAuth();
   const tab = parseSalesListTab(searchParams.get('tab')) ?? 'ALL';
   const page = parseListPage(searchParams.get('page'));
   const kpiFilters = parseSalesUrlFilters(searchParams);
   const { result } = useSalesList(tab, page, query, kpiFilters);
   const navigate = useNavigate();
   const visibleRows = result.status === 'ready' ? result.rows : [];
+  const showPaymentSettlement = user?.role === 'ADMINISTRATOR';
 
   function handleTabChange(next: SalesListTab) {
     setSearchParams(
@@ -149,6 +152,7 @@ export function SalesPage() {
           <SalesTable
             rows={visibleRows}
             hasQuery={query.trim().length > 0 || hasKpiFilter}
+            showPaymentSettlement={showPaymentSettlement}
           />
           <PaginationBar
             page={result.page}

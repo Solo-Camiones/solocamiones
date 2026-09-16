@@ -9,7 +9,8 @@ const ERROR_MESSAGES: Record<AppErrorCode, string> = {
   VALIDATION: 'Revise los datos ingresados.',
   CONFLICT: 'Los datos cambiaron. Actualice e intente nuevamente.',
   NOT_FOUND: 'No se encontró el recurso solicitado.',
-  TOO_MANY_REQUESTS: 'Demasiados intentos. Espere unos minutos antes de volver a intentar.',
+  TOO_MANY_REQUESTS:
+    'Se alcanzó temporalmente el límite de solicitudes. Espere unos minutos antes de volver a intentar.',
   PAYLOAD_TOO_LARGE: 'Los datos enviados superan el tamaño permitido.',
   UNSUPPORTED_MEDIA_TYPE: 'El formato de los datos no es compatible.',
   INTERNAL: 'No se pudo completar la operación. Intente nuevamente.',

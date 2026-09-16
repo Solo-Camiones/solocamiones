@@ -6,8 +6,6 @@ const DATE_PARTS = new Intl.DateTimeFormat('en-CA', {
   day: '2-digit',
 });
 
-export const INVOICE_DUE_DAYS = 30;
-
 export function businessDateString(value: Date): string {
   const parts = DATE_PARTS.formatToParts(value);
   const part = (type: Intl.DateTimeFormatPartTypes) =>
@@ -23,9 +21,9 @@ export function databaseDateString(value: Date): string {
   return value.toISOString().slice(0, 10);
 }
 
-export function invoiceDueDate(confirmedAt: Date): Date {
+export function invoiceDueDate(confirmedAt: Date, termDays: number): Date {
   const date = databaseDate(businessDateString(confirmedAt));
-  date.setUTCDate(date.getUTCDate() + INVOICE_DUE_DAYS);
+  date.setUTCDate(date.getUTCDate() + termDays);
   return date;
 }
 

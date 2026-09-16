@@ -20,7 +20,7 @@ function openUsdReceivableForSecondCustomer() {
 describe('ReceivablesPage', () => {
   beforeEach(() => {
     resetMockState();
-    signInAs('SELLER');
+    signInAs('ADMINISTRATOR');
     openUsdReceivableForSecondCustomer();
   });
 
@@ -32,7 +32,7 @@ describe('ReceivablesPage', () => {
     const user = userEvent.setup();
     renderWithProviders(<ReceivablesPage />, {
       route: '/receivables',
-      auth: createAuthValue('SELLER'),
+      auth: createAuthValue('ADMINISTRATOR'),
     });
 
     expect(await screen.findByText('FAC-000098')).toBeVisible();
@@ -70,7 +70,7 @@ describe('ReceivablesPage', () => {
     const user = userEvent.setup();
     renderWithProviders(<ReceivablesPage />, {
       route: '/receivables',
-      auth: createAuthValue('SELLER'),
+      auth: createAuthValue('ADMINISTRATOR'),
     });
     expect(await screen.findByText('Mostrando 1–10 de 13')).toBeVisible();
     expect(screen.queryByText('FAC-000098')).not.toBeInTheDocument();
@@ -85,7 +85,7 @@ describe('ReceivablesPage', () => {
     const user = userEvent.setup();
     renderWithProviders(<ReceivablesPage />, {
       route: '/receivables',
-      auth: createAuthValue('SELLER'),
+      auth: createAuthValue('ADMINISTRATOR'),
     });
     await screen.findByText('FAC-000098');
 

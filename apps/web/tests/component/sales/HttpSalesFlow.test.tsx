@@ -79,7 +79,7 @@ type ApiInvoice = {
   currency: 'DOP' | 'USD';
   fiscal: boolean;
   applyItbis: boolean;
-  customer: { id: string; name: string; rnc: string | null; isDefault: boolean };
+  customer: { id: string; name: string; rnc: string | null; isDefault: boolean; customerType?: 'CASH' | 'CREDIT' };
   customerSnapshot: { name: string; rnc: string | null; phone: string | null } | null;
   confirmedAt: string | null;
   dueDate: string | null;
@@ -135,6 +135,7 @@ function emptyInvoice(id = draftId): ApiInvoice {
       name: cashCustomer.name,
       rnc: cashCustomer.rnc,
       isDefault: true,
+      customerType: cashCustomer.customerType,
     },
     customerSnapshot: null,
     confirmedAt: null,
@@ -325,6 +326,7 @@ beforeEach(() => {
                 name: nextCustomer.name,
                 rnc: nextCustomer.rnc,
                 isDefault: nextCustomer.isDefault,
+                customerType: nextCustomer.customerType,
               }
             : current.customer,
         };

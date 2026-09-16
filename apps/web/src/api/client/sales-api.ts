@@ -37,6 +37,7 @@ type ApiCustomerView = {
   name: string;
   rnc: string | null;
   isDefault: boolean;
+  customerType?: 'CASH' | 'CREDIT';
 };
 
 type ApiInvoiceLine = {
@@ -89,11 +90,11 @@ type ApiInvoice = {
   cancelledAt: string | null;
   cancelReason: string | null;
   cancelledByName: string | null;
-  paymentState: 'PENDING' | 'OVERDUE' | 'PAID' | 'PAID_LATE' | 'CANCELLED';
-  payments: ApiPayment[];
-  paid: string;
-  refunded: string;
-  balance: string;
+  paymentState?: 'PENDING' | 'OVERDUE' | 'PAID' | 'PAID_LATE' | 'CANCELLED';
+  payments?: ApiPayment[];
+  paid?: string;
+  refunded?: string;
+  balance?: string;
   lines: ApiInvoiceLine[];
   totals: { gross: string; base: string; itbis: string };
   profitability?: ApiProfitability;
@@ -142,6 +143,10 @@ function toPosLine(line: ApiInvoiceLine): PosLineView {
   };
 }
 
+function toCustomerType(value: ApiCustomerView['customerType']): PosDraftView['customerType'] {
+  return value === 'CREDIT' ? 'CREDIT' : 'CASH';
+}
+
 function toPosDraft(
   invoice: ApiInvoice,
   customers: PosDraftView['customers'],
@@ -155,6 +160,7 @@ function toPosDraft(
     customerName: invoice.customer.name,
     customerRnc: optionalText(invoice.customer.rnc),
     customerIsDefault: invoice.customer.isDefault,
+    customerType: toCustomerType(invoice.customer.customerType),
     currency: invoice.currency,
     fiscal: invoice.fiscal,
     applyItbis: invoice.applyItbis,
@@ -190,18 +196,17 @@ function toSalesListRow(item: ApiInvoiceListItem): SalesListRow {
     id: item.id,
     number: invoiceListNumber(item),
     status: item.status,
-    paymentState: item.paymentState,
     customerId: item.customer.id,
     customerName: item.customer.name,
     currency: item.currency,
     fiscal: item.fiscal,
     total,
-    // Release 2 records no payments, so every completed invoice remains fully unpaid.
-    balance: moneyNumber(item.balance),
     createdAt: item.createdAt,
     confirmedAt: optionalText(item.confirmedAt),
     dueDate: optionalText(item.dueDate),
     href: invoiceHref(item),
+    ...(item.paymentState ? { paymentState: item.paymentState } : {}),
+    ...(item.balance != null ? { balance: moneyNumber(item.balance) } : {}),
   };
 }
 
@@ -253,7 +258,6 @@ function toInvoiceDetail(invoice: ApiInvoice): InvoiceDetailView {
     id: invoice.id,
     number: optionalText(invoice.number),
     status: invoice.status,
-    paymentState: invoice.paymentState,
     customerId: invoice.customer.id,
     customerName: invoice.customer.name,
     customerRnc: optionalText(invoice.customer.rnc),
@@ -272,7 +276,7 @@ function toInvoiceDetail(invoice: ApiInvoice): InvoiceDetailView {
       base: moneyNumber(line.base),
       itbis: moneyNumber(line.itbis),
     })),
-    payments: invoice.payments.map((payment) => ({
+    payments: (invoice.payments ?? []).map((payment) => ({
       id: payment.id,
       kind: payment.kind,
       amount: moneyNumber(payment.amount),
@@ -284,9 +288,6 @@ function toInvoiceDetail(invoice: ApiInvoice): InvoiceDetailView {
       actorName: payment.actorName,
     })),
     total,
-    paid: moneyNumber(invoice.paid),
-    refunded: moneyNumber(invoice.refunded),
-    balance: moneyNumber(invoice.balance),
     createdAt: invoice.createdAt,
     confirmedAt: optionalText(invoice.confirmedAt),
     dueDate: optionalText(invoice.dueDate),
@@ -306,8 +307,16 @@ function toInvoiceDetail(invoice: ApiInvoice): InvoiceDetailView {
     ...(invoice.profitability
       ? { profitability: toInvoiceProfitabilityView(invoice.profitability) }
       : {}),
+    ...(invoice.paymentState ? { paymentState: invoice.paymentState } : {}),
+    ...(invoice.paid != null ? { paid: moneyNumber(invoice.paid) } : {}),
+    ...(invoice.refunded != null ? { refunded: moneyNumber(invoice.refunded) } : {}),
+    ...(invoice.balance != null ? { balance: moneyNumber(invoice.balance) } : {}),
     actions: {
-      canPay: invoice.status === 'COMPLETED' && moneyNumber(invoice.balance) > 0,
+      // HTTP mapper has no viewer role; InvoiceDetailPage requires ADMINISTRATOR.
+      canPay:
+        invoice.status === 'COMPLETED' &&
+        invoice.balance != null &&
+        moneyNumber(invoice.balance) > 0,
       canCancel: invoice.status === 'COMPLETED',
       canCorrectCurrency: false,
       canViewPdf: document?.status === 'READY',

@@ -9,7 +9,10 @@ import type {
   UpdateCustomerRecord,
 } from './types.js';
 
-type CustomerDatabase = Pick<Prisma.TransactionClient, 'customer' | 'customerContact' | 'invoice'>;
+type CustomerDatabase = Pick<
+  Prisma.TransactionClient,
+  'customer' | 'customerContact' | 'invoice' | '$queryRaw'
+>;
 export type CustomerRecord = Customer & { contacts: CustomerContact[] };
 
 function contactCreates(contacts: NonNullable<CreateCustomerRecord['contacts']>) {
@@ -51,6 +54,15 @@ export class CustomerRepository {
       where: { id },
       include: { contacts: true },
     });
+  }
+
+  async lockById(id: string): Promise<void> {
+    await this.database.$queryRaw`
+      SELECT "id"
+      FROM "Customer"
+      WHERE "id" = ${id}::uuid
+      FOR UPDATE
+    `;
   }
 
   findDefault(): Promise<CustomerRecord | null> {

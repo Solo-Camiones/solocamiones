@@ -10,7 +10,7 @@ import { CAPABILITY_PRESETS, type AppCapabilities } from '../../../src/shared/co
 import { mockCustomerRepository } from '../../../src/mocks/repositories/MockCustomerRepository';
 import { mockSalesRepository } from '../../../src/mocks/repositories/MockSalesRepository';
 import { reloadMockStateFromStorage, resetMockState } from '../../../src/mocks/state';
-import { renderWithProviders } from '../../support/render';
+import { createAuthValue, renderWithProviders } from '../../support/render';
 import { chooseSelectOption } from '../../support/select-menu';
 import { signInAs } from '../../support/session';
 import '../../support/dom';
@@ -225,15 +225,35 @@ describe('PosPage', () => {
 
     await user.click(screen.getByRole('button', { name: 'Confirmar venta' }));
     const dialog = await screen.findByRole('dialog', { name: 'Confirmar venta' });
-    expect(screen.getByText(/No se vende a crédito/)).toBeVisible();
+    expect(screen.getByText(/Los clientes de contado y las facturas en USD/)).toBeVisible();
     const amount = screen.getByLabelText('Monto');
-    await user.clear(amount);
-    await user.type(amount, '40');
+    expect(amount).toBeDisabled();
+    expect(amount).toHaveValue(100);
     await user.click(within(dialog).getByRole('button', { name: 'Confirmar venta' }));
 
-    expect(
-      await screen.findByText('A Cliente contado no se le puede vender a crédito'),
-    ).toBeVisible();
+    expect(await screen.findByText('Venta confirmada')).toBeVisible();
+  });
+
+  it('lets a seller confirm a CREDIT DOP draft without payment fields', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(
+      <Routes>
+        <Route path="/sales/draft/:id" element={<PosPage />} />
+      </Routes>,
+      {
+        route: '/sales/draft/INV-DRAFT-01',
+        auth: createAuthValue('SELLER'),
+      },
+    );
+    await screen.findByText('Alternador 24V');
+
+    await user.click(screen.getByRole('button', { name: 'Confirmar venta' }));
+    expect(screen.getByText(/El Administrador registra el pago/)).toBeVisible();
+    expect(screen.queryByLabelText('Pago inicial')).not.toBeInTheDocument();
+    const confirmButtons = screen.getAllByRole('button', { name: 'Confirmar venta' });
+    await user.click(confirmButtons[confirmButtons.length - 1]);
+
+    expect(await screen.findByText('Venta confirmada')).toBeVisible();
   });
 
   it('lists a newly created customer in the selector', async () => {

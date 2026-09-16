@@ -501,7 +501,7 @@ describe('POS draft commands', () => {
   it('PAY-001: confirms with full payment as PAID and one PAYMENT row', () => {
     const state = createInitialState();
     const total = invoiceTotal(state.invoices.find((entry) => entry.id === 'INV-DRAFT-01')!);
-    const result = confirmInvoice(state, seller, 'INV-DRAFT-01', {
+    const result = confirmInvoice(state, admin, 'INV-DRAFT-01', {
       amount: total,
       method: 'CASH',
     });
@@ -523,7 +523,7 @@ describe('POS draft commands', () => {
     const reservedBefore = oil.reserved;
     const total = invoiceTotal(state.invoices.find((entry) => entry.id === 'INV-DRAFT-01')!);
 
-    const result = confirmInvoice(state, seller, 'INV-DRAFT-01', {
+    const result = confirmInvoice(state, admin, 'INV-DRAFT-01', {
       amount: total + 1,
       method: 'TRANSFER',
     });
@@ -542,11 +542,11 @@ describe('POS draft commands', () => {
     });
   });
 
-  it('PAY-001: confirms with a partial initial payment as PARTIALLY_PAID', () => {
+  it('PAY-001: administrator confirms credit with a partial initial payment as PARTIALLY_PAID', () => {
     const state = createInitialState();
     const total = invoiceTotal(state.invoices.find((entry) => entry.id === 'INV-DRAFT-01')!);
     const partial = 10_000;
-    const result = confirmInvoice(state, seller, 'INV-DRAFT-01', {
+    const result = confirmInvoice(state, admin, 'INV-DRAFT-01', {
       amount: partial,
       method: 'CARD',
       reference: 'POS-001',
@@ -565,6 +565,121 @@ describe('POS draft commands', () => {
       }),
     ]);
     expect(invoiceBalance(invoice)).toBe(total - partial);
+  });
+
+  it('rejects CREDIT DOP when existing exposure plus the new balance exceeds the limit', () => {
+    const state = createInitialState();
+    const customer = state.customers.find((entry) => entry.id === 'C1')!;
+    customer.creditLimitDop = '50000.00';
+    const facSeqBefore = state.facSeq;
+
+    const result = confirmInvoice(state, seller, 'INV-DRAFT-01');
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error).toMatchObject({
+        code: 'CONFLICT',
+        message: 'El límite de crédito del cliente sería excedido',
+      });
+    }
+    expect(state.facSeq).toBe(facSeqBefore);
+    expect(state.invoices.find((entry) => entry.id === 'INV-DRAFT-01')?.status).toBe('DRAFT');
+  });
+
+  it('snapshots the credit terms and derives dueDate from the confirmation business date', () => {
+    const state = createInitialState();
+    const result = confirmInvoice(state, seller, 'INV-DRAFT-01');
+
+    expect(result.ok).toBe(true);
+    const invoice = state.invoices.find((entry) => entry.id === 'INV-DRAFT-01')!;
+    expect(invoice.dueDate).toBe('2026-10-09');
+    expect(invoice.customerSnapshot).toMatchObject({
+      customerType: 'CREDIT',
+      creditTermDays: 45,
+    });
+
+    const customer = state.customers.find((entry) => entry.id === 'C1')!;
+    customer.creditTermDays = 90;
+    expect(invoice.customerSnapshot?.creditTermDays).toBe(45);
+    expect(invoice.dueDate).toBe('2026-10-09');
+  });
+
+  it('forbids a seller initial payment on a CREDIT DOP invoice', () => {
+    const state = createInitialState();
+    const result = confirmInvoice(state, seller, 'INV-DRAFT-01', {
+      amount: 10_000,
+      method: 'CASH',
+    });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.code).toBe('FORBIDDEN');
+    }
+    expect(state.invoices.find((entry) => entry.id === 'INV-DRAFT-01')?.status).toBe('DRAFT');
+  });
+
+  it('rejects confirming a named CASH customer unless the initial payment covers the total', () => {
+    const state = createInitialState();
+    const created = createDraft(state, seller);
+    expect(created.ok).toBe(true);
+    if (!created.ok) {
+      return;
+    }
+    const draftId = created.value.draftId;
+    expect(setDraftMeta(state, seller, { draftId, customerId: 'C2' }).ok).toBe(true);
+    expect(
+      addDraftLine(state, seller, {
+        draftId,
+        type: 'GENERIC',
+        description: 'Filtro',
+        quantity: 1,
+        unitPrice: 100,
+      }).ok,
+    ).toBe(true);
+
+    const unpaid = confirmInvoice(state, seller, draftId);
+    expect(unpaid.ok).toBe(false);
+    if (!unpaid.ok) {
+      expect(unpaid.error.message).toBe(
+        'Las ventas de contado deben pagarse por completo al confirmar',
+      );
+    }
+
+    const paid = confirmInvoice(state, seller, draftId, { amount: 100, method: 'CASH' });
+    expect(paid.ok).toBe(true);
+    expect(state.invoices.find((entry) => entry.id === draftId)?.paymentState).toBe('PAID');
+  });
+
+  it('rejects a CREDIT USD invoice unless it is paid in full', () => {
+    const state = createInitialState();
+    const created = createDraft(state, seller);
+    expect(created.ok).toBe(true);
+    if (!created.ok) {
+      return;
+    }
+    const draftId = created.value.draftId;
+    expect(setDraftMeta(state, seller, { draftId, customerId: 'C1', currency: 'USD' }).ok).toBe(true);
+    expect(
+      addDraftLine(state, seller, {
+        draftId,
+        type: 'GENERIC',
+        description: 'Filtro USD',
+        quantity: 1,
+        unitPrice: 50,
+      }).ok,
+    ).toBe(true);
+
+    const unpaid = confirmInvoice(state, seller, draftId);
+    expect(unpaid.ok).toBe(false);
+    if (!unpaid.ok) {
+      expect(unpaid.error.message).toBe(
+        'Las facturas en USD deben pagarse por completo al confirmar',
+      );
+    }
+
+    const paid = confirmInvoice(state, seller, draftId, { amount: 50, method: 'CASH' });
+    expect(paid.ok).toBe(true);
+    expect(state.invoices.find((entry) => entry.id === draftId)?.paymentState).toBe('PAID');
   });
 
   it('rejects confirming Cliente contado unless the initial payment covers the total', () => {
@@ -588,7 +703,9 @@ describe('POS draft commands', () => {
     const unpaid = confirmInvoice(state, seller, draftId);
     expect(unpaid.ok).toBe(false);
     if (!unpaid.ok) {
-      expect(unpaid.error.message).toBe('A Cliente contado no se le puede vender a crédito');
+      expect(unpaid.error.message).toBe(
+        'Las ventas de contado deben pagarse por completo al confirmar',
+      );
     }
 
     const partial = confirmInvoice(state, seller, draftId, { amount: 40, method: 'CASH' });

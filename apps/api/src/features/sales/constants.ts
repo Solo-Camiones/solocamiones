@@ -30,7 +30,13 @@ export const PAYMENT_DATE_RANGE_MESSAGE =
   'La fecha del pago debe estar entre la confirmación y hoy';
 export const PAYMENT_EXCEEDS_BALANCE_MESSAGE = 'El pago no puede superar el saldo pendiente';
 export const CASH_CUSTOMER_CREDIT_FORBIDDEN_MESSAGE =
-  'A Cliente contado no se le puede vender a crédito';
+  'Las ventas de contado deben pagarse por completo al confirmar';
+export const USD_INVOICE_MUST_BE_PAID_IN_FULL_MESSAGE =
+  'Las facturas en USD deben pagarse por completo al confirmar';
+export const SELLER_CREDIT_CONFIRM_PAYMENT_FORBIDDEN_MESSAGE =
+  'El Vendedor no puede registrar un pago al confirmar una venta a crédito';
+export const CREDIT_LIMIT_EXCEEDED_MESSAGE =
+  'El límite de crédito del cliente sería excedido';
 export const PAYMENT_IDEMPOTENCY_MISMATCH_MESSAGE =
   'La clave de idempotencia ya fue usada con datos de pago diferentes';
 export const CANCELLATION_COMPLETED_ONLY_MESSAGE = 'Solo se pueden cancelar facturas completadas';

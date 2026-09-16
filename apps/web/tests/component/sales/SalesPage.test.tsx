@@ -21,8 +21,27 @@ describe('SalesPage', () => {
     resetMockState();
   });
 
-  it('shows unpaid and partially paid seed invoices', async () => {
+  it('hides payment state and balance from the seller list', async () => {
     renderWithProviders(<SalesPage />, { route: '/sales', auth: createAuthValue('SELLER') });
+
+    expect(await screen.findByText('FAC-000098')).toBeVisible();
+    expect(screen.getByText('FAC-000099')).toBeVisible();
+    expect(screen.queryByRole('columnheader', { name: 'Pago' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('columnheader', { name: 'Saldo' })).not.toBeInTheDocument();
+    expect(screen.queryByText('Sin pagar')).not.toBeInTheDocument();
+    expect(screen.queryByText('Pago parcial')).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'FAC-000098' })).toHaveAttribute(
+      'href',
+      '/sales/INV-098',
+    );
+  });
+
+  it('shows unpaid and partially paid seed invoices to an administrator', async () => {
+    signInAs('ADMINISTRATOR');
+    renderWithProviders(<SalesPage />, {
+      route: '/sales',
+      auth: createAuthValue('ADMINISTRATOR'),
+    });
 
     expect(await screen.findByText('FAC-000098')).toBeVisible();
     expect(screen.getByText('FAC-000099')).toBeVisible();
@@ -31,11 +50,6 @@ describe('SalesPage', () => {
     const partialRow = screen.getByText('FAC-000099').closest('tr');
     expect(unpaidRow && within(unpaidRow).getByText('Sin pagar')).toBeTruthy();
     expect(partialRow && within(partialRow).getByText('Pago parcial')).toBeTruthy();
-    expect(screen.getByRole('link', { name: 'FAC-000098' })).toHaveAttribute(
-      'href',
-      '/sales/INV-098',
-    );
-    expect(unpaidRow).toHaveClass('cursor-pointer');
   });
 
   it('lists ten invoices per page and moves with Siguiente', async () => {
@@ -133,9 +147,10 @@ describe('SalesPage', () => {
   });
 
   it('hides zero-balance invoices when outstanding=1', async () => {
+    signInAs('ADMINISTRATOR');
     renderWithProviders(<SalesPage />, {
       route: '/sales?outstanding=1',
-      auth: createAuthValue('SELLER'),
+      auth: createAuthValue('ADMINISTRATOR'),
     });
 
     expect(await screen.findByText('FAC-000098')).toBeVisible();
@@ -146,6 +161,7 @@ describe('SalesPage', () => {
   });
 
   it('applies KPI filters before paginating', async () => {
+    signInAs('ADMINISTRATOR');
     const state = getMockState();
     const paid = state.invoices.find((entry) => entry.number === 'FAC-000097');
     expect(paid).toBeDefined();
@@ -163,7 +179,7 @@ describe('SalesPage', () => {
 
     renderWithProviders(<SalesPage />, {
       route: '/sales?outstanding=1',
-      auth: createAuthValue('SELLER'),
+      auth: createAuthValue('ADMINISTRATOR'),
     });
 
     expect(await screen.findByText('FAC-000098')).toBeVisible();
@@ -184,9 +200,10 @@ describe('SalesPage', () => {
   });
 
   it('shows the payment history when payments=1', async () => {
+    signInAs('ADMINISTRATOR');
     renderWithProviders(<SalesPage />, {
       route: '/sales?payments=1',
-      auth: createAuthValue('SELLER'),
+      auth: createAuthValue('ADMINISTRATOR'),
     });
 
     expect(await screen.findByText('FAC-000099')).toBeVisible();
@@ -209,6 +226,5 @@ describe('SalesPage', () => {
     expect(row).not.toBeNull();
     expect(within(row!).getAllByText('Cancelada')).toHaveLength(1);
     expect(within(row!).queryByText('Sin pagar')).not.toBeInTheDocument();
-    expect(within(row!).getByText('—')).toBeVisible();
   });
 });
