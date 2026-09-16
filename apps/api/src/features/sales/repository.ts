@@ -44,9 +44,6 @@ const invoiceListInclude = {
   payments: { orderBy: [{ effectiveDate: 'asc' as const }, { createdAt: 'asc' as const }] },
 };
 
-const UUID_PATTERN =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-
 function listInvoiceWhere(query: ListInvoicesQuery): Prisma.InvoiceWhereInput {
   const clauses: Prisma.InvoiceWhereInput[] = [];
   if (query.status) {
@@ -55,16 +52,31 @@ function listInvoiceWhere(query: ListInvoicesQuery): Prisma.InvoiceWhereInput {
 
   const q = query.q?.trim();
   if (q) {
-    const search: Prisma.InvoiceWhereInput[] = [
-      { number: { contains: q, mode: 'insensitive' } },
-      { quoteNumber: { contains: q, mode: 'insensitive' } },
-      { customerName: { contains: q, mode: 'insensitive' } },
-      { customer: { name: { contains: q, mode: 'insensitive' } } },
-    ];
-    if (UUID_PATTERN.test(q)) {
-      search.push({ id: q });
-    }
-    clauses.push({ OR: search });
+    clauses.push({
+      OR: [
+        { number: { contains: q, mode: 'insensitive' } },
+        { quoteNumber: { contains: q, mode: 'insensitive' } },
+        { customerName: { contains: q, mode: 'insensitive' } },
+        { customer: { name: { contains: q, mode: 'insensitive' } } },
+      ],
+    });
+  }
+
+  if (query.dateFrom || query.dateTo) {
+    const range = {
+      ...(query.dateFrom ? { gte: new Date(`${query.dateFrom}T00:00:00-04:00`) } : {}),
+      ...(query.dateTo ? { lte: new Date(`${query.dateTo}T23:59:59.999-04:00`) } : {}),
+    };
+
+    // Each document stage has its own business date. This keeps a mixed "Todas"
+    // list useful without treating a draft creation date as an invoice issue date.
+    clauses.push({
+      OR: [
+        { status: { in: ['COMPLETED', 'CANCELLED'] }, confirmedAt: range },
+        { status: 'QUOTE_ISSUED', quoteIssuedAt: range },
+        { status: { in: ['DRAFT', 'QUOTE_DRAFT'] }, createdAt: range },
+      ],
+    });
   }
 
   if (clauses.length === 0) return {};
@@ -72,6 +84,7 @@ function listInvoiceWhere(query: ListInvoicesQuery): Prisma.InvoiceWhereInput {
   return { AND: clauses };
 }
 type ReceivablePageRow = { id: string };
+type ReceivableCountRow = { count: bigint };
 type ReceivableCustomerRow = Omit<ReceivablesCustomerAggregate, 'invoiceCount'> & {
   invoiceCount: bigint;
 };
@@ -80,18 +93,18 @@ function receivableBalances(query: ListReceivablesQuery): Prisma.Sql {
   const customerFilter = query.customerId
     ? Prisma.sql`AND i."customerId" = ${query.customerId}::uuid`
     : Prisma.empty;
-  const currencyFilter = query.currency
-    ? Prisma.sql`AND i."currency" = ${query.currency}::"InvoiceCurrency"`
+  const invoiceFilter = query.invoice
+    ? Prisma.sql`AND i."number" = ${query.invoice}`
     : Prisma.empty;
-  const stateFilter =
-    query.paymentState === 'OVERDUE'
-      ? Prisma.sql`AND i."dueDate" < ${query.today}::date`
-      : query.paymentState === 'PENDING'
-        ? Prisma.sql`AND i."dueDate" >= ${query.today}::date`
-        : Prisma.empty;
-
   return Prisma.sql`
-    WITH "receivableBalances" AS (
+    WITH "paymentTotals" AS (
+      SELECT
+        "invoiceId",
+        SUM("amount") FILTER (WHERE "kind" = 'PAYMENT')::decimal AS "paid"
+      FROM "InvoicePayment"
+      GROUP BY "invoiceId"
+    ),
+    "receivableBalances" AS (
       SELECT
         i."id",
         i."customerId",
@@ -104,17 +117,11 @@ function receivableBalances(query: ListReceivablesQuery): Prisma.Sql {
         i."confirmedAt"
       FROM "Invoice" i
       INNER JOIN "Customer" c ON c."id" = i."customerId"
-      LEFT JOIN (
-        SELECT "invoiceId", SUM("amount") AS "paid"
-        FROM "InvoicePayment"
-        WHERE "kind" = 'PAYMENT'
-        GROUP BY "invoiceId"
-      ) p ON p."invoiceId" = i."id"
+      LEFT JOIN "paymentTotals" p ON p."invoiceId" = i."id"
       WHERE i."status" = 'COMPLETED'
         AND i."gross" > COALESCE(p."paid", 0)
         ${customerFilter}
-        ${currencyFilter}
-        ${stateFilter}
+        ${invoiceFilter}
     )
   `;
 }
@@ -194,13 +201,18 @@ export class SalesRepository {
   }> {
     const balances = receivableBalances(query);
     const offset = (query.page - 1) * query.pageSize;
-    const [pageRows, customerRows] = await Promise.all([
+    const [pageRows, countRows, customerRows] = await Promise.all([
       this.database.$queryRaw<ReceivablePageRow[]>`
         ${balances}
         SELECT "id"
         FROM "receivableBalances"
         ORDER BY "dueDate" ASC, "confirmedAt" ASC, "id" ASC
         LIMIT ${query.pageSize} OFFSET ${offset}
+      `,
+      this.database.$queryRaw<ReceivableCountRow[]>`
+        ${balances}
+        SELECT COUNT(*) AS "count"
+        FROM "receivableBalances"
       `,
       this.database.$queryRaw<ReceivableCustomerRow[]>`
         ${balances}
@@ -213,6 +225,7 @@ export class SalesRepository {
           SUM("paid")::decimal AS "paid",
           SUM("balance")::decimal AS "balance"
         FROM "receivableBalances"
+        WHERE "balance" > 0
         GROUP BY "customerId", "customerName", "currency"
         ORDER BY "customerName" ASC, "currency" ASC
       `,
@@ -231,7 +244,7 @@ export class SalesRepository {
         ...row,
         invoiceCount: Number(row.invoiceCount),
       })),
-      total: customerRows.reduce((sum, row) => sum + Number(row.invoiceCount), 0),
+      total: Number(countRows[0]?.count ?? 0),
     };
   }
 

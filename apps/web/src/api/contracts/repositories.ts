@@ -55,8 +55,10 @@ import type {
   InvoicePdfDownload,
   PosDraftView,
   ReceivablesSnapshot,
+  ReceivablesFilters,
   RemoveDraftLineInput,
   SalesListRow,
+  SalesListFilters,
   SalesListTab,
   SetDraftLinePriceInput,
   SetDraftLineQuantityInput,
@@ -139,8 +141,12 @@ export type SalesRepository = {
     tab?: SalesListTab,
     page?: number,
     q?: string,
+    filters?: SalesListFilters,
   ): Promise<Result<ListPage<SalesListRow>>>;
-  listReceivables(page?: number): Promise<Result<ReceivablesSnapshot>>;
+  listReceivables(
+    page?: number,
+    filters?: ReceivablesFilters,
+  ): Promise<Result<ReceivablesSnapshot>>;
   getInvoice(id: string): Promise<Result<InvoiceDetailView>>;
   getInvoicePdf(id: string): Promise<Result<InvoicePdfDownload>>;
   regenerateInvoicePdf(id: string): Promise<Result<InvoiceDetailView>>;

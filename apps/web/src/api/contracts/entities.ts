@@ -135,7 +135,14 @@ export type Service = {
 
 export type InvoiceStatus = 'DRAFT' | 'QUOTE_DRAFT' | 'QUOTE_ISSUED' | 'COMPLETED' | 'CANCELLED';
 export type PaymentState =
-  'UNPAID' | 'PARTIALLY_PAID' | 'PENDING' | 'OVERDUE' | 'PAID' | 'PAID_LATE' | 'CANCELLED';
+  | 'UNPAID'
+  | 'PENDING'
+  | 'PARTIALLY_PAID'
+  | 'OVERDUE'
+  | 'PARTIALLY_PAID_OVERDUE'
+  | 'PAID'
+  | 'PAID_LATE'
+  | 'CANCELLED';
 export type Currency = 'DOP' | 'USD';
 
 export type LineType = 'ITEM' | 'QTY' | 'GENERIC' | 'EXTERNAL' | 'SERVICE' | 'DELIVERY';

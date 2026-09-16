@@ -877,4 +877,4 @@ El prototipo web no es dependencia de M1–M18. M19–M24 son swaps. M25 no impl
 
 ## Próximo paso
 
-Release 2 está cerrado en local. Siguiente trabajo de producto: resto abierto de Release 3 (filtros CxC de Feature 12). No reimplementar pagos/cancelación no-inventario. El primer uso en producción sigue bloqueado por el gate operativo de `DEVELOPMENT_PLAN.md`, no por este plan.
+Release 2 está cerrado en local. Siguiente trabajo de producto: `STMT-001` (PDF de estado de cuenta). No reimplementar pagos/cancelación no-inventario ni filtros CxC de estado/fecha/moneda. El primer uso en producción sigue bloqueado por el gate operativo de `DEVELOPMENT_PLAN.md`, no por este plan.

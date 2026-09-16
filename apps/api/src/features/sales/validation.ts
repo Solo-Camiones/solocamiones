@@ -34,16 +34,29 @@ export const updateDraftMetaSchema = createDraftSchema.refine(
   DRAFT_META_REQUIRED_MESSAGE,
 );
 
-export const listInvoicesSchema = paginationSchema.extend({
-  status: invoiceStatusSchema.optional(),
-  q: z.string().trim().optional(),
-});
+export const listInvoicesSchema = paginationSchema
+  .extend({
+    status: invoiceStatusSchema.optional(),
+    q: z.string().trim().optional(),
+    dateFrom: z.iso.date().optional(),
+    dateTo: z.iso.date().optional(),
+  })
+  .refine((value) => !value.dateFrom || !value.dateTo || value.dateFrom <= value.dateTo, {
+    message: 'dateFrom must be on or before dateTo',
+    path: ['dateTo'],
+  });
 
-export const listReceivablesSchema = paginationSchema.extend({
-  customerId: z.uuid().optional(),
-  currency: invoiceCurrencySchema.optional(),
-  paymentState: z.enum(['PENDING', 'OVERDUE']).optional(),
-});
+export const listReceivablesSchema = paginationSchema
+  .extend({
+    customerId: z.uuid().optional(),
+    invoice: z
+      .string()
+      .trim()
+      .regex(/^FAC-\d{6}$/i, 'Must be a FAC- number')
+      .transform((value) => value.toUpperCase())
+      .optional(),
+  })
+  .strict();
 
 export const invoiceLineIdSchema = z.strictObject({
   id: z.uuid(),

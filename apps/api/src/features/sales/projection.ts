@@ -39,7 +39,6 @@ import type {
 import {
   moneyString as decimalMoneyString,
   type CustomerOutstanding,
-  type OpenReceivable,
 } from '../payments/receivables.js';
 
 function moneyString(value: { toFixed(places: number): string }): string {
@@ -82,7 +81,8 @@ function customerSnapshotOf(
     invoice.status === 'DRAFT' ||
     invoice.status === 'QUOTE_DRAFT' ||
     invoice.customerName == null
-  ) return null;
+  )
+    return null;
   return { name: invoice.customerName, rnc: invoice.customerRnc, phone: invoice.customerPhone };
 }
 
@@ -97,9 +97,7 @@ function toCustomerView(invoice: InvoiceRecord | InvoiceListRecord) {
     customerType: completed
       ? (invoice.snapshotCustomerType ?? invoice.customer.customerType)
       : invoice.customer.customerType,
-    creditTermDays: completed
-      ? invoice.snapshotCreditTermDays
-      : invoice.customer.creditTermDays,
+    creditTermDays: completed ? invoice.snapshotCreditTermDays : invoice.customer.creditTermDays,
     creditLimitDop:
       completed || invoice.customer.creditLimitDop == null
         ? null
@@ -175,7 +173,11 @@ function deriveCompletedProfitability(invoice: InvoiceRecord | InvoiceListRecord
   const lineProfit =
     invoice.currency === 'USD' && invoice.exchangeRateDopPerUsd != null
       ? (input: (typeof lineInputs)[number]) =>
-          calculateLineProfitUsdReportingDop(input, invoice.applyItbis, invoice.exchangeRateDopPerUsd!)
+          calculateLineProfitUsdReportingDop(
+            input,
+            invoice.applyItbis,
+            invoice.exchangeRateDopPerUsd!,
+          )
       : (input: (typeof lineInputs)[number]) => calculateLineProfitDop(input, invoice.applyItbis);
 
   return {
@@ -257,7 +259,8 @@ function toPublicInvoiceDocument(
     invoice.status === 'QUOTE_DRAFT' ||
     invoice.status === 'QUOTE_ISSUED' ||
     invoice.pdfStatus == null
-  ) return undefined;
+  )
+    return undefined;
   if (invoice.pdfStatus === 'FAILED') {
     if (invoice.pdfErrorId == null) return undefined;
     return { status: 'FAILED', errorId: invoice.pdfErrorId };
@@ -347,22 +350,24 @@ export function toPublicInvoice(
     cancelledAt: invoice.cancelledAt?.toISOString() ?? null,
     cancelReason: invoice.cancelReason,
     cancelledByName: invoice.cancelledByName,
-    ...(payment ? administratorLedger(viewer, {
-      paymentState: payment.state,
-      payments: invoice.payments.map((entry) => ({
-        id: entry.id,
-        kind: entry.kind,
-        amount: moneyString(entry.amount),
-        method: entry.method,
-        effectiveDate: databaseDateString(entry.effectiveDate),
-        recordedAt: entry.createdAt.toISOString(),
-        reference: entry.reference,
-        actorName: entry.actor.name,
-      })),
-      paid: moneyString(payment.paid),
-      refunded: moneyString(payment.refunded),
-      balance: moneyString(payment.balance),
-    }) : {}),
+    ...(payment
+      ? administratorLedger(viewer, {
+          paymentState: payment.state,
+          payments: invoice.payments.map((entry) => ({
+            id: entry.id,
+            kind: entry.kind,
+            amount: moneyString(entry.amount),
+            method: entry.method,
+            effectiveDate: databaseDateString(entry.effectiveDate),
+            recordedAt: entry.createdAt.toISOString(),
+            reference: entry.reference,
+            actorName: entry.actor.name,
+          })),
+          paid: moneyString(payment.paid),
+          refunded: moneyString(payment.refunded),
+          balance: moneyString(payment.balance),
+        })
+      : {}),
     lines: invoice.lines.map((line, index) =>
       toPublicLine(line, invoice.applyItbis, profitability?.lines[index]),
     ),
@@ -387,10 +392,11 @@ function toPublicListPayments(invoice: InvoiceListRecord): PublicInvoiceListPaym
 export function toPublicInvoiceListItem(
   invoice: InvoiceListRecord,
   viewer: InvoiceViewer,
+  now = new Date(),
 ): PublicInvoiceListItem {
   const profitability = administratorProfitability(invoice, viewer);
   const completed = invoice.status === 'COMPLETED' || invoice.status === 'CANCELLED';
-  const payment = completed ? summarizePayments(invoice) : null;
+  const payment = completed ? summarizePayments(invoice, now) : null;
   const storedRate =
     viewer.role === 'ADMINISTRATOR' && invoice.exchangeRateDopPerUsd != null
       ? invoice.exchangeRateDopPerUsd.toString()
@@ -410,11 +416,13 @@ export function toPublicInvoiceListItem(
     customerSnapshot: customerSnapshotOf(invoice),
     confirmedAt: invoice.confirmedAt?.toISOString() ?? null,
     dueDate: invoice.dueDate ? databaseDateString(invoice.dueDate) : null,
-    ...(payment ? administratorLedger(viewer, {
-      paymentState: payment.state,
-      payments: toPublicListPayments(invoice),
-      balance: moneyString(payment.balance),
-    }) : {}),
+    ...(payment
+      ? administratorLedger(viewer, {
+          paymentState: payment.state,
+          payments: toPublicListPayments(invoice),
+          balance: moneyString(payment.balance),
+        })
+      : {}),
     totals: invoiceTotals(invoice),
     ...(profitability ? { profitability: profitability.invoice } : {}),
     ...(storedRate ? { exchangeRateDopPerUsd: storedRate } : {}),
@@ -436,16 +444,17 @@ function toPublicCustomerOutstanding(row: CustomerOutstanding): PublicCustomerOu
 }
 
 export function toPublicReceivables(
-  open: OpenReceivable[],
+  invoiceRecords: InvoiceListRecord[],
   customers: CustomerOutstanding[],
   viewer: InvoiceViewer,
+  now: Date,
   page: number,
   pageSize: number,
-  total = open.length,
+  total = invoiceRecords.length,
 ): PublicReceivables {
-  const invoices: PublicReceivableInvoice[] = open.map((row) => ({
-    ...toPublicInvoiceListItem(row.invoice, viewer),
-    paid: decimalMoneyString(row.paid),
+  const invoices: PublicReceivableInvoice[] = invoiceRecords.map((invoice) => ({
+    ...toPublicInvoiceListItem(invoice, viewer, now),
+    paid: decimalMoneyString(summarizePayments(invoice, now).paid),
   }));
   return {
     invoices,

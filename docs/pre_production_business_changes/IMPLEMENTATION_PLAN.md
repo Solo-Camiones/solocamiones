@@ -110,7 +110,7 @@ Este es el orden que debe seguirse. Cada paso depende de las garantías establec
 
 ### Paso 5 — Implementar motor de crédito y confirmación
 
-**Estado:** **Cerrado 2026-09-16** en código local (motor de confirmación + HTTP). Cotizaciones, `ABONADO`, fecha emitida en tabla CxC, filtros restantes y STMT-001 siguen en Pasos 6–8.
+**Estado:** **Cerrado 2026-09-16** en código local (motor de confirmación + HTTP). Los pendientes que dejó este cierre en cotizaciones y CxC se completaron en Pasos 6–7; `STMT-001` sigue en Paso 8.
 
 **Requisitos cubiertos:** `H-02`, `H-03`, `H-04`, `H-05` y reglas de pago relacionadas de confirmación (`PAY-001`/`PAY-002` en confirmación; CxC/pagos posteriores Seller 403). `PAY-006`, fecha emitida en listado CxC y `STMT-001` no forman parte de este cierre.
 
@@ -155,17 +155,20 @@ Este es el orden que debe seguirse. Cada paso depende de las garantías establec
 
 **Requisitos cubiertos:** `H-04`, `M-01`, `M-02` y pendientes existentes de Feature 12.
 
-**Nota:** API 403 + nav/deep links CxC Admin-only y omisión de movimientos para Vendedor ya se cerraron en Paso 5. Este paso sigue abierto para `ABONADO` / `ABONADA VENCIDA`, fecha emitida en la tabla CxC y filtros restantes.
+**Estado:** cerrado 2026-09-16 en código local.
+
+**Nota:** API 403 + nav/deep links CxC Admin-only y proyección financiera restringida para Vendedor ya se cerraron en Paso 5. Este paso completa `ABONADO` / `ABONADA VENCIDA`, fecha emitida en la tabla CxC y los filtros aprobados.
 
 **Tareas:**
 
-- Derivar `PENDING`, `PARTIALLY_PAID`, `OVERDUE` y `PARTIALLY_PAID_OVERDUE`.
-- Mostrar `PENDIENTE`, `ABONADO`, `VENCIDA` y `ABONADA VENCIDA`.
-- Añadir `confirmedAt` como fecha emitida en CxC.
-- Restringir pantalla y endpoint CxC al Administrador.
-- Permitir al Vendedor ver saldo/estado en factura, omitiendo movimientos de pago.
-- Completar filtros pendientes por cliente, factura, estado, fecha y moneda donde sigan aplicando.
-- Actualizar chips, contratos, mocks y pruebas de transición/vencimiento.
+- [x] Derivar `PENDING`, `PARTIALLY_PAID`, `OVERDUE` y `PARTIALLY_PAID_OVERDUE`.
+- [x] Mostrar `PENDIENTE`, `ABONADO`, `VENCIDA` y `ABONADA VENCIDA`.
+- [x] Añadir `confirmedAt` como fecha emitida en CxC.
+- [x] Restringir pantalla y endpoint CxC al Administrador.
+- [x] Mantener la proyección financiera del Vendedor sin estado, saldo ni movimientos de pago, según `PAY-007` y el cierre del Paso 5.
+- [x] Completar filtros por cliente y factura (`FAC-`). _(Decisión del propietario 2026-09-16: no exponer filtros por estado, fecha emitida, moneda ni UUID.)_
+- [x] Mantener el resumen por cliente y la lista de facturas limitados a saldos abiertos.
+- [x] Actualizar chips, contratos, mocks, etiquetas del PDF de factura y pruebas de transición/vencimiento.
 
 **Gate:** estado, saldo y permisos coinciden entre detalle, CxC, API y acceso directo.
 
@@ -241,7 +244,7 @@ Los hitos de la sección 6 desarrollan este mismo orden con mayor detalle.
 
 - `dueDate` de venta **contado ya pagada** (`CASH` o `USD` liquidada) = fecha local de confirmación en `America/Santo_Domingo` (mismo día, fin de día). No `null`. No +30. Facturas históricas `COMPLETED` conservan el `dueDate` almacenado.
 - Administrador en CREDIT+DOP: puede omitir el pago inicial, o registrar `amount` > 0 hasta el gross (parcial o total). No se persiste un pago de 0.
-- Vendedor CREDIT+DOP: confirma sin pago; 403 si envía `payment`. `POST /payments` y `GET /receivables` son Admin-only (403 Vendedor). Nav/deep links CxC Admin-only. El Vendedor ve estado/saldo de factura, no movimientos. `ABONADO`, fecha emitida en tabla CxC, filtros restantes y STMT-001 siguen en Pasos 7–8.
+- Vendedor CREDIT+DOP: confirma sin pago; 403 si envía `payment`. `POST /payments` y `GET /receivables` son Admin-only (403 Vendedor). Nav/deep links CxC Admin-only. El Vendedor no recibe estado, saldo ni movimientos de pago. `ABONADO`, fecha emitida y filtros CxC se completaron en Paso 7; `STMT-001` sigue en Paso 8.
 
 ### Decisiones confirmadas — 2026-09-15
 
@@ -300,7 +303,7 @@ Por el alcance transversal, recomiendo tratarlo como un **change set preproducci
 ### 2.1 Release y arquitectura
 
 - Release 2 (Billing Core) está completado localmente.
-- Release 3 (Payments y CxC) está parcialmente completado y aún tiene filtros pendientes.
+- Release 3 (Payments y CxC) está parcialmente completado; los filtros de CxC quedaron en cliente/factura y el pendiente restante es `STMT-001`.
 - La arquitectura existente es React/Vite + Express + Prisma/PostgreSQL, con flujo `Route -> Controller -> Service -> Repository -> Database`.
 - El esquema actual no contiene tipo de cliente, límite de crédito ni plazo configurable.
 
@@ -748,14 +751,14 @@ Antes de implementar código, las fuentes de verdad ya actualizadas (Paso 1) son
 
 ### Hito 3 — Motor de crédito y restricciones de Seller
 
-**Estado:** cerrado 2026-09-16 en código local (Paso 5). `ABONADO`, fecha emitida en listado CxC, filtros restantes y estado de cuenta siguen en Hitos 5–6 / Pasos 7–8.
+**Estado:** cerrado 2026-09-16 en código local (Paso 5). `ABONADO`, fecha emitida y filtros CxC se completaron después en Hito 5 / Paso 7; el estado de cuenta sigue en Hito 6 / Paso 8.
 
 - Confirmación contado/crédito sobre el cálculo monetario estabilizado.
 - Plazo y snapshot.
 - Control transaccional de límite.
 - Pago inicial de crédito: Administrador omite o registra `amount` > 0 hasta el gross; Vendedor sin pago.
 - Bloqueo de pagos posteriores/CxC para Seller (API 403 + nav/deep links).
-- Proyecciones por rol: Seller ve saldo/estado pero no pagos ni costo.
+- Proyecciones por rol: Seller no recibe estado, saldo, pagos ni costo en las proyecciones ordinarias de factura.
 
 **Salida:** requests directos no pueden saltar las restricciones de UI y dos confirmaciones concurrentes no exceden el límite.
 
@@ -776,10 +779,12 @@ Antes de implementar código, las fuentes de verdad ya actualizadas (Paso 1) son
 
 ### Hito 5 — Estados de pago y CxC
 
+**Estado:** cerrado 2026-09-16 en código local (Paso 7).
+
 - Estado `ABONADO` según semántica aprobada.
 - Fecha emitida.
 - Completar filtros Release 3 ya pendientes.
-- Restringir CxC a Administrador. _(API 403 + nav Seller ya cerrados en Hito 3 / Paso 5; este hito sigue abierto.)_
+- Restringir CxC a Administrador. _(API 403 + nav Seller cerrados en Hito 3 / Paso 5.)_
 
 **Salida:** Administrador puede explicar por cliente y moneda cada factura, pago y saldo.
 
@@ -905,8 +910,7 @@ Antes de implementar código, las fuentes de verdad ya actualizadas (Paso 1) son
 ### Vendedor
 
 13. **Confirmado:** el Vendedor puede ver clientes crédito existentes y venderles a crédito; solo el Administrador puede registrar o clasificar un cliente como crédito.
-14. **Confirmado:** el Vendedor puede abrir el detalle de una factura crédito, pero no puede ver los pagos registrados.
-    14.a. **Confirmado:** el Vendedor puede ver saldo pendiente y estado de pago, pero no los movimientos registrados.
+14. **Confirmado:** el Vendedor puede abrir el detalle comercial de una factura crédito, pero no recibe estado de pago, monto pagado, saldo, reembolsos ni movimientos registrados.
 15. **Confirmado:** el Vendedor registra el pago completo durante la confirmación contado; una factura contado no puede confirmarse pendiente ni cobrarla posteriormente como excepción.
 16. **Confirmado:** el Vendedor conserva Clientes, pero al crear solo puede registrar clientes `CASH`.
 17. **Confirmado:** la cotización se convierte directamente a `COMPLETED`, sobre la misma operación y asignando `FAC-`, sin crear/copiar otro borrador.

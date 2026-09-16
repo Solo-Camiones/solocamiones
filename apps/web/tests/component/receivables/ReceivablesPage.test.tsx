@@ -12,9 +12,7 @@ import '../../support/dom';
 
 function openUsdReceivableForSecondCustomer() {
   const invoice = getMockState().invoices.find((entry) => entry.id === 'INV-096');
-  if (invoice) {
-    invoice.paymentState = 'UNPAID';
-  }
+  if (invoice) invoice.paymentState = 'UNPAID';
 }
 
 describe('ReceivablesPage', () => {
@@ -24,11 +22,9 @@ describe('ReceivablesPage', () => {
     openUsdReceivableForSecondCustomer();
   });
 
-  afterEach(() => {
-    resetMockState();
-  });
+  afterEach(() => resetMockState());
 
-  it('filters customer summary and open invoices by customer name', async () => {
+  it('shows issued date and filters invoices and open summary by customer', async () => {
     const user = userEvent.setup();
     renderWithProviders(<ReceivablesPage />, {
       route: '/receivables',
@@ -37,51 +33,40 @@ describe('ReceivablesPage', () => {
 
     expect(await screen.findByText('FAC-000098')).toBeVisible();
     expect(screen.getByText('FAC-000096')).toBeVisible();
-    expect(screen.getAllByText('Transportes del Caribe SRL').length).toBeGreaterThan(0);
-    expect(screen.getAllByText('Logística Norte SA').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('25/08/2026').length).toBeGreaterThan(0);
 
-    await user.type(screen.getByLabelText('Filtrar por nombre del cliente'), 'caribe');
+    await user.click(screen.getByLabelText('Cliente'));
+    await user.type(screen.getByLabelText('Buscar cliente…'), 'logística');
+    await user.click(screen.getByRole('option', { name: 'Logística Norte SA' }));
 
-    expect(screen.getByText('FAC-000098')).toBeVisible();
-    expect(screen.queryByText('FAC-000096')).not.toBeInTheDocument();
-
-    const summary = screen.getByRole('heading', { name: 'Resumen por cliente' }).closest('section');
+    expect(await screen.findByText('FAC-000096')).toBeVisible();
+    expect(screen.queryByText('FAC-000098')).not.toBeInTheDocument();
+    const summary = screen
+      .getByRole('heading', { name: 'Resumen de saldos abiertos' })
+      .closest('section');
     expect(summary).not.toBeNull();
-    expect(within(summary!).getByText('Transportes del Caribe SRL')).toBeVisible();
-    expect(within(summary!).queryByText('Logística Norte SA')).not.toBeInTheDocument();
+    expect(within(summary!).getByText('Logística Norte SA')).toBeVisible();
+    expect(within(summary!).queryByText('Transportes del Caribe SRL')).not.toBeInTheDocument();
   });
 
-  it('finds a customer invoice outside the current page', async () => {
-    const state = getMockState();
-    const template = state.invoices.find((entry) => entry.number === 'FAC-000098');
-    expect(template).toBeDefined();
-    for (let index = 0; index < 10; index += 1) {
-      state.invoices.push({
-        ...template!,
-        id: `INV-EARLY-${index}`,
-        number: `FAC-EARLY-${index}`,
-        customerSnapshot: { name: `Cliente temprano ${index}` },
-        dueDate: `2026-01-${String(index + 1).padStart(2, '0')}`,
-        lines: [...template!.lines],
-        payments: [...template!.payments],
-      });
-    }
-
-    const user = userEvent.setup();
+  it('only offers customer and invoice filters', async () => {
     renderWithProviders(<ReceivablesPage />, {
       route: '/receivables',
       auth: createAuthValue('ADMINISTRATOR'),
     });
-    expect(await screen.findByText('Mostrando 1–10 de 13')).toBeVisible();
-    expect(screen.queryByText('FAC-000098')).not.toBeInTheDocument();
 
-    await user.type(screen.getByLabelText('Filtrar por nombre del cliente'), 'caribe');
+    await screen.findByText('FAC-000098');
 
-    expect(await screen.findByText('FAC-000098')).toBeVisible();
-    expect(screen.getByText('Mostrando 1–2 de 2')).toBeVisible();
+    expect(screen.getByLabelText('Cliente')).toBeVisible();
+    expect(screen.getByPlaceholderText('FAC-000123')).toBeVisible();
+    expect(screen.queryByLabelText('Estado de pago')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Moneda')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Emitida desde')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Emitida hasta')).not.toBeInTheDocument();
+    expect(screen.queryByPlaceholderText(/UUID/i)).not.toBeInTheDocument();
   });
 
-  it('shows an empty state when no customer name matches', async () => {
+  it('finds an invoice by its visible FAC number through the repository filter', async () => {
     const user = userEvent.setup();
     renderWithProviders(<ReceivablesPage />, {
       route: '/receivables',
@@ -89,9 +74,28 @@ describe('ReceivablesPage', () => {
     });
     await screen.findByText('FAC-000098');
 
-    await user.type(screen.getByLabelText('Filtrar por nombre del cliente'), 'cliente inexistente');
+    await user.type(screen.getByLabelText('Factura'), 'fac-000099');
+    await user.click(screen.getByRole('button', { name: 'Buscar' }));
 
-    expect(screen.getAllByText('Sin resultados').length).toBeGreaterThan(0);
+    expect(await screen.findByText('FAC-000099')).toBeVisible();
     expect(screen.queryByText('FAC-000098')).not.toBeInTheDocument();
   });
+
+  it('keeps the list visible when the invoice lookup is invalid', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<ReceivablesPage />, {
+      route: '/receivables',
+      auth: createAuthValue('ADMINISTRATOR'),
+    });
+    expect(await screen.findByText('FAC-000098')).toBeVisible();
+
+    await user.type(screen.getByLabelText('Factura'), '123');
+    await user.click(screen.getByRole('button', { name: 'Buscar' }));
+
+    expect(screen.getByRole('heading', { name: 'Cuentas por cobrar' })).toBeVisible();
+    expect(screen.getByText('Debe ser un número de factura FAC-000123.')).toBeVisible();
+    expect(screen.getByText('FAC-000098')).toBeVisible();
+    expect(screen.queryByText('No se pudo cargar cuentas por cobrar')).not.toBeInTheDocument();
+  });
+
 });

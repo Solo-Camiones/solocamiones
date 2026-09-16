@@ -29,7 +29,7 @@ describe('sales catalog seed', () => {
     const fac098 = rows.find((row) => row.number === 'FAC-000098');
     const fac099 = rows.find((row) => row.number === 'FAC-000099');
 
-    expect(fac098).toMatchObject({ paymentState: 'UNPAID', balance: 19_500, currency: 'DOP' });
+    expect(fac098).toMatchObject({ paymentState: 'PENDING', balance: 19_500, currency: 'DOP' });
     expect(fac099).toMatchObject({ paymentState: 'PARTIALLY_PAID', balance: 3_600, total: 7_200 });
   });
 

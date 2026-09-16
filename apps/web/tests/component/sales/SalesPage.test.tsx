@@ -48,8 +48,8 @@ describe('SalesPage', () => {
 
     const unpaidRow = screen.getByText('FAC-000098').closest('tr');
     const partialRow = screen.getByText('FAC-000099').closest('tr');
-    expect(unpaidRow && within(unpaidRow).getByText('Sin pagar')).toBeTruthy();
-    expect(partialRow && within(partialRow).getByText('Pago parcial')).toBeTruthy();
+    expect(unpaidRow && within(unpaidRow).getByText('Pendiente')).toBeTruthy();
+    expect(partialRow && within(partialRow).getByText('Abonado')).toBeTruthy();
   });
 
   it('lists ten invoices per page and moves with Siguiente', async () => {
@@ -135,6 +135,38 @@ describe('SalesPage', () => {
     expect(screen.getByText('Mostrando 1–1 de 1')).toBeVisible();
   });
 
+  it('filters documents by a date range and can clear it', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<SalesPage />, { route: '/sales', auth: createAuthValue('SELLER') });
+    await screen.findByText('FAC-000098');
+
+    await user.type(screen.getByLabelText('Fecha desde'), '2026-08-25');
+    await user.type(screen.getByLabelText('Fecha hasta'), '2026-08-25');
+    await user.click(screen.getByRole('button', { name: 'Filtrar' }));
+
+    expect(await screen.findByText('FAC-000098')).toBeVisible();
+    expect(screen.queryByText('FAC-000097')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Limpiar fechas' })).toBeVisible();
+
+    await user.click(screen.getByRole('button', { name: 'Limpiar fechas' }));
+    expect(await screen.findByText('FAC-000097')).toBeVisible();
+  });
+
+  it('rejects an inverted date range without replacing the current list', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<SalesPage />, { route: '/sales', auth: createAuthValue('SELLER') });
+    await screen.findByText('FAC-000098');
+
+    await user.type(screen.getByLabelText('Fecha desde'), '2026-09-30');
+    await user.type(screen.getByLabelText('Fecha hasta'), '2026-09-01');
+    await user.click(screen.getByRole('button', { name: 'Filtrar' }));
+
+    expect(
+      screen.getByText('La fecha desde no puede ser posterior a la fecha hasta.'),
+    ).toBeVisible();
+    expect(screen.getByText('FAC-000098')).toBeVisible();
+  });
+
   it('opens the draft tab from the tab query param', async () => {
     renderWithProviders(<SalesPage />, {
       route: '/sales?tab=DRAFT',
@@ -142,7 +174,10 @@ describe('SalesPage', () => {
     });
 
     expect(await screen.findByRole('link', { name: 'Borrador' })).toBeVisible();
-    expect(screen.getByRole('button', { name: 'Borrador' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: 'Borrador' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
     expect(screen.queryByText('FAC-000098')).not.toBeInTheDocument();
   });
 

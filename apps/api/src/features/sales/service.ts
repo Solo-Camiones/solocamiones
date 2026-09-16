@@ -14,7 +14,6 @@ import {
   todayBusinessDate,
 } from '../payments/dates.js';
 import { summarizePayments } from '../payments/summary.js';
-import { openReceivables } from '../payments/receivables.js';
 import { toInvoiceHistoryEntries } from '../history/invoice-timeline.js';
 import { assertAdministrator } from '../users/policies.js';
 import {
@@ -41,11 +40,7 @@ import {
   QUOTE_ISSUED_ONLY_DUPLICATE_MESSAGE,
 } from './constants.js';
 import { DEFAULT_LINE_QUANTITY } from './money/constants.js';
-import {
-  calculateLineMoney,
-  parsePositiveDecimal,
-  sumInvoiceMoney,
-} from './money/index.js';
+import { calculateLineMoney, parsePositiveDecimal, sumInvoiceMoney } from './money/index.js';
 import {
   assertCreditExposureWithinLimit,
   assertInitialPaymentPolicy,
@@ -259,19 +254,18 @@ export class SalesService {
     return this.transaction(async ({ sales, users }) => {
       const actor = requireInvoiceManager(await users.findById(actorId));
       assertAdministrator(actor);
+      const now = new Date();
       const receivables = await sales.listReceivables({
         customerId: filters.customerId,
-        currency: filters.currency,
-        paymentState: filters.paymentState,
+        invoice: filters.invoice,
         page: filters.page,
         pageSize: filters.pageSize,
-        today: todayBusinessDate(),
       });
-      const open = openReceivables(receivables.items);
       return toPublicReceivables(
-        open,
+        receivables.items,
         receivables.customers,
         actor,
+        now,
         filters.page,
         filters.pageSize,
         receivables.total,
@@ -638,11 +632,13 @@ export class SalesService {
           id,
           number,
           confirmedAt,
-          dueDate: invoiceDueDate(confirmedAt, confirmationDueTermDays(customer, existing.currency)),
+          dueDate: invoiceDueDate(
+            confirmedAt,
+            confirmationDueTermDays(customer, existing.currency),
+          ),
           customerName: sourceStatus === 'QUOTE_ISSUED' ? existing.customerName! : customer.name,
           customerRnc: sourceStatus === 'QUOTE_ISSUED' ? existing.customerRnc : customer.rnc,
-          customerPhone:
-            sourceStatus === 'QUOTE_ISSUED' ? existing.customerPhone : primaryPhone,
+          customerPhone: sourceStatus === 'QUOTE_ISSUED' ? existing.customerPhone : primaryPhone,
           snapshotCustomerType: customer.customerType,
           snapshotCreditTermDays: customer.creditTermDays,
           confirmedByUserId: actorId,

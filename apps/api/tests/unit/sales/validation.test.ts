@@ -1,8 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import {
-  formatInvoiceNumber,
-} from '../../../src/features/sales/constants.js';
+import { formatInvoiceNumber } from '../../../src/features/sales/constants.js';
 import {
   addInvoiceLineSchema,
   addPaymentSchema,
@@ -15,6 +13,7 @@ import {
   serviceDraftLineSchema,
   lineNotesSchema,
   listInvoicesSchema,
+  listReceivablesSchema,
   setLinePriceSchema,
   updateDraftMetaSchema,
 } from '../../../src/features/sales/validation.js';
@@ -50,6 +49,46 @@ describe('draft HTTP validation', () => {
       page: 2,
       pageSize: 10,
     });
+  });
+
+  it('accepts and validates the invoice document date range', () => {
+    expect(listInvoicesSchema.parse({ dateFrom: '2026-09-01', dateTo: '2026-09-30' })).toEqual({
+      dateFrom: '2026-09-01',
+      dateTo: '2026-09-30',
+      page: 1,
+      pageSize: 10,
+    });
+    expect(
+      listInvoicesSchema.safeParse({ dateFrom: '2026-09-30', dateTo: '2026-09-01' }).success,
+    ).toBe(false);
+  });
+
+  it('accepts only the customer and invoice receivables filters', () => {
+    expect(
+      listReceivablesSchema.parse({
+        customerId: '11111111-1111-4111-8111-111111111111',
+        invoice: 'fac-000123',
+      }),
+    ).toEqual({
+      customerId: '11111111-1111-4111-8111-111111111111',
+      invoice: 'FAC-000123',
+      page: 1,
+      pageSize: 10,
+    });
+  });
+
+  it('rejects an invalid invoice filter', () => {
+    expect(listReceivablesSchema.safeParse({ invoice: '123' }).success).toBe(false);
+    expect(
+      listReceivablesSchema.safeParse({ invoice: '11111111-1111-4111-8111-111111111111' }).success,
+    ).toBe(false);
+  });
+
+  it('rejects retired receivables query keys', () => {
+    expect(listReceivablesSchema.safeParse({ paymentState: 'PENDING' }).success).toBe(false);
+    expect(listReceivablesSchema.safeParse({ currency: 'DOP' }).success).toBe(false);
+    expect(listReceivablesSchema.safeParse({ issuedFrom: '2026-09-01' }).success).toBe(false);
+    expect(listReceivablesSchema.safeParse({ issuedTo: '2026-09-30' }).success).toBe(false);
   });
 
   it('accepts an empty confirm body and rejects payment or unknown fields', () => {
@@ -337,9 +376,9 @@ describe('payment and cancellation HTTP validation', () => {
   it.each(['0', '0.00', '9999999999.991', '10000000000.00', '-1', '10.1.0', 'abc'])(
     'rejects confirm or later payment amount %s',
     (amount) => {
-      expect(
-        confirmInvoiceSchema.safeParse({ payment: { amount, method: 'CASH' } }).success,
-      ).toBe(false);
+      expect(confirmInvoiceSchema.safeParse({ payment: { amount, method: 'CASH' } }).success).toBe(
+        false,
+      );
       expect(
         addPaymentSchema.safeParse({
           amount,
@@ -405,9 +444,9 @@ describe('payment and cancellation HTTP validation', () => {
       refundReference: 'CHK-1',
       idempotencyKey: 'cancel-key',
     });
-    expect(cancelInvoiceSchema.parse({ reason: 'Duplicada', idempotencyKey: 'cancel-key' })).toEqual(
-      { reason: 'Duplicada', idempotencyKey: 'cancel-key' },
-    );
+    expect(
+      cancelInvoiceSchema.parse({ reason: 'Duplicada', idempotencyKey: 'cancel-key' }),
+    ).toEqual({ reason: 'Duplicada', idempotencyKey: 'cancel-key' });
   });
 
   it.each([

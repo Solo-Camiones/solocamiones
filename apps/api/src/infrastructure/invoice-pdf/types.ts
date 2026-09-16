@@ -19,7 +19,14 @@ export type InvoicePdfFacts = {
   sellerName: string | null;
   confirmedAt: Date;
   dueDate: Date;
-  paymentState: 'PENDING' | 'OVERDUE' | 'PAID' | 'PAID_LATE' | 'CANCELLED';
+  paymentState:
+    | 'PENDING'
+    | 'PARTIALLY_PAID'
+    | 'OVERDUE'
+    | 'PARTIALLY_PAID_OVERDUE'
+    | 'PAID'
+    | 'PAID_LATE'
+    | 'CANCELLED';
   balance: string;
   generatedAt: Date;
   cancelledAt: Date | null;

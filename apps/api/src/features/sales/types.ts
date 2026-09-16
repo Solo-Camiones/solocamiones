@@ -63,17 +63,17 @@ export type UpdateDraftInvoiceRecord = {
 export type ListInvoicesQuery = {
   status?: InvoiceStatus;
   q?: string;
+  dateFrom?: string;
+  dateTo?: string;
   page: number;
   pageSize: number;
 };
 
 export type ListReceivablesQuery = {
   customerId?: string;
-  currency?: InvoiceCurrency;
-  paymentState?: 'PENDING' | 'OVERDUE';
+  invoice?: string;
   page: number;
   pageSize: number;
-  today: Date;
 };
 
 export type ReceivablesCustomerAggregate = {
@@ -172,7 +172,14 @@ export type InvoiceCustomerSnapshot = {
   phone: string | null;
 };
 
-export type PublicPaymentState = 'PENDING' | 'OVERDUE' | 'PAID' | 'PAID_LATE' | 'CANCELLED';
+export type PublicPaymentState =
+  | 'PENDING'
+  | 'PARTIALLY_PAID'
+  | 'OVERDUE'
+  | 'PARTIALLY_PAID_OVERDUE'
+  | 'PAID'
+  | 'PAID_LATE'
+  | 'CANCELLED';
 
 export type PublicInvoicePayment = {
   id: string;

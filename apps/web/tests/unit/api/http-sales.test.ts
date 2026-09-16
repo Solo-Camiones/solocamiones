@@ -117,10 +117,7 @@ describe('HTTP sales draft contract', () => {
         page: 1,
         pageSize: 10,
       });
-      expect(all.value.items.map((row) => row.number)).toEqual([
-        'FAC-000001',
-        'Borrador',
-      ]);
+      expect(all.value.items.map((row) => row.number)).toEqual(['FAC-000001', 'Borrador']);
       expect(all.value.items[0]).toMatchObject({
         status: 'COMPLETED',
         href: '/sales/cccccccc-cccc-4ccc-8ccc-cccccccccccc',
@@ -173,6 +170,48 @@ describe('HTTP sales draft contract', () => {
       value: { items: [{ number: 'FAC-000099' }], total: 1 },
     });
     expect(fetchMock.mock.calls[0]?.[0]).toBe('/api/sales?page=1&pageSize=10&q=FAC-000099');
+  });
+
+  it('sends the document date range so filtering happens before pagination', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(json({ items: [], total: 0, page: 1, pageSize: 10 }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await repository.listInvoices('COMPLETED', 1, '', {
+      dateFrom: '2026-09-01',
+      dateTo: '2026-09-30',
+    });
+
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      '/api/sales?status=COMPLETED&page=1&pageSize=10&dateFrom=2026-09-01&dateTo=2026-09-30',
+    );
+  });
+
+  it('sends the customer and invoice receivables filters in the HTTP query', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      json({
+        invoices: [],
+        customers: [],
+        total: 0,
+        page: 2,
+        pageSize: 10,
+      }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await repository.listReceivables(2, {
+      customerId: '11111111-1111-4111-8111-111111111111',
+      invoice: 'FAC-000099',
+    });
+
+    expect(result).toEqual({
+      ok: true,
+      value: { invoices: [], customers: [], total: 0, page: 2, pageSize: 10 },
+    });
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      '/api/sales/receivables?page=2&pageSize=10&customerId=11111111-1111-4111-8111-111111111111&invoice=FAC-000099',
+    );
   });
 
   it('creates a draft with CSRF and loads lookups on getDraft', async () => {
@@ -346,9 +385,9 @@ describe('HTTP sales draft contract', () => {
       type: 'GENERIC',
       unitPrice: '100.00',
     });
-    expect(JSON.parse(String((fetchMock.mock.calls[0]?.[1] as RequestInit).body))).not.toHaveProperty(
-      'costProvenance',
-    );
+    expect(
+      JSON.parse(String((fetchMock.mock.calls[0]?.[1] as RequestInit).body)),
+    ).not.toHaveProperty('costProvenance');
 
     expect(await repository.discardDraft(draftId)).toEqual({ ok: true, value: undefined });
     expect(fetchMock.mock.calls.some(([, init]) => init?.method === 'DELETE')).toBe(true);
@@ -598,9 +637,7 @@ describe('HTTP sales draft contract', () => {
     expect(await repository.getDraft(draftId)).toMatchObject({
       ok: true,
       value: {
-        services: [
-          { id: '99999999-9999-4999-8999-999999999999', name: 'Servicio histórico' },
-        ],
+        services: [{ id: '99999999-9999-4999-8999-999999999999', name: 'Servicio histórico' }],
       },
     });
   });
@@ -619,36 +656,39 @@ describe('HTTP sales draft contract', () => {
   it.each([
     { name: 'customers', failedPath: '/api/customers?' },
     { name: 'services', failedPath: '/api/catalogs/services' },
-  ])('returns an error when the $name lookup fails while loading a draft', async ({ failedPath }) => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(async (path: string) => {
-        const url = String(path);
-        if (url === `/api/sales/${draftId}`) return json(emptyInvoice);
-        if (url.startsWith('/api/customers?')) {
-          return failedPath === '/api/customers?'
-            ? json({ error: { code: 'INTERNAL' } }, 503)
-            : json({
-                items: [{ ...cashCustomer, address: null, notes: null, contacts: [] }],
-                total: 1,
-                page: 1,
-                pageSize: 10,
-              });
-        }
-        if (url === '/api/catalogs/services') {
-          return failedPath === url
-            ? json({ error: { code: 'INTERNAL' } }, 503)
-            : json({ items: [installation] });
-        }
-        throw new Error(`Unexpected ${path}`);
-      }),
-    );
+  ])(
+    'returns an error when the $name lookup fails while loading a draft',
+    async ({ failedPath }) => {
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(async (path: string) => {
+          const url = String(path);
+          if (url === `/api/sales/${draftId}`) return json(emptyInvoice);
+          if (url.startsWith('/api/customers?')) {
+            return failedPath === '/api/customers?'
+              ? json({ error: { code: 'INTERNAL' } }, 503)
+              : json({
+                  items: [{ ...cashCustomer, address: null, notes: null, contacts: [] }],
+                  total: 1,
+                  page: 1,
+                  pageSize: 10,
+                });
+          }
+          if (url === '/api/catalogs/services') {
+            return failedPath === url
+              ? json({ error: { code: 'INTERNAL' } }, 503)
+              : json({ items: [installation] });
+          }
+          throw new Error(`Unexpected ${path}`);
+        }),
+      );
 
-    expect(await repository.getDraft(draftId)).toMatchObject({
-      ok: false,
-      error: { code: 'INTERNAL' },
-    });
-  });
+      expect(await repository.getDraft(draftId)).toMatchObject({
+        ok: false,
+        error: { code: 'INTERNAL' },
+      });
+    },
+  );
 
   it('translates a fiscal identity conflict', async () => {
     vi.stubGlobal(
@@ -927,12 +967,16 @@ describe('HTTP sales draft contract', () => {
   });
 
   it.each([
-    ['payment', () => repository.addPayment({
-      invoiceId: draftId,
-      amount: 10,
-      method: 'CASH',
-      effectiveDate: '2026-09-10',
-    })],
+    [
+      'payment',
+      () =>
+        repository.addPayment({
+          invoiceId: draftId,
+          amount: 10,
+          method: 'CASH',
+          effectiveDate: '2026-09-10',
+        }),
+    ],
     ['cancellation', () => repository.cancelInvoice({ invoiceId: draftId, reason: 'Duplicada' })],
   ])('maps a failed %s mutation to an application error', async (_name, mutate) => {
     vi.stubGlobal(

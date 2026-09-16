@@ -1,6 +1,6 @@
 import type { HTMLAttributes, ReactNode } from 'react';
 
-type ChipTone = 'neutral' | 'brand' | 'amber' | 'success' | 'danger';
+type ChipTone = 'neutral' | 'brand' | 'violet' | 'orange' | 'amber' | 'success' | 'danger';
 
 export type ChipProps = HTMLAttributes<HTMLSpanElement> & {
   children: ReactNode;
@@ -10,6 +10,8 @@ export type ChipProps = HTMLAttributes<HTMLSpanElement> & {
 const toneClasses: Record<ChipTone, string> = {
   neutral: 'bg-navy-50 text-navy-700 border-navy-100',
   brand: 'bg-brand/10 text-brand-dark border-brand/30',
+  violet: 'bg-violet-50 text-violet-900 border-violet-200',
+  orange: 'bg-orange-50 text-orange-900 border-orange-200',
   amber: 'bg-amber-50 text-amber-900 border-amber-200',
   success: 'bg-emerald-50 text-emerald-900 border-emerald-200',
   danger: 'bg-red-50 text-red-900 border-red-200',

@@ -1,4 +1,5 @@
 import type { Invoice, InvoiceLine, Payment, PaymentState } from '../../api/contracts/entities';
+import { currentDemoTimeIso } from '../data/demo-clock';
 
 /** Tax-exclusive ITBIS rate added per taxable line when applyItbis is on. */
 export const ITBIS_RATE = 0.18;
@@ -63,26 +64,39 @@ export function invoiceTaxableBase(invoice: Invoice): number {
 }
 
 /**
- * Derives Unpaid / Partially Paid / Paid from the receipt ledger.
+ * Derives the public payment state from the receipt ledger and due date.
  * Seed FAC-000096 is marked PAID without rows; that marker is kept until a ledger exists.
  */
 export function derivePaymentState(invoice: Invoice): PaymentState {
   const paid = invoicePaid(invoice);
   const total = invoiceTotal(invoice);
 
+  if (invoice.status === 'CANCELLED') {
+    return 'CANCELLED';
+  }
+
   if (invoice.payments.length === 0 && invoice.paymentState === 'PAID') {
     return 'PAID';
   }
 
-  if (paid <= 0) {
-    return 'UNPAID';
-  }
-
   if (paid + Number.EPSILON >= total) {
-    return 'PAID';
+    const settledOn = invoice.payments
+      .filter((payment) => !isRefund(payment))
+      .map((payment) => payment.effectiveDate ?? payment.createdAt)
+      .sort()
+      .at(-1);
+    return settledOn && invoice.dueDate && utcCalendarDate(settledOn) > invoice.dueDate
+      ? 'PAID_LATE'
+      : 'PAID';
   }
 
-  return 'PARTIALLY_PAID';
+  const overdue = Boolean(
+    invoice.dueDate && utcCalendarDate(currentDemoTimeIso()) > invoice.dueDate,
+  );
+  if (paid > 0) {
+    return overdue ? 'PARTIALLY_PAID_OVERDUE' : 'PARTIALLY_PAID';
+  }
+  return overdue ? 'OVERDUE' : 'PENDING';
 }
 
 export function hasRecordedReceipts(invoice: Invoice): boolean {
@@ -94,7 +108,8 @@ export function hasRecordedReceipts(invoice: Invoice): boolean {
  * Relies on `paymentState` so a seed marked PAID without payment rows is not treated as CxC.
  */
 export function invoiceBalance(invoice: Invoice): number {
-  if (invoice.status !== 'COMPLETED' || invoice.paymentState === 'PAID') {
+  const state = derivePaymentState(invoice);
+  if (invoice.status !== 'COMPLETED' || state === 'PAID' || state === 'PAID_LATE') {
     return 0;
   }
 

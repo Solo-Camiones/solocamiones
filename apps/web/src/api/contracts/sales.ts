@@ -13,12 +13,12 @@ import type {
 import type { HierarchyNode } from './inventory';
 
 export type SalesListTab =
-  | 'ALL'
-  | 'DRAFT'
-  | 'QUOTE_DRAFT'
-  | 'QUOTE_ISSUED'
-  | 'COMPLETED'
-  | 'CANCELLED';
+  'ALL' | 'DRAFT' | 'QUOTE_DRAFT' | 'QUOTE_ISSUED' | 'COMPLETED' | 'CANCELLED';
+
+export type SalesListFilters = {
+  dateFrom?: string;
+  dateTo?: string;
+};
 
 export type SalesListRow = {
   id: string;
@@ -57,6 +57,11 @@ export type ReceivablesSnapshot = {
   total: number;
   page: number;
   pageSize: number;
+};
+
+export type ReceivablesFilters = {
+  customerId?: string;
+  invoice?: string;
 };
 
 export type InvoiceLineView = {

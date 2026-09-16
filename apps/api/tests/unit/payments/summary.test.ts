@@ -26,7 +26,7 @@ function payment(
 }
 
 describe('payment summary', () => {
-  it('keeps a partial balance pending through the end of its due date', () => {
+  it('marks a partial balance as partially paid through the end of its due date', () => {
     const summary = summarizePayments(
       {
         status: 'COMPLETED',
@@ -37,7 +37,7 @@ describe('payment summary', () => {
       new Date('2026-10-11T03:59:59.000Z'),
     );
 
-    expect(summary.state).toBe('PENDING');
+    expect(summary.state).toBe('PARTIALLY_PAID');
     expect(summary.balance.toFixed(2)).toBe('750.00');
   });
 
@@ -53,6 +53,21 @@ describe('payment summary', () => {
     );
 
     expect(summary.state).toBe('OVERDUE');
+  });
+
+  it('distinguishes an overdue partial balance from an unpaid overdue invoice', () => {
+    const summary = summarizePayments(
+      {
+        status: 'COMPLETED',
+        gross: new Prisma.Decimal('1000.00'),
+        dueDate: databaseDate('2026-10-10'),
+        payments: [payment('partial', '400.00', '2026-10-01')],
+      },
+      new Date('2026-10-11T04:00:00.000Z'),
+    );
+
+    expect(summary.state).toBe('PARTIALLY_PAID_OVERDUE');
+    expect(summary.balance.toFixed(2)).toBe('600.00');
   });
 
   it('uses the effective settlement date to distinguish paid late', () => {
@@ -111,7 +126,7 @@ describe('payment summary', () => {
       new Date('2099-01-01T12:00:00.000Z'),
     );
 
-    expect(summary.state).toBe('PENDING');
+    expect(summary.state).toBe('PARTIALLY_PAID');
     expect(summary.balance.toFixed(2)).toBe('750.00');
   });
 

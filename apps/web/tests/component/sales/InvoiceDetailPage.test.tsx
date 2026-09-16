@@ -79,7 +79,7 @@ describe('InvoiceDetailPage', () => {
     await user.type(screen.getByLabelText('Monto'), '5000');
     await user.click(screen.getByRole('button', { name: 'Confirmar pago' }));
 
-    expect(await screen.findByText('Pago parcial')).toBeVisible();
+    expect(await screen.findByText('Abonado')).toBeVisible();
     expect(screen.getAllByText(/por Administrador Demo/).length).toBeGreaterThan(0);
   });
 
@@ -206,7 +206,9 @@ describe('InvoiceDetailPage', () => {
     expect(created.ok).toBe(true);
     if (!created.ok) return;
     const quoteId = created.value.draftId;
-    expect((await mockSalesRepository.setDraftMeta({ draftId: quoteId, customerId: 'C1' })).ok).toBe(true);
+    expect(
+      (await mockSalesRepository.setDraftMeta({ draftId: quoteId, customerId: 'C1' })).ok,
+    ).toBe(true);
     expect(
       (
         await mockSalesRepository.addLine({

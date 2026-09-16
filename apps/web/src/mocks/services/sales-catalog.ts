@@ -3,6 +3,7 @@ import type {
   CustomerOutstandingRow,
   InvoiceDetailView,
   InvoiceLineView,
+  ReceivablesFilters,
   ReceivablesSnapshot,
   SalesListRow,
   SalesListTab,
@@ -11,6 +12,7 @@ import { LIST_PAGE_SIZE } from '../../api/contracts/pagination';
 import { can } from '../../shared/auth/policies';
 import {
   invoiceBalance,
+  derivePaymentState,
   invoicePaid,
   invoiceRefunded,
   invoiceTotal,
@@ -80,7 +82,7 @@ export function toSalesListRow(
     href: draftHref(invoice),
     ...(includePaymentSettlement &&
     (invoice.status === 'COMPLETED' || invoice.status === 'CANCELLED')
-      ? { paymentState: invoice.paymentState, balance: invoiceBalance(invoice) }
+      ? { paymentState: derivePaymentState(invoice), balance: invoiceBalance(invoice) }
       : {}),
   };
 }
@@ -124,16 +126,31 @@ export function buildSalesList(
     .filter((row) => matchesSalesSearch(row, q));
 }
 
-export function buildReceivables(state: AppState): ReceivablesSnapshot {
-  const invoices = [...state.invoices]
-    .filter((invoice) => invoice.status === 'COMPLETED' && invoiceBalance(invoice) > 0)
+export function buildReceivables(
+  state: AppState,
+  filters: ReceivablesFilters = {},
+): ReceivablesSnapshot {
+  const matchesBaseFilters = (invoice: Invoice) => {
+    if (invoice.status !== 'COMPLETED') return false;
+    if (filters.customerId && invoice.customerId !== filters.customerId) return false;
+    if (filters.invoice && invoice.number?.toUpperCase() !== filters.invoice.toUpperCase()) {
+      return false;
+    }
+    return true;
+  };
+  const matchingInvoices = [...state.invoices].filter(matchesBaseFilters);
+  const invoices = matchingInvoices
+    .filter((invoice) => invoiceBalance(invoice) > 0)
     .sort((left, right) =>
       (left.dueDate ?? left.createdAt).localeCompare(right.dueDate ?? right.createdAt),
     )
     .map((invoice) => toSalesListRow(state, invoice));
 
   const grouped = new Map<string, CustomerOutstandingRow>();
-  for (const row of invoices) {
+  const openRows = matchingInvoices
+    .filter((invoice) => invoiceBalance(invoice) > 0)
+    .map((invoice) => toSalesListRow(state, invoice));
+  for (const row of openRows) {
     const key = `${row.customerId}:${row.currency}`;
     const existing = grouped.get(key);
     if (existing) {
@@ -227,7 +244,7 @@ export function buildInvoiceDetail(
     total: invoiceTotal(invoice),
     ...(actor.role === 'ADMINISTRATOR'
       ? {
-          paymentState: invoice.paymentState,
+          paymentState: derivePaymentState(invoice),
           paid: invoicePaid(invoice),
           refunded: invoiceRefunded(invoice),
           balance: invoiceBalance(invoice),

@@ -125,9 +125,9 @@ describe('payments, due date, and cancellation HTTP', () => {
 
       expect(response.status).toBe(409);
       expect(response.body.error.message).toBe(PAYMENT_EXCEEDS_BALANCE_MESSAGE);
-      await expect(prisma.invoice.findUnique({ where: { id: draft.body.id } })).resolves.toMatchObject(
-        { status: 'DRAFT', number: null },
-      );
+      await expect(
+        prisma.invoice.findUnique({ where: { id: draft.body.id } }),
+      ).resolves.toMatchObject({ status: 'DRAFT', number: null });
       await expect(
         prisma.invoicePayment.count({ where: { invoiceId: draft.body.id } }),
       ).resolves.toBe(0);
@@ -195,7 +195,7 @@ describe('payments, due date, and cancellation HTTP', () => {
 
     expect(first.status).toBe(201);
     expect(first.body).toMatchObject({
-      paymentState: 'PENDING',
+      paymentState: 'PARTIALLY_PAID',
       paid: '250.00',
       balance: '750.00',
     });
@@ -247,20 +247,25 @@ describe('payments, due date, and cancellation HTTP', () => {
     expect(first.status).toBe(201);
     expect(mismatch.status).toBe(409);
     expect(mismatch.body.error.message).toBe(PAYMENT_IDEMPOTENCY_MISMATCH_MESSAGE);
-    await expect(prisma.invoicePayment.count({ where: { invoiceId: invoice.id } })).resolves.toBe(1);
+    await expect(prisma.invoicePayment.count({ where: { invoiceId: invoice.id } })).resolves.toBe(
+      1,
+    );
   });
 
   it('accepts a payment exactly equal to the outstanding balance', async () => {
     const seller = await fixture(request.agent(createTestApp()), 'ADMINISTRATOR');
     const invoice = await confirmInvoice(seller.agent);
 
-    const payment = await seller.agent.post(`${SALES}/${invoice.id}/payments`).set(CSRF).send({
-      amount: '1000.00',
-      method: 'CHECK',
-      effectiveDate: businessDateString(new Date(invoice.confirmedAt)),
-      reference: 'CHK-100',
-      idempotencyKey: randomUUID(),
-    });
+    const payment = await seller.agent
+      .post(`${SALES}/${invoice.id}/payments`)
+      .set(CSRF)
+      .send({
+        amount: '1000.00',
+        method: 'CHECK',
+        effectiveDate: businessDateString(new Date(invoice.confirmedAt)),
+        reference: 'CHK-100',
+        idempotencyKey: randomUUID(),
+      });
 
     expect(payment.status).toBe(201);
     expect(payment.body).toMatchObject({ paymentState: 'PAID', paid: '1000.00', balance: '0.00' });
@@ -277,31 +282,33 @@ describe('payments, due date, and cancellation HTTP', () => {
       idempotencyKey: randomUUID(),
     });
 
-    const overpayment = await seller.agent
-      .post(`${SALES}/${invoice.id}/payments`)
-      .set(CSRF)
-      .send({
-        amount: '100.01',
-        method: 'TRANSFER',
-        effectiveDate,
-        idempotencyKey: randomUUID(),
-      });
+    const overpayment = await seller.agent.post(`${SALES}/${invoice.id}/payments`).set(CSRF).send({
+      amount: '100.01',
+      method: 'TRANSFER',
+      effectiveDate,
+      idempotencyKey: randomUUID(),
+    });
 
     expect(overpayment.status).toBe(409);
     expect(overpayment.body.error.message).toBe(PAYMENT_EXCEEDS_BALANCE_MESSAGE);
-    await expect(prisma.invoicePayment.count({ where: { invoiceId: invoice.id } })).resolves.toBe(1);
+    await expect(prisma.invoicePayment.count({ where: { invoiceId: invoice.id } })).resolves.toBe(
+      1,
+    );
   });
 
   it('rejects payments while the invoice is still a draft', async () => {
     const seller = await fixture(request.agent(createTestApp()), 'ADMINISTRATOR');
     const draft = await seller.agent.post(SALES).set(CSRF).send({});
 
-    const payment = await seller.agent.post(`${SALES}/${draft.body.id}/payments`).set(CSRF).send({
-      amount: '1.00',
-      method: 'CASH',
-      effectiveDate: businessDateString(new Date()),
-      idempotencyKey: randomUUID(),
-    });
+    const payment = await seller.agent
+      .post(`${SALES}/${draft.body.id}/payments`)
+      .set(CSRF)
+      .send({
+        amount: '1.00',
+        method: 'CASH',
+        effectiveDate: businessDateString(new Date()),
+        idempotencyKey: randomUUID(),
+      });
 
     expect(payment.status).toBe(409);
     expect(payment.body.error.message).toBe(PAYMENT_COMPLETED_ONLY_MESSAGE);
@@ -348,16 +355,21 @@ describe('payments, due date, and cancellation HTTP', () => {
       const date = databaseDate(businessDateString(boundary));
       date.setUTCDate(date.getUTCDate() + (position === 'before confirmation' ? -1 : 1));
 
-      const payment = await seller.agent.post(`${SALES}/${invoice.id}/payments`).set(CSRF).send({
-        amount: '1.00',
-        method: 'CASH',
-        effectiveDate: databaseDateString(date),
-        idempotencyKey: randomUUID(),
-      });
+      const payment = await seller.agent
+        .post(`${SALES}/${invoice.id}/payments`)
+        .set(CSRF)
+        .send({
+          amount: '1.00',
+          method: 'CASH',
+          effectiveDate: databaseDateString(date),
+          idempotencyKey: randomUUID(),
+        });
 
       expect(payment.status).toBe(409);
       expect(payment.body.error.message).toBe(PAYMENT_DATE_RANGE_MESSAGE);
-      await expect(prisma.invoicePayment.count({ where: { invoiceId: invoice.id } })).resolves.toBe(0);
+      await expect(prisma.invoicePayment.count({ where: { invoiceId: invoice.id } })).resolves.toBe(
+        0,
+      );
     },
   );
 
@@ -453,12 +465,15 @@ describe('payments, due date, and cancellation HTTP', () => {
     const seller = await fixture(request.agent(app), 'SELLER');
     const admin = await fixture(request.agent(app), 'ADMINISTRATOR');
     const invoice = await confirmInvoice(seller.agent);
-    await admin.agent.post(`${SALES}/${invoice.id}/payments`).set(CSRF).send({
-      amount: '300.00',
-      method: 'CASH',
-      effectiveDate: businessDateString(new Date(invoice.confirmedAt)),
-      idempotencyKey: randomUUID(),
-    });
+    await admin.agent
+      .post(`${SALES}/${invoice.id}/payments`)
+      .set(CSRF)
+      .send({
+        amount: '300.00',
+        method: 'CASH',
+        effectiveDate: businessDateString(new Date(invoice.confirmedAt)),
+        idempotencyKey: randomUUID(),
+      });
 
     const cancellation = await admin.agent.post(`${SALES}/${invoice.id}/cancel`).set(CSRF).send({
       reason: 'Venta anulada',
@@ -472,7 +487,9 @@ describe('payments, due date, and cancellation HTTP', () => {
     await expect(prisma.invoice.findUnique({ where: { id: invoice.id } })).resolves.toMatchObject({
       status: 'COMPLETED',
     });
-    await expect(prisma.invoicePayment.count({ where: { invoiceId: invoice.id } })).resolves.toBe(1);
+    await expect(prisma.invoicePayment.count({ where: { invoiceId: invoice.id } })).resolves.toBe(
+      1,
+    );
   });
 
   it('cancels an unpaid invoice without inventing a refund movement', async () => {
@@ -494,7 +511,9 @@ describe('payments, due date, and cancellation HTTP', () => {
       refunded: '0.00',
       balance: '0.00',
     });
-    await expect(prisma.invoicePayment.count({ where: { invoiceId: invoice.id } })).resolves.toBe(0);
+    await expect(prisma.invoicePayment.count({ where: { invoiceId: invoice.id } })).resolves.toBe(
+      0,
+    );
   });
 
   it('rejects cancellation retry with a different idempotency key', async () => {
@@ -549,6 +568,69 @@ describe('payments, due date, and cancellation HTTP', () => {
     ]);
     expect(receivables.body.invoices.map((row: { id: string }) => row.id)).toEqual([open.id]);
     expect(receivables.body.invoices.map((row: { id: string }) => row.id)).not.toContain(paid.id);
+    expect(receivables.body.invoices[0].confirmedAt).toBe(open.confirmedAt);
+
+    const byNumber = await seller.agent.get(`${SALES}/receivables?invoice=${open.number}`);
+    expect(byNumber.status).toBe(200);
+    expect(byNumber.body.invoices.map((row: { id: string }) => row.id)).toEqual([open.id]);
+
+    const byUuid = await seller.agent.get(`${SALES}/receivables?invoice=${open.id}`);
+    expect(byUuid.status).toBe(400);
+
+    const byCustomer = await seller.agent.get(
+      `${SALES}/receivables?customerId=${open.customer.id}`,
+    );
+    expect(byCustomer.status).toBe(200);
+    expect(byCustomer.body.invoices.map((row: { id: string }) => row.id)).toEqual([open.id]);
+  });
+
+  it('filters overdue partial balances with the same state derived by invoice detail', async () => {
+    const admin = await fixture(request.agent(createTestApp()), 'ADMINISTRATOR');
+    const invoice = await confirmInvoice(admin.agent);
+    const yesterday = databaseDate(businessDateString(new Date()));
+    yesterday.setUTCDate(yesterday.getUTCDate() - 1);
+    await prisma.invoice.update({ where: { id: invoice.id }, data: { dueDate: yesterday } });
+
+    const payment = await admin.agent
+      .post(`${SALES}/${invoice.id}/payments`)
+      .set(CSRF)
+      .send({
+        amount: '250.00',
+        method: 'CASH',
+        effectiveDate: businessDateString(new Date()),
+        idempotencyKey: randomUUID(),
+      });
+    const receivables = await admin.agent.get(`${SALES}/receivables`);
+
+    expect(payment.status).toBe(201);
+    expect(payment.body).toMatchObject({
+      paymentState: 'PARTIALLY_PAID_OVERDUE',
+      paid: '250.00',
+      balance: '750.00',
+    });
+    expect(receivables.status).toBe(200);
+    expect(receivables.body.invoices).toEqual([
+      expect.objectContaining({
+        id: invoice.id,
+        paymentState: 'PARTIALLY_PAID_OVERDUE',
+        paid: '250.00',
+        balance: '750.00',
+      }),
+    ]);
+  });
+
+  it('rejects an invalid invoice filter at the HTTP boundary', async () => {
+    const admin = await fixture(request.agent(createTestApp()), 'ADMINISTRATOR');
+
+    const invalidInvoice = await admin.agent.get(`${SALES}/receivables?invoice=123`);
+    expect(invalidInvoice.status).toBe(400);
+
+    const retiredPaymentState = await admin.agent.get(`${SALES}/receivables?paymentState=PENDING`);
+    const retiredCurrency = await admin.agent.get(`${SALES}/receivables?currency=DOP`);
+    const retiredIssuedFrom = await admin.agent.get(`${SALES}/receivables?issuedFrom=2026-09-01`);
+    expect(retiredPaymentState.status).toBe(400);
+    expect(retiredCurrency.status).toBe(400);
+    expect(retiredIssuedFrom.status).toBe(400);
   });
 
   it('paginates open receivables while keeping the complete customer aggregate', async () => {

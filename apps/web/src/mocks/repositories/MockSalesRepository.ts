@@ -1,5 +1,6 @@
 import type { SalesRepository } from '../../api/contracts/repositories';
 import { toListPage } from '../../api/contracts/pagination';
+import { businessDateFromTimestamp } from '../../api/client/profitability-series';
 import type {
   AddDraftLineInput,
   AddPaymentInput,
@@ -36,22 +37,35 @@ import { requireAdministrator, requirePermission } from '../services/require-per
 import { cloneForRead, getMockState } from '../state';
 
 export class MockSalesRepository implements SalesRepository {
-  async listInvoices(tab: SalesListTab = 'ALL', page = 1, q = '') {
+  async listInvoices(
+    tab: SalesListTab = 'ALL',
+    page = 1,
+    q = '',
+    filters: Parameters<SalesRepository['listInvoices']>[3] = {},
+  ) {
     const permission = requirePermission('sales.manage');
     if (!permission.ok) {
       return permission;
     }
 
-    return ok(toListPage(cloneForRead(buildSalesList(getMockState(), tab, q, permission.value)), page));
+    const rows = buildSalesList(getMockState(), tab, q, permission.value).filter((row) => {
+      const documentDate = row.confirmedAt ?? row.quoteIssuedAt ?? row.createdAt;
+      const calendarDate = businessDateFromTimestamp(documentDate);
+      return (
+        (!filters.dateFrom || calendarDate >= filters.dateFrom) &&
+        (!filters.dateTo || calendarDate <= filters.dateTo)
+      );
+    });
+    return ok(toListPage(cloneForRead(rows), page));
   }
 
-  async listReceivables(page = 1) {
+  async listReceivables(page = 1, filters?: Parameters<SalesRepository['listReceivables']>[1]) {
     const permission = requireAdministrator();
     if (!permission.ok) {
       return permission;
     }
 
-    const snapshot = cloneForRead(buildReceivables(getMockState()));
+    const snapshot = cloneForRead(buildReceivables(getMockState(), filters));
     const paged = toListPage(snapshot.invoices, page);
     return ok({
       invoices: paged.items,
@@ -77,11 +91,17 @@ export class MockSalesRepository implements SalesRepository {
   }
 
   async getInvoicePdf() {
-    return err({ code: 'INTERNAL', message: 'El prototipo mock usa la vista previa HTML, no bytes de PDF.' });
+    return err({
+      code: 'INTERNAL',
+      message: 'El prototipo mock usa la vista previa HTML, no bytes de PDF.',
+    });
   }
 
   async regenerateInvoicePdf() {
-    return err({ code: 'INTERNAL', message: 'La regeneración de PDF no está disponible en el prototipo mock.' });
+    return err({
+      code: 'INTERNAL',
+      message: 'La regeneración de PDF no está disponible en el prototipo mock.',
+    });
   }
 
   async addPayment(input: AddPaymentInput) {

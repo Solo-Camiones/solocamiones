@@ -22,10 +22,7 @@ import {
   updateOwnProfileWithHttp,
   requestRecoveryWithHttp,
 } from '../client/auth-api';
-import {
-  listServicesWithHttp,
-  saveServiceWithHttp,
-} from '../client/catalogs-api';
+import { listServicesWithHttp, saveServiceWithHttp } from '../client/catalogs-api';
 import {
   getCustomerByIdWithHttp,
   listCustomersWithHttp,
@@ -218,12 +215,13 @@ export class HttpSalesRepository implements SalesRepository {
     tab?: Parameters<SalesRepository['listInvoices']>[0],
     page = 1,
     q?: string,
+    filters?: Parameters<SalesRepository['listInvoices']>[3],
   ) {
-    return listInvoicesWithHttp(tab, page, q);
+    return listInvoicesWithHttp(tab, page, q, filters);
   }
 
-  async listReceivables(page = 1) {
-    return listReceivablesWithHttp(page);
+  async listReceivables(page = 1, filters?: Parameters<SalesRepository['listReceivables']>[1]) {
+    return listReceivablesWithHttp(page, filters);
   }
 
   async getInvoice(id: string) {

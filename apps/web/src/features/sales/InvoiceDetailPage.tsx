@@ -62,10 +62,7 @@ export function InvoiceDetailPage() {
   const canManageWorkOrders = can(user, 'workOrders.manage');
   const isAdministrator = user?.role === 'ADMINISTRATOR';
   const canRegisterPayment =
-    isAdministrator &&
-    capabilities.payments &&
-    detail.actions.canPay &&
-    can(user, 'sales.manage');
+    isAdministrator && capabilities.payments && detail.actions.canPay && can(user, 'sales.manage');
   const canViewPaymentSettlement = isAdministrator;
 
   return (
@@ -160,11 +157,7 @@ export function InvoiceDetailPage() {
         {canViewPaymentSettlement &&
           detail.status === 'COMPLETED' &&
           capabilities.payments &&
-          detail.paymentState &&
-          detail.paymentState !== 'PENDING' &&
-          detail.paymentState !== 'UNPAID' && (
-            <PaymentChip state={detail.paymentState} />
-          )}
+          detail.paymentState && <PaymentChip state={detail.paymentState} />}
         {detail.fiscal ? <Chip tone="brand">Fiscal</Chip> : <Chip>Sin comprobante fiscal</Chip>}
         {detail.quoteNumber ? <Chip>Origen {detail.quoteNumber}</Chip> : null}
         <Chip>{detail.currency}</Chip>
@@ -278,29 +271,29 @@ export function InvoiceDetailPage() {
       <InvoiceHistory events={detail.history} />
 
       {canRegisterPayment && (
-      <PayModal
-        open={payOpen}
-        invoiceId={detail.id}
-        currency={detail.currency}
-        balance={detail.balance ?? 0}
-        confirmedAt={detail.confirmedAt}
-        isSaving={isMutating}
-        error={payOpen ? actionError : null}
-        onClose={() => {
-          if (!isMutating) {
+        <PayModal
+          open={payOpen}
+          invoiceId={detail.id}
+          currency={detail.currency}
+          balance={detail.balance ?? 0}
+          confirmedAt={detail.confirmedAt}
+          isSaving={isMutating}
+          error={payOpen ? actionError : null}
+          onClose={() => {
+            if (!isMutating) {
+              setPayOpen(false);
+              setActionError(null);
+            }
+          }}
+          onSubmit={async (input) => {
+            const response = await addPayment({ invoiceId: detail.id, ...input });
+            if (!response.ok) {
+              setActionError(response.error.message);
+              return;
+            }
             setPayOpen(false);
-            setActionError(null);
-          }
-        }}
-        onSubmit={async (input) => {
-          const response = await addPayment({ invoiceId: detail.id, ...input });
-          if (!response.ok) {
-            setActionError(response.error.message);
-            return;
-          }
-          setPayOpen(false);
-        }}
-      />
+          }}
+        />
       )}
 
       <CancelInvoiceModal

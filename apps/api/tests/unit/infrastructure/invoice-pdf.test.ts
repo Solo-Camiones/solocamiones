@@ -4,6 +4,7 @@ import {
   INVOICE_PDF_NCF_FIELD,
   pdfkitInvoicePdfRenderer,
 } from '../../../src/infrastructure/invoice-pdf/index.js';
+import { PAYMENT_STATE_LABEL } from '../../../src/infrastructure/invoice-pdf/pdfkit-renderer.js';
 
 const facts = {
   status: 'COMPLETED' as const,
@@ -115,5 +116,19 @@ describe('invoice PDF renderer (SALE-004)', () => {
     expect(text).not.toContain('(DIR)');
     expect(text).not.toContain('(WA)');
     expect(text).not.toContain('(MAIL)');
+  });
+
+  it.each([
+    ['PARTIALLY_PAID' as const, 'ABONADO'],
+    ['PARTIALLY_PAID_OVERDUE' as const, 'ABONADA VENCIDA'],
+  ])('prints the approved visible label for %s', async (paymentState, label) => {
+    const pdf = await pdfkitInvoicePdfRenderer.render({
+      ...facts,
+      paymentState,
+      templateVersion: 'internal-v3',
+    });
+
+    expect(PAYMENT_STATE_LABEL[paymentState]).toBe(label);
+    expect(pdf.subarray(0, 5).toString('latin1')).toBe('%PDF-');
   });
 });

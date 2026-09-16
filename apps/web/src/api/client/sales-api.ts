@@ -12,8 +12,10 @@ import type {
   InvoicePdfDownload,
   PosDraftView,
   PosLineView,
+  ReceivablesFilters,
   ReceivablesSnapshot,
   RemoveDraftLineInput,
+  SalesListFilters,
   SalesListRow,
   SalesListTab,
   SetDraftLinePriceInput,
@@ -94,7 +96,14 @@ type ApiInvoice = {
   cancelledAt: string | null;
   cancelReason: string | null;
   cancelledByName: string | null;
-  paymentState?: 'PENDING' | 'OVERDUE' | 'PAID' | 'PAID_LATE' | 'CANCELLED';
+  paymentState?:
+    | 'PENDING'
+    | 'PARTIALLY_PAID'
+    | 'OVERDUE'
+    | 'PARTIALLY_PAID_OVERDUE'
+    | 'PAID'
+    | 'PAID_LATE'
+    | 'CANCELLED';
   payments?: ApiPayment[];
   paid?: string;
   refunded?: string;
@@ -191,12 +200,17 @@ function toPosDraft(
 function invoiceListNumber(item: ApiInvoiceListItem): string {
   if (item.number) return item.number;
   if (item.quoteNumber) return item.quoteNumber;
-  return item.status === 'QUOTE_DRAFT' ? 'Cotización borrador' : item.status === 'DRAFT' ? 'Borrador' : 'Factura';
+  return item.status === 'QUOTE_DRAFT'
+    ? 'Cotización borrador'
+    : item.status === 'DRAFT'
+      ? 'Borrador'
+      : 'Factura';
 }
 
 function invoiceHref(item: ApiInvoiceListItem): string {
-  return item.status === 'DRAFT' ? `/sales/draft/${item.id}` :
-    item.status === 'QUOTE_DRAFT' || item.status === 'QUOTE_ISSUED'
+  return item.status === 'DRAFT'
+    ? `/sales/draft/${item.id}`
+    : item.status === 'QUOTE_DRAFT' || item.status === 'QUOTE_ISSUED'
       ? `/sales/quote/${item.id}`
       : `/sales/${item.id}`;
 }
@@ -387,6 +401,7 @@ function invoicesCollectionPath(
   page: number,
   status?: ApiInvoice['status'],
   q?: string,
+  filters: SalesListFilters = {},
 ): string {
   const params = new URLSearchParams();
   if (status) params.set('status', status);
@@ -394,6 +409,8 @@ function invoicesCollectionPath(
   params.set('pageSize', String(LIST_PAGE_SIZE));
   const normalized = q?.trim();
   if (normalized) params.set('q', normalized);
+  if (filters.dateFrom) params.set('dateFrom', filters.dateFrom);
+  if (filters.dateTo) params.set('dateTo', filters.dateTo);
   return `${SALES_PATH}?${params.toString()}`;
 }
 
@@ -472,11 +489,12 @@ export function listInvoicesWithHttp(
   tab: SalesListTab = 'ALL',
   page = 1,
   q?: string,
+  filters: SalesListFilters = {},
 ): Promise<Result<ListPage<SalesListRow>>> {
   return request(async () => {
     const status = tab === 'ALL' ? undefined : tab;
     const response = await httpClient<Page<ApiInvoiceListItem>>(
-      invoicesCollectionPath(page, status, q),
+      invoicesCollectionPath(page, status, q, filters),
     );
     return {
       items: response.items.map(toSalesListRow),
@@ -487,12 +505,17 @@ export function listInvoicesWithHttp(
   });
 }
 
-export function listReceivablesWithHttp(page = 1): Promise<Result<ReceivablesSnapshot>> {
+export function listReceivablesWithHttp(
+  page = 1,
+  filters: ReceivablesFilters = {},
+): Promise<Result<ReceivablesSnapshot>> {
   return request(async () => {
     const params = new URLSearchParams({
       page: String(page),
       pageSize: String(LIST_PAGE_SIZE),
     });
+    if (filters.customerId) params.set('customerId', filters.customerId);
+    if (filters.invoice) params.set('invoice', filters.invoice);
     const response = await httpClient<ApiReceivables>(`${SALES_PATH}/receivables?${params}`);
     return {
       invoices: response.invoices.map((item) => toSalesListRow(item)),
@@ -724,9 +747,7 @@ export function convertQuoteWithHttp(
       method: 'POST',
       headers: CSRF_HEADERS,
       body: JSON.stringify(
-        payment
-          ? { payment: { ...payment, amount: moneyString(payment.amount) } }
-          : {},
+        payment ? { payment: { ...payment, amount: moneyString(payment.amount) } } : {},
       ),
     }),
   );

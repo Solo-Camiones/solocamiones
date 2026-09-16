@@ -44,15 +44,15 @@ async function fixture(role: Role = 'ADMINISTRATOR') {
   return { user, agent };
 }
 
-async function createCreditCustomer(
-  agent: request.Agent,
-  overrides: Record<string, unknown> = {},
-) {
-  const created = await agent.post('/api/customers').set(CSRF).send({
-    ...validCreditCustomerBody(`Crédito ${randomUUID().slice(0, 8)}`),
-    rnc: uniqueCedula(),
-    ...overrides,
-  });
+async function createCreditCustomer(agent: request.Agent, overrides: Record<string, unknown> = {}) {
+  const created = await agent
+    .post('/api/customers')
+    .set(CSRF)
+    .send({
+      ...validCreditCustomerBody(`Crédito ${randomUUID().slice(0, 8)}`),
+      rnc: uniqueCedula(),
+      ...overrides,
+    });
   expect(created.status).toBe(201);
   return created.body as {
     id: string;
@@ -66,11 +66,14 @@ async function createPricedDraft(
   agent: request.Agent,
   input: { customerId: string; unitPrice: string; currency?: 'DOP' | 'USD'; fiscal?: boolean },
 ) {
-  const draft = await agent.post(SALES).set(CSRF).send({
-    customerId: input.customerId,
-    currency: input.currency ?? 'DOP',
-    fiscal: input.fiscal ?? true,
-  });
+  const draft = await agent
+    .post(SALES)
+    .set(CSRF)
+    .send({
+      customerId: input.customerId,
+      currency: input.currency ?? 'DOP',
+      fiscal: input.fiscal ?? true,
+    });
   expect(draft.status).toBe(201);
   const lined = await agent.post(`${SALES}/${draft.body.id}/lines`).set(CSRF).send({
     type: 'GENERIC',
@@ -100,9 +103,12 @@ describe('credit confirmation HTTP (CUST-004/005, SALE-005, PAY-001/002/007)', (
 
   it('rejects a named CASH customer without payment and does not allocate FAC-', async () => {
     const admin = await fixture();
-    const named = await admin.agent.post('/api/customers').set(CSRF).send({
-      name: `Contado ${randomUUID().slice(0, 8)}`,
-    });
+    const named = await admin.agent
+      .post('/api/customers')
+      .set(CSRF)
+      .send({
+        name: `Contado ${randomUUID().slice(0, 8)}`,
+      });
     expect(named.status).toBe(201);
     const draft = await createPricedDraft(admin.agent, {
       customerId: named.body.id,
@@ -195,7 +201,7 @@ describe('credit confirmation HTTP (CUST-004/005, SALE-005, PAY-001/002/007)', (
     expect(confirmed.body).toMatchObject({
       balance: '3000.00',
       paid: '2000.00',
-      paymentState: 'PENDING',
+      paymentState: 'PARTIALLY_PAID',
     });
     expect(confirmed.body.payments).toEqual([
       expect.objectContaining({ amount: '2000.00', method: 'CASH' }),
@@ -218,7 +224,10 @@ describe('credit confirmation HTTP (CUST-004/005, SALE-005, PAY-001/002/007)', (
       .post(`${SALES}/${fullDraft.id}/confirm`)
       .set(CSRF)
       .send(cashSaleFullPayment('5000.00'));
-    const omitted = await admin.agent.post(`${SALES}/${omittedDraft.id}/confirm`).set(CSRF).send({});
+    const omitted = await admin.agent
+      .post(`${SALES}/${omittedDraft.id}/confirm`)
+      .set(CSRF)
+      .send({});
 
     expect(paid.status).toBe(200);
     expect(paid.body).toMatchObject({ balance: '0.00', paid: '5000.00', paymentState: 'PAID' });
@@ -327,12 +336,15 @@ describe('credit confirmation HTTP (CUST-004/005, SALE-005, PAY-001/002/007)', (
     expect(listed.body.items[0].paymentState).toBeUndefined();
     expect(listed.body.items[0].balance).toBeUndefined();
 
-    const payment = await seller.agent.post(`${SALES}/${draft.id}/payments`).set(CSRF).send({
-      amount: '100.00',
-      method: 'CASH',
-      effectiveDate: confirmed.body.confirmedAt.slice(0, 10),
-      idempotencyKey: randomUUID(),
-    });
+    const payment = await seller.agent
+      .post(`${SALES}/${draft.id}/payments`)
+      .set(CSRF)
+      .send({
+        amount: '100.00',
+        method: 'CASH',
+        effectiveDate: confirmed.body.confirmedAt.slice(0, 10),
+        idempotencyKey: randomUUID(),
+      });
     expect(payment.status).toBe(403);
 
     const receivables = await seller.agent.get(`${SALES}/receivables`);
