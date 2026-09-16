@@ -12,7 +12,6 @@ Dismantling and Installation Work Orders, mobile Mechanic claiming/completion, B
 - QR/barcode labels and scan-assisted handling.
 - Guided physical counts, adjustments, and discrepancy review.
 - Expanded operational, inventory, sales, payment, and management reporting.
-- Quotes with controlled conversion to a sale.
 - Controlled bulk import and bulk editing.
 - Advanced workshop scheduling, prioritization, and workload planning beyond the MVP Work Order queue.
 
@@ -37,7 +36,7 @@ Dismantling and Installation Work Orders, mobile Mechanic claiming/completion, B
 - Advanced reservation expiration, queues, deposits, extensions, and approvals.
 - Advanced returns, exchanges, inspection-driven restoration, and customer-return logistics.
 - Warranty cases and claim history.
-- Accounts receivable, aging, statements, credit controls, and collections.
+- Accounts receivable aging, collections workflows, interest, installment plans, automated reminders, and bank reconciliation. Customer credit limits/terms, `ABONADO` payment labels, Administrator-only CxC, and account-statement PDF are in the confirmed pre-production change set (Features 08/12), not this roadmap.
 - Advanced approval rules and configurable operational permissions.
 - Advanced recovery automation and cross-system support tooling beyond the MVP's named recovery operations and consistency diagnostics.
 

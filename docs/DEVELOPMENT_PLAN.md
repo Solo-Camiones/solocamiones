@@ -55,6 +55,7 @@ Owner pulled **Release 3 financial work** into the local codebase before Release
 | Release 2 Billing Core (customers, service catalog, non-inventory lines, confirm/`FAC-`, PDF, cost/FX/profit, profitability HTTP) | Done | Done (M25 closed 2026-09-11) | Full demo including profit |
 | Release 3 payments, balances, basic CxC, non-inventory cancel/refund | **Pulled forward — done** (`InvoicePayment`, due date, `POST /payments`, `GET /receivables`, `POST /cancel`) | **Pulled forward — done** (pay, CxC `/receivables`, cancel). Confirm may record an initial payment | Done |
 | Release 3 remaining | **Still required** now that R2 is closed: Feature 12 open checklist (receivables filters by customer, invoice, payment state including Paid/Paid-late, date, and currency; UI must use API query params). Aging/collections stay deferred as specified. Inventory/WO cancellation is R5/R7, not this remainder. | Same filters on `/receivables` HTTP UI | — |
+| **Pre-production business change set** | **Specified 2026-09-15; not implemented.** Customer type/credit (`CUST-004`–`007`), tax-exclusive ITBIS (`SALE-009`/`010`), quotes (`QUOTE-001`/`002`), `ABONADO`/AR auth (`PAY-006`/`007`), statement (`STMT-001`), billing cost removal (`COST-006`), PDF profile (`DOC-001`). Complete this set and its stabilization **before** separate environment configuration. Source of truth is the feature files, sequenced in `docs/pre_production_business_changes/IMPLEMENTATION_PLAN.md`. | Not started | Prototype still shows tax-inclusive POS and Seller CxC until that work ships |
 | Release 3B Accounts Payable | Not started | Not started | Not in confirmed scope |
 | Release 4 inventory / quantity / inventory categories | **Not started** (no Item/Qty models) | Service catalog only; inventory category UI hidden | Registration, qty, category attributes |
 | Release 5 reservations and ITEM/QTY sales | **Not started**; ITEM/QTY draft lines return business **409** | Capabilities off | Lines, reserve, consume |
@@ -69,7 +70,26 @@ Owner pulled **Release 3 financial work** into the local codebase before Release
 - **Sales confirmation:** Billing Core plus pulled-forward optional initial payment and `dueDate` (Release 3). `Cliente contado` requires a full initial payment (owner 2026-09-11).
 - **Cancellation:** financial/non-inventory API+HTTP done; inventory restoration and Work-Order branches are mock-only until Releases 5/7.
 - **History:** envelope + user/customer/catalog/invoice confirmation/payment/PDF/cancellation events in the writing transaction; invoice detail GET + HTTP UI project that timeline (profit/FX Administrator-only). Draft meta and line add/update/remove are not appended and are hidden if already stored. No standalone history API; no per-item/order projections; ADMIN-002 mostly open.
-- **CxC:** ledger + open-receivables read model done; remaining Feature 12 filters are **still in scope** (implement now that R2 M25 is closed).
+- **CxC:** ledger + open-receivables read model done; remaining Feature 12 filters are **still in scope** (implement now that R2 M25 is closed). Pre-production adds Administrator-only AR, `ABONADO` states, issued date, and account-statement PDF (`PAY-006`, `PAY-007`, `STMT-001`) before environment configuration.
+
+---
+
+# Pre-production business change set (2026-09-15)
+
+Owner confirmed the rules in `docs/pre_production_business_changes/IMPLEMENTATION_PLAN.md`. **Paso 1 documentation is now in the feature files.** Do not implement from the plan file when a feature ID exists.
+
+This change set is **in front of** environment setup. It amends Release 2/3 behavior already in the local codebase:
+
+- ITBIS becomes optional base + 18% per line, separate from fiscal emission.
+- Customers gain internal `CASH`/`CREDIT` with DOP limit and term; existing named customers backfill as `CASH`.
+- New credit invoice due dates use the customer’s chosen term (30/45/60/90/120), not a universal +30 days.
+- Seller cannot create credit customers, collect later payments, or open CxC.
+- Quotes are pulled forward onto the sales aggregate (`COT-` then `FAC-`).
+- Partial-payment labels, issued date, and account-statement PDF are in scope.
+- Billing no longer captures acquisition cost; COST-005 remains the Administrator follow-up.
+- PDF re-download keeps historical money and applies current corporate presentation.
+
+Implementation order: documentation (done) → migration → customer authorization → ITBIS/cost capture → credit confirmation → quotes → CxC/states → statement PDF → invoice/quote PDFs → pre-environment gate.
 
 ---
 
@@ -265,6 +285,8 @@ Permissions:
 - Decimal-safe per-line calculations.
 - Invoice totals from already-rounded line values.
 
+Live API still uses tax-inclusive 18%. Target formula for the pre-production change set is SALE-010 (base + 18% when `Aplicar ITBIS` is on).
+
 ### Line types enabled in this release
 
 Enable line types that do **not** require inventory synchronization:
@@ -278,12 +300,13 @@ Do **not** enable tracked-item or quantity inventory lines yet.
 
 ### Tax/output
 
-- Fixed 18% included ITBIS for taxable merchandise lines.
+- Live API: fixed 18% included ITBIS for taxable merchandise lines.
+- Target (SALE-009/SALE-010): optional `Aplicar ITBIS`, tax-exclusive base + 18% per taxable line, independent of fiscal emission.
 - Service and delivery non-taxable.
 - Internal printable PDF.
 - Blank NCF field for external/manual process.
 - No DGII integration.
-- PDF regeneration from immutable invoice facts.
+- PDF regeneration from immutable invoice facts; current corporate profile on re-download (DOC-001).
 
 ### Cost/profitability needed by enabled lines
 
@@ -312,7 +335,7 @@ UI must not imply inventory synchronization for unsupported lines.
 
 - FAC concurrency/non-reuse.
 - DOP/USD single-currency validation.
-- tax-inclusive 18% calculations.
+- tax-exclusive 18% calculations once SALE-010 ships (until then, live tests still cover tax-inclusive behavior).
 - two-decimal per-line rounding.
 - immutable customer snapshot.
 - PDF failure/regeneration.
@@ -324,10 +347,10 @@ UI must not imply inventory synchronization for unsupported lines.
 
 A Seller can:
 
-1. select/create a customer or use Cliente contado where eligible;
+1. select/create a `CASH` customer or use Cliente contado where eligible;
 2. create a Draft;
-3. add supported non-inventory lines;
-4. confirm a valid DOP/USD invoice;
+3. add supported non-inventory lines without billing cost fields;
+4. confirm a valid DOP/USD **cash** invoice (credit confirmation is a later pre-production slice);
 5. receive a unique FAC number;
 6. print/regenerate the internal PDF;
 
@@ -362,8 +385,9 @@ The company can immediately track credit sales and know who owes money.
 - Same invoice currency.
 - Additive ledger.
 - Duplicate-submission protection.
-- Fixed due date at the end of the local calendar day 30 days after confirmation.
-- Derived Pending / Overdue / Paid / Paid late / Cancelled state.
+- Live API: fixed due date at the end of the local calendar day 30 days after confirmation.
+- Target (CUST-005 / SALE-005): **new credit invoices** due at confirmation + the customer’s chosen term (30, 45, 60, 90, or 120). Do not keep a universal +30 once customer terms exist. Historical completed invoices keep stored due dates.
+- Derived Pending / Partially paid / Overdue / Partially paid overdue / Paid / Paid late / Cancelled state (`PAY-006` target; live API still lacks the partial labels).
 - Derived outstanding balance.
 
 ### Basic Accounts Receivable
@@ -395,13 +419,13 @@ For invoices that have **no inventory effects**, implement:
 ## Intentionally deferred AR behavior
 
 - aging buckets;
-- credit limits;
 - interest;
 - installment plans;
 - collection workflow;
-- formal statements;
 - automatic reminders;
 - bank reconciliation.
+
+Pulled into the pre-production change set (no longer deferred): credit limits and customer terms (`CUST-004`–`CUST-006`), formal account statements (`STMT-001`).
 
 ## Exit gate
 
@@ -512,7 +536,7 @@ Register and find real stock accurately before linking it to invoice reservation
 
 - DOP acquisition cost.
 - actual / estimated / unknown.
-- Seller/Admin cost visibility.
+- Seller/Admin billing cost capture removed (`COST-006`); inventory cost remains later.
 - Administrator protected correction.
 - profitability access boundary.
 

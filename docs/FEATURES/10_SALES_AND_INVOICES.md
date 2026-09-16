@@ -2,7 +2,9 @@
 
 ## Status and authority
 
-**CONFIRMED.** This file is the implementation source of truth for requirement IDs: `SALE-001, SALE-002, SALE-003, SALE-004, SALE-005, SALE-006, SALE-007, SALE-008, LINE-001, LINE-002, LINE-003, LINE-004, LINE-005, LINE-006`.
+**CONFIRMED.** This file is the implementation source of truth for requirement IDs: `SALE-001, SALE-002, SALE-003, SALE-004, SALE-005, SALE-006, SALE-007, SALE-008, SALE-009, SALE-010, QUOTE-001, QUOTE-002, DOC-001, LINE-001, LINE-002, LINE-003, LINE-004, LINE-005, LINE-006`.
+
+`SALE-009`, `SALE-010`, `QUOTE-001`, `QUOTE-002`, and `DOC-001` were added 2026-09-15 for the pre-production business change set. `SALE-003` and `SALE-005` were amended the same day. This file is authoritative over `docs/pre_production_business_changes/IMPLEMENTATION_PLAN.md`.
 
 The old consolidated requirements/validation files are intentionally no longer required. If another retained document conflicts with a requirement block below, update that retained document rather than weakening this feature specification.
 
@@ -12,9 +14,11 @@ The old consolidated requirements/validation files are intentionally no longer r
 
 **Implementation (2026-09-10):** Release 2 non-inventory lines, confirm/`FAC-`, PDF generate/regenerate, and HTTP POS/detail/PDF are done. Invoice detail HTTP shows **document activity** from history (confirm, payment, PDF, cancel; not draft/line churn — Feature 14). Confirm may record a **pulled-forward** initial payment and `dueDate` (Feature 12). Release 5/7 checklist `[x]` items are **prototype mock**; HTTP API still rejects ITEM/QTY with 409.
 
+**Pre-production change set (2026-09-15):** Tax-exclusive ITBIS (`SALE-009`/`SALE-010`), cash/credit confirmation against customer type (`SALE-005` amended), convertible quotes (`QUOTE-001`/`QUOTE-002`), and corporate-vs-historical PDF presentation (`DOC-001`) are **specified and not yet implemented**. The live API still uses tax-inclusive 18% and treats named customers as credit-eligible.
+
 ## What this feature does
 
-Provide Draft/Completed/Cancelled internal invoices, a shared FAC sequence, DOP/USD single-currency behavior, validated line types, included ITBIS, printable PDF output, and atomic confirmation semantics.
+Provide Draft/Completed/Cancelled internal invoices, optional quote stages on the same aggregate, a shared `FAC-` sequence and independent `COT-` sequence, DOP/USD single-currency behavior, validated line types, optional base + 18% ITBIS separate from fiscal emission, printable PDF output, and atomic confirmation semantics.
 
 ## Architecture ownership
 
@@ -38,7 +42,7 @@ Controllers translate HTTP only. Business rules belong in services. Prisma/datab
 
 ### Recommended implementation shape
 
-Sales owns the invoice aggregate and immutable completed-sale snapshot. Use `Draft`, `Completed`, and `Cancelled` states. A Draft has no `FAC-` number; successful confirmation assigns the next unique never-reused number from one shared sequence such as `FAC-000001`.
+Sales owns the invoice aggregate and immutable completed-sale snapshot. Invoice states remain `Draft`, `Completed`, and `Cancelled`. Quote stages `QUOTE_DRAFT` and `QUOTE_ISSUED` occupy the same aggregate before conversion to `Completed` (QUOTE-001). A Draft or quote draft has no `FAC-` number; successful confirmation assigns the next unique never-reused number from one shared sequence such as `FAC-000001`. Issuing a quote assigns an independent never-reused `COT-` number.
 
 Use an explicit line-type discriminator rather than one ambiguous generic row. The validated line types are:
 
@@ -55,19 +59,23 @@ Each invoice uses exactly one currency (`DOP` or `USD`). Line amounts, invoice t
 
 Every line may include optional `notes`, independent of `description`. Notes are at most 100 characters, allow internal line breaks, treat blank/whitespace as absent, can be set when adding a line or edited in Draft (Seller and Administrator), freeze on Completed, and display below the description as secondary text on POS, invoice detail, and the internal PDF. Notes never change tax, inventory, or money.
 
-Taxable merchandise/product line prices are entered **tax-inclusive**. Derive taxable base and included 18% ITBIS; do not add 18% on top. Mechanical service and delivery are non-taxable. Calculate/round every line to two decimals first, then sum the already-rounded lines.
+Applying ITBIS is a separate draft flag from emitting a fiscal-value document (`SALE-009`). When `Aplicar ITBIS` is on, taxable merchandise/product line prices are the **tax-exclusive base**; add 18% per line (`SALE-010`). The flag defaults to off. Mechanical service and delivery remain non-taxable. Calculate/round every line to two decimals first, then sum the already-rounded lines. Existing drafts are recalculated under the new formula when the change ships; completed invoices keep stored money.
 
 Confirmation is a coordinating service/transaction. For inventory-backed paths it revalidates reservation, stock, hierarchy, `No desarmar`, and active physical operations before atomically committing sale state. Installed-item confirmation marks the piece `Sold` but keeps it `Installed` and creates/reuses a Dismantling Work Order; physical relation changes later at Work-Order completion.
 
-Invoice PDF rendering is secondary to sale validity. Preserve all invoice facts needed for deterministic regeneration, including confirmation seller, customer phone and fixed due date; historical rows leave non-reconstructable seller/phone snapshots blank. The current color template uses the Solo Camiones logo and fixed business identity, a sober industrial layout, line table, totals, current outstanding balance, thank-you message and Seller/Customer signature spaces. It includes a blank `NCF: ______________________` and never implies DGII/NCF/e-CF integration. Payment movements remain private in the invoice detail; the customer PDF shows only the current balance and the timestamp when that balance was calculated. A newly downloaded Cancelled invoice preserves original commercial facts and adds a prominent cancellation mark, reason, date and Administrator.
+Invoice PDF rendering is secondary to sale validity. Preserve all invoice facts needed for deterministic regeneration, including confirmation seller, customer phone and due date; historical rows leave non-reconstructable seller/phone snapshots blank. Commercial and monetary facts on a completed invoice are immutable (`DOC-001`). Issuer identity, social networks, and payment-instruction boilerplate use the **current** corporate profile when a historical PDF is downloaded again. The branded template uses the Solo Camiones logo, a sober industrial layout, line table, totals, current outstanding balance, thank-you message and Seller/Customer signature spaces. It includes a blank `NCF: ______________________` and never implies DGII/NCF/e-CF integration. Payment movements remain private in the invoice detail; the customer PDF shows only the current balance, derived payment label including `ABONADO` / `ABONADA VENCIDA` when applicable, and the timestamp when that balance was calculated. A newly downloaded Cancelled invoice preserves original commercial facts and adds a prominent cancellation mark, reason, date and Administrator. Quote PDFs use a separate template titled `COTIZACIÓN`.
 
 ## Feature-level acceptance criteria
 
 - Draft can be prepared without consuming/selling inventory until the relevant confirmation path.
 - Successful confirmation assigns one unique shared `FAC-` number that is never reused.
 - One invoice uses one DOP or USD currency; mixed-currency lines are rejected.
-- Tax-inclusive 18% calculations and per-line rounding are correct.
+- When `Aplicar ITBIS` is on, taxable lines use base + 18% with per-line rounding; when off, taxable lines have zero ITBIS.
+- Fiscal emission remains independent of `Aplicar ITBIS` and still requires qualifying customer identity.
 - Service and delivery remain non-taxable.
+- Cash customers settle in full at confirmation; credit is DOP-only for `CREDIT` customers and cannot exceed the limit.
+- Issued quotes receive unique `COT-` numbers, expire at end of day 30 in `America/Santo_Domingo`, and convert on the same aggregate to `FAC-`.
+- Re-downloaded historical PDFs keep stored money and apply current corporate presentation.
 - Generic line never silently creates/changes inventory.
 - PDF failure does not roll back or duplicate a valid sale; Administrator can regenerate it.
 - Independent, quantity, installed-component, and complete-assembly sale paths follow their validated atomic effects once their dependencies are implemented.
@@ -87,7 +95,7 @@ Invoice PDF rendering is secondary to sale validity. Preserve all invoice facts 
 - [x] Delivery paid/free/omitted line. _(prototipo mock — WM8; API draft HTTP — R2 M10)_
 - [x] Optional per-line notes (independent of description; Draft edit; frozen on confirm; POS, detail, PDF).
 - [x] External resale line if its cost dependency is enabled. _(prototipo mock — WM8; API draft HTTP — R2 M11)_
-- [x] Tax-inclusive 18% calculation and per-line rounding.
+- [x] Tax-inclusive 18% calculation and per-line rounding. _(current live API; superseded for new work by SALE-009/SALE-010 — do not treat this checkbox as the target formula)_
 - [x] Printable/regenerable branded internal PDF with logo, blank NCF, balance/state, pagination, signatures and Cancelled rendering. _(API template `internal-v3`; UI preview/download and Administrator regeneration)_
 - [x] Explicitly reject unavailable inventory-backed line actions until their feature release. _(API R2 M8: ITEM/QTY 409; POS HTTP M21: capabilities apagan ITEM/QTY)_
 
@@ -114,6 +122,14 @@ Invoice PDF rendering is secondary to sale validity. Preserve all invoice facts 
 - [x] Forced transaction failure leaves no partial sale/inventory/WO state. _(prototipo mock — validar todo antes de mutar; API R2 M12: fallo de history no consume `FAC-`)_
 - [x] Duplicate confirmation is idempotent or safely conflicts. _(API R2 M12: segundo POST → 200 y el mismo número)_
 
+### Pre-production tax, credit confirmation, quotes, and PDF (not implemented)
+
+- [ ] Separate `applyItbis` from fiscal emission; default the ITBIS checkbox off (SALE-009).
+- [ ] Tax-exclusive base + 18% per taxable line; preserve completed invoice money; recalculate open drafts (SALE-010).
+- [ ] Confirm cash vs credit against customer type, DOP-only credit, term snapshot, and credit limit inside the confirmation transaction (SALE-005, CUST-005).
+- [ ] Quote stages on the same aggregate, `COT-` sequence, expiry, duplicate, convert (QUOTE-001, QUOTE-002).
+- [ ] PDF `internal-v4` / quote template with DOC-001 immutable facts vs current corporate profile.
+
 ## Canonical validated requirements
 
 The blocks below are the final reconciled requirements retained from the previous consolidated catalog. Keep their IDs stable for tests, commits, and traceability.
@@ -126,7 +142,7 @@ The blocks below are the final reconciled requirements retained from the previou
 **Requirement:** Internal invoices must have Draft, Completed, and Cancelled states and exactly one currency, `DOP` or `USD`. A unique automatic number using `FAC-` plus an initially six-digit zero-padded sequence is assigned only when a valid Draft is successfully confirmed.  
 **Business Reason:** Sales need an editable preparation stage and immutable completed history.  
 **Main Flow:** Seller or Administrator creates a Draft, selects and may edit its currency, then confirms it or Administrator later cancels it through the cancellation flow. Successful confirmation atomically assigns the next number, such as `FAC-000001`.  
-**Business Rules:** Users never type the internal number; DOP and USD share one sequence; numbers are unique and never reused; cancelled invoices keep their original number; Completed invoices are not edited as drafts or physically deleted. Optional line `notes` may be added or edited only while Draft and become immutable with the completed document.  
+**Business Rules:** Users never type the internal number; DOP and USD share one `FAC-` sequence; numbers are unique and never reused; cancelled invoices keep their original number; Completed invoices are not edited as drafts or physically deleted. Optional line `notes` may be added or edited only while Draft and become immutable with the completed document. Quote stages on this same aggregate are specified in QUOTE-001 and do not consume `FAC-` until conversion/confirmation.  
 **Important Exceptions/Edge Cases:** Failed confirmation consumes no number. Draft currency is normally editable; completed currency follows INV-006 correction rules.  
 **Dependencies:** AUTH-001, HIST-001.  
 **Acceptance Notes:** Allowed state transitions preserve the original document and reject direct deletion.
@@ -151,17 +167,19 @@ The blocks below are the final reconciled requirements retained from the previou
 
 ### SALE-003 — Fiscal and Nonfiscal Internal Invoices
 
-**Name:** Internal invoices with included ITBIS  
+**Name:** Internal fiscal-value vs nonfiscal invoices  
 **Status:** CONFIRMED  
 **Actors:** Seller, Administrator  
-**Requirement:** The MVP must support internal nonfiscal and fiscal-value invoices; the entered final price includes fixed 18% ITBIS only for taxable merchandise/product lines, while mechanical service and delivery/shipping lines are non-taxable.  
-**Business Reason:** Most sales are nonfiscal, but the business also needs tax-bearing customer documents.  
+**Requirement:** The MVP must support internal nonfiscal and fiscal-value invoices. Fiscal emission requires a qualifying customer identity (CUST-002, CUST-007). Whether ITBIS is calculated is specified in SALE-009 and SALE-010 and is not implied by the fiscal checkbox.  
+**Business Reason:** Most sales are nonfiscal, but the business also needs tax-bearing customer documents without treating every taxed sale as a fiscal comprobante.  
 **Preconditions:** Required customer and line information is present.  
-**Main Flow:** User selects the document type; fiscal validation requires customer RNC/Cédula; for each line the system derives taxable base and included ITBIS from that line's final price and rounds that line's monetary results to two decimal places; invoice totals are then calculated from the already rounded line values, and line treatment and totals are snapshotted at confirmation.  
-**Business Rules:** Taxable merchandise includes tracked parts, quantity products, externally sourced resale parts, and generic merchandise; 18% is not Administrator-configurable; service and delivery retain their entered final amounts without ITBIS; invoice monetary values display and persist to two decimals. Rounding is a per-line calculation rule, not display formatting: each line is calculated and rounded individually before totals are summed, and rounding must not be deferred so that the only rounding happens at the final invoice total.  
-**Important Exceptions/Edge Cases:** A generic customer cannot complete a fiscal invoice without qualifying identity. Final PDF layout and legal/footer wording remain later output-design details; rounding order and numbering are resolved.  
-**Dependencies:** CUST-002, CUST-003, SALE-001, COST-002, LINE-001 through LINE-006.  
-**Acceptance Notes:** Taxable examples derive included 18% ITBIS from final price, while service and delivery examples produce no ITBIS. A multi-line invoice's totals equal the sum of the already rounded line values rather than a single rounding of unrounded arithmetic.
+**Main Flow:** User selects the document type; fiscal validation requires customer RNC/Cédula on a named qualifying customer; line money is calculated under SALE-009/SALE-010; line treatment and totals are snapshotted at confirmation.  
+**Business Rules:** The generic `Cliente contado` cannot complete a fiscal invoice. A named `CASH` customer with valid RNC/Cédula may. Service and delivery remain non-taxable under SALE-010 regardless of fiscal type. Invoice monetary values display and persist to two decimals.  
+**Important Exceptions/Edge Cases:** Final PDF layout and legal/footer wording do not reopen core invoice behavior. Rounding order lives in SALE-010.  
+**Dependencies:** CUST-002, CUST-003, CUST-007, SALE-001, SALE-009, SALE-010, COST-002, LINE-001 through LINE-006.  
+**Acceptance Notes:** Fiscal emission is rejected for generic `Cliente contado` even when `Aplicar ITBIS` is on. Named cash with valid RNC can emit fiscal. Selecting fiscal does not by itself add 18%.
+
+**Amended 2026-09-15:** Tax-inclusive 18% is no longer this ID’s rule. Calculation moved to SALE-009/SALE-010.
 
 ---
 
@@ -188,10 +206,12 @@ The blocks below are the final reconciled requirements retained from the previou
 **Requirement:** An invoice may be sold for immediate payment or on credit, including delivery before full payment, and must track its outstanding balance in the invoice's single currency.  
 **Business Reason:** Credit is normal business operation.  
 **Main Flow:** User records sale terms and initial payments; confirmation calculates the remaining balance.  
-**Business Rules:** Invoice state, payment state, and inventory state remain separate; all payments and balances use the invoice currency, while the preserved acquisition-cost basis remains in `DOP` under COST-001. `Cliente contado` (`isDefault`) is cash-only: confirmation must settle the gross total in the initial payment (owner decision 2026-09-11). Credit (zero or partial initial payment) remains valid only for named customers.  
-**Important Exceptions/Edge Cases:** A completed unpaid invoice still has Sold inventory. A valid sale also stands when a `USD` invoice's profitability is pending an exchange rate under COST-003. Confirming `Cliente contado` without a full initial payment is rejected.  
-**Dependencies:** SALE-002, PAY-001, PAY-002.  
-**Acceptance Notes:** Fully paid, partially paid, and unpaid completed invoices show correct balances.
+**Business Rules:** Invoice state, payment state, and inventory state remain separate; all payments and balances use the invoice currency, while the preserved acquisition-cost basis remains in `DOP` under COST-001. `CASH` customers, including generic `Cliente contado`, must settle the gross total at confirmation. Credit (remaining balance after confirmation) is allowed only for customers classified `CREDIT`, only in DOP, using that customer’s stored term and limit (CUST-004, CUST-005). Seller confirms credit with zero initial payment; Administrator may record a partial initial credit payment. A USD invoice cannot confirm with a remaining balance. Confirmation copies type and term onto the invoice; later customer edits do not rewrite them. Credit `dueDate` **replaces** the previous automatic +30 calendar days: it is the local confirmation date plus the snapshotted `creditTermDays` of that customer (30, 45, 60, 90, or 120), expiring at end of that day in `America/Santo_Domingo`. The actor cannot type a different due date on the invoice.  
+**Important Exceptions/Edge Cases:** A completed unpaid credit invoice still has Sold inventory. A valid sale also stands when a `USD` invoice's profitability is pending an exchange rate under COST-003. Confirming `CASH` without a full initial payment is rejected. Exceeding the credit limit is rejected even for Administrator. Cash sales must not appear as open receivables after confirmation. How `dueDate` is stored on a fully paid cash invoice (`confirmedAt`, `null`, or another persisted value) is an implementation choice in the confirmation milestone and must not create false open AR. Historical completed invoices keep the due date already stored under the old +30 rule.  
+**Dependencies:** SALE-002, CUST-004, CUST-005, PAY-001, PAY-002, PAY-007.  
+**Acceptance Notes:** Fully paid cash, Administrator partial-credit, and Seller unpaid-credit confirmations show correct balances. A `CREDIT` customer USD draft with remaining balance is rejected. Two concurrent credit confirmations cannot exceed the limit. Confirming credit for a customer whose term is 60 days yields due date confirmation+60, never confirmation+30 unless that customer’s term is 30.
+
+**Amended 2026-09-15:** Credit is no longer available to every named customer. New credit invoices no longer use a universal 30-day due date.
 
 ---
 
@@ -282,7 +302,7 @@ The blocks below are the final reconciled requirements retained from the previou
 **Actors:** Seller, Administrator  
 **Requirement:** Users may add a sale line with a brief free-form description for generic goods or materials not represented as inventory.  
 **Business Reason:** Customers sometimes buy miscellaneous metal or goods with no useful catalog identity.  
-**Main Flow:** User enters description, quantity if applicable, acquisition cost when known, and final price.  
+**Main Flow:** User enters description, quantity if applicable, and final price. Acquisition cost is not captured on the billing line (COST-006).  
 **Business Rules:** A generic line does not silently create or consume tracked inventory; generic merchandise is taxable under SALE-003.  
 **Important Exceptions/Edge Cases:** If stock tracking is required, register inventory and use LINE-001 or LINE-002 instead.  
 **Dependencies:** COST-001, COST-002, SALE-002.  
@@ -310,9 +330,9 @@ The blocks below are the final reconciled requirements retained from the previou
 **Name:** Sell externally sourced part  
 **Status:** CONFIRMED  
 **Actors:** Seller, Administrator  
-**Requirement:** Users may record a part bought elsewhere for immediate resale, including its `DOP` acquisition cost, description, and final selling price, without pretending it was existing stock.  
+**Requirement:** Users may record a part bought elsewhere for immediate resale, including description and final selling price, without pretending it was existing stock. Billing capture does not collect acquisition cost (COST-006).  
 **Business Reason:** The business sources unavailable parts from another seller and resells them at a margin.  
-**Main Flow:** User records external source description and cost, enters final price, and confirms the line.  
+**Main Flow:** User records external source description, enters final price, and confirms the line. Acquisition cost is not captured on the billing line until inventory-backed cost exists (COST-006).  
 **Business Rules:** Gross profit uses the line's preserved `DOP` acquisition cost under COST-003; the line does not decrement local inventory; the merchandise line is taxable under SALE-003.  
 **Important Exceptions/Edge Cases:** Supplier/purchasing management is outside MVP. A part bought elsewhere in another currency is entered as its DOP-equivalent cost; the employee converts it outside the application.  
 **Dependencies:** COST-001, COST-002, COST-003, SALE-002.  
@@ -332,3 +352,94 @@ The blocks below are the final reconciled requirements retained from the previou
 **Important Exceptions/Edge Cases:** No delivery line is required when delivery is not part of the invoice; charged delivery must use a positive numeric amount; concurrent attempts to add a second delivery line safely conflict without creating a duplicate.  
 **Dependencies:** SALE-002, COST-002.  
 **Acceptance Notes:** Charged delivery displays its positive amount; provided free delivery displays `RD$0`; an absent delivery creates no line; missing or blank descriptions are rejected; a second delivery line returns a conflict.
+
+---
+
+### SALE-009 — Apply ITBIS Independently of Fiscal Emission
+
+**Name:** Optional ITBIS flag separate from comprobante fiscal  
+**Status:** CONFIRMED  
+**Actors:** Seller, Administrator  
+**Requirement:** Drafts and quotes have an `applyItbis` flag, presented as `Aplicar ITBIS`, independent of the fiscal-document flag. It defaults to off. Future e-NCF integration is expected to make ITBIS always-on and must retire this temporary flag in a controlled change; that retirement is not this requirement.  
+**Business Reason:** The business needs to tax some nonfiscal sales and to emit fiscal documents without collapsing both decisions into one checkbox.  
+**Main Flow:** User may check `Aplicar ITBIS` and/or fiscal emission. Totals recalculate under SALE-010. Fiscal validation still uses CUST-007.  
+**Business Rules:** Default is unchecked. The flag is snapshotted on confirmation and on quote issue. Generic `Cliente contado` may have `applyItbis=true` and still cannot be fiscal.  
+**Important Exceptions/Edge Cases:** Unchecking the flag zeroes ITBIS on taxable lines without changing entered unit prices. Service and delivery stay non-taxable even when the flag is on.  
+**Dependencies:** SALE-003, SALE-010, CUST-007.  
+**Acceptance Notes:** New drafts open with ITBIS off. Checking only `Aplicar ITBIS` on `Cliente contado` adds 18% to taxable lines and still rejects fiscal emission. Checking only fiscal on a named customer with RNC does not add ITBIS unless `Aplicar ITBIS` is also on.
+
+---
+
+### SALE-010 — Tax-Exclusive Base Plus 18 Percent
+
+**Name:** Per-line base + 18% ITBIS  
+**Status:** CONFIRMED  
+**Actors:** Seller, Administrator  
+**Requirement:** When `applyItbis` is true, each taxable merchandise/product line uses the entered unit price as tax-exclusive base:
+
+```text
+base = round2(quantity * unitPrice)
+itbis = round2(base * 0.18)
+gross = base + itbis
+```
+
+When `applyItbis` is false, taxable lines have `itbis = 0` and `gross = base`. Mechanical service and delivery are always:
+
+```text
+base = round2(quantity * unitPrice)
+itbis = 0.00
+gross = base
+```
+
+**Business Reason:** The owner replaced tax-inclusive entry so the typed price is the base.  
+**Main Flow:** Each line is calculated and rounded to two decimals, then invoice totals sum those already-rounded lines. Do not compute 18% on the combined invoice subtotal.  
+**Business Rules:** Taxable merchandise includes tracked parts, quantity products, externally sourced resale parts, and generic merchandise. The 18% rate is not Administrator-configurable. Use decimal-safe money (`Prisma.Decimal` or equivalent); do not use binary floating point in the API. Completed (`COMPLETED`) invoices keep stored `base`, `itbis`, and `gross`; they are never recalculated on read or PDF regenerate. Open drafts (and quote drafts) are recalculated under this formula when the change is activated.  
+**Important Exceptions/Edge Cases:** Historical completed invoices that were stored under the previous tax-inclusive formula remain those stored amounts.  
+**Dependencies:** SALE-003, SALE-009, COST-002, LINE-001 through LINE-006.  
+**Acceptance Notes:** Taxable unit price `118.00` quantity `1` with ITBIS on yields base `118.00`, ITBIS `21.24`, gross `139.24`. Several taxable lines round individually; the invoice ITBIS equals the sum of line ITBIS, not `round2(sum(base) * 0.18)`. Service `118.00` yields ITBIS `0.00`. The same `118.00` with ITBIS off yields total `118.00`. A completed historical invoice whose stored gross was `118.00` still reads `118.00` after migration. POS, API, preview, and PDF show identical base, ITBIS, and total.
+
+---
+
+### QUOTE-001 — Convertible Quote on the Sale Aggregate
+
+**Name:** Quote draft, issued quote, and conversion to invoice  
+**Status:** CONFIRMED  
+**Actors:** Seller, Administrator  
+**Requirement:** A quote is a stage of the same sales aggregate that later becomes the invoice. States are `QUOTE_DRAFT → QUOTE_ISSUED → COMPLETED`. Conversion is a state transition, not a copy into a new draft. The resulting invoice keeps the same internal operation id, customer, currency, fiscal flags, `applyItbis`, lines, quantities, prices, and notes, assigns `FAC-`, and preserves the origin `COT-` number.  
+**Business Reason:** The owner must prepare a quote and continue that same operation through invoicing without rebuilding lines.  
+**Main Flow:** User creates a quote draft, edits it, issues it (assigns `COT-`), then converts it through the normal confirmation flow.  
+**Business Rules:** `QUOTE_DRAFT` is editable and has no `COT-`. Issue assigns the next unique never-reused `COT-000001`-style number and makes the quote immutable. Conversion runs the full confirmation rules (customer type, credit limit, stock when applicable, ITBIS, cash payment). Cash conversion requires full payment and method before assigning `FAC-`. Quotes do not record payments, create receivables, reserve inventory, or consume/sell inventory. Inventory availability is validated only at conversion. A completed invoice cannot return to quote. Retrying conversion is idempotent or returns a safe conflict without duplicating lines, `FAC-`, or `COT-`. History records create, issue, and convert with actor and timestamp.  
+**Important Exceptions/Edge Cases:** Do not model quote and invoice as two linked row sets. Do not overload invoice confirm with an ambiguous “maybe this is a quote” meaning; expose explicit issue/convert commands.  
+**Dependencies:** SALE-001, SALE-005, SALE-009, SALE-010, QUOTE-002, CUST-005, HIST-001.  
+**Acceptance Notes:** Issue yields `COT-000001` without `FAC-`. Convert assigns `FAC-` on the same id and shows origin `COT-000001`. A second convert returns the same `FAC-` or a conflict and does not duplicate lines. While issued, payment and receivables endpoints reject the operation.
+
+---
+
+### QUOTE-002 — Quote Validity, Duplicate, and Expiry
+
+**Name:** Thirty-day quote validity and duplicate-as-new  
+**Status:** CONFIRMED  
+**Actors:** Seller, Administrator  
+**Requirement:** An issued quote is valid through the end of calendar day 30 in `America/Santo_Domingo` after issue. It cannot be edited, reactivated, or converted after expiry. It may be duplicated into a new `QUOTE_DRAFT` that copies customer, currency, fiscal flags, `applyItbis`, lines, quantities, prices, and notes, and receives a new `COT-` only when that new quote is issued.  
+**Business Reason:** Quotes must expire predictably in business local time without silently mutating the issued document.  
+**Main Flow:** User issues a quote; after expiry, convert is rejected; duplicate creates a new editable quote.  
+**Business Rules:** The quote PDF title is `COTIZACIÓN` and must not add the phrase `NO ES FACTURA`. Money on the quote PDF uses SALE-010. Users never type `COT-` numbers.  
+**Important Exceptions/Edge Cases:** Duplicate does not alter the original issued quote. Expired quotes remain readable.  
+**Dependencies:** QUOTE-001, SALE-010, DOC-001.  
+**Acceptance Notes:** A quote issued 2026-09-15 is convertible through 2026-10-15 23:59:59 in `America/Santo_Domingo` and not after. Duplicate of `COT-000001` creates a draft with no number; issuing it yields `COT-000002`. Convert on an expired quote is rejected.
+
+---
+
+### DOC-001 — Immutable Commercial Facts vs Current Corporate Presentation
+
+**Name:** Historical invoice facts and current issuer profile  
+**Status:** CONFIRMED  
+**Actors:** Seller, Administrator (download); Administrator (maintain corporate profile)  
+**Requirement:** Re-downloading a historical invoice or quote PDF must keep stored commercial and monetary facts and apply the **current** corporate presentation profile.  
+**Business Reason:** Contact data and payment instructions change; issued prices, taxes, parties, and lines must not.  
+**Immutable facts:** customer snapshot, lines, quantities, prices, stored base/ITBIS/gross, currency, `FAC-` and origin `COT-`, business dates (`confirmedAt` / issue / due), cancellation mark/reason/date, and payment state derived from the ledger at generation time.  
+**Current presentation:** WhatsApp `809-875-3161 / 829-627-3168` (replace only the previous right-hand `809-212-7751`), email `solocamionessrl@gmail.com`, address abbreviation `Pdte.` not `Pte.`, TikTok `solo.camiones.srl`, centralized editable transfer template whose bank details remain operator-filled until confirmed, and cheques payable to `Solo Camiones`. Do not invent missing bank numbers.  
+**Business Rules:** Keep a versioned invoice template (`internal-v4` for the new monetary layout) and a separate quote template. Share one corporate profile rather than duplicating phones/email/networks per template. PDF must not print private payment movements or claim the system processes the payment. `ABONADO` and `ABONADA VENCIDA` appear on the invoice PDF when those derived states apply (PAY-006).  
+**Important Exceptions/Edge Cases:** Non-reconstructable historical seller/phone snapshots stay blank. Transfer details stay an editable placeholder until operations confirm them.  
+**Dependencies:** SALE-004, SALE-010, QUOTE-001, PAY-006.  
+**Acceptance Notes:** Regenerating an old completed invoice whose stored total is `118.00` still prints `118.00` and shows the new WhatsApp, email, `Pdte.`, TikTok, and cheque/transfer boilerplate. Quote PDF header is `COTIZACIÓN` and shows the same money rules as the future invoice.
