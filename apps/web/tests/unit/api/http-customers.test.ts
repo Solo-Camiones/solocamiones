@@ -5,6 +5,9 @@ import { httpCustomerRepository as repository } from '../../../src/api/http/repo
 const cashCustomer = {
   id: '11111111-1111-4111-8111-111111111111',
   name: 'Cliente contado',
+  customerType: 'CASH',
+  creditLimitDop: null,
+  creditTermDays: null,
   rnc: null,
   address: null,
   notes: null,
@@ -17,6 +20,9 @@ const cashCustomer = {
 const namedCustomer = {
   id: '22222222-2222-4222-8222-222222222222',
   name: 'Flota Este',
+  customerType: 'CREDIT',
+  creditLimitDop: '50000.00',
+  creditTermDays: 45,
   rnc: '131456789',
   address: 'Av. Principal',
   notes: null,
@@ -54,8 +60,21 @@ describe('HTTP customer management contract', () => {
     expect(result).toMatchObject({
       ok: true,
       value: [
-        { id: cashCustomer.id, name: 'Cliente contado', isDefault: true, contacts: [] },
-        { id: namedCustomer.id, name: 'Flota Este', rnc: '131456789' },
+        {
+          id: cashCustomer.id,
+          name: 'Cliente contado',
+          customerType: 'CASH',
+          isDefault: true,
+          contacts: [],
+        },
+        {
+          id: namedCustomer.id,
+          name: 'Flota Este',
+          customerType: 'CREDIT',
+          creditLimitDop: '50000.00',
+          creditTermDays: 45,
+          rnc: '131456789',
+        },
       ],
     });
     if (result.ok) {
@@ -69,22 +88,28 @@ describe('HTTP customer management contract', () => {
     expect(fetchMock.mock.calls[0][1].credentials).toBe('include');
   });
 
-  it('searches with q and loads a customer by id', async () => {
+  it('searches with q, customerType, and loads a customer by id', async () => {
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce(json({ items: [namedCustomer], total: 1, page: 1, pageSize: 10 }))
       .mockResolvedValueOnce(json(namedCustomer));
     vi.stubGlobal('fetch', fetchMock);
 
-    expect(await repository.search('  Este  ')).toMatchObject({
+    expect(await repository.search('  Este  ', 1, 'CREDIT')).toMatchObject({
       ok: true,
-      value: { items: [{ id: namedCustomer.id }], total: 1, page: 1 },
+      value: {
+        items: [{ id: namedCustomer.id, customerType: 'CREDIT', creditLimitDop: '50000.00' }],
+        total: 1,
+        page: 1,
+      },
     });
     expect(await repository.getById(namedCustomer.id)).toMatchObject({
       ok: true,
       value: { id: namedCustomer.id, name: 'Flota Este' },
     });
-    expect(fetchMock.mock.calls[0][0]).toBe('/api/customers?page=1&pageSize=10&q=Este');
+    expect(fetchMock.mock.calls[0][0]).toBe(
+      '/api/customers?page=1&pageSize=10&q=Este&customerType=CREDIT',
+    );
     expect(fetchMock.mock.calls[1][0]).toBe(`/api/customers/${namedCustomer.id}`);
   });
 
@@ -93,6 +118,9 @@ describe('HTTP customer management contract', () => {
     vi.stubGlobal('fetch', fetchMock);
     const input = {
       name: 'Flota Este',
+      customerType: 'CREDIT' as const,
+      creditLimitDop: '25000.00',
+      creditTermDays: 30 as const,
       rnc: '131-45678-9',
       contacts: [
         {
@@ -112,6 +140,9 @@ describe('HTTP customer management contract', () => {
     expect(fetchMock.mock.calls[0][1].method).toBe('POST');
     expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({
       name: 'Flota Este',
+      customerType: 'CREDIT',
+      creditLimitDop: '25000.00',
+      creditTermDays: 30,
       rnc: '131-45678-9',
       contacts: [
         {

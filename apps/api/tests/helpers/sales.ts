@@ -5,6 +5,17 @@ import type request from 'supertest';
 
 export const TEST_CSRF_HEADERS = { 'X-Requested-With': 'XMLHttpRequest' };
 
+/** Valid Administrator body for a CREDIT customer (CUST-004/CUST-005). */
+export function validCreditCustomerBody(name = `Crédito ${randomUUID().slice(0, 8)}`) {
+  return {
+    name,
+    rnc: '00112345678',
+    customerType: 'CREDIT' as const,
+    creditLimitDop: '10000.00',
+    creditTermDays: 60 as const,
+  };
+}
+
 /** Named customers may confirm unpaid (credit). Cliente contado may not. */
 export async function assignNamedCustomerForCredit(
   agent: request.Agent,

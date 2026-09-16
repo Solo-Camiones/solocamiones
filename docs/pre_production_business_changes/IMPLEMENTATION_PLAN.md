@@ -70,19 +70,21 @@ Cómo persistir `dueDate` en una venta **contado ya pagada** (`confirmedAt`, `nu
 
 ### Paso 3 — Implementar clientes y permisos base
 
+**Estado:** **Cerrado 2026-09-15** en código local (API write + UI/mock). El motor de confirmación de crédito sigue en Paso 5.
+
 **Requisitos cubiertos:** `H-02`, parte de `H-03`, `H-04` y `H-05`.
 
 **Tareas:**
 
-- Extender validación, repository, service, controller y contratos de clientes.
-- Permitir al Administrador crear/editar `CASH` y `CREDIT`.
-- Permitir al Vendedor crear únicamente `CASH`.
-- Exigir RNC/cédula, límite DOP y plazo a clientes `CREDIT`.
-- Permitir comprobante a cliente contado nombrado solo con identificación válida.
-- Bloquear cambio `CREDIT -> CASH` mientras exista saldo.
-- Registrar historial `before/after` de clasificación, límite y plazo.
-- Actualizar formulario, tabla y filtros de clientes sin añadir prefijos al nombre.
-- Añadir pruebas HTTP negativas para cambios de crédito por Vendedor.
+- [x] Extender validación, repository, service, controller y contratos de clientes.
+- [x] Permitir al Administrador crear/editar `CASH` y `CREDIT`.
+- [x] Permitir al Vendedor crear únicamente `CASH`.
+- [x] Exigir RNC/cédula, límite DOP y plazo a clientes `CREDIT`.
+- [x] Permitir comprobante a cliente contado nombrado solo con identificación válida.
+- [x] Bloquear cambio `CREDIT -> CASH` mientras exista saldo.
+- [x] Registrar historial `before/after` de clasificación, límite y plazo.
+- [x] Actualizar formulario, tabla y filtros de clientes sin añadir prefijos al nombre.
+- [x] Añadir pruebas HTTP negativas para cambios de crédito por Vendedor.
 
 **Gate:** ninguna llamada directa permite al Vendedor crear o modificar condiciones de crédito.
 

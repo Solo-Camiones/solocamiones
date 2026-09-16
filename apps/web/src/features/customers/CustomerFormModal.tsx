@@ -1,7 +1,11 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 
-import type { Customer } from '../../api/contracts/entities';
-import type { SaveCustomerContactInput, SaveCustomerInput } from '../../api/contracts/customers';
+import type { Customer, CustomerType, CreditTermDays } from '../../api/contracts/entities';
+import {
+  CREDIT_TERM_DAYS_OPTIONS,
+  type SaveCustomerContactInput,
+  type SaveCustomerInput,
+} from '../../api/contracts/customers';
 import {
   Button,
   Field,
@@ -9,13 +13,16 @@ import {
   Info,
   Input,
   ReviewSummary,
+  Select,
   Textarea,
   isFormDirty,
 } from '../../shared/ui';
+import { customerTypeLabel } from './customer-type-labels';
 
 export type CustomerFormModalProps = {
   open: boolean;
   customer: Customer | null;
+  canManageCredit: boolean;
   isSaving: boolean;
   error: string | null;
   fieldErrors?: Record<string, string>;
@@ -35,6 +42,9 @@ type ContactDraft = {
 
 type FormFields = {
   name: string;
+  customerType: CustomerType;
+  creditLimitDop: string;
+  creditTermDays: string;
   rnc: string;
   address: string;
   notes: string;
@@ -43,6 +53,9 @@ type FormFields = {
 
 const EMPTY_FIELDS: FormFields = {
   name: '',
+  customerType: 'CASH',
+  creditLimitDop: '',
+  creditTermDays: '',
   rnc: '',
   address: '',
   notes: '',
@@ -74,6 +87,7 @@ function firstError(
 export function CustomerFormModal({
   open,
   customer,
+  canManageCredit,
   isSaving,
   error,
   fieldErrors,
@@ -96,6 +110,9 @@ export function CustomerFormModal({
     const next: FormFields = customer
       ? {
           name: customer.name,
+          customerType: customer.customerType,
+          creditLimitDop: customer.creditLimitDop ?? '',
+          creditTermDays: customer.creditTermDays ? String(customer.creditTermDays) : '',
           rnc: customer.rnc ?? '',
           address: customer.address ?? '',
           notes: customer.notes ?? '',
@@ -191,8 +208,10 @@ export function CustomerFormModal({
     }));
   }
 
+  const isCredit = canManageCredit && fields.customerType === 'CREDIT';
+
   function savePayload(): SaveCustomerInput {
-    return {
+    const payload: SaveCustomerInput = {
       id: customer?.id,
       name: fields.name,
       rnc: fields.rnc,
@@ -200,6 +219,16 @@ export function CustomerFormModal({
       notes: fields.notes,
       contacts: toSaveContacts(fields.contacts),
     };
+
+    if (canManageCredit) {
+      payload.customerType = fields.customerType;
+      if (fields.customerType === 'CREDIT') {
+        payload.creditLimitDop = fields.creditLimitDop.trim();
+        payload.creditTermDays = Number(fields.creditTermDays) as CreditTermDays;
+      }
+    }
+
+    return payload;
   }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -235,6 +264,20 @@ export function CustomerFormModal({
             <ReviewSummary
               rows={[
                 { label: 'Nombre', value: fields.name },
+                ...(canManageCredit
+                  ? [
+                      { label: 'Tipo', value: customerTypeLabel(fields.customerType) },
+                      ...(fields.customerType === 'CREDIT'
+                        ? [
+                            { label: 'Límite de crédito (DOP)', value: fields.creditLimitDop },
+                            {
+                              label: 'Plazo (días)',
+                              value: fields.creditTermDays,
+                            },
+                          ]
+                        : []),
+                    ]
+                  : []),
                 { label: 'Identificación fiscal / cédula', value: fields.rnc },
                 { label: 'Dirección', value: fields.address },
                 { label: 'Notas', value: fields.notes },
@@ -288,10 +331,76 @@ export function CustomerFormModal({
             autoFocus
           />
         </Field>
+        {canManageCredit && (
+          <Field label="Tipo de cliente" htmlFor="customer-type" error={visibleError(['customerType'])}>
+            <Select
+              id="customer-type"
+              value={fields.customerType}
+              onChange={(event) => {
+                clearFieldError('customerType', 'creditLimitDop', 'creditTermDays', 'rnc');
+                const customerType = event.target.value as CustomerType;
+                setFields((current) => ({
+                  ...current,
+                  customerType,
+                  ...(customerType === 'CASH'
+                    ? { creditLimitDop: '', creditTermDays: '' }
+                    : {}),
+                }));
+              }}
+            >
+              <option value="CASH">Contado</option>
+              <option value="CREDIT">Crédito</option>
+            </Select>
+          </Field>
+        )}
+        {isCredit && (
+          <>
+            <Field
+              label="Límite de crédito (DOP)"
+              htmlFor="customer-credit-limit"
+              error={visibleError(['creditLimitDop'])}
+            >
+              <Input
+                id="customer-credit-limit"
+                inputMode="decimal"
+                value={fields.creditLimitDop}
+                onChange={(event) => {
+                  clearFieldError('creditLimitDop');
+                  setFields((current) => ({ ...current, creditLimitDop: event.target.value }));
+                }}
+                required
+              />
+            </Field>
+            <Field
+              label="Plazo de crédito (días)"
+              htmlFor="customer-credit-term"
+              error={visibleError(['creditTermDays'])}
+            >
+              <Select
+                id="customer-credit-term"
+                value={fields.creditTermDays}
+                onChange={(event) => {
+                  clearFieldError('creditTermDays');
+                  setFields((current) => ({ ...current, creditTermDays: event.target.value }));
+                }}
+                required
+              >
+                <option value="" disabled>
+                  Seleccione un plazo
+                </option>
+                {CREDIT_TERM_DAYS_OPTIONS.map((days) => (
+                  <option key={days} value={days}>
+                    {days} días
+                  </option>
+                ))}
+              </Select>
+            </Field>
+          </>
+        )}
         <Field
           label="Identificación fiscal / cédula"
           htmlFor="customer-rnc"
-          hint="Opcional en ventas no fiscales"
+          hint={isCredit ? 'Obligatorio para clientes a crédito' : 'Opcional en ventas no fiscales'}
           error={visibleError(['rnc'])}
         >
           <Input
@@ -301,6 +410,7 @@ export function CustomerFormModal({
               clearFieldError('rnc');
               setFields((current) => ({ ...current, rnc: event.target.value }));
             }}
+            required={isCredit}
           />
         </Field>
         <Field label="Dirección" htmlFor="customer-address" error={visibleError(['address'])}>

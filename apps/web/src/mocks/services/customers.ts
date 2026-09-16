@@ -1,18 +1,41 @@
 import {
+  CREDIT_TERM_DAYS_OPTIONS,
   DEFAULT_CASH_CUSTOMER_ID,
   type CustomerListRow,
   type SaveCustomerContactInput,
   type SaveCustomerInput,
 } from '../../api/contracts/customers';
-import type { AppState, Customer, CustomerContact } from '../../api/contracts/entities';
+import type { AppState, Customer, CustomerContact, CustomerType, Invoice, Role } from '../../api/contracts/entities';
 import { err, ok, type Result } from '../../shared/auth/types';
+import {
+  CASH_CREDIT_FIELDS_FORBIDDEN_MESSAGE,
+  CREDIT_CUSTOMER_DOWNGRADE_FORBIDDEN_MESSAGE,
+  CREDIT_FISCAL_REQUIRED_MESSAGE,
+  CREDIT_LIMIT_FORMAT_MESSAGE,
+  CREDIT_LIMIT_REQUIRED_MESSAGE,
+  CREDIT_TERM_REQUIRED_MESSAGE,
+  INSUFFICIENT_PERMISSIONS_MESSAGE,
+} from './customer-credit-messages';
 import { isValidEmail } from './email';
+import { invoiceBalance } from './invoice-money';
 
 const CUSTOMER_ID_PATTERN = /^C(\d+)$/;
+const CREDIT_TERM_VALUES = new Set<number>(CREDIT_TERM_DAYS_OPTIONS);
+const CREDIT_LIMIT_PATTERN = /^\d+(\.\d{1,2})?$/;
+const VALID_FISCAL_ID_DIGIT_COUNTS = new Set([9, 11]);
+
+export type PrepareCustomerSaveContext = {
+  actorRole: Role;
+  invoices: Invoice[];
+};
 
 function optionalText(value: string | undefined): string | undefined {
   const trimmed = value?.trim();
   return trimmed ? trimmed : undefined;
+}
+
+function isValidFiscalId(value: string): boolean {
+  return VALID_FISCAL_ID_DIGIT_COUNTS.has(value.replace(/\D/g, '').length);
 }
 
 function matchesQuery(customer: Customer, query: string): boolean {
@@ -27,6 +50,13 @@ function matchesQuery(customer: Customer, query: string): boolean {
   );
 }
 
+function matchesType(customer: Customer, customerType: CustomerType | undefined): boolean {
+  if (!customerType) {
+    return true;
+  }
+  return customer.customerType === customerType;
+}
+
 function sortDirectory(rows: CustomerListRow[]): CustomerListRow[] {
   return [...rows].sort((left, right) => {
     if (left.isDefault && !right.isDefault) {
@@ -39,10 +69,26 @@ function sortDirectory(rows: CustomerListRow[]): CustomerListRow[] {
   });
 }
 
-/** Directory rows; search is name or RNC/Cédula only. */
-export function buildCustomerDirectory(state: AppState, query = ''): CustomerListRow[] {
-  const rows = state.customers.filter((customer) => matchesQuery(customer, query));
+/** Directory rows; search is name or RNC/Cédula only, optionally filtered by type. */
+export function buildCustomerDirectory(
+  state: AppState,
+  query = '',
+  customerType?: CustomerType,
+): CustomerListRow[] {
+  const rows = state.customers.filter(
+    (customer) => matchesQuery(customer, query) && matchesType(customer, customerType),
+  );
   return sortDirectory(rows);
+}
+
+export function customerHasOpenReceivableBalance(customerId: string, invoices: Invoice[]): boolean {
+  return invoices.some(
+    (invoice) =>
+      invoice.customerId === customerId &&
+      invoice.status === 'COMPLETED' &&
+      invoice.currency === 'DOP' &&
+      invoiceBalance(invoice) > 0,
+  );
 }
 
 export function nextCustomerId(customers: Customer[]): string {
@@ -141,6 +187,75 @@ function prepareContacts(
   );
 }
 
+function parseCreditLimit(value: string | undefined): Result<string> {
+  const trimmed = value?.trim();
+  if (!trimmed) {
+    return err({ code: 'VALIDATION', message: CREDIT_LIMIT_REQUIRED_MESSAGE });
+  }
+  if (!CREDIT_LIMIT_PATTERN.test(trimmed) || Number(trimmed) <= 0) {
+    return err({ code: 'VALIDATION', message: CREDIT_LIMIT_FORMAT_MESSAGE });
+  }
+  return ok(trimmed);
+}
+
+function assertSellerCreditAccess(
+  input: SaveCustomerInput,
+  existing: Customer | undefined,
+): Result<void> {
+  if (input.customerType === 'CREDIT') {
+    return err({ code: 'FORBIDDEN', message: INSUFFICIENT_PERMISSIONS_MESSAGE });
+  }
+  if (input.creditLimitDop !== undefined || input.creditTermDays !== undefined) {
+    return err({ code: 'FORBIDDEN', message: INSUFFICIENT_PERMISSIONS_MESSAGE });
+  }
+  if (existing?.customerType === 'CREDIT') {
+    return err({ code: 'FORBIDDEN', message: INSUFFICIENT_PERMISSIONS_MESSAGE });
+  }
+  return ok(undefined);
+}
+
+function resolveCustomerType(
+  input: SaveCustomerInput,
+  existing: Customer | undefined,
+  actorRole: Role,
+): CustomerType {
+  if (actorRole === 'SELLER') {
+    return existing?.customerType ?? 'CASH';
+  }
+  return input.customerType ?? existing?.customerType ?? 'CASH';
+}
+
+function applyCreditFields(
+  customerType: CustomerType,
+  input: SaveCustomerInput,
+  existing: Customer | undefined,
+): Result<Pick<Customer, 'creditLimitDop' | 'creditTermDays'>> {
+  if (customerType === 'CASH') {
+    if (input.creditLimitDop !== undefined || input.creditTermDays !== undefined) {
+      return err({ code: 'VALIDATION', message: CASH_CREDIT_FIELDS_FORBIDDEN_MESSAGE });
+    }
+    return ok({});
+  }
+
+  const rnc = optionalText(input.rnc) ?? existing?.rnc;
+  if (!rnc || !isValidFiscalId(rnc)) {
+    return err({ code: 'VALIDATION', message: CREDIT_FISCAL_REQUIRED_MESSAGE, details: { issues: [{ path: 'rnc', message: CREDIT_FISCAL_REQUIRED_MESSAGE }] } });
+  }
+
+  const limitSource = input.creditLimitDop ?? existing?.creditLimitDop;
+  const limit = parseCreditLimit(limitSource);
+  if (!limit.ok) {
+    return limit;
+  }
+
+  const term = input.creditTermDays ?? existing?.creditTermDays;
+  if (term === undefined || !CREDIT_TERM_VALUES.has(term)) {
+    return err({ code: 'VALIDATION', message: CREDIT_TERM_REQUIRED_MESSAGE, details: { issues: [{ path: 'creditTermDays', message: CREDIT_TERM_REQUIRED_MESSAGE }] } });
+  }
+
+  return ok({ creditLimitDop: limit.value, creditTermDays: term });
+}
+
 /**
  * Validates create/edit and returns the record to upsert.
  * Caller persists; this function does not mutate state.
@@ -148,6 +263,7 @@ function prepareContacts(
 export function prepareCustomerSave(
   customers: Customer[],
   input: SaveCustomerInput,
+  context: PrepareCustomerSaveContext,
 ): Result<Customer> {
   const name = input.name.trim();
   if (!name) {
@@ -167,6 +283,31 @@ export function prepareCustomerSave(
     });
   }
 
+  if (context.actorRole === 'SELLER') {
+    const sellerCheck = assertSellerCreditAccess(input, existing);
+    if (!sellerCheck.ok) {
+      return sellerCheck;
+    }
+  }
+
+  const customerType = resolveCustomerType(input, existing, context.actorRole);
+
+  if (
+    existing?.customerType === 'CREDIT' &&
+    customerType === 'CASH' &&
+    customerHasOpenReceivableBalance(existing.id, context.invoices)
+  ) {
+    return err({
+      code: 'CONFLICT',
+      message: CREDIT_CUSTOMER_DOWNGRADE_FORBIDDEN_MESSAGE,
+    });
+  }
+
+  const creditFields = applyCreditFields(customerType, input, existing);
+  if (!creditFields.ok) {
+    return creditFields;
+  }
+
   const customerId = existing?.id ?? nextCustomerId(customers);
   const contactInput = input.contacts ?? existing?.contacts ?? [];
   const contacts = prepareContacts(customerId, contactInput);
@@ -177,10 +318,17 @@ export function prepareCustomerSave(
   const customer: Customer = {
     id: customerId,
     name,
+    customerType,
     rnc: optionalText(input.rnc),
     address: optionalText(input.address),
     notes: optionalText(input.notes),
     contacts: contacts.value,
+    ...(creditFields.value.creditLimitDop
+      ? { creditLimitDop: creditFields.value.creditLimitDop }
+      : {}),
+    ...(creditFields.value.creditTermDays
+      ? { creditTermDays: creditFields.value.creditTermDays }
+      : {}),
   };
 
   return ok(customer);

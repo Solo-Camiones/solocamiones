@@ -196,8 +196,8 @@ export class HttpCustomerRepository implements CustomerRepository {
     return listCustomersWithHttp();
   }
 
-  async search(query: string, page = 1) {
-    return searchCustomersWithHttp(query, page);
+  async search(query: string, page = 1, customerType?: 'CASH' | 'CREDIT') {
+    return searchCustomersWithHttp(query, page, customerType);
   }
 
   async getById(id: string) {

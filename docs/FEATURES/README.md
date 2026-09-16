@@ -58,7 +58,7 @@ Checklist `[x]` in a feature file may mean **prototype mock**, **production API*
 | `05_HIERARCHY_AND_BASELINE.md` | Assemblies, receipt baseline, completeness, No desarmar | Release 6 | **Not started** in API; prototype UI only |
 | `06_MECHANIC_WORK_ORDERS.md` | Desarme/Installation orders and evidence | Release 7 | **Not started** in API; prototype UI only |
 | `07_SEARCH_LOCATION_AND_PHOTOS.md` | Search, effective location, photos | Release 4/6 | **Not started** in API; prototype search UI only |
-| `08_CUSTOMERS.md` | Customers, Cliente contado, `CASH`/`CREDIT`, invoice snapshot | Release 2 + pre-production | **R2 done.** Type/limit/term columns + `CASH` backfill (Paso 2). HTTP create/edit credit remains Paso 3 |
+| `08_CUSTOMERS.md` | Customers, Cliente contado, `CASH`/`CREDIT`, invoice snapshot | Release 2 + pre-production | **R2 done.** Type/limit/term columns (Paso 2). Administrator/Seller write rules, directory filter, and credit history (Paso 3) |
 | `09_RESERVATIONS.md` | Draft-linked inventory reservations | Release 5 | **Not started** in API; some mock recovery UI `[x]` |
 | `10_SALES_AND_INVOICES.md` | Invoice lifecycle, quotes, line types, taxes, PDF, sale confirmation | Release 2/5/7 + pre-production | **R2 done** (non-inventory + tax-inclusive PDF). ITEM/QTY/installed **API not started**. Paso 2 added `applyItbis`, quote statuses/`COT-`, confirmation snapshots. SALE-009/010 and quote commands not implemented |
 | `11_COST_AND_PROFITABILITY.md` | DOP cost, profit, USD FX enrichment | Release 2/4/5 + pre-production | **API done** for invoice-line cost/FX/profit. **HTTP UI done (R2 M24)**. Billing cost capture withdrawal (`COST-006`) specified, not implemented |

@@ -125,7 +125,11 @@ export type InventoryRepository = {
 export type CustomerRepository = {
   /** Full directory for POS lookups. The customers page uses `search` with paging. */
   list(): Promise<Result<CustomerListRow[]>>;
-  search(query: string, page?: number): Promise<Result<ListPage<CustomerListRow>>>;
+  search(
+    query: string,
+    page?: number,
+    customerType?: 'CASH' | 'CREDIT',
+  ): Promise<Result<ListPage<CustomerListRow>>>;
   getById(id: string): Promise<Result<Customer>>;
   save(input: SaveCustomerInput): Promise<Result<Customer>>;
 };

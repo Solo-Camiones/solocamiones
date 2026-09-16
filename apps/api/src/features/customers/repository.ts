@@ -1,10 +1,15 @@
-import type { Customer, CustomerContact, Prisma } from '@prisma/client';
+import type { Customer, CustomerContact, CustomerType, Prisma } from '@prisma/client';
+import { Prisma as PrismaNamespace } from '@prisma/client';
 
 import { prisma } from '../../infrastructure/database/index.js';
 import { fiscalIdDigits } from './fiscal.js';
-import type { CreateCustomerRecord, UpdateCustomerRecord } from './types.js';
+import type {
+  CompletedInvoicePaymentSummary,
+  CreateCustomerRecord,
+  UpdateCustomerRecord,
+} from './types.js';
 
-type CustomerDatabase = Pick<Prisma.TransactionClient, 'customer' | 'customerContact'>;
+type CustomerDatabase = Pick<Prisma.TransactionClient, 'customer' | 'customerContact' | 'invoice'>;
 export type CustomerRecord = Customer & { contacts: CustomerContact[] };
 
 function contactCreates(contacts: NonNullable<CreateCustomerRecord['contacts']>) {
@@ -17,6 +22,11 @@ function contactCreates(contacts: NonNullable<CreateCustomerRecord['contacts']>)
   }));
 }
 
+function creditLimitData(value: string | null | undefined): PrismaNamespace.Decimal | null {
+  if (value == null) return null;
+  return new PrismaNamespace.Decimal(value);
+}
+
 export class CustomerRepository {
   constructor(private readonly database: CustomerDatabase = prisma) {}
 
@@ -27,6 +37,9 @@ export class CustomerRepository {
         rnc: input.rnc ?? null,
         address: input.address ?? null,
         notes: input.notes ?? null,
+        customerType: input.customerType ?? 'CASH',
+        creditLimitDop: creditLimitData(input.creditLimitDop),
+        creditTermDays: input.creditTermDays ?? null,
         contacts: input.contacts ? { create: contactCreates(input.contacts) } : undefined,
       },
       include: { contacts: true },
@@ -47,8 +60,25 @@ export class CustomerRepository {
     });
   }
 
-  async search(query: string | undefined, page: number, pageSize: number) {
-    const where = this.searchWhere(query);
+  findCompletedInvoicesWithPayments(customerId: string): Promise<CompletedInvoicePaymentSummary[]> {
+    return this.database.invoice.findMany({
+      where: { customerId, status: 'COMPLETED', currency: 'DOP' },
+      select: {
+        status: true,
+        gross: true,
+        dueDate: true,
+        payments: true,
+      },
+    }) as Promise<CompletedInvoicePaymentSummary[]>;
+  }
+
+  async search(
+    query: string | undefined,
+    page: number,
+    pageSize: number,
+    customerType?: CustomerType,
+  ) {
+    const where = this.searchWhere(query, customerType);
     const items = await this.database.customer.findMany({
       where,
       include: { contacts: true },
@@ -76,24 +106,39 @@ export class CustomerRepository {
         ...(input.rnc !== undefined ? { rnc: input.rnc } : {}),
         ...(input.address !== undefined ? { address: input.address } : {}),
         ...(input.notes !== undefined ? { notes: input.notes } : {}),
+        ...(input.customerType !== undefined ? { customerType: input.customerType } : {}),
+        ...(input.creditLimitDop !== undefined
+          ? { creditLimitDop: creditLimitData(input.creditLimitDop) }
+          : {}),
+        ...(input.creditTermDays !== undefined ? { creditTermDays: input.creditTermDays } : {}),
         ...(input.contacts ? { contacts: { create: contactCreates(input.contacts) } } : {}),
       },
       include: { contacts: true },
     });
   }
 
-  private searchWhere(query: string | undefined): Prisma.CustomerWhereInput {
-    const normalized = query?.trim();
-    if (!normalized) return {};
+  private searchWhere(
+    query: string | undefined,
+    customerType?: CustomerType,
+  ): Prisma.CustomerWhereInput {
+    const filters: Prisma.CustomerWhereInput[] = [];
+    if (customerType) filters.push({ customerType });
 
-    const digits = fiscalIdDigits(normalized);
-    const filters: Prisma.CustomerWhereInput[] = [
-      { name: { contains: normalized, mode: 'insensitive' } },
-      { rnc: { contains: normalized, mode: 'insensitive' } },
-    ];
-    if (digits && digits !== normalized) {
-      filters.push({ rnc: { contains: digits } });
+    const normalized = query?.trim();
+    if (normalized) {
+      const digits = fiscalIdDigits(normalized);
+      const textFilters: Prisma.CustomerWhereInput[] = [
+        { name: { contains: normalized, mode: 'insensitive' } },
+        { rnc: { contains: normalized, mode: 'insensitive' } },
+      ];
+      if (digits && digits !== normalized) {
+        textFilters.push({ rnc: { contains: digits } });
+      }
+      filters.push({ OR: textFilters });
     }
-    return { OR: filters };
+
+    if (filters.length === 0) return {};
+    if (filters.length === 1) return filters[0]!;
+    return { AND: filters };
   }
 }

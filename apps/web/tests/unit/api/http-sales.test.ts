@@ -6,6 +6,9 @@ import { toHttpAddLineBody } from '../../../src/api/client/sales-api';
 const cashCustomer = {
   id: '11111111-1111-4111-8111-111111111111',
   name: 'Cliente contado',
+  customerType: 'CASH',
+  creditLimitDop: null,
+  creditTermDays: null,
   rnc: null,
   isDefault: true,
 };

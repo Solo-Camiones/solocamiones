@@ -89,9 +89,16 @@ export type CustomerContact = {
   isPrimary?: boolean;
 };
 
+export type CustomerType = 'CASH' | 'CREDIT';
+
+export type CreditTermDays = 30 | 45 | 60 | 90 | 120;
+
 export type Customer = {
   id: string;
   name: string;
+  customerType: CustomerType;
+  creditLimitDop?: string;
+  creditTermDays?: CreditTermDays;
   rnc?: string;
   address?: string;
   notes?: string;

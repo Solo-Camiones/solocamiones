@@ -16,13 +16,15 @@ export class MockCustomerRepository implements CustomerRepository {
     return ok(cloneForRead(buildCustomerDirectory(getMockState(), '')));
   }
 
-  async search(query: string, page = 1) {
+  async search(query: string, page = 1, customerType?: 'CASH' | 'CREDIT') {
     const permission = requirePermission('customers.manage');
     if (!permission.ok) {
       return permission;
     }
 
-    return ok(toListPage(cloneForRead(buildCustomerDirectory(getMockState(), query)), page));
+    return ok(
+      toListPage(cloneForRead(buildCustomerDirectory(getMockState(), query, customerType)), page),
+    );
   }
 
   async getById(id: string) {
@@ -45,7 +47,10 @@ export class MockCustomerRepository implements CustomerRepository {
     }
 
     const state = getMockState();
-    const prepared = prepareCustomerSave(state.customers, input);
+    const prepared = prepareCustomerSave(state.customers, input, {
+      actorRole: permission.value.role,
+      invoices: state.invoices,
+    });
     if (!prepared.ok) {
       return prepared;
     }
