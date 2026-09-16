@@ -1,33 +1,35 @@
 import type { Invoice, InvoiceLine, Payment, PaymentState } from '../../api/contracts/entities';
 
-/** Included ITBIS rate — applied only when the invoice is fiscal and the line is taxable. */
-export const ITBIS_INCLUDED_RATE = 0.18;
+/** Tax-exclusive ITBIS rate added per taxable line when applyItbis is on. */
+export const ITBIS_RATE = 0.18;
 
 export function roundMoney(value: number): number {
   return Math.round((value + Number.EPSILON) * 100) / 100;
 }
 
-/** Final line price (tax-inclusive when fiscal). */
-export function lineGross(line: InvoiceLine): number {
+export function lineBase(line: InvoiceLine): number {
+  if (line.base != null) return line.base;
   return roundMoney(line.unitPrice * line.quantity);
 }
 
-/**
- * Included ITBIS extracted from the final price.
- * Non-fiscal invoices and non-taxable lines (service/delivery) yield 0.
- */
-export function lineItbis(line: InvoiceLine, fiscal: boolean): number {
-  if (!fiscal || !line.taxable) {
+export function lineItbis(line: InvoiceLine, applyItbis: boolean): number {
+  if (line.itbis != null) return line.itbis;
+  if (!applyItbis || !line.taxable) {
     return 0;
   }
 
-  const gross = lineGross(line);
-  const base = roundMoney(gross / (1 + ITBIS_INCLUDED_RATE));
-  return roundMoney(gross - base);
+  return roundMoney(lineBase(line) * ITBIS_RATE);
+}
+
+export function lineGross(line: InvoiceLine, applyItbis: boolean): number {
+  if (line.gross != null) return line.gross;
+  return roundMoney(lineBase(line) + lineItbis(line, applyItbis));
 }
 
 export function invoiceTotal(invoice: Invoice): number {
-  return roundMoney(invoice.lines.reduce((sum, line) => sum + lineGross(line), 0));
+  return roundMoney(
+    invoice.lines.reduce((sum, line) => sum + lineGross(line, invoice.applyItbis === true), 0),
+  );
 }
 
 export function isRefund(payment: Payment): boolean {
@@ -50,26 +52,14 @@ export function invoiceRefunded(invoice: Invoice): number {
   );
 }
 
-export function lineBase(line: InvoiceLine, fiscal: boolean): number {
-  const gross = lineGross(line);
-  if (!fiscal || !line.taxable) {
-    return gross;
-  }
-
-  return roundMoney(gross / (1 + ITBIS_INCLUDED_RATE));
-}
-
 export function invoiceItbis(invoice: Invoice): number {
   return roundMoney(
-    invoice.lines.reduce((sum, line) => sum + lineItbis(line, invoice.fiscal), 0),
+    invoice.lines.reduce((sum, line) => sum + lineItbis(line, invoice.applyItbis === true), 0),
   );
 }
 
-/** Sum of already-rounded line bases. Non-fiscal and non-taxable lines use gross as base. */
 export function invoiceTaxableBase(invoice: Invoice): number {
-  return roundMoney(
-    invoice.lines.reduce((sum, line) => sum + lineBase(line, invoice.fiscal), 0),
-  );
+  return roundMoney(invoice.lines.reduce((sum, line) => sum + lineBase(line), 0));
 }
 
 /**

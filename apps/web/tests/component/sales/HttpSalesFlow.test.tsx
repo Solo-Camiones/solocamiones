@@ -78,6 +78,7 @@ type ApiInvoice = {
   number: string | null;
   currency: 'DOP' | 'USD';
   fiscal: boolean;
+  applyItbis: boolean;
   customer: { id: string; name: string; rnc: string | null; isDefault: boolean };
   customerSnapshot: { name: string; rnc: string | null; phone: string | null } | null;
   confirmedAt: string | null;
@@ -128,6 +129,7 @@ function emptyInvoice(id = draftId): ApiInvoice {
     number: null,
     currency: 'DOP',
     fiscal: false,
+    applyItbis: false,
     customer: {
       id: cashCustomer.id,
       name: cashCustomer.name,
@@ -420,7 +422,7 @@ describe('M21 HTTP POS draft UI', () => {
 
     expect(await screen.findByRole('heading', { name: 'Punto de venta' })).toBeVisible();
     expect(screen.getByLabelText('Cliente')).toHaveTextContent(/Cliente contado/);
-    expect(screen.getByRole('checkbox')).toBeDisabled();
+    expect(screen.getByLabelText(/Factura con comprobante fiscal/)).toBeDisabled();
 
     await user.click(screen.getByRole('button', { name: 'Agregar línea' }));
     await user.click(await screen.findByLabelText('Tipo de línea'));
@@ -443,9 +445,9 @@ describe('M21 HTTP POS draft UI', () => {
     );
     expect(JSON.parse(genericCall![1].body)).toMatchObject({
       type: 'GENERIC',
-      costProvenance: 'UNKNOWN',
       unitPrice: '100.00',
     });
+    expect(JSON.parse(genericCall![1].body)).not.toHaveProperty('costProvenance');
 
     await user.click(screen.getByRole('button', { name: 'Agregar línea' }));
     await chooseSelectOption(user, 'Tipo de línea', 'SERVICE');
@@ -469,7 +471,6 @@ describe('M21 HTTP POS draft UI', () => {
     const externalDescription = screen.getByLabelText('Descripción');
     await user.clear(externalDescription);
     await user.type(externalDescription, 'Bomba comprada');
-    await user.type(screen.getByLabelText('Costo de adquisición en pesos (opcional)'), '20');
     await user.clear(screen.getByLabelText('Precio'));
     await user.type(screen.getByLabelText('Precio'), '80');
     await user.click(screen.getByRole('button', { name: 'Agregar' }));
@@ -482,9 +483,9 @@ describe('M21 HTTP POS draft UI', () => {
     });
     expect(JSON.parse(externalCall![1].body)).toMatchObject({
       type: 'EXTERNAL',
-      costProvenance: 'ACTUAL',
-      acquisitionCostDop: '20.00',
+      unitPrice: '80.00',
     });
+    expect(JSON.parse(externalCall![1].body)).not.toHaveProperty('acquisitionCostDop');
 
     await user.click(screen.getByLabelText('Moneda'));
     await user.click(screen.getByRole('option', { name: 'Dólares (USD)' }));

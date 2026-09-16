@@ -14,7 +14,7 @@ The old consolidated requirements/validation files are intentionally no longer r
 
 **Implementation (2026-09-10):** Release 2 non-inventory lines, confirm/`FAC-`, PDF generate/regenerate, and HTTP POS/detail/PDF are done. Invoice detail HTTP shows **document activity** from history (confirm, payment, PDF, cancel; not draft/line churn — Feature 14). Confirm may record a **pulled-forward** initial payment and `dueDate` (Feature 12). Release 5/7 checklist `[x]` items are **prototype mock**; HTTP API still rejects ITEM/QTY with 409.
 
-**Pre-production change set (2026-09-15):** Tax-exclusive ITBIS (`SALE-009`/`SALE-010`), cash/credit confirmation against customer type (`SALE-005` amended), convertible quotes (`QUOTE-001`/`QUOTE-002`), and corporate-vs-historical PDF presentation (`DOC-001`) are **specified and not yet implemented**. The live API still uses tax-inclusive 18% and treats named customers as credit-eligible.
+**Pre-production change set (2026-09-15):** Tax-exclusive ITBIS (`SALE-009`/`SALE-010`) is **implemented locally** (Paso 4). Cash/credit confirmation against customer type (`SALE-005` amended), convertible quotes (`QUOTE-001`/`QUOTE-002`), and corporate-vs-historical PDF presentation (`DOC-001`) remain later steps. Named customers are still treated as credit-eligible until Paso 5.
 
 ## What this feature does
 
@@ -95,7 +95,7 @@ Invoice PDF rendering is secondary to sale validity. Preserve all invoice facts 
 - [x] Delivery paid/free/omitted line. _(prototipo mock — WM8; API draft HTTP — R2 M10)_
 - [x] Optional per-line notes (independent of description; Draft edit; frozen on confirm; POS, detail, PDF).
 - [x] External resale line if its cost dependency is enabled. _(prototipo mock — WM8; API draft HTTP — R2 M11)_
-- [x] Tax-inclusive 18% calculation and per-line rounding. _(current live API; superseded for new work by SALE-009/SALE-010 — do not treat this checkbox as the target formula)_
+- [x] Tax-inclusive 18% calculation and per-line rounding. _(superseded live behavior; SALE-009/SALE-010 is the current formula)_
 - [x] Printable/regenerable branded internal PDF with logo, blank NCF, balance/state, pagination, signatures and Cancelled rendering. _(API template `internal-v3`; UI preview/download and Administrator regeneration)_
 - [x] Explicitly reject unavailable inventory-backed line actions until their feature release. _(API R2 M8: ITEM/QTY 409; POS HTTP M21: capabilities apagan ITEM/QTY)_
 
@@ -122,10 +122,10 @@ Invoice PDF rendering is secondary to sale validity. Preserve all invoice facts 
 - [x] Forced transaction failure leaves no partial sale/inventory/WO state. _(prototipo mock — validar todo antes de mutar; API R2 M12: fallo de history no consume `FAC-`)_
 - [x] Duplicate confirmation is idempotent or safely conflicts. _(API R2 M12: segundo POST → 200 y el mismo número)_
 
-### Pre-production tax, credit confirmation, quotes, and PDF (not implemented)
+### Pre-production tax, credit confirmation, quotes, and PDF
 
-- [ ] Separate `applyItbis` from fiscal emission; default the ITBIS checkbox off (SALE-009).
-- [ ] Tax-exclusive base + 18% per taxable line; preserve completed invoice money; recalculate open drafts (SALE-010).
+- [x] Separate `applyItbis` from fiscal emission; default the ITBIS checkbox off (SALE-009).
+- [x] Tax-exclusive base + 18% per taxable line; preserve completed invoice money; recalculate open drafts (SALE-010).
 - [ ] Confirm cash vs credit against customer type, DOP-only credit, term snapshot, and credit limit inside the confirmation transaction (SALE-005, CUST-005).
 - [ ] Quote stages on the same aggregate, `COT-` sequence, expiry, duplicate, convert (QUOTE-001, QUOTE-002). _(API Paso 2: estados/columnas/`COT` sequence; comandos en Paso 6)_
 - [ ] PDF `internal-v4` / quote template with DOC-001 immutable facts vs current corporate profile.

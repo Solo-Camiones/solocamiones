@@ -129,6 +129,7 @@ export type InvoiceDetailView = {
   customerRnc?: string;
   currency: Currency;
   fiscal: boolean;
+  applyItbis: boolean;
   lines: InvoiceLineView[];
   payments: PaymentView[];
   total: number;
@@ -210,8 +211,6 @@ export type PosLineView = {
   itemId?: string;
   qtyProductId?: string;
   serviceId?: string;
-  acquisitionCostDop?: number;
-  costProvenance: CostProvenance;
   installed?: boolean;
   parentName?: string;
   isAssembly?: boolean;
@@ -229,6 +228,7 @@ export type PosDraftView = {
   customerIsDefault: boolean;
   currency: Currency;
   fiscal: boolean;
+  applyItbis: boolean;
   lines: PosLineView[];
   totals: PosDraftTotals;
   customers: Array<{ id: string; name: string; rnc?: string; isDefault?: boolean }>;
@@ -253,8 +253,6 @@ export type AddDraftLineInput = {
   notes?: string;
   quantity?: number;
   unitPrice?: number;
-  acquisitionCostDop?: number;
-  costProvenance?: CostProvenance;
 };
 
 export type RemoveDraftLineInput = {
@@ -270,9 +268,6 @@ export type SetDraftLinePriceInput = {
   /** Free-form types only. */
   description?: string;
   notes?: string | null;
-  /** GENERIC / EXTERNAL only. */
-  acquisitionCostDop?: number | null;
-  costProvenance?: CostProvenance;
 };
 
 export type SetDraftLineQuantityInput = {
@@ -286,4 +281,5 @@ export type SetDraftMetaInput = {
   customerId?: string;
   currency?: Currency;
   fiscal?: boolean;
+  applyItbis?: boolean;
 };

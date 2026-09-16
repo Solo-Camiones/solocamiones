@@ -125,6 +125,7 @@ export class SalesRepository {
         status: 'DRAFT',
         currency: input.currency,
         fiscal: input.fiscal,
+        applyItbis: input.applyItbis,
         customerId: input.customerId,
       },
       include: invoiceDetailInclude,
@@ -212,6 +213,7 @@ export class SalesRepository {
       data: {
         ...(input.currency !== undefined ? { currency: input.currency } : {}),
         ...(input.fiscal !== undefined ? { fiscal: input.fiscal } : {}),
+        ...(input.applyItbis !== undefined ? { applyItbis: input.applyItbis } : {}),
         ...(input.customerId !== undefined ? { customerId: input.customerId } : {}),
       },
       include: invoiceDetailInclude,

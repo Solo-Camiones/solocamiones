@@ -35,12 +35,14 @@ export type CreateDraftInvoiceRecord = {
   customerId: string;
   currency: InvoiceCurrency;
   fiscal: boolean;
+  applyItbis: boolean;
 };
 
 export type UpdateDraftInvoiceRecord = {
   customerId?: string;
   currency?: InvoiceCurrency;
   fiscal?: boolean;
+  applyItbis?: boolean;
 };
 
 export type ListInvoicesQuery = {
@@ -205,8 +207,6 @@ export type PublicInvoiceLine = {
   gross: string;
   base: string;
   itbis: string;
-  acquisitionCostDop: string | null;
-  costProvenance: CostProvenance | null;
   serviceId: string | null;
   profitability?: PublicProfitability;
 };
@@ -236,6 +236,7 @@ export type PublicInvoice = {
   number: string | null;
   currency: InvoiceCurrency;
   fiscal: boolean;
+  applyItbis: boolean;
   customer: InvoiceCustomerView;
   customerSnapshot: InvoiceCustomerSnapshot | null;
   confirmedAt: string | null;
@@ -271,6 +272,7 @@ export type PublicInvoiceListItem = {
   number: string | null;
   currency: InvoiceCurrency;
   fiscal: boolean;
+  applyItbis: boolean;
   customer: InvoiceCustomerView;
   customerSnapshot: InvoiceCustomerSnapshot | null;
   confirmedAt: string | null;

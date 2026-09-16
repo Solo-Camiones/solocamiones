@@ -39,13 +39,11 @@ import {
 import { DEFAULT_LINE_QUANTITY } from './money/constants.js';
 import {
   calculateLineMoney,
-  normalizeAcquisitionCost,
   parsePositiveDecimal,
   sumInvoiceMoney,
 } from './money/index.js';
 import {
   assertCashCustomerPaidInFull,
-  assertDraftLineCostEditable,
   assertDraftLineDescriptionEditable,
   assertDraftLineQuantityEditable,
   assertDraftLineTypeEnabled,
@@ -101,26 +99,19 @@ function toMerchandiseDraftLine(profile: {
   notes?: string | null;
   quantity?: string;
   unitPrice: string;
-  costProvenance: 'ACTUAL' | 'ESTIMATED' | 'UNKNOWN';
-  acquisitionCostDop?: string | null;
 }): DraftLineWrite {
-  // GENERIC and EXTERNAL share COST-001: DOP cost + provenance, optional quantity.
   const quantity =
     profile.quantity === undefined
       ? DEFAULT_LINE_QUANTITY
       : parsePositiveDecimal(profile.quantity, 'quantity');
-  const cost = normalizeAcquisitionCost({
-    provenance: profile.costProvenance,
-    amount: profile.acquisitionCostDop,
-  });
   return {
     type: profile.type,
     description: profile.description,
     notes: profile.notes ?? null,
     quantity,
     unitPrice: profile.unitPrice,
-    acquisitionCostDop: cost.amount,
-    costProvenance: cost.provenance,
+    acquisitionCostDop: null,
+    costProvenance: 'UNKNOWN',
   };
 }
 
@@ -188,12 +179,14 @@ export class SalesService {
 
       const currency = profile.currency ?? DEFAULT_DRAFT_CURRENCY;
       const fiscal = profile.fiscal ?? false;
+      const applyItbis = profile.applyItbis ?? false;
       assertFiscalCustomer(customer, fiscal);
 
       const invoice = await sales.createDraft({
         customerId: customer.id,
         currency,
         fiscal,
+        applyItbis,
       });
       await history.append({
         actor: { actorType: 'USER', actorUserId: actorId },
@@ -273,6 +266,7 @@ export class SalesService {
         customerId: patch.customerId,
         currency: patch.currency,
         fiscal: patch.fiscal,
+        applyItbis: patch.applyItbis,
       });
       return toPublicInvoice(updated, actor);
     });
@@ -318,7 +312,7 @@ export class SalesService {
         type: line.type,
         unitPrice: line.unitPrice,
         quantity: line.quantity,
-        fiscal: existing.fiscal,
+        applyItbis: existing.applyItbis,
       });
 
       const updated = await sales.addLine({
@@ -347,9 +341,6 @@ export class SalesService {
       if (patch.description !== undefined) {
         assertDraftLineDescriptionEditable(line.type);
       }
-      if (patch.acquisitionCostDop !== undefined || patch.costProvenance !== undefined) {
-        assertDraftLineCostEditable(line.type);
-      }
 
       const unitPrice = patch.unitPrice ?? line.unitPrice;
       const quantity = patch.quantity ?? line.quantity;
@@ -357,22 +348,8 @@ export class SalesService {
         type: line.type,
         unitPrice,
         quantity,
-        fiscal: existing.fiscal,
+        applyItbis: existing.applyItbis,
       });
-
-      const costPatch =
-        patch.costProvenance === undefined
-          ? {}
-          : (() => {
-              const cost = normalizeAcquisitionCost({
-                provenance: patch.costProvenance,
-                amount: patch.acquisitionCostDop,
-              });
-              return {
-                acquisitionCostDop: cost.amount,
-                costProvenance: cost.provenance,
-              };
-            })();
 
       const updated = await sales.updateLine({
         invoiceId,
@@ -381,7 +358,6 @@ export class SalesService {
         ...(patch.quantity !== undefined ? { quantity: patch.quantity } : {}),
         ...(patch.description !== undefined ? { description: patch.description } : {}),
         ...(patch.notes !== undefined ? { notes: patch.notes } : {}),
-        ...costPatch,
       });
       const next = updated.lines.find((entry) => entry.id === lineId);
       if (!next) throw AppError.internal(LINE_NOT_FOUND_MESSAGE);
@@ -434,7 +410,7 @@ export class SalesService {
             type: line.type,
             unitPrice: line.unitPrice,
             quantity: line.quantity,
-            fiscal: existing.fiscal,
+            applyItbis: existing.applyItbis,
           }),
         }));
         const totals = sumInvoiceMoney(lineMoney.map((entry) => entry.money));

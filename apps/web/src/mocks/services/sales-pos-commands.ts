@@ -221,6 +221,7 @@ export function createDraft(state: AppState, actor: User): Result<CreateDraftRes
     customerId: CASH_CUSTOMER_ID,
     currency: 'DOP',
     fiscal: false,
+    applyItbis: false,
     lines: [],
     payments: [],
     paymentState: 'UNPAID',
@@ -375,15 +376,6 @@ export function addDraftLine(
   if (!unitPrice.ok) {
     return unitPrice;
   }
-  if (
-    input.acquisitionCostDop != null &&
-    (!Number.isFinite(input.acquisitionCostDop) || input.acquisitionCostDop < 0)
-  ) {
-    return err({
-      code: 'VALIDATION',
-      message: 'El costo de adquisición debe ser un número válido',
-    });
-  }
 
   draft.lines.push({
     id: nextLineId(draft),
@@ -394,14 +386,8 @@ export function addDraftLine(
     unitPrice: unitPrice.value,
     taxable: isTaxableLineType(input.type),
     pricePending: false,
-    acquisitionCostDop:
-      input.type === 'GENERIC' || input.type === 'EXTERNAL' ? input.acquisitionCostDop : undefined,
     costProvenance:
-      input.type === 'GENERIC' || input.type === 'EXTERNAL'
-        ? input.acquisitionCostDop == null
-          ? 'UNKNOWN'
-          : (input.costProvenance ?? 'ACTUAL')
-        : undefined,
+      input.type === 'GENERIC' || input.type === 'EXTERNAL' ? 'UNKNOWN' : undefined,
   });
   return ok(draft);
 }
@@ -464,22 +450,6 @@ export function setDraftLinePrice(
     }
   }
 
-  let acquisitionCostDop: number | null | undefined;
-  if (
-    input.acquisitionCostDop !== undefined &&
-    (line.type === 'GENERIC' || line.type === 'EXTERNAL')
-  ) {
-    if (input.acquisitionCostDop == null) {
-      acquisitionCostDop = null;
-    } else {
-      const cost = parseNonNegativeMoney(input.acquisitionCostDop);
-      if (!cost.ok) {
-        return cost;
-      }
-      acquisitionCostDop = cost.value;
-    }
-  }
-
   let quantity: number | undefined;
   if (input.quantity !== undefined) {
     if (!QUANTITY_EDITABLE_LINE_TYPES.has(line.type)) {
@@ -512,15 +482,6 @@ export function setDraftLinePrice(
     } else {
       delete line.notes;
     }
-  }
-  if (acquisitionCostDop === null) {
-    delete line.acquisitionCostDop;
-    line.costProvenance = 'UNKNOWN';
-  } else if (acquisitionCostDop !== undefined) {
-    line.acquisitionCostDop = acquisitionCostDop;
-    line.costProvenance = input.costProvenance ?? 'ACTUAL';
-  } else if (input.costProvenance !== undefined) {
-    line.costProvenance = input.costProvenance;
   }
 
   return ok(draftResult.value);
@@ -650,6 +611,10 @@ export function setDraftMeta(
       });
     }
     draft.fiscal = input.fiscal;
+  }
+
+  if (input.applyItbis != null) {
+    draft.applyItbis = input.applyItbis;
   }
 
   return ok(draft);

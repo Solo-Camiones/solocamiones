@@ -136,7 +136,7 @@ export function buildReceivables(state: AppState): ReceivablesSnapshot {
   };
 }
 
-function toLineView(line: Invoice['lines'][number], fiscal: boolean): InvoiceLineView {
+function toLineView(line: Invoice['lines'][number], applyItbis: boolean): InvoiceLineView {
   return {
     id: line.id,
     type: line.type,
@@ -145,9 +145,9 @@ function toLineView(line: Invoice['lines'][number], fiscal: boolean): InvoiceLin
     quantity: line.quantity,
     unitPrice: line.unitPrice,
     taxable: line.taxable,
-    gross: lineGross(line),
-    base: lineBase(line, fiscal),
-    itbis: lineItbis(line, fiscal),
+    gross: lineGross(line, applyItbis),
+    base: lineBase(line),
+    itbis: lineItbis(line, applyItbis),
   };
 }
 
@@ -176,7 +176,8 @@ export function buildInvoiceDetail(state: AppState, invoice: Invoice, actor: Use
     customerRnc: invoice.customerSnapshot?.rnc ?? customer?.rnc,
     currency: invoice.currency,
     fiscal: invoice.fiscal,
-    lines: invoice.lines.map((line) => toLineView(line, invoice.fiscal)),
+    applyItbis: invoice.applyItbis === true,
+    lines: invoice.lines.map((line) => toLineView(line, invoice.applyItbis === true)),
     payments: invoice.payments.map((payment) => ({
       id: payment.id,
       kind: payment.kind === 'REFUND' ? 'REFUND' : 'PAYMENT',

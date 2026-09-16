@@ -33,17 +33,32 @@ describe('sales catalog seed', () => {
     expect(fac099).toMatchObject({ paymentState: 'PARTIALLY_PAID', balance: 3_600, total: 7_200 });
   });
 
-  it('extracts included ITBIS only on fiscal taxable lines', () => {
+  it('preserves stored money for completed historical invoices', () => {
     const state = createInitialState();
     const fiscal = state.invoices.find((entry) => entry.id === 'INV-098')!;
     const nonFiscal = state.invoices.find((entry) => entry.id === 'INV-099')!;
 
     expect(invoiceTotal(fiscal)).toBe(19_500);
-    expect(lineBase(fiscal.lines[0], true)).toBe(16_525.42);
-    expect(lineItbis(fiscal.lines[0], true)).toBe(2_974.58);
-    expect(lineItbis(nonFiscal.lines[0], false)).toBe(0);
-    expect(lineBase(nonFiscal.lines[0], false)).toBe(7_200);
+    expect(lineBase(fiscal.lines[0]!)).toBe(16_525.42);
+    expect(lineItbis(fiscal.lines[0]!, false)).toBe(2_974.58);
+    expect(lineItbis(nonFiscal.lines[0]!, false)).toBe(0);
+    expect(lineBase(nonFiscal.lines[0]!)).toBe(7_200);
     expect(invoiceTotal(nonFiscal)).toBe(7_200);
+  });
+
+  it('adds 18% per taxable line when applyItbis is on', () => {
+    const line = {
+      id: 'L-TAX',
+      type: 'GENERIC' as const,
+      description: 'Filtro',
+      quantity: 1,
+      unitPrice: 118,
+      taxable: true,
+    };
+
+    expect(lineBase(line)).toBe(118);
+    expect(lineItbis(line, true)).toBe(21.24);
+    expect(lineItbis(line, false)).toBe(0);
   });
 
   it('omits profitability from seller projections', () => {

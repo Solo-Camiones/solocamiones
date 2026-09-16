@@ -15,11 +15,11 @@ export function TotalsPanel({ totals, currency }: TotalsPanelProps) {
         <dd className="font-medium text-navy">{totals.lineCount}</dd>
       </div>
       <div className="flex justify-between">
-        <dt className="text-navy-400">Base</dt>
+        <dt className="text-navy-400">Subtotal</dt>
         <dd className="font-medium text-navy">{money(totals.taxableBase, currency)}</dd>
       </div>
       <div className="flex justify-between">
-        <dt className="text-navy-400">ITBIS incluido</dt>
+        <dt className="text-navy-400">ITBIS</dt>
         <dd className="font-medium text-navy" data-testid="pos-itbis">
           {money(totals.itbis, currency)}
         </dd>

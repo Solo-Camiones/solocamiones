@@ -60,7 +60,7 @@ export class ProfitabilityService {
       const calculated = calculatedCompletedProfitability({
         status: existing.status,
         currency: existing.currency,
-        fiscal: existing.fiscal,
+        applyItbis: existing.applyItbis,
         lines: existing.lines.map((line) => ({
           type: line.type,
           unitPrice: line.unitPrice,

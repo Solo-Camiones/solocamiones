@@ -4,7 +4,6 @@ import type {
   AddPaymentInput,
   CancelInvoiceInput,
   ConfirmInvoicePayment,
-  CostProvenance,
   CorrectCurrencyInput,
   CreateDraftResult,
   CustomerOutstandingRow,
@@ -51,8 +50,6 @@ type ApiInvoiceLine = {
   gross: string;
   base: string;
   itbis: string;
-  acquisitionCostDop: string | null;
-  costProvenance: CostProvenance | null;
   serviceId: string | null;
 };
 
@@ -83,6 +80,7 @@ type ApiInvoice = {
   number: string | null;
   currency: 'DOP' | 'USD';
   fiscal: boolean;
+  applyItbis: boolean;
   customer: ApiCustomerView;
   createdAt: string;
   confirmedAt: string | null;
@@ -141,9 +139,6 @@ function toPosLine(line: ApiInvoiceLine): PosLineView {
     itbis: moneyNumber(line.itbis),
     base: moneyNumber(line.base),
     serviceId: line.serviceId ?? undefined,
-    acquisitionCostDop:
-      line.acquisitionCostDop == null ? undefined : moneyNumber(line.acquisitionCostDop),
-    costProvenance: line.costProvenance ?? 'UNKNOWN',
   };
 }
 
@@ -162,6 +157,7 @@ function toPosDraft(
     customerIsDefault: invoice.customer.isDefault,
     currency: invoice.currency,
     fiscal: invoice.fiscal,
+    applyItbis: invoice.applyItbis,
     lines: invoice.lines.map(toPosLine),
     totals: {
       lineCount: invoice.lines.length,
@@ -263,6 +259,7 @@ function toInvoiceDetail(invoice: ApiInvoice): InvoiceDetailView {
     customerRnc: optionalText(invoice.customer.rnc),
     currency: invoice.currency,
     fiscal: invoice.fiscal,
+    applyItbis: invoice.applyItbis,
     lines: invoice.lines.map((line) => ({
       id: line.id,
       type: line.type,
@@ -319,19 +316,6 @@ function toInvoiceDetail(invoice: ApiInvoice): InvoiceDetailView {
   };
 }
 
-function merchandiseCost(
-  acquisitionCostDop: number | undefined,
-  costProvenance: CostProvenance | undefined,
-) {
-  if (acquisitionCostDop == null || !Number.isFinite(acquisitionCostDop)) {
-    return { costProvenance: 'UNKNOWN' as const };
-  }
-  return {
-    costProvenance: costProvenance === 'ESTIMATED' ? ('ESTIMATED' as const) : ('ACTUAL' as const),
-    acquisitionCostDop: moneyString(acquisitionCostDop),
-  };
-}
-
 function optionalNotesBody(notes: string | null | undefined): { notes?: string | null } {
   if (notes === undefined) return {};
   const trimmed = notes?.trim() ?? '';
@@ -347,7 +331,6 @@ export function toHttpAddLineBody(input: AddDraftLineInput): Record<string, unkn
       description: input.description?.trim() ?? '',
       unitPrice: moneyString(input.unitPrice ?? 0),
       ...(input.quantity != null ? { quantity: moneyString(input.quantity) } : {}),
-      ...merchandiseCost(input.acquisitionCostDop, input.costProvenance),
       ...notes,
     };
   }
@@ -612,11 +595,6 @@ export function setDraftLinePriceWithHttp(
     const trimmed = input.notes?.trim() ?? '';
     body.notes = trimmed === '' ? null : trimmed;
   }
-  if (input.acquisitionCostDop !== undefined) {
-    body.acquisitionCostDop =
-      input.acquisitionCostDop == null ? null : moneyString(input.acquisitionCostDop);
-  }
-  if (input.costProvenance !== undefined) body.costProvenance = input.costProvenance;
 
   return mutateDraft(() =>
     httpClient<ApiInvoice>(`${SALES_PATH}/${input.draftId}/lines/${input.lineId}`, {
@@ -644,6 +622,7 @@ export function setDraftMetaWithHttp(input: SetDraftMetaInput): Promise<Result<P
   if (input.customerId !== undefined) body.customerId = input.customerId;
   if (input.currency !== undefined) body.currency = input.currency;
   if (input.fiscal !== undefined) body.fiscal = input.fiscal;
+  if (input.applyItbis !== undefined) body.applyItbis = input.applyItbis;
 
   return mutateDraft(() =>
     httpClient<ApiInvoice>(`${SALES_PATH}/${input.draftId}`, {

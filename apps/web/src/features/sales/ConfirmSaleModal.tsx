@@ -145,6 +145,7 @@ export function ConfirmSaleModal({
             { label: 'Identificación fiscal / cédula', value: draft.customerRnc ?? '' },
             { label: 'Moneda', value: currencyLabel(draft.currency) },
             { label: 'Comprobante fiscal', value: draft.fiscal ? 'Sí' : 'No' },
+            { label: 'Aplicar ITBIS', value: draft.applyItbis ? 'Sí' : 'No' },
             { label: 'Total', value: money(draft.totals.gross, draft.currency) },
             { label: 'ITBIS', value: money(draft.totals.itbis, draft.currency) },
           ]}

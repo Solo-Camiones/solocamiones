@@ -307,6 +307,14 @@ export function PosPage() {
                   }
                 });
               }}
+              onApplyItbisChange={(applyItbis) => {
+                setMetaError(null);
+                void pos.setMeta({ applyItbis }).then((response) => {
+                  if (!response.ok) {
+                    setMetaError(toPosUserMessage(response.error));
+                  }
+                });
+              }}
             />
           </Card>
           <Card>

@@ -61,7 +61,7 @@ describe('POS draft commands', () => {
     expect(state.facSeq).toBe(101);
   });
 
-  it('keeps ITBIS at 0 without fiscal flag and extracts included ITBIS when enabled', () => {
+  it('keeps ITBIS at 0 until applyItbis is enabled, independent of fiscal', () => {
     const state = createInitialState();
     const draft = state.invoices.find((entry) => entry.id === 'INV-DRAFT-01')!;
 
@@ -71,7 +71,12 @@ describe('POS draft commands', () => {
     const fiscal = setDraftMeta(state, seller, { draftId: 'INV-DRAFT-01', fiscal: true });
     expect(fiscal.ok).toBe(true);
     expect(invoiceTotal(draft)).toBe(31_600);
+    expect(invoiceItbis(draft)).toBe(0);
+
+    const taxed = setDraftMeta(state, seller, { draftId: 'INV-DRAFT-01', applyItbis: true });
+    expect(taxed.ok).toBe(true);
     expect(invoiceItbis(draft)).toBeGreaterThan(0);
+    expect(invoiceTotal(draft)).toBeGreaterThan(31_600);
   });
 
   it('rejects fiscal mode on Cliente Contado', () => {
@@ -405,9 +410,8 @@ describe('POS draft commands', () => {
       lineId: line.id,
       unitPrice: 125,
       quantity: 3,
-      description: 'Filtro de aire',
+      description: '',
       notes: 'Modificada',
-      acquisitionCostDop: Number.NaN,
     });
 
     expect(result.ok).toBe(false);

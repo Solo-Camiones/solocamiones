@@ -40,23 +40,26 @@ function calculated(profit: Prisma.Decimal, sellingPrice: Prisma.Decimal): Profi
   };
 }
 
-export function sellingPriceOf(line: LineProfitInput, fiscal: boolean): Prisma.Decimal {
-  if (line.gross != null) return line.gross;
-  return calculateLineMoney({
+export function sellingPriceOf(line: LineProfitInput, applyItbis: boolean): Prisma.Decimal {
+  if (applyItbis && line.base != null) return line.base;
+  if (!applyItbis && line.gross != null) return line.gross;
+
+  const money = calculateLineMoney({
     type: line.type,
     unitPrice: line.unitPrice,
     quantity: line.quantity,
-    fiscal,
-  }).gross;
+    applyItbis,
+  });
+  return applyItbis ? money.base : money.gross;
 }
 
 /**
- * Gross profit in DOP: selling price (line gross) minus known acquisition cost.
+ * Gross profit in DOP: tax-exclusive selling price minus known acquisition cost.
  * SERVICE/DELIVERY have no COGS, so the selling price is the profit.
  * UNKNOWN cost is never treated as zero.
  */
-export function calculateLineProfitDop(line: LineProfitInput, fiscal: boolean): Profitability {
-  const sellingPrice = sellingPriceOf(line, fiscal);
+export function calculateLineProfitDop(line: LineProfitInput, applyItbis: boolean): Profitability {
+  const sellingPrice = sellingPriceOf(line, applyItbis);
 
   if (NO_COGS_LINE_TYPES.has(line.type)) {
     return calculated(sellingPrice, sellingPrice);
@@ -81,10 +84,10 @@ function usdCostBasis(line: LineProfitInput, rate: Prisma.Decimal): Prisma.Decim
  */
 export function calculateLineUsdProfitBreakdown(
   line: LineProfitInput,
-  fiscal: boolean,
+  applyItbis: boolean,
   exchangeRateDopPerUsd: Prisma.Decimal,
 ): { profitability: Profitability; sellingPrice: Prisma.Decimal; profitUsd: Prisma.Decimal | null } {
-  const sellingPriceUsd = sellingPriceOf(line, fiscal);
+  const sellingPriceUsd = sellingPriceOf(line, applyItbis);
   const costUsd = usdCostBasis(line, exchangeRateDopPerUsd);
   if (costUsd == null) {
     return {
@@ -109,10 +112,10 @@ export function calculateLineUsdProfitBreakdown(
 
 export function calculateLineProfitUsdReportingDop(
   line: LineProfitInput,
-  fiscal: boolean,
+  applyItbis: boolean,
   exchangeRateDopPerUsd: Prisma.Decimal,
 ): Profitability {
-  return calculateLineUsdProfitBreakdown(line, fiscal, exchangeRateDopPerUsd).profitability;
+  return calculateLineUsdProfitBreakdown(line, applyItbis, exchangeRateDopPerUsd).profitability;
 }
 
 function isPositiveRate(rate: Prisma.Decimal | null | undefined): rate is Prisma.Decimal {
@@ -140,7 +143,7 @@ export function calculatedCompletedProfitability(
   invoice: {
     status: string;
     currency: string;
-    fiscal: boolean;
+    applyItbis: boolean;
     lines: readonly LineProfitInput[];
     exchangeRateDopPerUsd?: Prisma.Decimal | null;
   },
@@ -150,14 +153,14 @@ export function calculatedCompletedProfitability(
     if (!isPositiveRate(invoice.exchangeRateDopPerUsd)) return pendingFxProfitability();
     const rate = invoice.exchangeRateDopPerUsd;
     const lineResults = invoice.lines.map((line) =>
-      calculateLineUsdProfitBreakdown(line, invoice.fiscal, rate),
+      calculateLineUsdProfitBreakdown(line, invoice.applyItbis, rate),
     );
     return sumUsdReportedProfit(lineResults);
   }
 
   const lineResults = invoice.lines.map((line) => ({
-    profitability: calculateLineProfitDop(line, invoice.fiscal),
-    sellingPrice: sellingPriceOf(line, invoice.fiscal),
+    profitability: calculateLineProfitDop(line, invoice.applyItbis),
+    sellingPrice: sellingPriceOf(line, invoice.applyItbis),
   }));
   return sumCalculatedProfit(lineResults);
 }

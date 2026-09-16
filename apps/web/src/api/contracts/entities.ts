@@ -165,6 +165,10 @@ export type InvoiceLine = {
   unitPrice: number;
   taxable: boolean;
   pricePending?: boolean;
+  /** Frozen completed-document money; drafts omit it and recalculate from unit price. */
+  base?: number;
+  itbis?: number;
+  gross?: number;
   /** DOP cost copied at line creation so later inventory edits do not rewrite the sale. */
   acquisitionCostDop?: number;
   costProvenance?: 'ACTUAL' | 'ESTIMATED' | 'UNKNOWN';
@@ -194,6 +198,7 @@ export type Invoice = {
   customerId: string;
   currency: Currency;
   fiscal: boolean;
+  applyItbis?: boolean;
   lines: InvoiceLine[];
   payments: Payment[];
   paymentState: PaymentState;

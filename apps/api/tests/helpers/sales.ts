@@ -3,6 +3,8 @@ import { randomUUID } from 'node:crypto';
 import { expect } from 'vitest';
 import type request from 'supertest';
 
+import { prisma } from '../../src/infrastructure/database/index.js';
+
 export const TEST_CSRF_HEADERS = { 'X-Requested-With': 'XMLHttpRequest' };
 
 /** Valid Administrator body for a CREDIT customer (CUST-004/CUST-005). */
@@ -56,4 +58,16 @@ export function cashSaleFullPayment(amount: string) {
       method: 'CASH' as const,
     },
   };
+}
+
+/** Billing HTTP no longer accepts cost; tests that need known COST-003 seed it directly. */
+export async function seedKnownLineCost(
+  lineId: string,
+  provenance: 'ACTUAL' | 'ESTIMATED',
+  amount: string,
+) {
+  await prisma.invoiceLine.update({
+    where: { id: lineId },
+    data: { costProvenance: provenance, acquisitionCostDop: amount },
+  });
 }

@@ -31,6 +31,7 @@ const emptyInvoice = {
   number: null,
   currency: 'DOP',
   fiscal: false,
+  applyItbis: false,
   customer: cashCustomer,
   customerSnapshot: null,
   confirmedAt: null,
@@ -211,7 +212,7 @@ describe('HTTP sales draft contract', () => {
     });
   });
 
-  it('sends unknown, actual, and estimated merchandise costs as decimal strings', () => {
+  it('omits acquisition cost from ordinary add-line bodies', () => {
     expect(
       toHttpAddLineBody({
         draftId,
@@ -226,7 +227,6 @@ describe('HTTP sales draft contract', () => {
       description: 'Filtro',
       unitPrice: '100.00',
       quantity: '2.00',
-      costProvenance: 'UNKNOWN',
       notes: 'En bahía',
     });
     expect(
@@ -235,27 +235,11 @@ describe('HTTP sales draft contract', () => {
         type: 'EXTERNAL',
         description: 'Bomba',
         unitPrice: 50,
-        acquisitionCostDop: 20,
       }),
     ).toEqual({
       type: 'EXTERNAL',
       description: 'Bomba',
       unitPrice: '50.00',
-      costProvenance: 'ACTUAL',
-      acquisitionCostDop: '20.00',
-    });
-    expect(
-      toHttpAddLineBody({
-        draftId,
-        type: 'GENERIC',
-        description: 'Pieza estimada',
-        unitPrice: 75,
-        acquisitionCostDop: 30,
-        costProvenance: 'ESTIMATED',
-      }),
-    ).toMatchObject({
-      costProvenance: 'ESTIMATED',
-      acquisitionCostDop: '30.00',
     });
     expect(
       toHttpAddLineBody({
@@ -288,18 +272,16 @@ describe('HTTP sales draft contract', () => {
       expected: { type: 'DELIVERY', description: 'Envío expreso', unitPrice: '0.00' },
     },
     {
-      name: 'a non-finite merchandise cost as unknown',
+      name: 'a non-finite merchandise price as zero',
       input: {
         draftId,
         type: 'GENERIC' as const,
         description: undefined,
-        acquisitionCostDop: Number.NaN,
       },
       expected: {
         type: 'GENERIC',
         description: '',
         unitPrice: '0.00',
-        costProvenance: 'UNKNOWN',
       },
     },
   ])('serializes $name', ({ input, expected }) => {
@@ -357,14 +339,15 @@ describe('HTTP sales draft contract', () => {
     expect(added.ok).toBe(true);
     if (added.ok) {
       expect(added.value.lines[0]?.description).toBe('Filtro');
-      expect(added.value.lines[0]?.costProvenance).toBe('UNKNOWN');
       expect(added.value.totals.gross).toBe(100);
     }
     expect(JSON.parse(String((fetchMock.mock.calls[0]?.[1] as RequestInit).body))).toMatchObject({
       type: 'GENERIC',
-      costProvenance: 'UNKNOWN',
       unitPrice: '100.00',
     });
+    expect(JSON.parse(String((fetchMock.mock.calls[0]?.[1] as RequestInit).body))).not.toHaveProperty(
+      'costProvenance',
+    );
 
     expect(await repository.discardDraft(draftId)).toEqual({ ok: true, value: undefined });
     expect(fetchMock.mock.calls.some(([, init]) => init?.method === 'DELETE')).toBe(true);
@@ -415,8 +398,6 @@ describe('HTTP sales draft contract', () => {
       quantity: 3,
       description: ' Filtro de aire ',
       notes: ' Para motor ',
-      acquisitionCostDop: 40,
-      costProvenance: 'ESTIMATED',
     });
 
     expect(result.ok).toBe(true);
@@ -430,11 +411,9 @@ describe('HTTP sales draft contract', () => {
       quantity: '3.00',
       description: 'Filtro de aire',
       notes: 'Para motor',
-      acquisitionCostDop: '40.00',
-      costProvenance: 'ESTIMATED',
     });
     if (result.ok) {
-      expect(result.value.lines[0]?.costProvenance).toBe('ESTIMATED');
+      expect(result.value.lines[0]?.description).toBe('Filtro de aire');
     }
   });
 
@@ -445,18 +424,14 @@ describe('HTTP sales draft contract', () => {
       expectedBody: { unitPrice: '125.00' },
     },
     {
-      name: 'normalizes blank notes and clears acquisition cost',
+      name: 'normalizes blank notes',
       input: {
         unitPrice: 125.126,
         notes: '   ',
-        acquisitionCostDop: null,
-        costProvenance: 'UNKNOWN' as const,
       },
       expectedBody: {
         unitPrice: '125.13',
         notes: null,
-        acquisitionCostDop: null,
-        costProvenance: 'UNKNOWN',
       },
     },
   ])('$name when PATCHing an editable line', async ({ input, expectedBody }) => {

@@ -66,7 +66,6 @@ async function confirmGeneric(agent: request.Agent) {
         type: 'GENERIC',
         description: 'Filtro',
         unitPrice: '118.00',
-        costProvenance: 'UNKNOWN',
       })
     ).status,
   ).toBe(201);

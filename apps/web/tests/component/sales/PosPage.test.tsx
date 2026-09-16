@@ -150,34 +150,44 @@ describe('PosPage', () => {
     expect(screen.queryByText(/orden de desmonte pendiente/i)).not.toBeInTheDocument();
   });
 
-  it('recalculates included ITBIS when fiscal mode is enabled', async () => {
+  it('does not add ITBIS when only fiscal mode is enabled', async () => {
     const user = userEvent.setup();
     renderPos();
     await screen.findByText('Alternador 24V');
 
     await user.click(screen.getByLabelText(/Factura con comprobante fiscal/));
 
+    expect(await screen.findByTestId('pos-itbis')).toHaveTextContent('RD$0.00');
+  });
+
+  it('adds tax-exclusive ITBIS when Aplicar ITBIS is enabled', async () => {
+    const user = userEvent.setup();
+    renderPos();
+    await screen.findByText('Alternador 24V');
+
+    await user.click(screen.getByLabelText(/Aplicar ITBIS/));
+
     expect(await screen.findByTestId('pos-itbis')).not.toHaveTextContent('RD$0.00');
   });
 
-  it('shows line base, included ITBIS, and gross from the entered sale price', async () => {
+  it('shows line subtotal, ITBIS, and gross from the entered sale price', async () => {
     const user = userEvent.setup();
     renderPos('INV-DRAFT-01', CAPABILITY_PRESETS['release-2']);
     await screen.findByText('Alternador 24V');
 
-    await user.click(screen.getByLabelText(/Factura con comprobante fiscal/));
+    await user.click(screen.getByLabelText(/Aplicar ITBIS/));
     await user.click(screen.getByRole('button', { name: 'Agregar línea' }));
-    await user.type(screen.getByLabelText('Descripción'), 'Filtro fiscal');
+    await user.type(screen.getByLabelText('Descripción'), 'Filtro gravado');
     await user.clear(screen.getByLabelText('Cantidad'));
-    await user.type(screen.getByLabelText('Cantidad'), '2');
+    await user.type(screen.getByLabelText('Cantidad'), '1');
     await user.clear(screen.getByLabelText('Precio'));
     await user.type(screen.getByLabelText('Precio'), '118');
     await user.click(screen.getByRole('button', { name: 'Agregar' }));
 
-    expect(await screen.findByText('Filtro fiscal')).toBeVisible();
-    expect(screen.getByText('RD$200.00')).toBeVisible();
-    expect(screen.getByText('RD$36.00')).toBeVisible();
-    expect(screen.getByText('RD$236.00')).toBeVisible();
+    expect(await screen.findByText('Filtro gravado')).toBeVisible();
+    expect(screen.getByText('RD$118.00')).toBeVisible();
+    expect(screen.getByText('RD$21.24')).toBeVisible();
+    expect(screen.getByText('RD$139.24')).toBeVisible();
   });
 
   it('confirms the seed draft and shows the assigned FAC number', async () => {
@@ -466,43 +476,38 @@ describe('PosPage', () => {
     expect(screen.queryByRole('dialog', { name: 'Editar línea' })).not.toBeInTheDocument();
   });
 
-  it('allows an estimated acquisition cost when adding a free-form line', async () => {
+  it('toggles Aplicar ITBIS without collecting acquisition cost', async () => {
     const created = await mockSalesRepository.createDraft();
     expect(created.ok).toBe(true);
     if (!created.ok) return;
 
+    const setDraftMeta = vi.spyOn(mockSalesRepository, 'setDraftMeta');
     const addLine = vi.spyOn(mockSalesRepository, 'addLine');
-    const setLinePrice = vi.spyOn(mockSalesRepository, 'setLinePrice');
     const user = userEvent.setup();
     renderPos(created.value.draftId);
     await screen.findByRole('button', { name: 'Agregar línea' });
 
+    expect(screen.getByLabelText(/Aplicar ITBIS/)).not.toBeChecked();
+    await user.click(screen.getByLabelText(/Aplicar ITBIS/));
+    expect(setDraftMeta).toHaveBeenCalledWith(expect.objectContaining({ applyItbis: true }));
+
     await user.click(screen.getByRole('button', { name: 'Agregar línea' }));
     await chooseSelectOption(user, 'Tipo de línea', 'GENERIC');
-    await user.type(screen.getByLabelText('Descripción'), 'Pieza de procedencia estimada');
-    await chooseSelectOption(user, 'Origen del costo', 'ESTIMATED');
-    await user.type(screen.getByLabelText('Costo de adquisición en pesos (opcional)'), '25');
+    await user.type(screen.getByLabelText('Descripción'), 'Pieza genérica');
+    expect(screen.queryByLabelText('Origen del costo')).not.toBeInTheDocument();
     await user.clear(screen.getByLabelText('Precio'));
     await user.type(screen.getByLabelText('Precio'), '50');
     await user.click(screen.getByRole('button', { name: 'Agregar' }));
 
     expect(addLine).toHaveBeenCalledWith(
       expect.objectContaining({
-        acquisitionCostDop: 25,
-        costProvenance: 'ESTIMATED',
+        type: 'GENERIC',
+        description: 'Pieza genérica',
+        unitPrice: 50,
       }),
     );
-
-    expect(await screen.findByText('Pieza de procedencia estimada')).toBeVisible();
-    await user.click(screen.getByRole('button', { name: 'Editar Pieza de procedencia estimada' }));
-    expect(screen.getByLabelText('Origen del costo')).toHaveAttribute('data-value', 'ESTIMATED');
-    await user.click(screen.getByRole('button', { name: 'Guardar' }));
-    expect(setLinePrice).toHaveBeenCalledWith(
-      expect.objectContaining({
-        acquisitionCostDop: 25,
-        costProvenance: 'ESTIMATED',
-      }),
-    );
+    expect(addLine.mock.calls[0]?.[0]).not.toHaveProperty('acquisitionCostDop');
+    expect(addLine.mock.calls[0]?.[0]).not.toHaveProperty('costProvenance');
   });
 
   it('renders line cards below the lg breakpoint', async () => {

@@ -24,7 +24,7 @@ import { UserRepository } from '../../../src/features/users/repository.js';
 import { disconnectPrisma, prisma } from '../../../src/infrastructure/database/index.js';
 import { createTestApp } from '../../helpers/app.js';
 import { clearTestHistory } from '../../helpers/history.js';
-import { assignNamedCustomerForCredit, cashSaleFullPayment, COMPLETED_CASH_SNAPSHOT } from '../../helpers/sales.js';
+import { assignNamedCustomerForCredit, cashSaleFullPayment, COMPLETED_CASH_SNAPSHOT, seedKnownLineCost } from '../../helpers/sales.js';
 
 const app = createTestApp();
 const users = new UserRepository();
@@ -83,6 +83,7 @@ describe('M7 draft HTTP shell (SALE-001 draft)', () => {
       number: null,
       currency: 'DOP',
       fiscal: false,
+      applyItbis: false,
       customer: { id: generic!.id, isDefault: true },
       lines: [],
       totals: { gross: '0.00', base: '0.00', itbis: '0.00' },
@@ -182,7 +183,6 @@ describe('M7 draft HTTP shell (SALE-001 draft)', () => {
           type: 'GENERIC',
           description: 'Filtro',
           unitPrice: '118.00',
-          costProvenance: 'UNKNOWN',
         })
       ).status,
     ).toBe(201);
@@ -293,7 +293,7 @@ describe('M7 draft HTTP shell (SALE-001 draft)', () => {
 describe('M8 draft GENERIC lines (LINE-003)', () => {
   afterEach(cleanup);
 
-  it('adds a fiscal GENERIC line, recalculates included ITBIS, then updates price and removes it', async () => {
+  it('adds a GENERIC line with tax-exclusive ITBIS when applyItbis is on, independent of fiscal', async () => {
     const seller = await fixture('SELLER');
     const identified = await customers.create({
       name: 'Taller Norte',
@@ -302,16 +302,15 @@ describe('M8 draft GENERIC lines (LINE-003)', () => {
     const draft = await seller.agent
       .post(ROOT)
       .set(CSRF)
-      .send({ customerId: identified.id, fiscal: true });
+      .send({ customerId: identified.id, fiscal: true, applyItbis: true });
     expect(draft.status).toBe(201);
+    expect(draft.body).toMatchObject({ fiscal: true, applyItbis: true });
 
     const added = await seller.agent.post(`${ROOT}/${draft.body.id}/lines`).set(CSRF).send({
       type: 'GENERIC',
       description: 'Filtro de aceite',
       quantity: '2',
       unitPrice: '118.00',
-      costProvenance: 'ACTUAL',
-      acquisitionCostDop: '80.00',
     });
     expect(added.status).toBe(201);
     expect(added.body.lines).toHaveLength(1);
@@ -321,14 +320,14 @@ describe('M8 draft GENERIC lines (LINE-003)', () => {
       quantity: '2.00',
       unitPrice: '118.00',
       taxable: true,
-      gross: '236.00',
-      base: '200.00',
-      itbis: '36.00',
-      acquisitionCostDop: '80.00',
-      costProvenance: 'ACTUAL',
+      gross: '278.48',
+      base: '236.00',
+      itbis: '42.48',
       serviceId: null,
     });
-    expect(added.body.totals).toEqual({ gross: '236.00', base: '200.00', itbis: '36.00' });
+    expect(added.body.lines[0]).not.toHaveProperty('acquisitionCostDop');
+    expect(added.body.lines[0]).not.toHaveProperty('costProvenance');
+    expect(added.body.totals).toEqual({ gross: '278.48', base: '236.00', itbis: '42.48' });
     expect(
       await prisma.historyEvent.count({
         where: { subjectId: draft.body.id, eventType: 'INVOICE_LINE_ADDED' },
@@ -342,12 +341,11 @@ describe('M8 draft GENERIC lines (LINE-003)', () => {
     expect(priced.status).toBe(200);
     expect(priced.body.lines[0]).toMatchObject({
       unitPrice: '59.00',
-      gross: '118.00',
-      base: '100.00',
-      itbis: '18.00',
-      acquisitionCostDop: '80.00',
+      gross: '139.24',
+      base: '118.00',
+      itbis: '21.24',
     });
-    expect(priced.body.totals).toEqual({ gross: '118.00', base: '100.00', itbis: '18.00' });
+    expect(priced.body.totals).toEqual({ gross: '139.24', base: '118.00', itbis: '21.24' });
     expect(
       await prisma.historyEvent.count({
         where: { subjectId: draft.body.id, eventType: 'INVOICE_LINE_UPDATED' },
@@ -362,11 +360,11 @@ describe('M8 draft GENERIC lines (LINE-003)', () => {
     expect(counted.body.lines[0]).toMatchObject({
       quantity: '3.00',
       unitPrice: '59.00',
-      gross: '177.00',
-      base: '150.00',
-      itbis: '27.00',
+      gross: '208.86',
+      base: '177.00',
+      itbis: '31.86',
     });
-    expect(counted.body.totals).toEqual({ gross: '177.00', base: '150.00', itbis: '27.00' });
+    expect(counted.body.totals).toEqual({ gross: '208.86', base: '177.00', itbis: '31.86' });
 
     const renamed = await seller.agent
       .patch(`${ROOT}/${draft.body.id}/lines/${added.body.lines[0].id}`)
@@ -398,7 +396,6 @@ describe('M8 draft GENERIC lines (LINE-003)', () => {
       description: 'Filtro',
       notes: '  Se instaló en bahía 1  ',
       unitPrice: '118.00',
-      costProvenance: 'UNKNOWN',
     });
     expect(added.status).toBe(201);
     expect(added.body.lines[0]).toMatchObject({
@@ -428,7 +425,6 @@ describe('M8 draft GENERIC lines (LINE-003)', () => {
         description: 'Otro',
         notes: 'x'.repeat(101),
         unitPrice: '10.00',
-        costProvenance: 'UNKNOWN',
       });
     expect(tooLong.status).toBe(400);
 
@@ -461,16 +457,14 @@ describe('M8 draft GENERIC lines (LINE-003)', () => {
       type: 'GENERIC',
       description: 'Varilla',
       unitPrice: '118.00',
-      costProvenance: 'UNKNOWN',
     });
     expect(unknown.status).toBe(201);
+    expect(unknown.body.lines[0]).not.toHaveProperty('acquisitionCostDop');
+    expect(unknown.body.lines[0]).not.toHaveProperty('costProvenance');
     expect(unknown.body.lines[0]).toMatchObject({
-      acquisitionCostDop: null,
-      costProvenance: 'UNKNOWN',
       itbis: '0.00',
       gross: '118.00',
     });
-    expect(unknown.body.lines[0].acquisitionCostDop).not.toBe('0.00');
 
     const item = await admin.agent
       .post(`${ROOT}/${draft.body.id}/lines`)
@@ -498,7 +492,6 @@ describe('M8 draft GENERIC lines (LINE-003)', () => {
       type: 'GENERIC',
       description: 'Filtro',
       unitPrice: '-1.00',
-      costProvenance: 'UNKNOWN',
     });
     expect(negative.status).toBe(400);
 
@@ -506,7 +499,6 @@ describe('M8 draft GENERIC lines (LINE-003)', () => {
       type: 'GENERIC',
       description: 'Filtro',
       unitPrice: 'N/A',
-      costProvenance: 'UNKNOWN',
     });
     expect(placeholder.status).toBe(400);
     expect(await prisma.invoiceLine.count({ where: { invoiceId: draft.body.id } })).toBe(0);
@@ -517,7 +509,6 @@ describe('M8 draft GENERIC lines (LINE-003)', () => {
           type: 'GENERIC',
           description: 'Filtro',
           unitPrice: '10.00',
-          costProvenance: 'UNKNOWN',
         })
       ).status,
     ).toBe(403);
@@ -527,7 +518,6 @@ describe('M8 draft GENERIC lines (LINE-003)', () => {
           type: 'GENERIC',
           description: 'Filtro',
           unitPrice: '10.00',
-          costProvenance: 'UNKNOWN',
         })
       ).status,
     ).toBe(403);
@@ -553,7 +543,6 @@ describe('M8 draft GENERIC lines (LINE-003)', () => {
       type: 'GENERIC',
       description: 'Filtro',
       unitPrice: '10.00',
-      costProvenance: 'UNKNOWN',
     });
     expect(blocked.status).toBe(409);
     expect(blocked.body.error.message).toBe(DRAFT_ONLY_EDIT_MESSAGE);
@@ -591,7 +580,6 @@ describe('M9 draft SERVICE lines (LINE-004)', () => {
       type: 'GENERIC',
       description: 'Filtro de aceite',
       unitPrice: '118.00',
-      costProvenance: 'UNKNOWN',
     });
     expect(generic.status).toBe(201);
 
@@ -610,11 +598,9 @@ describe('M9 draft SERVICE lines (LINE-004)', () => {
       gross: '500.00',
       base: '500.00',
       itbis: '0.00',
-      acquisitionCostDop: null,
-      costProvenance: null,
       serviceId: catalog.body.id,
     });
-    expect(copiedName.body.totals).toEqual({ gross: '618.00', base: '600.00', itbis: '18.00' });
+    expect(copiedName.body.totals).toEqual({ gross: '618.00', base: '618.00', itbis: '0.00' });
     expect(copiedName.body.lines[1].serviceId).toBe(catalog.body.id);
 
     const overridden = await seller.agent.post(`${ROOT}/${draft.body.id}/lines`).set(CSRF).send({
@@ -632,7 +618,7 @@ describe('M9 draft SERVICE lines (LINE-004)', () => {
       gross: '0.00',
       serviceId: catalog.body.id,
     });
-    expect(overridden.body.totals).toEqual({ gross: '618.00', base: '600.00', itbis: '18.00' });
+    expect(overridden.body.totals).toEqual({ gross: '618.00', base: '618.00', itbis: '0.00' });
 
     const priced = await seller.agent
       .patch(`${ROOT}/${draft.body.id}/lines/${copiedName.body.lines[1].id}`)
@@ -644,7 +630,7 @@ describe('M9 draft SERVICE lines (LINE-004)', () => {
       itbis: '0.00',
       gross: '250.00',
     });
-    expect(priced.body.totals).toEqual({ gross: '368.00', base: '350.00', itbis: '18.00' });
+    expect(priced.body.totals).toEqual({ gross: '368.00', base: '368.00', itbis: '0.00' });
 
     const quantityBlocked = await seller.agent
       .patch(`${ROOT}/${draft.body.id}/lines/${copiedName.body.lines[1].id}`)
@@ -726,10 +712,9 @@ describe('M10 draft DELIVERY lines (LINE-006)', () => {
       type: 'GENERIC',
       description: 'Filtro',
       unitPrice: '118.00',
-      costProvenance: 'UNKNOWN',
     });
     expect(generic.status).toBe(201);
-    expect(generic.body.totals).toEqual({ gross: '118.00', base: '100.00', itbis: '18.00' });
+    expect(generic.body.totals).toEqual({ gross: '118.00', base: '118.00', itbis: '0.00' });
 
     const free = await seller.agent
       .post(`${ROOT}/${draft.body.id}/lines`)
@@ -746,11 +731,9 @@ describe('M10 draft DELIVERY lines (LINE-006)', () => {
       gross: '0.00',
       base: '0.00',
       itbis: '0.00',
-      acquisitionCostDop: null,
-      costProvenance: null,
       serviceId: null,
     });
-    expect(free.body.totals).toEqual({ gross: '118.00', base: '100.00', itbis: '18.00' });
+    expect(free.body.totals).toEqual({ gross: '118.00', base: '118.00', itbis: '0.00' });
 
     const duplicate = await seller.agent
       .post(`${ROOT}/${draft.body.id}/lines`)
@@ -771,14 +754,14 @@ describe('M10 draft DELIVERY lines (LINE-006)', () => {
       itbis: '0.00',
       gross: '200.00',
     });
-    expect(charged.body.totals).toEqual({ gross: '318.00', base: '300.00', itbis: '18.00' });
+    expect(charged.body.totals).toEqual({ gross: '318.00', base: '318.00', itbis: '0.00' });
 
     const removed = await seller.agent
       .delete(`${ROOT}/${draft.body.id}/lines/${free.body.lines[1].id}`)
       .set(CSRF);
     expect(removed.status).toBe(200);
     expect(removed.body.lines).toHaveLength(1);
-    expect(removed.body.totals).toEqual({ gross: '118.00', base: '100.00', itbis: '18.00' });
+    expect(removed.body.totals).toEqual({ gross: '118.00', base: '118.00', itbis: '0.00' });
 
     const restored = await seller.agent
       .post(`${ROOT}/${draft.body.id}/lines`)
@@ -792,7 +775,7 @@ describe('M10 draft DELIVERY lines (LINE-006)', () => {
       itbis: '0.00',
       gross: '150.00',
     });
-    expect(restored.body.totals).toEqual({ gross: '268.00', base: '250.00', itbis: '18.00' });
+    expect(restored.body.totals).toEqual({ gross: '268.00', base: '268.00', itbis: '0.00' });
     expect(
       await prisma.historyEvent.count({
         where: { subjectId: draft.body.id, eventType: 'INVOICE_LINE_ADDED' },
@@ -848,7 +831,7 @@ describe('M10 draft DELIVERY lines (LINE-006)', () => {
 describe('M11 draft EXTERNAL lines (LINE-005)', () => {
   afterEach(cleanup);
 
-  it('adds EXTERNAL with actual, estimated, and unknown cost, recalculates included ITBIS, then updates and removes', async () => {
+  it('adds EXTERNAL lines with tax-exclusive ITBIS when applyItbis is on', async () => {
     const seller = await fixture('SELLER');
     const identified = await customers.create({
       name: 'Taller Norte',
@@ -857,88 +840,76 @@ describe('M11 draft EXTERNAL lines (LINE-005)', () => {
     const draft = await seller.agent
       .post(ROOT)
       .set(CSRF)
-      .send({ customerId: identified.id, fiscal: true });
+      .send({ customerId: identified.id, fiscal: true, applyItbis: true });
     expect(draft.status).toBe(201);
 
-    const actual = await seller.agent.post(`${ROOT}/${draft.body.id}/lines`).set(CSRF).send({
+    const first = await seller.agent.post(`${ROOT}/${draft.body.id}/lines`).set(CSRF).send({
       type: 'EXTERNAL',
       description: 'Bomba hidráulica',
       quantity: '2',
       unitPrice: '118.00',
-      costProvenance: 'ACTUAL',
-      acquisitionCostDop: '80.00',
     });
-    expect(actual.status).toBe(201);
-    expect(actual.body.lines[0]).toMatchObject({
+    expect(first.status).toBe(201);
+    expect(first.body.lines[0]).toMatchObject({
       type: 'EXTERNAL',
       description: 'Bomba hidráulica',
       quantity: '2.00',
       unitPrice: '118.00',
       taxable: true,
-      gross: '236.00',
-      base: '200.00',
-      itbis: '36.00',
-      acquisitionCostDop: '80.00',
-      costProvenance: 'ACTUAL',
+      gross: '278.48',
+      base: '236.00',
+      itbis: '42.48',
       serviceId: null,
     });
-    expect(actual.body.totals).toEqual({ gross: '236.00', base: '200.00', itbis: '36.00' });
+    expect(first.body.lines[0]).not.toHaveProperty('acquisitionCostDop');
+    expect(first.body.totals).toEqual({ gross: '278.48', base: '236.00', itbis: '42.48' });
 
-    const estimated = await seller.agent.post(`${ROOT}/${draft.body.id}/lines`).set(CSRF).send({
+    const second = await seller.agent.post(`${ROOT}/${draft.body.id}/lines`).set(CSRF).send({
       type: 'EXTERNAL',
       description: 'Sensor usado',
       unitPrice: '118.00',
-      costProvenance: 'ESTIMATED',
-      acquisitionCostDop: '40.00',
     });
-    expect(estimated.status).toBe(201);
-    expect(estimated.body.lines[1]).toMatchObject({
+    expect(second.status).toBe(201);
+    expect(second.body.lines[1]).toMatchObject({
       type: 'EXTERNAL',
       quantity: '1.00',
       taxable: true,
-      gross: '118.00',
-      base: '100.00',
-      itbis: '18.00',
-      acquisitionCostDop: '40.00',
-      costProvenance: 'ESTIMATED',
+      gross: '139.24',
+      base: '118.00',
+      itbis: '21.24',
     });
-    expect(estimated.body.totals).toEqual({ gross: '354.00', base: '300.00', itbis: '54.00' });
+    expect(second.body.totals).toEqual({ gross: '417.72', base: '354.00', itbis: '63.72' });
 
-    const unknown = await seller.agent.post(`${ROOT}/${draft.body.id}/lines`).set(CSRF).send({
+    const third = await seller.agent.post(`${ROOT}/${draft.body.id}/lines`).set(CSRF).send({
       type: 'EXTERNAL',
       description: 'Pieza sin factura',
       unitPrice: '19.50',
-      costProvenance: 'UNKNOWN',
     });
-    expect(unknown.status).toBe(201);
-    expect(unknown.body.lines[2]).toMatchObject({
+    expect(third.status).toBe(201);
+    expect(third.body.lines[2]).toMatchObject({
       type: 'EXTERNAL',
-      acquisitionCostDop: null,
-      costProvenance: 'UNKNOWN',
-      gross: '19.50',
+      gross: '23.01',
+      base: '19.50',
+      itbis: '3.51',
     });
-    expect(unknown.body.lines[2].acquisitionCostDop).not.toBe('0.00');
-    expect(unknown.body.lines.every((line: { type: string }) => line.type === 'EXTERNAL')).toBe(
-      true,
-    );
+    expect(third.body.lines.every((line: { type: string }) => line.type === 'EXTERNAL')).toBe(true);
     expect(await prisma.invoiceLine.count({ where: { invoiceId: draft.body.id } })).toBe(3);
 
     const priced = await seller.agent
-      .patch(`${ROOT}/${draft.body.id}/lines/${actual.body.lines[0].id}`)
+      .patch(`${ROOT}/${draft.body.id}/lines/${first.body.lines[0].id}`)
       .set(CSRF)
       .send({ unitPrice: '59.00' });
     expect(priced.status).toBe(200);
     expect(priced.body.lines[0]).toMatchObject({
       type: 'EXTERNAL',
       unitPrice: '59.00',
-      gross: '118.00',
-      base: '100.00',
-      itbis: '18.00',
-      acquisitionCostDop: '80.00',
+      gross: '139.24',
+      base: '118.00',
+      itbis: '21.24',
     });
 
     const removed = await seller.agent
-      .delete(`${ROOT}/${draft.body.id}/lines/${unknown.body.lines[2].id}`)
+      .delete(`${ROOT}/${draft.body.id}/lines/${third.body.lines[2].id}`)
       .set(CSRF);
     expect(removed.status).toBe(200);
     expect(removed.body.lines).toHaveLength(2);
@@ -963,7 +934,6 @@ describe('M11 draft EXTERNAL lines (LINE-005)', () => {
         type: 'EXTERNAL',
         description: 'Bomba',
         unitPrice: '300.00',
-        costProvenance: 'UNKNOWN',
         acquisitionCostDop: '0.00',
       });
     expect(unknownWithAmount.status).toBe(400);
@@ -980,7 +950,6 @@ describe('M11 draft EXTERNAL lines (LINE-005)', () => {
       type: 'EXTERNAL',
       description: 'Bomba',
       unitPrice: 300,
-      costProvenance: 'UNKNOWN',
     });
     expect(numericMoney.status).toBe(400);
 
@@ -988,7 +957,6 @@ describe('M11 draft EXTERNAL lines (LINE-005)', () => {
       type: 'EXTERNAL',
       description: 'Bomba',
       unitPrice: '300.00',
-      costProvenance: 'UNKNOWN',
       serviceId: '11111111-1111-4111-8111-111111111111',
     });
     expect(extraField.status).toBe(400);
@@ -1014,7 +982,6 @@ describe('M12 confirmation FAC- snapshot (SALE-001, CUST-003)', () => {
       type: 'GENERIC',
       description: 'Filtro',
       unitPrice: '118.00',
-      costProvenance: 'UNKNOWN',
     });
     expect(added.status).toBe(201);
     return added;
@@ -1226,7 +1193,6 @@ describe('M12 confirmation FAC- snapshot (SALE-001, CUST-003)', () => {
         type: 'GENERIC',
         description: 'Otra',
         unitPrice: '10.00',
-        costProvenance: 'UNKNOWN',
       });
     expect(blockedLine.status).toBe(409);
     expect(blockedLine.body.error.message).toBe(DRAFT_ONLY_EDIT_MESSAGE);
@@ -1280,35 +1246,26 @@ describe('M13 DOP profitability Administrator boundary (COST-001..004)', () => {
     expect(catalog.status).toBe(201);
 
     const draft = await admin.agent.post(ROOT).set(CSRF).send({});
-    expect(
-      (
-        await admin.agent.post(`${ROOT}/${draft.body.id}/lines`).set(CSRF).send({
-          type: 'GENERIC',
-          description: 'Filtro',
-          unitPrice: '18000.00',
-          costProvenance: 'ACTUAL',
-          acquisitionCostDop: '12300.00',
-        })
-      ).status,
-    ).toBe(201);
-    expect(
-      (
-        await admin.agent.post(`${ROOT}/${draft.body.id}/lines`).set(CSRF).send({
-          type: 'EXTERNAL',
-          description: 'Bomba externa',
-          unitPrice: '200.00',
-          costProvenance: 'ESTIMATED',
-          acquisitionCostDop: '80.00',
-        })
-      ).status,
-    ).toBe(201);
+    const actualLine = await admin.agent.post(`${ROOT}/${draft.body.id}/lines`).set(CSRF).send({
+      type: 'GENERIC',
+      description: 'Filtro',
+      unitPrice: '18000.00',
+    });
+    expect(actualLine.status).toBe(201);
+    await seedKnownLineCost(actualLine.body.lines[0].id, 'ACTUAL', '12300.00');
+    const estimatedLine = await admin.agent.post(`${ROOT}/${draft.body.id}/lines`).set(CSRF).send({
+      type: 'EXTERNAL',
+      description: 'Bomba externa',
+      unitPrice: '200.00',
+    });
+    expect(estimatedLine.status).toBe(201);
+    await seedKnownLineCost(estimatedLine.body.lines[1].id, 'ESTIMATED', '80.00');
     expect(
       (
         await admin.agent.post(`${ROOT}/${draft.body.id}/lines`).set(CSRF).send({
           type: 'GENERIC',
           description: 'Sin costo',
           unitPrice: '100.00',
-          costProvenance: 'UNKNOWN',
         })
       ).status,
     ).toBe(201);
@@ -1346,21 +1303,21 @@ describe('M13 DOP profitability Administrator boundary (COST-001..004)', () => {
       profitDop: '5700.00',
       margin: '31.67',
     });
-    expect(confirmed.body.lines[0].costProvenance).toBe('ACTUAL');
+    expect(confirmed.body.lines[0]).not.toHaveProperty('costProvenance');
     expect(confirmed.body.lines[1].profitability).toEqual({
       status: 'CALCULATED',
       reason: null,
       profitDop: '120.00',
       margin: '60.00',
     });
-    expect(confirmed.body.lines[1].costProvenance).toBe('ESTIMATED');
+    expect(confirmed.body.lines[1]).not.toHaveProperty('costProvenance');
     expect(confirmed.body.lines[2].profitability).toEqual({
       status: 'UNAVAILABLE',
       reason: 'UNKNOWN_COST',
       profitDop: null,
       margin: null,
     });
-    expect(confirmed.body.lines[2].acquisitionCostDop).toBeNull();
+    expect(confirmed.body.lines[2]).not.toHaveProperty('acquisitionCostDop');
     expect(confirmed.body.lines[3].profitability).toEqual({
       status: 'CALCULATED',
       reason: null,
@@ -1380,7 +1337,7 @@ describe('M13 DOP profitability Administrator boundary (COST-001..004)', () => {
 
     const sellerView = await seller.agent.get(`${ROOT}/${draft.body.id}`);
     expect(sellerView.status).toBe(200);
-    expect(sellerView.body.lines[0].acquisitionCostDop).toBe('12300.00');
+    expect(sellerView.body.lines[0]).not.toHaveProperty('acquisitionCostDop');
     expectNoProfitability(sellerView.body);
     expect(sellerView.body.history.map((event: { type: string }) => event.type)).not.toContain(
       'INVOICE_GROSS_PROFIT_RECORDED',
@@ -1412,17 +1369,13 @@ describe('M13 DOP profitability Administrator boundary (COST-001..004)', () => {
     expect(usdDraft.status).toBe(201);
     expectNoProfitability(usdDraft.body);
 
-    expect(
-      (
-        await admin.agent.post(`${ROOT}/${usdDraft.body.id}/lines`).set(CSRF).send({
-          type: 'GENERIC',
-          description: 'Filtro',
-          unitPrice: '118.00',
-          costProvenance: 'ACTUAL',
-          acquisitionCostDop: '80.00',
-        })
-      ).status,
-    ).toBe(201);
+    const usdLine = await admin.agent.post(`${ROOT}/${usdDraft.body.id}/lines`).set(CSRF).send({
+      type: 'GENERIC',
+      description: 'Filtro',
+      unitPrice: '118.00',
+    });
+    expect(usdLine.status).toBe(201);
+    await seedKnownLineCost(usdLine.body.lines[0].id, 'ACTUAL', '80.00');
     const usd = await admin.agent.post(`${ROOT}/${usdDraft.body.id}/confirm`).set(CSRF).send({});
     expect(usd.status).toBe(200);
     expect(usd.body.profitability).toEqual({
@@ -1432,12 +1385,12 @@ describe('M13 DOP profitability Administrator boundary (COST-001..004)', () => {
       margin: null,
     });
     expect(usd.body.lines[0].profitability).toEqual(usd.body.profitability);
-    expect(usd.body.lines[0].acquisitionCostDop).toBe('80.00');
+    expect(usd.body.lines[0]).not.toHaveProperty('acquisitionCostDop');
 
     const seller = await fixture('SELLER');
     const sellerUsd = await seller.agent.get(`${ROOT}/${usdDraft.body.id}`);
     expect(sellerUsd.status).toBe(200);
-    expect(sellerUsd.body.lines[0].acquisitionCostDop).toBe('80.00');
+    expect(sellerUsd.body.lines[0]).not.toHaveProperty('acquisitionCostDop');
     expectNoProfitability(sellerUsd.body);
   });
 
@@ -1450,7 +1403,6 @@ describe('M13 DOP profitability Administrator boundary (COST-001..004)', () => {
           type: 'GENERIC',
           description: 'Sin costo',
           unitPrice: '100.00',
-          costProvenance: 'UNKNOWN',
         })
       ).status,
     ).toBe(201);

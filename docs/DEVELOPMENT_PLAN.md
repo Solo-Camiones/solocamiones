@@ -55,7 +55,7 @@ Owner pulled **Release 3 financial work** into the local codebase before Release
 | Release 2 Billing Core (customers, service catalog, non-inventory lines, confirm/`FAC-`, PDF, cost/FX/profit, profitability HTTP) | Done | Done (M25 closed 2026-09-11) | Full demo including profit |
 | Release 3 payments, balances, basic CxC, non-inventory cancel/refund | **Pulled forward — done** (`InvoicePayment`, due date, `POST /payments`, `GET /receivables`, `POST /cancel`) | **Pulled forward — done** (pay, CxC `/receivables`, cancel). Confirm may record an initial payment | Done |
 | Release 3 remaining | **Still required** now that R2 is closed: Feature 12 open checklist (receivables filters by customer, invoice, payment state including Paid/Paid-late, date, and currency; UI must use API query params). Aging/collections stay deferred as specified. Inventory/WO cancellation is R5/R7, not this remainder. | Same filters on `/receivables` HTTP UI | — |
-| **Pre-production business change set** | **Specified 2026-09-15. Paso 2 domain migration done locally. Paso 3 customer write APIs/UI/mock done locally (`CUST-004`–`007` maintenance; confirmation engine still Paso 5).** Remaining steps 4–10: tax-exclusive ITBIS (`SALE-009`/`010`), quotes (`QUOTE-001`/`002`), `ABONADO`/AR auth (`PAY-006`/`007`), statement (`STMT-001`), billing cost removal (`COST-006`), PDF profile (`DOC-001`). Complete this set and its stabilization **before** separate environment configuration. Source of truth is the feature files, sequenced in `docs/pre_production_business_changes/IMPLEMENTATION_PLAN.md`. | Paso 3 directory/form shipped; later pre-production UI not started | Prototype still shows tax-inclusive POS and Seller CxC until later steps |
+| **Pre-production business change set** | **Specified 2026-09-15. Paso 2 domain migration done locally. Paso 3 customer write APIs/UI/mock done locally (`CUST-004`–`007` maintenance; confirmation engine still Paso 5). Paso 4 tax-exclusive ITBIS (`SALE-009`/`010`) and billing cost removal (`COST-006`) done locally.** Remaining steps 5–10: quotes (`QUOTE-001`/`002`), `ABONADO`/AR auth (`PAY-006`/`007`), statement (`STMT-001`), PDF profile (`DOC-001`). Complete this set and its stabilization **before** separate environment configuration. Source of truth is the feature files, sequenced in `docs/pre_production_business_changes/IMPLEMENTATION_PLAN.md`. | Paso 4 ITBIS/cost shipped locally; later pre-production UI not started | Prototype POS now tax-exclusive; Seller CxC remains until later steps |
 | Release 3B Accounts Payable | Not started | Not started | Not in confirmed scope |
 | Release 4 inventory / quantity / inventory categories | **Not started** (no Item/Qty models) | Service catalog only; inventory category UI hidden | Registration, qty, category attributes |
 | Release 5 reservations and ITEM/QTY sales | **Not started**; ITEM/QTY draft lines return business **409** | Capabilities off | Lines, reserve, consume |
@@ -285,7 +285,7 @@ Permissions:
 - Decimal-safe per-line calculations.
 - Invoice totals from already-rounded line values.
 
-Live API still uses tax-inclusive 18%. Target formula for the pre-production change set is SALE-010 (base + 18% when `Aplicar ITBIS` is on).
+Live API uses tax-exclusive 18% when `Aplicar ITBIS` is on (SALE-010). Completed invoices keep stored money.
 
 ### Line types enabled in this release
 
@@ -300,8 +300,7 @@ Do **not** enable tracked-item or quantity inventory lines yet.
 
 ### Tax/output
 
-- Live API: fixed 18% included ITBIS for taxable merchandise lines.
-- Target (SALE-009/SALE-010): optional `Aplicar ITBIS`, tax-exclusive base + 18% per taxable line, independent of fiscal emission.
+- Live API: optional `Aplicar ITBIS`, tax-exclusive base + 18% per taxable line, independent of fiscal emission (SALE-009/SALE-010).
 - Service and delivery non-taxable.
 - Internal printable PDF.
 - Blank NCF field for external/manual process.
@@ -335,7 +334,7 @@ UI must not imply inventory synchronization for unsupported lines.
 
 - FAC concurrency/non-reuse.
 - DOP/USD single-currency validation.
-- tax-exclusive 18% calculations once SALE-010 ships (until then, live tests still cover tax-inclusive behavior).
+- tax-exclusive 18% calculations (SALE-010).
 - two-decimal per-line rounding.
 - immutable customer snapshot.
 - PDF failure/regeneration.

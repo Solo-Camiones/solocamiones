@@ -82,8 +82,9 @@ export function PdfPreviewModal({ open, detail, pdfFile, onClose }: PdfPreviewMo
             <p>Moneda: {currencyLabel(detail.currency)}</p>
             <p>
               {detail.fiscal
-                ? 'Factura con comprobante fiscal (ITBIS 18% incluido)'
+                ? 'Factura con comprobante fiscal'
                 : 'Sin comprobante fiscal'}
+              {detail.applyItbis ? ' · ITBIS 18% sobre subtotal' : ''}
             </p>
           </div>
 
@@ -91,11 +92,11 @@ export function PdfPreviewModal({ open, detail, pdfFile, onClose }: PdfPreviewMo
 
           <div className="ml-auto max-w-xs space-y-1 text-sm">
             <div className="flex justify-between">
-              <span className="text-navy-400">Base</span>
+              <span className="text-navy-400">Subtotal</span>
               <span className="font-mono">{money(baseTotal, detail.currency)}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-navy-400">ITBIS incluido</span>
+              <span className="text-navy-400">ITBIS</span>
               <span className="font-mono">{money(itbisTotal, detail.currency)}</span>
             </div>
             <div className="flex justify-between font-semibold text-navy">

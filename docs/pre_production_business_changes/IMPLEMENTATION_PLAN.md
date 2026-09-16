@@ -90,19 +90,21 @@ Cómo persistir `dueDate` en una venta **contado ya pagada** (`confirmedAt`, `nu
 
 ### Paso 4 — Cambiar ITBIS y retirar costo de facturación
 
+**Estado:** **Cerrado 2026-09-15** en código local (dominio tax-exclusive, API, POS/detalle/preview, COST-006). Plantilla PDF corporativa v4 sigue en Paso 9.
+
 **Requisitos cubiertos:** `H-01`, `H-05` y `H-06`.
 
 **Tareas:**
 
-- Implementar `base + 18 %` por línea gravada con `Prisma.Decimal` y redondeo por línea.
-- Mantener servicio y entrega sin ITBIS.
-- Agregar `Aplicar ITBIS`, separado de comprobante y desmarcado por defecto.
-- Recalcular borradores existentes y preservar importes de facturas completadas.
-- Actualizar totales y textos en API, POS, detalle y vista previa.
-- Eliminar costo/procedencia de alta y edición de líneas para ambos roles.
-- Rechazar esos campos en payloads ordinarios y omitirlos en proyecciones.
-- Dejar costo `UNKNOWN` y reutilizar la captura posterior de ganancia manual Administrador-only.
-- Añadir regresión de redondeo, impuesto sin comprobante y comprobante sin identificación.
+- [x] Implementar `base + 18 %` por línea gravada con `Prisma.Decimal` y redondeo por línea.
+- [x] Mantener servicio y entrega sin ITBIS.
+- [x] Agregar `Aplicar ITBIS`, separado de comprobante y desmarcado por defecto.
+- [x] Recalcular borradores existentes y preservar importes de facturas completadas.
+- [x] Actualizar totales y textos en API, POS, detalle y vista previa (etiqueta **Subtotal**).
+- [x] Eliminar costo/procedencia de alta y edición de líneas para ambos roles.
+- [x] Rechazar esos campos en payloads ordinarios y omitirlos en proyecciones.
+- [x] Dejar costo `UNKNOWN` y reutilizar la captura posterior de ganancia manual Administrador-only.
+- [x] Añadir regresión de redondeo, impuesto sin comprobante y comprobante sin identificación.
 
 **Gate:** los mismos ejemplos producen exactamente base, ITBIS y total en dominio, API y UI; ninguna factura completada cambia.
 

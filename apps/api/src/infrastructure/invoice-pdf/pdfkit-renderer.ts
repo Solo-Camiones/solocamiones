@@ -346,8 +346,8 @@ function writeInternalV3Document(facts: InvoicePdfFacts, document: PdfDocument):
   const totalsX = right - 225;
   document.roundedRect(totalsX, y, 225, 104, 6).fillAndStroke(LIGHT_BLUE, BORDER);
   const totals = [
-    ['Base', money(facts.totals.base, facts.currency)],
-    ['ITBIS incluido', money(facts.totals.itbis, facts.currency)],
+    ['Subtotal', money(facts.totals.base, facts.currency)],
+    ['ITBIS', money(facts.totals.itbis, facts.currency)],
     ['TOTAL', money(facts.totals.gross, facts.currency)],
     ['SALDO PENDIENTE', money(facts.balance, facts.currency)],
   ];

@@ -18,6 +18,7 @@ const detail: InvoiceDetailView = {
   customerName: 'Flota Norte',
   currency: 'DOP',
   fiscal: false,
+  applyItbis: false,
   lines: [],
   payments: [],
   total: 100,

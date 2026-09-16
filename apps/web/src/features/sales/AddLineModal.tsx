@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react';
 
 import type { LineType } from '../../api/contracts/entities';
-import type { CostProvenance, PosDraftView } from '../../api/contracts/sales';
+import type { PosDraftView } from '../../api/contracts/sales';
 import { enabledPosLineTypes } from '../../shared/config/capabilities';
 import { useAppCapabilities } from '../../shared/config/CapabilitiesProvider';
 import { UX_TERMS } from '../../shared/copy/glossary';
@@ -18,8 +18,6 @@ type AddLineFormFields = {
   notes: string;
   quantity: string;
   unitPrice: string;
-  cost: string;
-  costProvenance: CostProvenance;
 };
 
 type AddLineModalProps = {
@@ -37,8 +35,6 @@ type AddLineModalProps = {
     notes?: string;
     quantity?: number;
     unitPrice?: number;
-    acquisitionCostDop?: number;
-    costProvenance?: CostProvenance;
   }) => Promise<void>;
 };
 
@@ -55,8 +51,6 @@ function emptyAddLineFields(
     notes: '',
     quantity: '1',
     unitPrice: '0',
-    cost: '',
-    costProvenance: 'UNKNOWN',
   };
 }
 
@@ -77,8 +71,6 @@ export function AddLineModal({
   const [notes, setNotes] = useState('');
   const [quantity, setQuantity] = useState('1');
   const [unitPrice, setUnitPrice] = useState('0');
-  const [cost, setCost] = useState('');
-  const [costProvenance, setCostProvenance] = useState<CostProvenance>('UNKNOWN');
   const fields: AddLineFormFields = {
     type,
     itemId,
@@ -88,8 +80,6 @@ export function AddLineModal({
     notes,
     quantity,
     unitPrice,
-    cost,
-    costProvenance,
   };
   const [baseline, setBaseline] = useState(fields);
 
@@ -106,8 +96,6 @@ export function AddLineModal({
     setNotes(next.notes);
     setQuantity(next.quantity);
     setUnitPrice(next.unitPrice);
-    setCost(next.cost);
-    setCostProvenance(next.costProvenance);
     setBaseline(next);
     // Reset only when the dialog opens so each add starts blank; later typing is unsaved.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- capture catalog defaults at open
@@ -143,14 +131,6 @@ export function AddLineModal({
       quantity:
         type === 'QTY' || type === 'GENERIC' || type === 'EXTERNAL' ? Number(quantity) : undefined,
       unitPrice: type === 'ITEM' ? undefined : Number(unitPrice),
-      acquisitionCostDop:
-        (type === 'GENERIC' || type === 'EXTERNAL') && cost !== '' ? Number(cost) : undefined,
-      costProvenance:
-        type === 'GENERIC' || type === 'EXTERNAL'
-          ? cost === ''
-            ? 'UNKNOWN'
-            : costProvenance
-          : undefined,
     });
   }
 
@@ -275,41 +255,6 @@ export function AddLineModal({
                 onChange={(event) => setQuantity(event.target.value)}
               />
             </Field>
-          )}
-
-          {(type === 'GENERIC' || type === 'EXTERNAL') && (
-            <>
-              <Field htmlFor="line-cost-provenance" label="Origen del costo">
-                <Select
-                  id="line-cost-provenance"
-                  value={costProvenance}
-                  onChange={(event) => {
-                    const next = event.target.value as CostProvenance;
-                    setCostProvenance(next);
-                    if (next === 'UNKNOWN') setCost('');
-                  }}
-                >
-                  <option value="UNKNOWN">Desconocido</option>
-                  <option value="ACTUAL">Real</option>
-                  <option value="ESTIMATED">Estimado</option>
-                </Select>
-              </Field>
-              <Field htmlFor="line-cost" label="Costo de adquisición en pesos (opcional)">
-                <Input
-                  id="line-cost"
-                  type="number"
-                  min={0}
-                  step="0.01"
-                  value={cost}
-                  onChange={(event) => {
-                    setCost(event.target.value);
-                    if (event.target.value !== '' && costProvenance === 'UNKNOWN') {
-                      setCostProvenance('ACTUAL');
-                    }
-                  }}
-                />
-              </Field>
-            </>
           )}
 
           {type !== 'ITEM' && (

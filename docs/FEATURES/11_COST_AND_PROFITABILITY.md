@@ -14,7 +14,7 @@ The old consolidated requirements/validation files are intentionally no longer r
 
 **Implementation (2026-09-11):** Production **API is done** for invoice-line cost snapshots, Administrator profit projection, FX pending/retry, and COST-005. HTTP UI swap is **done** (R2 M24: `HttpProfitabilityRepository` composes the snapshot from completed sales; retry and COST-005 POSTs are wired). Protected acquisition-cost correction is **prototype mock / Release 8**, not an API command.
 
-**Pre-production change set (2026-09-15):** Billing capture of acquisition cost is withdrawn for both roles (`COST-006`). Inventory-sourced cost remains the future path. Do not treat current POS cost fields as the target UX.
+**Pre-production change set (2026-09-15):** Billing capture of acquisition cost is withdrawn for both roles (`COST-006`, Paso 4). Inventory-sourced cost remains the future path. New billing lines persist `UNKNOWN` cost; Administrator COST-005 remains the follow-up.
 
 ## What this feature does
 
@@ -91,11 +91,11 @@ Seller and Administrator must not capture or receive acquisition cost on ordinar
 - [x] Seller profit endpoint/field denial. *(API R2 M13: omisión de campos en GET/confirm/list)*
 - [x] Administrator-recorded unknown-cost profit; denial for seller, pending FX, and already-calculated invoices. *(API R2 M14)*
 
-### Pre-production billing cost capture (not implemented)
+### Pre-production billing cost capture
 
-- [ ] Remove acquisition-cost and cost-provenance fields from billing line forms and ordinary payloads for both roles (COST-006).
-- [ ] Reject ordinary attempts to send those fields; persist new non-inventory lines as `UNKNOWN`.
-- [ ] Keep COST-005 as the Administrator follow-up for unknown-cost invoices; confirmation stays unblocked.
+- [x] Remove acquisition-cost and cost-provenance fields from billing line forms and ordinary payloads for both roles (COST-006).
+- [x] Reject ordinary attempts to send those fields; persist new non-inventory lines as `UNKNOWN`.
+- [x] Keep COST-005 as the Administrator follow-up for unknown-cost invoices; confirmation stays unblocked.
 
 ## Canonical validated requirements
 

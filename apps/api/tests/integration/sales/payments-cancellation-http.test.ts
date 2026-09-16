@@ -62,7 +62,6 @@ async function confirmInvoice(
     type: 'GENERIC',
     description: 'Filtro de aceite',
     unitPrice: '1000.00',
-    costProvenance: 'UNKNOWN',
   });
   if (!body.payment) {
     await assignNamedCustomerForCredit(agent, draft.body.id, creditCustomerId);
@@ -117,7 +116,6 @@ describe('payments, due date, and cancellation HTTP', () => {
         type: 'GENERIC',
         description: 'Filtro de aceite',
         unitPrice: '1000.00',
-        costProvenance: 'UNKNOWN',
       });
 
       const response = await seller.agent
@@ -143,7 +141,6 @@ describe('payments, due date, and cancellation HTTP', () => {
       type: 'GENERIC',
       description: 'Filtro de aceite',
       unitPrice: '1000.00',
-      costProvenance: 'UNKNOWN',
     });
 
     const unpaid = await seller.agent.post(`${SALES}/${draft.body.id}/confirm`).set(CSRF).send({});

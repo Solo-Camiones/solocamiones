@@ -33,11 +33,13 @@ describe('SalesRepository (PostgreSQL)', () => {
       customerId: customer!.id,
       currency: InvoiceCurrency.DOP,
       fiscal: false,
+      applyItbis: false,
     });
     const usd = await sales.createDraft({
       customerId: customer!.id,
       currency: InvoiceCurrency.USD,
       fiscal: true,
+      applyItbis: false,
     });
 
     expect(dop).toMatchObject({
@@ -74,6 +76,7 @@ describe('SalesRepository (PostgreSQL)', () => {
       customerId: customer!.id,
       currency: InvoiceCurrency.DOP,
       fiscal: false,
+      applyItbis: false,
     });
     const withLine = await sales.addLine({
       invoiceId: draft.id,
@@ -132,6 +135,7 @@ describe('SalesRepository (PostgreSQL)', () => {
       customerId: customer!.id,
       currency: InvoiceCurrency.DOP,
       fiscal: false,
+      applyItbis: false,
     });
 
     const withGeneric = await sales.addLine({
@@ -195,6 +199,7 @@ describe('SalesRepository (PostgreSQL)', () => {
       customerId: customer!.id,
       currency: InvoiceCurrency.DOP,
       fiscal: false,
+      applyItbis: false,
     });
 
     await expect(
@@ -240,6 +245,7 @@ describe('SalesRepository (PostgreSQL)', () => {
       customerId: customer!.id,
       currency: InvoiceCurrency.DOP,
       fiscal: false,
+      applyItbis: false,
     });
 
     await expect(
@@ -260,6 +266,7 @@ describe('SalesRepository (PostgreSQL)', () => {
       customerId: customer!.id,
       currency: InvoiceCurrency.DOP,
       fiscal: false,
+      applyItbis: false,
     });
 
     await expect(

@@ -68,7 +68,7 @@ describe('InvoiceDetailPage', () => {
     });
 
     expect(await screen.findByRole('heading', { name: 'FAC-000098' })).toBeVisible();
-    expect(screen.getByText(/2,974\.58/)).toBeVisible();
+    expect(screen.getAllByText(/19,500/).length).toBeGreaterThan(0);
     expect(screen.getByText('Rentabilidad')).toBeVisible();
   });
 
@@ -87,7 +87,8 @@ describe('InvoiceDetailPage', () => {
 
     const dialog = await screen.findByRole('dialog');
     expect(within(dialog).getByText('NCF: ______________________')).toBeVisible();
-    expect(within(dialog).getByText('ITBIS incluido')).toBeVisible();
+    expect(within(dialog).getByText('Subtotal')).toBeVisible();
+    expect(within(dialog).getAllByText('ITBIS').length).toBeGreaterThan(0);
     expect(within(dialog).getAllByText('RD$0.00').length).toBeGreaterThan(0);
   });
 

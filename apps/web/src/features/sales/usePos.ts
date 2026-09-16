@@ -23,8 +23,6 @@ export type PosLineSnapshot = Pick<
   | 'notes'
   | 'quantity'
   | 'unitPrice'
-  | 'acquisitionCostDop'
-  | 'costProvenance'
   | 'pricePending'
 >;
 
@@ -32,6 +30,7 @@ export type PosDraftSnapshot = {
   customerId: string;
   currency: Currency;
   fiscal: boolean;
+  applyItbis: boolean;
   lines: PosLineSnapshot[];
 };
 
@@ -45,8 +44,6 @@ export function snapshotPosLine(line: PosLineView): PosLineSnapshot {
     notes: line.notes,
     quantity: line.quantity,
     unitPrice: line.unitPrice,
-    acquisitionCostDop: line.acquisitionCostDop,
-    costProvenance: line.costProvenance,
     pricePending: line.pricePending,
   };
 }
@@ -56,6 +53,7 @@ export function snapshotPosDraft(draft: PosDraftView): PosDraftSnapshot {
     customerId: draft.customerId,
     currency: draft.currency,
     fiscal: draft.fiscal,
+    applyItbis: draft.applyItbis,
     lines: draft.lines.map(snapshotPosLine),
   };
 }
@@ -70,8 +68,6 @@ export function toPosAddLineInput(line: PosLineSnapshot): Omit<AddDraftLineInput
     notes: line.notes,
     quantity: line.quantity,
     unitPrice: line.unitPrice,
-    acquisitionCostDop: line.acquisitionCostDop,
-    costProvenance: line.costProvenance,
   };
 }
 
@@ -130,6 +126,7 @@ export async function restoreDiscardedDraft(snapshot: PosDraftSnapshot): Promise
     customerId: snapshot.customerId,
     currency: snapshot.currency,
     fiscal: snapshot.fiscal,
+    applyItbis: snapshot.applyItbis,
   });
   if (!meta.ok) {
     return meta;
@@ -296,8 +293,6 @@ export function usePos(draftId: string | undefined) {
         quantity?: number;
         description?: string;
         notes?: string | null;
-        acquisitionCostDop?: number | null;
-        costProvenance?: PosLineView['costProvenance'];
       },
     ): Promise<Result<void>> => {
       if (!draftId || draftId === 'new') {
@@ -312,8 +307,6 @@ export function usePos(draftId: string | undefined) {
             quantity: patch.quantity,
             description: patch.description,
             notes: patch.notes,
-            acquisitionCostDop: patch.acquisitionCostDop,
-            costProvenance: patch.costProvenance,
           }),
         ),
       );
