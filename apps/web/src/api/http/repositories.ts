@@ -37,14 +37,18 @@ import {
   addPaymentWithHttp,
   cancelInvoiceWithHttp,
   confirmInvoiceWithHttp,
+  convertQuoteWithHttp,
   correctCurrencyWithHttp,
   createDraftWithHttp,
+  createQuoteWithHttp,
+  duplicateQuoteWithHttp,
   discardDraftWithHttp,
   getDraftWithHttp,
   getInvoiceWithHttp,
   getInvoicePdfWithHttp,
   listInvoicesWithHttp,
   listReceivablesWithHttp,
+  issueQuoteWithHttp,
   regenerateInvoicePdfWithHttp,
   removeDraftLineWithHttp,
   setDraftLinePriceWithHttp,
@@ -250,6 +254,10 @@ export class HttpSalesRepository implements SalesRepository {
     return createDraftWithHttp();
   }
 
+  async createQuote() {
+    return createQuoteWithHttp();
+  }
+
   async getDraft(id: string) {
     return getDraftWithHttp(id);
   }
@@ -276,6 +284,18 @@ export class HttpSalesRepository implements SalesRepository {
 
   async confirmInvoice(draftId: string, payment?: ConfirmInvoicePayment) {
     return confirmInvoiceWithHttp(draftId, payment);
+  }
+
+  async issueQuote(draftId: string) {
+    return issueQuoteWithHttp(draftId);
+  }
+
+  async duplicateQuote(quoteId: string) {
+    return duplicateQuoteWithHttp(quoteId);
+  }
+
+  async convertQuote(quoteId: string, payment?: ConfirmInvoicePayment) {
+    return convertQuoteWithHttp(quoteId, payment);
   }
 
   async discardDraft(draftId: string) {

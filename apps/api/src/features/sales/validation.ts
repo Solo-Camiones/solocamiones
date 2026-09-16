@@ -12,7 +12,13 @@ export const paginationSchema = z.strictObject({
 });
 
 export const invoiceCurrencySchema = z.enum(['DOP', 'USD']);
-export const invoiceStatusSchema = z.enum(['DRAFT', 'COMPLETED', 'CANCELLED']);
+export const invoiceStatusSchema = z.enum([
+  'DRAFT',
+  'QUOTE_DRAFT',
+  'QUOTE_ISSUED',
+  'COMPLETED',
+  'CANCELLED',
+]);
 
 export const createDraftSchema = z.strictObject({
   customerId: z.uuid().optional(),
@@ -20,6 +26,8 @@ export const createDraftSchema = z.strictObject({
   fiscal: z.boolean().optional(),
   applyItbis: z.boolean().optional(),
 });
+
+export const emptyCommandSchema = z.strictObject({});
 
 export const updateDraftMetaSchema = createDraftSchema.refine(
   (value) => Object.keys(value).length > 0,

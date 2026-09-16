@@ -116,6 +116,7 @@ describe('Pre-production domain migration (Paso 2)', () => {
         quoteNumber: 'COT-000001',
         quoteIssuedAt: new Date('2026-09-15T12:00:00.000Z'),
         quoteExpiresAt: new Date('2026-10-16T03:59:59.000Z'),
+        customerName: generic!.name,
         gross: '139.24',
         base: '118.00',
         itbis: '21.24',
@@ -133,11 +134,11 @@ describe('Pre-production domain migration (Paso 2)', () => {
       prisma.$executeRaw`
         INSERT INTO "Invoice" (
           "status", "currency", "fiscal", "customerId",
-          "quoteNumber", "quoteIssuedAt", "quoteExpiresAt", "updatedAt"
+          "quoteNumber", "quoteIssuedAt", "quoteExpiresAt", "gross", "base", "itbis", "updatedAt"
         )
         VALUES (
           'QUOTE_ISSUED', 'DOP', false, ${generic!.id}::uuid,
-          'COT-000002', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+          'COT-000002', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 100.00, 100.00, 0.00, CURRENT_TIMESTAMP
         )
       `,
     ).rejects.toMatchObject({ code: 'P2010', meta: { code: '23514' } });

@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import type { PaymentState } from '../../api/contracts/entities';
+import type { InvoiceStatus, PaymentState } from '../../api/contracts/entities';
 
 import { UX_TERMS } from '../copy/glossary';
 import { Chip } from '../ui';
@@ -252,13 +252,15 @@ export function InventoryStatusCluster({
   );
 }
 
-export function InvoiceStatusChip({ status }: { status: 'DRAFT' | 'COMPLETED' | 'CANCELLED' }) {
+export function InvoiceStatusChip({ status }: { status: InvoiceStatus }) {
   if (status === 'DRAFT') {
     return <Chip tone="amber">Borrador</Chip>;
   }
   if (status === 'CANCELLED') {
     return <Chip tone="danger">Cancelada</Chip>;
   }
+  if (status === 'QUOTE_DRAFT') return <Chip tone="amber">Cotización borrador</Chip>;
+  if (status === 'QUOTE_ISSUED') return <Chip tone="brand">Cotización emitida</Chip>;
   return <Chip tone="success">Completada</Chip>;
 }
 

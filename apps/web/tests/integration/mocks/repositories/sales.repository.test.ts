@@ -32,7 +32,7 @@ describe('MockSalesRepository', () => {
 
     expect(receivables.ok).toBe(true);
     if (!receivables.ok) return;
-    expect(receivables.value.invoices.every((row) => row.balance > 0)).toBe(true);
+    expect(receivables.value.invoices.every((row) => (row.balance ?? 0) > 0)).toBe(true);
     expect(receivables.value.invoices.some((row) => row.number === 'FAC-000098')).toBe(true);
     expect(receivables.value.customers.every((row) => row.balance > 0)).toBe(true);
     const currencies = new Set(
@@ -167,5 +167,40 @@ describe('MockSalesRepository', () => {
       expect(created.value.draftId).toBe('INV-DRAFT-02');
     }
     expect(getMockState().invoices.filter((entry) => entry.status === 'DRAFT')).toHaveLength(2);
+  });
+
+  it('issues and converts a quote without duplicating lines or the COT number', async () => {
+    signInAs('SELLER');
+    const created = await mockSalesRepository.createQuote();
+    expect(created.ok).toBe(true);
+    if (!created.ok) return;
+    const quoteId = created.value.draftId;
+    expect((await mockSalesRepository.setDraftMeta({ draftId: quoteId, customerId: 'C1' })).ok).toBe(true);
+    expect(
+      (
+        await mockSalesRepository.addLine({
+          draftId: quoteId,
+          type: 'GENERIC',
+          description: 'Filtro',
+          notes: 'Nota por línea',
+          unitPrice: 100,
+        })
+      ).ok,
+    ).toBe(true);
+
+    const issued = await mockSalesRepository.issueQuote(quoteId);
+    expect(issued.ok && issued.value.quoteNumber).toBe('COT-000001');
+    expect(issued.ok && issued.value.status).toBe('QUOTE_ISSUED');
+
+    const converted = await mockSalesRepository.convertQuote(quoteId);
+    expect(converted.ok && converted.value.status).toBe('COMPLETED');
+    expect(converted.ok && converted.value.number).toBe('FAC-000100');
+    expect(converted.ok && converted.value.quoteNumber).toBe('COT-000001');
+
+    const listed = await mockSalesRepository.listInvoices();
+    expect(listed.ok && listed.value.items.some((row) => row.quoteNumber === 'COT-000001')).toBe(true);
+    const retry = await mockSalesRepository.convertQuote(quoteId);
+    expect(retry.ok && retry.value.number).toBe('FAC-000100');
+    expect(getMockState().invoices.find((entry) => entry.id === quoteId)?.lines).toHaveLength(1);
   });
 });

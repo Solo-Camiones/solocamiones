@@ -32,10 +32,25 @@ export type InvoiceListRecord = Invoice & {
 export type InvoiceViewer = { role: Role };
 
 export type CreateDraftInvoiceRecord = {
+  status?: 'DRAFT' | 'QUOTE_DRAFT';
   customerId: string;
   currency: InvoiceCurrency;
   fiscal: boolean;
   applyItbis: boolean;
+};
+
+export type IssueQuoteRecord = {
+  id: string;
+  quoteNumber: string;
+  quoteIssuedAt: Date;
+  quoteExpiresAt: Date;
+  customerName: string;
+  customerRnc: string | null;
+  customerPhone: string | null;
+  gross: Prisma.Decimal | string;
+  base: Prisma.Decimal | string;
+  itbis: Prisma.Decimal | string;
+  lines: CompleteInvoiceLineMoneyRecord[];
 };
 
 export type UpdateDraftInvoiceRecord = {
@@ -237,6 +252,10 @@ export type PublicInvoice = {
   id: string;
   status: InvoiceStatus;
   number: string | null;
+  quoteNumber: string | null;
+  quoteIssuedAt: string | null;
+  quoteExpiresAt: string | null;
+  quoteExpired: boolean;
   currency: InvoiceCurrency;
   fiscal: boolean;
   applyItbis: boolean;
@@ -273,6 +292,10 @@ export type PublicInvoiceListItem = {
   id: string;
   status: InvoiceStatus;
   number: string | null;
+  quoteNumber: string | null;
+  quoteIssuedAt: string | null;
+  quoteExpiresAt: string | null;
+  quoteExpired: boolean;
   currency: InvoiceCurrency;
   fiscal: boolean;
   applyItbis: boolean;

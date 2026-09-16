@@ -47,6 +47,9 @@ export function SalesTable({
               <EntityLink to={row.href}>
                 <Mono>{row.number}</Mono>
               </EntityLink>
+              {row.quoteNumber && row.quoteNumber !== row.number ? (
+                <p className="mt-0.5 text-xs text-navy-400">Origen {row.quoteNumber}</p>
+              ) : null}
               {row.fiscal && <p className="mt-0.5 text-xs text-navy-400">Con comprobante fiscal</p>}
             </td>
             <td className="px-4 py-3">{row.customerName}</td>
@@ -65,7 +68,7 @@ export function SalesTable({
             <td className="px-4 py-3 text-right font-mono">{money(row.total, row.currency)}</td>
             {showPaymentSettlement ? (
               <td className="px-4 py-3 text-right font-mono">
-                {row.status !== 'DRAFT' && row.balance != null
+                {(row.status === 'COMPLETED' || row.status === 'CANCELLED') && row.balance != null
                   ? money(row.balance, row.currency)
                   : '—'}
               </td>

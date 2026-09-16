@@ -1,17 +1,30 @@
 import { describe, expect, it } from 'vitest';
 
 import { createInitialState } from '../../../../src/mocks/data/seed';
+import { currentDemoTimeIso } from '../../../../src/mocks/data/demo-clock';
 import {
   addDraftLine,
   cancelInvoice,
   confirmInvoice,
+  convertQuote,
   createDraft,
+  createQuote,
   discardDraft,
+  duplicateQuote,
+  issueQuote,
   setDraftLinePrice,
   setDraftMeta,
 } from '../../../../src/mocks/services/sales-commands';
-import { buildInvoiceDetail } from '../../../../src/mocks/services/sales-catalog';
-import { invoiceBalance, invoiceItbis, invoiceTotal } from '../../../../src/mocks/services/invoice-money';
+import {
+  buildInvoiceDetail,
+  toSalesListRow,
+} from '../../../../src/mocks/services/sales-catalog';
+import { buildPosDraftView } from '../../../../src/mocks/services/sales-draft';
+import {
+  invoiceBalance,
+  invoiceItbis,
+  invoiceTotal,
+} from '../../../../src/mocks/services/invoice-money';
 import { invoiceProfitDop, lineCostDop } from '../../../../src/mocks/services/gross-profit';
 
 const seller = createInitialState().users.find((user) => user.id === 'U-LAURA')!;
@@ -158,9 +171,9 @@ describe('POS draft commands', () => {
 
     const added = addDraftLine(state, seller, { draftId, type: 'ITEM', itemId: 'MOT-002' });
     expect(added.ok).toBe(true);
-    expect(setDraftLinePrice(state, seller, { draftId, lineId: 'L-D1', unitPrice: 50_000 }).ok).toBe(
-      true,
-    );
+    expect(
+      setDraftLinePrice(state, seller, { draftId, lineId: 'L-D1', unitPrice: 50_000 }).ok,
+    ).toBe(true);
 
     const result = confirmInvoice(state, seller, draftId);
     expect(result.ok).toBe(false);
@@ -235,9 +248,13 @@ describe('POS draft commands', () => {
 
     expect(result.ok).toBe(true);
     expect(state.items.find((item) => item.id === 'MOT-003')?.commercialState).toBe('SOLD');
-    expect(state.items.find((item) => item.id === 'MOT-003')?.physicalRelationship).toBe('INDEPENDENT');
+    expect(state.items.find((item) => item.id === 'MOT-003')?.physicalRelationship).toBe(
+      'INDEPENDENT',
+    );
     expect(
-      state.workOrders.filter((order) => order.type === 'DISMANTLING' && order.pieceId === 'MOT-003'),
+      state.workOrders.filter(
+        (order) => order.type === 'DISMANTLING' && order.pieceId === 'MOT-003',
+      ),
     ).toHaveLength(woCountBefore);
   });
 
@@ -268,14 +285,18 @@ describe('POS draft commands', () => {
 
     state.items.find((item) => item.id === 'ALT-011')!.parentId = 'MOT-002';
 
-    expect(invoice.deliveredAssemblies!.find((entry) => entry.rootItemId === 'MOT-003')!.nodes.find(
-      (node) => node.itemId === 'ALT-011',
-    )?.parentId).toBe('MOT-003');
+    expect(
+      invoice
+        .deliveredAssemblies!.find((entry) => entry.rootItemId === 'MOT-003')!
+        .nodes.find((node) => node.itemId === 'ALT-011')?.parentId,
+    ).toBe('MOT-003');
 
     const detail = buildInvoiceDetail(state, invoice, admin);
-    expect(detail.deliveredAssemblies?.find((entry) => entry.rootItemId === 'MOT-003')?.nodes.find(
-      (node) => node.itemId === 'ALT-011',
-    )?.parentId).toBe('MOT-003');
+    expect(
+      detail.deliveredAssemblies
+        ?.find((entry) => entry.rootItemId === 'MOT-003')
+        ?.nodes.find((node) => node.itemId === 'ALT-011')?.parentId,
+    ).toBe('MOT-003');
   });
 
   it('rejects confirming an assembly whose descendant is already Sold', () => {
@@ -476,17 +497,19 @@ describe('POS draft commands', () => {
     expect(wo.invoiceId).toBe(draftId);
     expect(wo.linkedInvoiceIds).toEqual(['INV-096', draftId]);
     expect(
-      state.workOrders.filter((order) => order.type === 'DISMANTLING' && order.pieceId === 'TUR-009'),
+      state.workOrders.filter(
+        (order) => order.type === 'DISMANTLING' && order.pieceId === 'TUR-009',
+      ),
     ).toHaveLength(1);
 
     const cancelled = state.invoices.find((entry) => entry.id === 'INV-096')!;
     const resale = state.invoices.find((entry) => entry.id === draftId)!;
-    expect(buildInvoiceDetail(state, cancelled, admin).linkedWorkOrders.map((order) => order.id)).toContain(
-      'OD-DEMO-060',
-    );
-    expect(buildInvoiceDetail(state, resale, admin).linkedWorkOrders.map((order) => order.id)).toContain(
-      'OD-DEMO-060',
-    );
+    expect(
+      buildInvoiceDetail(state, cancelled, admin).linkedWorkOrders.map((order) => order.id),
+    ).toContain('OD-DEMO-060');
+    expect(
+      buildInvoiceDetail(state, resale, admin).linkedWorkOrders.map((order) => order.id),
+    ).toContain('OD-DEMO-060');
   });
 
   it('releases reservations when a draft is discarded', () => {
@@ -535,7 +558,9 @@ describe('POS draft commands', () => {
     expect(state.facSeq).toBe(facSeqBefore);
     expect(state.invoices.find((entry) => entry.id === 'INV-DRAFT-01')?.status).toBe('DRAFT');
     expect(state.items.find((item) => item.id === 'ALT-004')?.commercialState).toBe('AVAILABLE');
-    expect(state.items.find((item) => item.id === 'ALT-004')?.reservedByDraftId).toBe('INV-DRAFT-01');
+    expect(state.items.find((item) => item.id === 'ALT-004')?.reservedByDraftId).toBe(
+      'INV-DRAFT-01',
+    );
     expect(state.qtyProducts.find((product) => product.id === 'QTY-OIL-15W40')).toMatchObject({
       onHand: onHandBefore,
       reserved: reservedBefore,
@@ -658,7 +683,9 @@ describe('POS draft commands', () => {
       return;
     }
     const draftId = created.value.draftId;
-    expect(setDraftMeta(state, seller, { draftId, customerId: 'C1', currency: 'USD' }).ok).toBe(true);
+    expect(setDraftMeta(state, seller, { draftId, customerId: 'C1', currency: 'USD' }).ok).toBe(
+      true,
+    );
     expect(
       addDraftLine(state, seller, {
         draftId,
@@ -714,5 +741,131 @@ describe('POS draft commands', () => {
     const paid = confirmInvoice(state, seller, draftId, { amount: 100, method: 'CASH' });
     expect(paid.ok).toBe(true);
     expect(state.invoices.find((entry) => entry.id === draftId)?.paymentState).toBe('PAID');
+  });
+
+  it('issues, duplicates and converts a quote on the same operation without duplicating lines', () => {
+    const state = createInitialState();
+    const created = createQuote(state, seller);
+    expect(created.ok).toBe(true);
+    if (!created.ok) return;
+    const quoteId = created.value.draftId;
+    expect(setDraftMeta(state, seller, { draftId: quoteId, customerId: 'C1' }).ok).toBe(true);
+    expect(
+      addDraftLine(state, seller, {
+        draftId: quoteId,
+        type: 'GENERIC',
+        description: 'Filtro',
+        notes: 'Nota por línea',
+        quantity: 1,
+        unitPrice: 100,
+      }).ok,
+    ).toBe(true);
+
+    const issued = issueQuote(state, seller, quoteId);
+    expect(issued.ok).toBe(true);
+    const issuedQuote = state.invoices.find((entry) => entry.id === quoteId);
+    expect(issuedQuote?.status).toBe('QUOTE_ISSUED');
+    expect(issuedQuote?.quoteNumber).toBe('COT-000001');
+    expect(issuedQuote?.number).toBeUndefined();
+    expect(issueQuote(state, seller, quoteId).ok).toBe(true);
+    expect(state.invoices.filter((entry) => entry.quoteNumber === 'COT-000001')).toHaveLength(1);
+
+    const duplicated = duplicateQuote(state, seller, quoteId);
+    expect(duplicated.ok).toBe(true);
+    if (!duplicated.ok) return;
+    const copy = state.invoices.find((entry) => entry.id === duplicated.value.draftId);
+    expect(copy?.status).toBe('QUOTE_DRAFT');
+    expect(copy?.quoteNumber).toBeUndefined();
+    expect(copy?.lines).toHaveLength(1);
+
+    expect(confirmInvoice(state, seller, quoteId).ok).toBe(false);
+    const converted = convertQuote(state, seller, quoteId);
+    expect(converted.ok).toBe(true);
+    const invoice = state.invoices.find((entry) => entry.id === quoteId);
+    expect(invoice).toMatchObject({
+      status: 'COMPLETED',
+      number: 'FAC-000100',
+      quoteNumber: 'COT-000001',
+    });
+    expect(invoice?.lines).toHaveLength(1);
+    expect(convertQuote(state, seller, quoteId).ok).toBe(true);
+    expect(state.invoices.filter((entry) => entry.number === 'FAC-000100')).toHaveLength(1);
+  });
+
+  it('rejects converting an expired quote and still allows duplicate', () => {
+    const state = createInitialState();
+    const created = createQuote(state, seller);
+    expect(created.ok).toBe(true);
+    if (!created.ok) return;
+    const quoteId = created.value.draftId;
+    expect(setDraftMeta(state, seller, { draftId: quoteId, customerId: 'C1' }).ok).toBe(true);
+    expect(
+      addDraftLine(state, seller, {
+        draftId: quoteId,
+        type: 'GENERIC',
+        description: 'Filtro',
+        quantity: 1,
+        unitPrice: 100,
+      }).ok,
+    ).toBe(true);
+    expect(issueQuote(state, seller, quoteId).ok).toBe(true);
+    const quote = state.invoices.find((entry) => entry.id === quoteId)!;
+    quote.quoteExpiresAt = '2026-01-31T03:59:59.999Z';
+
+    const expired = convertQuote(state, seller, quoteId);
+    expect(expired.ok).toBe(false);
+    expect(quote.status).toBe('QUOTE_ISSUED');
+    expect(quote.number).toBeUndefined();
+    expect(duplicateQuote(state, seller, quoteId).ok).toBe(true);
+  });
+
+  it('rejects converting a quote when another draft exhausted the QTY availability', () => {
+    const state = createInitialState();
+    const created = createQuote(state, seller);
+    expect(created.ok).toBe(true);
+    if (!created.ok) return;
+    const quoteId = created.value.draftId;
+    const product = state.qtyProducts.find((entry) => entry.id === 'QTY-OIL-15W40')!;
+
+    expect(setDraftMeta(state, seller, { draftId: quoteId, customerId: 'C1' }).ok).toBe(true);
+    expect(
+      addDraftLine(state, seller, {
+        draftId: quoteId,
+        type: 'QTY',
+        qtyProductId: product.id,
+        quantity: 1,
+        unitPrice: 1_800,
+      }).ok,
+    ).toBe(true);
+    expect(issueQuote(state, seller, quoteId).ok).toBe(true);
+
+    product.reserved = product.onHand;
+    const facSeqBefore = state.facSeq;
+    const converted = convertQuote(state, seller, quoteId);
+
+    expect(converted.ok).toBe(false);
+    if (!converted.ok) {
+      expect(converted.error).toMatchObject({
+        code: 'CONFLICT',
+        message: `Stock insuficiente para ${product.id}`,
+      });
+    }
+    expect(state.invoices.find((entry) => entry.id === quoteId)?.status).toBe('QUOTE_ISSUED');
+    expect(product.reserved).toBe(product.onHand);
+    expect(state.facSeq).toBe(facSeqBefore);
+  });
+
+  it('evaluates quote expiry consistently against the demo clock', () => {
+    const state = createInitialState();
+    const created = createQuote(state, seller);
+    expect(created.ok).toBe(true);
+    if (!created.ok) return;
+    const quoteId = created.value.draftId;
+    const quote = state.invoices.find((entry) => entry.id === quoteId)!;
+    quote.status = 'QUOTE_ISSUED';
+    quote.quoteExpiresAt = new Date(Date.parse(currentDemoTimeIso()) + 86_400_000).toISOString();
+
+    expect(buildPosDraftView(state, quote).quoteExpired).toBe(false);
+    expect(toSalesListRow(state, quote).quoteExpired).toBe(false);
   });
 });

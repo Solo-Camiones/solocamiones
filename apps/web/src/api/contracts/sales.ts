@@ -12,11 +12,18 @@ import type {
 } from './entities';
 import type { HierarchyNode } from './inventory';
 
-export type SalesListTab = 'ALL' | 'DRAFT' | 'COMPLETED' | 'CANCELLED';
+export type SalesListTab =
+  | 'ALL'
+  | 'DRAFT'
+  | 'QUOTE_DRAFT'
+  | 'QUOTE_ISSUED'
+  | 'COMPLETED'
+  | 'CANCELLED';
 
 export type SalesListRow = {
   id: string;
   number: string;
+  quoteNumber?: string;
   status: InvoiceStatus;
   paymentState?: PaymentState;
   customerId: string;
@@ -28,6 +35,9 @@ export type SalesListRow = {
   createdAt: string;
   confirmedAt?: string;
   dueDate?: string;
+  quoteIssuedAt?: string;
+  quoteExpiresAt?: string;
+  quoteExpired?: boolean;
   href: string;
 };
 
@@ -122,6 +132,7 @@ export type InvoiceDetailActions = {
 export type InvoiceDetailView = {
   id: string;
   number?: string;
+  quoteNumber?: string;
   status: InvoiceStatus;
   paymentState?: PaymentState;
   customerId: string;
@@ -222,6 +233,10 @@ export type PosDraftView = {
   id: string;
   status: InvoiceStatus;
   number?: string;
+  quoteNumber?: string;
+  quoteIssuedAt?: string;
+  quoteExpiresAt?: string;
+  quoteExpired?: boolean;
   customerId: string;
   customerName: string;
   customerRnc?: string;

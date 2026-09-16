@@ -18,6 +18,7 @@ function detailRoute() {
     <Routes>
       <Route path="/sales/:id" element={<InvoiceDetailPage />} />
       <Route path="/sales/draft/:id" element={<p>POS placeholder</p>} />
+      <Route path="/sales/quote/:id" element={<p>Quote placeholder</p>} />
     </Routes>
   );
 }
@@ -197,5 +198,34 @@ describe('InvoiceDetailPage', () => {
     expect(within(screen.getByRole('dialog')).getByLabelText('Motivo')).toHaveValue(
       'Cliente desistió',
     );
+  });
+
+  it('shows the origin COT number on a converted invoice', async () => {
+    signInAs('ADMINISTRATOR');
+    const created = await mockSalesRepository.createQuote();
+    expect(created.ok).toBe(true);
+    if (!created.ok) return;
+    const quoteId = created.value.draftId;
+    expect((await mockSalesRepository.setDraftMeta({ draftId: quoteId, customerId: 'C1' })).ok).toBe(true);
+    expect(
+      (
+        await mockSalesRepository.addLine({
+          draftId: quoteId,
+          type: 'GENERIC',
+          description: 'Filtro',
+          unitPrice: 100,
+        })
+      ).ok,
+    ).toBe(true);
+    expect((await mockSalesRepository.issueQuote(quoteId)).ok).toBe(true);
+    expect((await mockSalesRepository.convertQuote(quoteId)).ok).toBe(true);
+
+    renderWithProviders(detailRoute(), {
+      route: `/sales/${quoteId}`,
+      auth: createAuthValue('ADMINISTRATOR'),
+    });
+
+    expect(await screen.findByRole('heading', { name: 'FAC-000100' })).toBeVisible();
+    expect(screen.getAllByText('Origen COT-000001').length).toBeGreaterThan(0);
   });
 });

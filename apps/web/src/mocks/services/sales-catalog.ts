@@ -21,6 +21,7 @@ import {
 } from './invoice-money';
 import { profitabilityForInvoice } from './profitability-view';
 import { resolveActorName, toHistoryEventView } from './history-view';
+import { currentDemoTimeIso } from '../data/demo-clock';
 
 const ADMINISTRATOR_ONLY_INVOICE_EVENTS = new Set(['PAYMENT_RECORDED']);
 
@@ -33,13 +34,19 @@ function customerName(state: AppState, invoice: Invoice): string {
 }
 
 function draftHref(invoice: Invoice): string {
-  return invoice.status === 'DRAFT' ? `/sales/draft/${invoice.id}` : `/sales/${invoice.id}`;
+  if (invoice.status === 'DRAFT') return `/sales/draft/${invoice.id}`;
+  if (invoice.status === 'QUOTE_DRAFT' || invoice.status === 'QUOTE_ISSUED') {
+    return `/sales/quote/${invoice.id}`;
+  }
+  return `/sales/${invoice.id}`;
 }
 
 function displayNumber(invoice: Invoice): string {
   if (invoice.number) {
     return invoice.number;
   }
+  if (invoice.quoteNumber) return invoice.quoteNumber;
+  if (invoice.status === 'QUOTE_DRAFT') return 'Cotización borrador';
   return invoice.status === 'DRAFT' ? 'Borrador' : 'Factura';
 }
 
@@ -52,6 +59,7 @@ export function toSalesListRow(
   return {
     id: invoice.id,
     number: displayNumber(invoice),
+    quoteNumber: invoice.quoteNumber,
     status: invoice.status,
     customerId: invoice.customerId,
     customerName: customerName(state, invoice),
@@ -61,8 +69,17 @@ export function toSalesListRow(
     createdAt: invoice.createdAt,
     confirmedAt: invoice.confirmedAt,
     dueDate: invoice.dueDate,
+    quoteIssuedAt: invoice.quoteIssuedAt,
+    quoteExpiresAt: invoice.quoteExpiresAt,
+    quoteExpired:
+      invoice.status === 'QUOTE_ISSUED' &&
+      Boolean(
+        invoice.quoteExpiresAt &&
+        Date.parse(invoice.quoteExpiresAt) < Date.parse(currentDemoTimeIso()),
+      ),
     href: draftHref(invoice),
-    ...(includePaymentSettlement
+    ...(includePaymentSettlement &&
+    (invoice.status === 'COMPLETED' || invoice.status === 'CANCELLED')
       ? { paymentState: invoice.paymentState, balance: invoiceBalance(invoice) }
       : {}),
   };
@@ -83,6 +100,7 @@ export function matchesSalesSearch(row: SalesListRow, query: string): boolean {
 
   return (
     row.number.toLowerCase().includes(normalized) ||
+    (row.quoteNumber?.toLowerCase().includes(normalized) ?? false) ||
     row.customerName.toLowerCase().includes(normalized) ||
     row.id.toLowerCase().includes(normalized)
   );
@@ -109,7 +127,9 @@ export function buildSalesList(
 export function buildReceivables(state: AppState): ReceivablesSnapshot {
   const invoices = [...state.invoices]
     .filter((invoice) => invoice.status === 'COMPLETED' && invoiceBalance(invoice) > 0)
-    .sort((left, right) => (left.dueDate ?? left.createdAt).localeCompare(right.dueDate ?? right.createdAt))
+    .sort((left, right) =>
+      (left.dueDate ?? left.createdAt).localeCompare(right.dueDate ?? right.createdAt),
+    )
     .map((invoice) => toSalesListRow(state, invoice));
 
   const grouped = new Map<string, CustomerOutstandingRow>();
@@ -171,7 +191,11 @@ function isLinkedInvoiceEvent(event: AppState['events'][number], invoice: Invoic
   return event.description.includes(invoice.id);
 }
 
-export function buildInvoiceDetail(state: AppState, invoice: Invoice, actor: User): InvoiceDetailView {
+export function buildInvoiceDetail(
+  state: AppState,
+  invoice: Invoice,
+  actor: User,
+): InvoiceDetailView {
   const customer = state.customers.find((entry) => entry.id === invoice.customerId);
   const completed = invoice.status === 'COMPLETED';
   const numbered = invoice.status === 'COMPLETED' || invoice.status === 'CANCELLED';
@@ -179,6 +203,7 @@ export function buildInvoiceDetail(state: AppState, invoice: Invoice, actor: Use
   return {
     id: invoice.id,
     number: invoice.number,
+    quoteNumber: invoice.quoteNumber,
     status: invoice.status,
     customerId: invoice.customerId,
     customerName: invoice.customerSnapshot?.name ?? customer?.name ?? invoice.customerId,
@@ -240,7 +265,11 @@ export function buildInvoiceDetail(state: AppState, invoice: Invoice, actor: Use
         can(actor, 'sales.manage') &&
         invoiceBalance(invoice) > 0,
       canCancel: completed && can(actor, 'sales.cancel'),
-      canCorrectCurrency: completed && can(actor, 'sales.correctCurrency') && invoice.payments.length === 0 && invoice.paymentState !== 'PAID',
+      canCorrectCurrency:
+        completed &&
+        can(actor, 'sales.correctCurrency') &&
+        invoice.payments.length === 0 &&
+        invoice.paymentState !== 'PAID',
       canViewPdf: numbered && Boolean(invoice.number),
       canRegeneratePdf: false,
     },

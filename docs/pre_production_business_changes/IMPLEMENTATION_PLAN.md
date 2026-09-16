@@ -30,19 +30,19 @@ Este es el orden que debe seguirse. Cada paso depende de las garantías establec
 
 #### Trazabilidad H/M/L → IDs canónicos
 
-| ID de impacto | Feature | IDs canónicos |
-|---|---|---|
-| H-01 | 10 | `SALE-010` (cálculo); `SALE-003` enmendado (ya no es ITBIS incluido) |
-| H-02 | 08 | `CUST-004` |
-| H-03 | 08 | `CUST-005`, `CUST-006` |
-| H-04 | 08, 12, roles | `CUST-004`, `PAY-007`, matriz Admin/Vendedor |
-| H-05 | 08, 10 | `CUST-007`, `SALE-009` |
-| H-06 | 11 | `COST-006`; `COST-001`/`COST-004` enmendados |
-| H-07 | 10 | `QUOTE-001`, `QUOTE-002` |
-| M-01 | 12 | `PAY-006` |
-| M-02 | 12 | `PAY-007` |
-| M-03 | 12 | `STMT-001` |
-| L-01, L-02, L-03 | 10 | `DOC-001` |
+| ID de impacto    | Feature       | IDs canónicos                                                        |
+| ---------------- | ------------- | -------------------------------------------------------------------- |
+| H-01             | 10            | `SALE-010` (cálculo); `SALE-003` enmendado (ya no es ITBIS incluido) |
+| H-02             | 08            | `CUST-004`                                                           |
+| H-03             | 08            | `CUST-005`, `CUST-006`                                               |
+| H-04             | 08, 12, roles | `CUST-004`, `PAY-007`, matriz Admin/Vendedor                         |
+| H-05             | 08, 10        | `CUST-007`, `SALE-009`                                               |
+| H-06             | 11            | `COST-006`; `COST-001`/`COST-004` enmendados                         |
+| H-07             | 10            | `QUOTE-001`, `QUOTE-002`                                             |
+| M-01             | 12            | `PAY-006`                                                            |
+| M-02             | 12            | `PAY-007`                                                            |
+| M-03             | 12            | `STMT-001`                                                           |
+| L-01, L-02, L-03 | 10            | `DOC-001`                                                            |
 
 #### Decisión de implementación — `dueDate` de contado (cerrada 2026-09-16)
 
@@ -132,20 +132,22 @@ Este es el orden que debe seguirse. Cada paso depende de las garantías establec
 
 ### Paso 6 — Implementar cotizaciones convertibles
 
+**Estado:** **Cerrado 2026-09-16** en código local (API + HTTP + mock). PDF de cotización y `internal-v4` siguen en Paso 9 (`DOC-001`).
+
 **Requisitos cubiertos:** `H-07`, con dependencias de `H-01` a `H-05`.
 
 **Tareas:**
 
-- Implementar `QUOTE_DRAFT -> QUOTE_ISSUED -> COMPLETED` sobre el mismo agregado.
-- Asignar `COT-000001` al emitir, sin reutilización.
-- Calcular expiración al final del día 30 en `America/Santo_Domingo`.
-- Hacer inmutable la cotización emitida y bloquear conversión al vencer.
-- Duplicar cliente, moneda, fiscalidad, ITBIS, líneas, precios y notas hacia una cotización nueva editable.
-- No reservar inventario; validar disponibilidad únicamente al convertir.
-- Convertir directamente mediante el flujo normal de confirmación y asignar `FAC-`.
-- Preservar `COT-` en la factura.
-- Hacer conversión idempotente y registrar historial.
-- Añadir lista/filtros/acciones de emitir, duplicar y convertir.
+- [x] Implementar `QUOTE_DRAFT -> QUOTE_ISSUED -> COMPLETED` sobre el mismo agregado.
+- [x] Asignar `COT-000001` al emitir, sin reutilización.
+- [x] Calcular expiración al final del día 30 en `America/Santo_Domingo`.
+- [x] Hacer inmutable la cotización emitida y bloquear conversión al vencer.
+- [x] Duplicar cliente, moneda, fiscalidad, ITBIS, líneas, precios y notas hacia una cotización nueva editable.
+- [x] No reservar inventario; validar disponibilidad únicamente al convertir.
+- [x] Convertir directamente mediante el flujo normal de confirmación y asignar `FAC-`.
+- [x] Preservar `COT-` en la factura.
+- [x] Hacer conversión idempotente y registrar historial.
+- [x] Añadir lista/filtros/acciones de emitir, duplicar y convertir.
 
 **Gate:** reintentos no duplican factura/líneas/números y una cotización vencida o modificada indebidamente es rechazada.
 
@@ -343,21 +345,21 @@ Por el alcance transversal, recomiendo tratarlo como un **change set preproducci
 
 ## 3. Clasificación por impacto
 
-| ID | Requerimiento | Impacto | Motivo principal |
-|---|---|---|---|
-| H-01 | Cambiar ITBIS incluido por base + 18 % | **HIGH** | Cambia cálculo monetario, totales, snapshots, PDF, pruebas y tratamiento de borradores existentes. |
-| H-02 | Clasificar clientes `CONTADO` / `CREDITO` | **HIGH** | Requiere migración, validación condicional, autorización y actualización de contratos/UI. |
-| H-03 | Límite y plazo de crédito 30/45/60/90/120 | **HIGH** | Requiere reglas transaccionales, definición de exposición, moneda, concurrencia y snapshot al facturar. |
-| H-04 | Restringir alta/cobro de crédito del Vendedor, permitiendo vender a clientes crédito aprobados | **HIGH** | Es una frontera de autorización por operación; debe bloquearse en servidor, no solo ocultarse en UI. |
-| H-05 | Separar cálculo de ITBIS y comprobante fiscal | **HIGH** | Hoy un único flag activa ambos; la nueva regla permite ITBIS sin comprobante y exige identificación para emitir comprobante. |
-| H-06 | Eliminar costo de adquisición de líneas para ambos roles y usar rentabilidad manual temporal | **HIGH** | Cambia captura, contrato API, cálculo de rentabilidad y la futura fuente de costo desde inventario. |
-| H-07 | Implementar cotización convertible en factura | **HIGH** | Agrega ciclo de vida, numeración/documento y una transición que debe conservar la misma operación, cliente y líneas sin duplicarlas. |
-| M-01 | Estado visible `ABONADO` después de un pago parcial | **MEDIUM** | Afecta modelo derivado, filtros, chips, PDF, consultas y precedencia con vencimiento. |
-| M-02 | Fecha emitida en detalle/listado CxC | **MEDIUM** | La fecha existe (`confirmedAt`), pero debe proyectarse, etiquetarse y probarse sin confundirla con `createdAt`. |
-| M-03 | Estado de cuenta por cliente | **MEDIUM** | Es un nuevo read model/reporte con filtros, separación por moneda y posible PDF/descarga. |
-| L-01 | Aclaraciones de transferencia y cheque en PDF | **LOW** | Cambio de contenido/layout; transferencia usa plantilla editable y cheque usa `Solo Camiones`. |
-| L-02 | Cambiar WhatsApp, correo y abreviatura de dirección | **LOW** | Actualiza datos corporativos también al volver a descargar facturas históricas. |
-| L-03 | Agregar TikTok a factura | **LOW** | Cambio visual y de contenido con el usuario `solo.camiones.srl`. |
+| ID   | Requerimiento                                                                                  | Impacto    | Motivo principal                                                                                                                     |
+| ---- | ---------------------------------------------------------------------------------------------- | ---------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| H-01 | Cambiar ITBIS incluido por base + 18 %                                                         | **HIGH**   | Cambia cálculo monetario, totales, snapshots, PDF, pruebas y tratamiento de borradores existentes.                                   |
+| H-02 | Clasificar clientes `CONTADO` / `CREDITO`                                                      | **HIGH**   | Requiere migración, validación condicional, autorización y actualización de contratos/UI.                                            |
+| H-03 | Límite y plazo de crédito 30/45/60/90/120                                                      | **HIGH**   | Requiere reglas transaccionales, definición de exposición, moneda, concurrencia y snapshot al facturar.                              |
+| H-04 | Restringir alta/cobro de crédito del Vendedor, permitiendo vender a clientes crédito aprobados | **HIGH**   | Es una frontera de autorización por operación; debe bloquearse en servidor, no solo ocultarse en UI.                                 |
+| H-05 | Separar cálculo de ITBIS y comprobante fiscal                                                  | **HIGH**   | Hoy un único flag activa ambos; la nueva regla permite ITBIS sin comprobante y exige identificación para emitir comprobante.         |
+| H-06 | Eliminar costo de adquisición de líneas para ambos roles y usar rentabilidad manual temporal   | **HIGH**   | Cambia captura, contrato API, cálculo de rentabilidad y la futura fuente de costo desde inventario.                                  |
+| H-07 | Implementar cotización convertible en factura                                                  | **HIGH**   | Agrega ciclo de vida, numeración/documento y una transición que debe conservar la misma operación, cliente y líneas sin duplicarlas. |
+| M-01 | Estado visible `ABONADO` después de un pago parcial                                            | **MEDIUM** | Afecta modelo derivado, filtros, chips, PDF, consultas y precedencia con vencimiento.                                                |
+| M-02 | Fecha emitida en detalle/listado CxC                                                           | **MEDIUM** | La fecha existe (`confirmedAt`), pero debe proyectarse, etiquetarse y probarse sin confundirla con `createdAt`.                      |
+| M-03 | Estado de cuenta por cliente                                                                   | **MEDIUM** | Es un nuevo read model/reporte con filtros, separación por moneda y posible PDF/descarga.                                            |
+| L-01 | Aclaraciones de transferencia y cheque en PDF                                                  | **LOW**    | Cambio de contenido/layout; transferencia usa plantilla editable y cheque usa `Solo Camiones`.                                       |
+| L-02 | Cambiar WhatsApp, correo y abreviatura de dirección                                            | **LOW**    | Actualiza datos corporativos también al volver a descargar facturas históricas.                                                      |
+| L-03 | Agregar TikTok a factura                                                                       | **LOW**    | Cambio visual y de contenido con el usuario `solo.camiones.srl`.                                                                     |
 
 > `HIGH`, `MEDIUM` y `LOW` expresan impacto técnico y riesgo de negocio, no prioridad empresarial. Los cambios `LOW` pueden entregarse temprano una vez recibidos los textos exactos.
 
@@ -443,7 +445,7 @@ Reglas de integridad recomendadas:
 - Cliente `CREDIT`: solo puede venderse a crédito en DOP. Cuando confirma un Vendedor, el pago inicial debe ser cero y los cobros posteriores pertenecen al Administrador. El Administrador sí puede registrar un pago parcial durante la confirmación; el saldo restante es la nueva exposición de crédito.
 - Al confirmar, copiar al snapshot de factura el tipo y el plazo aplicados; cambios posteriores al cliente no reescriben la factura.
 - `dueDate` de una venta a crédito = fecha local de confirmación + plazo aprobado.
-- Una venta al contado no aparece como CxC abierta. `dueDate` de contado ya pagado = fecha local de confirmación en `America/Santo_Domingo` (mismo día, fin de día); no `null`; no +30. Facturas históricas `COMPLETED` conservan el `dueDate` almacenado. *(Cerrado 2026-09-16.)*
+- Una venta al contado no aparece como CxC abierta. `dueDate` de contado ya pagado = fecha local de confirmación en `America/Santo_Domingo` (mismo día, fin de día); no `null`; no +30. Facturas históricas `COMPLETED` conservan el `dueDate` almacenado. _(Cerrado 2026-09-16.)_
 
 #### Control del límite
 
@@ -583,15 +585,15 @@ La vigencia será de 30 días y terminará al final del día calendario número 
 
 El estado seguirá derivándose del ledger, no se almacenará como una columna mutable:
 
-| Condición | Estado técnico | Etiqueta visible |
-|---|---|---|
-| Sin pagos y dentro del plazo | `PENDING` | `PENDIENTE` |
-| Pago parcial y dentro del plazo | `PARTIALLY_PAID` | `ABONADO` |
-| Sin pagos y fuera de plazo | `OVERDUE` | `VENCIDA` |
-| Pago parcial y fuera de plazo | `PARTIALLY_PAID_OVERDUE` | `ABONADA VENCIDA` |
-| Saldo cero dentro del plazo | `PAID` | `PAGADA` |
-| Saldo cero después del plazo | `PAID_LATE` | `PAGADA CON RETRASO` |
-| Factura cancelada | `CANCELLED` | `CANCELADA` |
+| Condición                       | Estado técnico           | Etiqueta visible     |
+| ------------------------------- | ------------------------ | -------------------- |
+| Sin pagos y dentro del plazo    | `PENDING`                | `PENDIENTE`          |
+| Pago parcial y dentro del plazo | `PARTIALLY_PAID`         | `ABONADO`            |
+| Sin pagos y fuera de plazo      | `OVERDUE`                | `VENCIDA`            |
+| Pago parcial y fuera de plazo   | `PARTIALLY_PAID_OVERDUE` | `ABONADA VENCIDA`    |
+| Saldo cero dentro del plazo     | `PAID`                   | `PAGADA`             |
+| Saldo cero después del plazo    | `PAID_LATE`              | `PAGADA CON RETRASO` |
+| Factura cancelada               | `CANCELLED`              | `CANCELADA`          |
 
 El cambio aplica a API, filtros CxC, chips, detalle, mocks, pruebas y PDF de factura.
 
@@ -759,6 +761,8 @@ Antes de implementar código, las fuentes de verdad ya actualizadas (Paso 1) son
 
 ### Hito 4 — Cotizaciones convertibles
 
+**Estado:** cerrado 2026-09-16 en código local (Paso 6). El PDF de cotización sigue en Hito 7 / Paso 9.
+
 - Extender el agregado de ventas con la etapa de cotización aprobada.
 - Implementar numeración `COT-`, vigencia de 30 días e inmutabilidad después de emitir.
 - Reutilizar el editor y los mismos datos de la operación.
@@ -828,7 +832,6 @@ Antes de implementar código, las fuentes de verdad ya actualizadas (Paso 1) son
 - Dos confirmaciones concurrentes no exceden el límite.
 - Seller recibe `403` al crear crédito, abrir CxC o registrar pago posterior.
 - Seller no recibe costo en JSON ni puede escribirlo.
-- Seller recibe saldo/estado de pago, pero no movimientos de pago de una factura crédito.
 - Administrador puede crear/editar crédito.
 - RNC/cédula requerido solo bajo la regla aprobada.
 - Snapshot de tipo/plazo no cambia al editar cliente.
@@ -865,16 +868,16 @@ Antes de implementar código, las fuentes de verdad ya actualizadas (Paso 1) son
 
 ## 8. Riesgos y mitigaciones
 
-| Riesgo | Mitigación |
-|---|---|
-| Recalcular facturas emitidas con la nueva fórmula | Usar snapshots persistidos; no recalcular `COMPLETED`. |
-| Superar límite por confirmaciones simultáneas | Validar exposición dentro de transacción serializable con retry controlado. |
-| Ocultar UI pero dejar API abierta al Seller | Pruebas HTTP negativas y policies por operación. |
-| Mezclar balances DOP/USD | Agrupar y reportar siempre por moneda; no usar FX de rentabilidad. |
-| Perder rentabilidad al quitar costo | Costo `UNKNOWN`, factura no bloqueada y captura posterior mediante el flujo actual de ganancia manual. |
+| Riesgo                                                        | Mitigación                                                                                                                     |
+| ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| Recalcular facturas emitidas con la nueva fórmula             | Usar snapshots persistidos; no recalcular `COMPLETED`.                                                                         |
+| Superar límite por confirmaciones simultáneas                 | Validar exposición dentro de transacción serializable con retry controlado.                                                    |
+| Ocultar UI pero dejar API abierta al Seller                   | Pruebas HTTP negativas y policies por operación.                                                                               |
+| Mezclar balances DOP/USD                                      | Agrupar y reportar siempre por moneda; no usar FX de rentabilidad.                                                             |
+| Perder rentabilidad al quitar costo                           | Costo `UNKNOWN`, factura no bloqueada y captura posterior mediante el flujo actual de ganancia manual.                         |
 | Confundir actualización corporativa con reescritura histórica | Separar hechos inmutables de la factura de la presentación vigente del emisor; probar que solo cambian contactos/aclaraciones. |
-| Clasificar mal clientes existentes | Backfill aprobado, reporte previo y migración ensayada. |
-| Duplicar datos al convertir cotización | Mantener un solo agregado/identificador y hacer la conversión como transición idempotente. |
+| Clasificar mal clientes existentes                            | Backfill aprobado, reporte previo y migración ensayada.                                                                        |
+| Duplicar datos al convertir cotización                        | Mantener un solo agregado/identificador y hacer la conversión como transición idempotente.                                     |
 
 ## 9. Registro de decisiones de la empresa
 
@@ -883,8 +886,8 @@ Antes de implementar código, las fuentes de verdad ya actualizadas (Paso 1) son
 1. **Confirmado:** el 18 % sobre la base aplica a `GENERIC`, `EXTERNAL`, `ITEM` y `QTY`; servicios y entrega permanecen sin ITBIS.
 2. **Confirmado:** los borradores existentes se recalculan con base + 18 %.
 3. **Confirmado:** las facturas completadas conservan exactamente sus importes históricos.
-3.a. **Confirmado:** por ahora habrá un checkbox `Aplicar ITBIS`, independiente de `Comprobante fiscal`.
-3.b. **Confirmado:** `Aplicar ITBIS` estará desmarcado de forma predeterminada al crear una cotización/borrador.
+   3.a. **Confirmado:** por ahora habrá un checkbox `Aplicar ITBIS`, independiente de `Comprobante fiscal`.
+   3.b. **Confirmado:** `Aplicar ITBIS` estará desmarcado de forma predeterminada al crear una cotización/borrador.
 
 ### Clientes y crédito
 
@@ -897,13 +900,13 @@ Antes de implementar código, las fuentes de verdad ya actualizadas (Paso 1) son
 10. **Confirmado:** un cliente `CREDIT` con saldo abierto no puede cambiarse a `CASH`.
 11. **Confirmado:** un cliente contado nombrado sin RNC/cédula no puede emitir comprobante fiscal.
 12. **Confirmado:** `Cliente contado` genérico no puede emitir comprobante fiscal, pero sí puede calcular ITBIS.
-12.a. **Confirmado:** un cliente contado nombrado con RNC/cédula válido puede emitir comprobante fiscal.
+    12.a. **Confirmado:** un cliente contado nombrado con RNC/cédula válido puede emitir comprobante fiscal.
 
 ### Vendedor
 
 13. **Confirmado:** el Vendedor puede ver clientes crédito existentes y venderles a crédito; solo el Administrador puede registrar o clasificar un cliente como crédito.
 14. **Confirmado:** el Vendedor puede abrir el detalle de una factura crédito, pero no puede ver los pagos registrados.
-14.a. **Confirmado:** el Vendedor puede ver saldo pendiente y estado de pago, pero no los movimientos registrados.
+    14.a. **Confirmado:** el Vendedor puede ver saldo pendiente y estado de pago, pero no los movimientos registrados.
 15. **Confirmado:** el Vendedor registra el pago completo durante la confirmación contado; una factura contado no puede confirmarse pendiente ni cobrarla posteriormente como excepción.
 16. **Confirmado:** el Vendedor conserva Clientes, pero al crear solo puede registrar clientes `CASH`.
 17. **Confirmado:** la cotización se convierte directamente a `COMPLETED`, sobre la misma operación y asignando `FAC-`, sin crear/copiar otro borrador.
@@ -922,7 +925,7 @@ Antes de implementar código, las fuentes de verdad ya actualizadas (Paso 1) son
 27. **Confirmado:** los campos de costo se eliminan del formulario para Administrador y Vendedor.
 28. **Confirmado:** hasta integrar inventario, las líneas nuevas quedan con costo `UNKNOWN` y el Administrador registra manualmente la rentabilidad de cada factura.
 29. **Confirmado:** el costo tampoco se entrega en las proyecciones ordinarias de factura; la futura fuente será el registro/recepción de inventario.
-29.a. **Confirmado:** la factura se confirma sin bloquearse, queda con rentabilidad desconocida y el Administrador registra posteriormente la ganancia manual mediante el flujo actual.
+    29.a. **Confirmado:** la factura se confirma sin bloquearse, queda con rentabilidad desconocida y el Administrador registra posteriormente la ganancia manual mediante el flujo actual.
 
 ### Pagos y CxC
 
@@ -934,7 +937,7 @@ Antes de implementar código, las fuentes de verdad ya actualizadas (Paso 1) son
 35. **Confirmado:** se genera como PDF desde un botón en CxC, después de seleccionar el cliente en un selector buscable/lista desplegable.
 36. **Confirmado:** no usa un período predeterminado; incluye todas las facturas con saldo.
 37. **Confirmado:** excluye facturas canceladas y reembolsos.
-37.a. **Confirmado:** por cada factura se muestra únicamente el total abonado acumulado, sin movimientos individuales.
+    37.a. **Confirmado:** por cada factura se muestra únicamente el total abonado acumulado, sin movimientos individuales.
 
 ### PDF y datos corporativos
 

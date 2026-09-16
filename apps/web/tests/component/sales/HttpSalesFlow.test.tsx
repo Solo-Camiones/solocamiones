@@ -18,7 +18,7 @@ import { chooseSelectOption } from '../../support/select-menu';
 const cashCustomer = {
   id: '11111111-1111-4111-8111-111111111111',
   name: 'Cliente contado',
-  customerType: 'CASH',
+  customerType: 'CASH' as const,
   creditLimitDop: null,
   creditTermDays: null,
   rnc: null,
@@ -33,7 +33,7 @@ const cashCustomer = {
 const fleetCustomer = {
   id: '44444444-4444-4444-8444-444444444444',
   name: 'Flota Este',
-  customerType: 'CASH',
+  customerType: 'CASH' as const,
   creditLimitDop: null,
   creditTermDays: null,
   rnc: '131098765',

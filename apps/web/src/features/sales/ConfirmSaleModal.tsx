@@ -65,6 +65,7 @@ export function ConfirmSaleModal({
   const includeId = useId();
   const installed = draft.lines.filter((line) => line.installed);
   const requiresFullPayment = saleRequiresFullPayment(draft);
+  const isQuoteConversion = draft.status === 'QUOTE_ISSUED';
   const isAdministrator = user?.role === 'ADMINISTRATOR';
   const isSellerCreditDop =
     user?.role === 'SELLER' &&
@@ -158,7 +159,7 @@ export function ConfirmSaleModal({
   return (
     <GuardedModal
       open={open}
-      title="Confirmar venta"
+      title={isQuoteConversion ? 'Convertir a factura' : 'Confirmar venta'}
       onClose={onClose}
       hasUnsavedChanges={isFormDirty(fields, baseline)}
       isBusy={isConfirming}
@@ -166,11 +167,15 @@ export function ConfirmSaleModal({
       {({ requestClose }) => (
       <div className="flex flex-col gap-4 text-sm text-navy">
         {displayedError && (
-          <Info tone="error" title="No se pudo confirmar">
+          <Info tone="error" title={isQuoteConversion ? 'No se pudo convertir' : 'No se pudo confirmar'}>
             {displayedError}
           </Info>
         )}
-        <p className="font-medium">Revisa los datos antes de emitir la factura.</p>
+        <p className="font-medium">
+          {isQuoteConversion
+            ? `Revisa los datos antes de convertir ${draft.quoteNumber ?? 'la cotización'} en factura.`
+            : 'Revisa los datos antes de emitir la factura.'}
+        </p>
         <ReviewSummary
           rows={[
             { label: 'Cliente', value: draft.customerName },
@@ -178,6 +183,7 @@ export function ConfirmSaleModal({
             { label: 'Moneda', value: currencyLabel(draft.currency) },
             { label: 'Comprobante fiscal', value: draft.fiscal ? 'Sí' : 'No' },
             { label: 'Aplicar ITBIS', value: draft.applyItbis ? 'Sí' : 'No' },
+            ...(draft.quoteNumber ? [{ label: 'Cotización', value: draft.quoteNumber }] : []),
             { label: 'Total', value: money(draft.totals.gross, draft.currency) },
             { label: 'ITBIS', value: money(draft.totals.itbis, draft.currency) },
           ]}
@@ -312,7 +318,13 @@ export function ConfirmSaleModal({
             disabled={isConfirming || draft.blockers.length > 0}
             busy={isConfirming}
           >
-            {isConfirming ? 'Confirmando…' : 'Confirmar venta'}
+            {isConfirming
+              ? isQuoteConversion
+                ? 'Convirtiendo…'
+                : 'Confirmando…'
+              : isQuoteConversion
+                ? 'Convertir a factura'
+                : 'Confirmar venta'}
           </Button>
         </div>
       </div>

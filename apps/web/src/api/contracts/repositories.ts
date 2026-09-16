@@ -148,6 +148,7 @@ export type SalesRepository = {
   cancelInvoice(input: CancelInvoiceInput): Promise<Result<InvoiceDetailView>>;
   correctCurrency(input: CorrectCurrencyInput): Promise<Result<InvoiceDetailView>>;
   createDraft(): Promise<Result<CreateDraftResult>>;
+  createQuote(): Promise<Result<CreateDraftResult>>;
   getDraft(id: string): Promise<Result<PosDraftView>>;
   addLine(input: AddDraftLineInput): Promise<Result<PosDraftView>>;
   removeLine(input: RemoveDraftLineInput): Promise<Result<PosDraftView>>;
@@ -155,6 +156,9 @@ export type SalesRepository = {
   setLineQuantity(input: SetDraftLineQuantityInput): Promise<Result<PosDraftView>>;
   setDraftMeta(input: SetDraftMetaInput): Promise<Result<PosDraftView>>;
   confirmInvoice(draftId: string, payment?: ConfirmInvoicePayment): Promise<Result<PosDraftView>>;
+  issueQuote(draftId: string): Promise<Result<PosDraftView>>;
+  duplicateQuote(quoteId: string): Promise<Result<CreateDraftResult>>;
+  convertQuote(quoteId: string, payment?: ConfirmInvoicePayment): Promise<Result<PosDraftView>>;
   discardDraft(draftId: string): Promise<Result<void>>;
 };
 

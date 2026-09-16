@@ -14,7 +14,7 @@ The old consolidated requirements/validation files are intentionally no longer r
 
 **Implementation (2026-09-10):** Release 2 non-inventory lines, confirm/`FAC-`, PDF generate/regenerate, and HTTP POS/detail/PDF are done. Invoice detail HTTP shows **document activity** from history (confirm, payment, PDF, cancel; not draft/line churn — Feature 14). Confirm may record a **pulled-forward** initial payment and `dueDate` (Feature 12). Release 5/7 checklist `[x]` items are **prototype mock**; HTTP API still rejects ITEM/QTY with 409.
 
-**Pre-production change set (2026-09-15):** Tax-exclusive ITBIS (`SALE-009`/`SALE-010`) is **implemented locally** (Paso 4). Cash/credit confirmation against customer type (`SALE-005` amended) is **implemented locally** (Paso 5, 2026-09-16): named `CASH` is not credit-eligible; `CREDIT` is DOP-only with limit and term snapshot. Convertible quotes (`QUOTE-001`/`QUOTE-002`) and corporate-vs-historical PDF presentation (`DOC-001`) remain later steps.
+**Pre-production change set (2026-09-15):** Tax-exclusive ITBIS (`SALE-009`/`SALE-010`) is **implemented locally** (Paso 4). Cash/credit confirmation against customer type (`SALE-005` amended) is **implemented locally** (Paso 5, 2026-09-16): named `CASH` is not credit-eligible; `CREDIT` is DOP-only with limit and term snapshot. Convertible quotes (`QUOTE-001`/`QUOTE-002`) are **implemented locally** (Paso 6, 2026-09-16): `QUOTE_DRAFT`/`QUOTE_ISSUED`/`COMPLETED` on the same aggregate, `COT-` sequence, 30-day expiry, duplicate, and convert. Corporate-vs-historical PDF presentation (`DOC-001`) remains Paso 9.
 
 ## What this feature does
 
@@ -127,7 +127,7 @@ Invoice PDF rendering is secondary to sale validity. Preserve all invoice facts 
 - [x] Separate `applyItbis` from fiscal emission; default the ITBIS checkbox off (SALE-009).
 - [x] Tax-exclusive base + 18% per taxable line; preserve completed invoice money; recalculate open drafts (SALE-010).
 - [x] Confirm cash vs credit against customer type, DOP-only credit, term snapshot, and credit limit inside the confirmation transaction (SALE-005, CUST-005). _(API + HTTP local Paso 5, 2026-09-16)_
-- [ ] Quote stages on the same aggregate, `COT-` sequence, expiry, duplicate, convert (QUOTE-001, QUOTE-002). _(API Paso 2: estados/columnas/`COT` sequence; comandos en Paso 6)_
+- [x] Quote stages on the same aggregate, `COT-` sequence, expiry, duplicate, convert (QUOTE-001, QUOTE-002). _(API + HTTP + mock local Paso 6, 2026-09-16. Quote PDF template is Paso 9 / DOC-001.)_
 - [ ] PDF `internal-v4` / quote template with DOC-001 immutable facts vs current corporate profile.
 
 ## Canonical validated requirements

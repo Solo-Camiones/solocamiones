@@ -77,6 +77,18 @@ function describeInvoiceHistoryEvent(row: InvoiceHistoryRow): string | null {
       return 'Borrador creado';
     case 'INVOICE_DRAFT_DISCARDED':
       return 'Borrador descartado';
+    case 'QUOTE_DRAFT_CREATED':
+      return 'Borrador de cotización creado';
+    case 'QUOTE_ISSUED': {
+      const number = stringField(payload, 'quoteNumber');
+      return number ? `Cotización ${number} emitida` : 'Cotización emitida';
+    }
+    case 'QUOTE_DUPLICATED':
+      return 'Cotización duplicada como nuevo borrador';
+    case 'QUOTE_CONVERTED': {
+      const number = stringField(payload, 'invoiceNumber');
+      return number ? `Cotización convertida en factura ${number}` : 'Cotización convertida';
+    }
     case 'INVOICE_CONFIRMED': {
       const number = stringField(payload, 'number');
       return number ? `Factura ${number} confirmada` : 'Factura confirmada';

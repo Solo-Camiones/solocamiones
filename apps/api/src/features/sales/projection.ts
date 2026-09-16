@@ -13,6 +13,7 @@ import {
 import { PROFITABILITY_REASONS, type Profitability } from './money/types.js';
 import { databaseDateString } from '../payments/dates.js';
 import { summarizePayments } from '../payments/summary.js';
+import { isQuoteExpired } from './quote-dates.js';
 import type { InvoiceHistoryEntryView } from '../history/invoice-timeline.js';
 import type {
   InvoiceConfirmedHistorySnapshot,
@@ -77,13 +78,17 @@ function toPublicProfitability(value: Profitability, fx?: PublicFxProvenance): P
 function customerSnapshotOf(
   invoice: InvoiceRecord | InvoiceListRecord,
 ): InvoiceCustomerSnapshot | null {
-  if (invoice.status === 'DRAFT' || invoice.customerName == null) return null;
+  if (
+    invoice.status === 'DRAFT' ||
+    invoice.status === 'QUOTE_DRAFT' ||
+    invoice.customerName == null
+  ) return null;
   return { name: invoice.customerName, rnc: invoice.customerRnc, phone: invoice.customerPhone };
 }
 
 function toCustomerView(invoice: InvoiceRecord | InvoiceListRecord) {
   const snapshot = customerSnapshotOf(invoice);
-  const completed = invoice.status !== 'DRAFT';
+  const completed = invoice.status === 'COMPLETED' || invoice.status === 'CANCELLED';
   return {
     id: invoice.customer.id,
     name: snapshot?.name ?? invoice.customer.name,
@@ -247,7 +252,12 @@ function administratorProfitability(
 function toPublicInvoiceDocument(
   invoice: InvoiceRecord | InvoiceListRecord,
 ): PublicInvoiceDocument | undefined {
-  if (invoice.status === 'DRAFT' || invoice.pdfStatus == null) return undefined;
+  if (
+    invoice.status === 'DRAFT' ||
+    invoice.status === 'QUOTE_DRAFT' ||
+    invoice.status === 'QUOTE_ISSUED' ||
+    invoice.pdfStatus == null
+  ) return undefined;
   if (invoice.pdfStatus === 'FAILED') {
     if (invoice.pdfErrorId == null) return undefined;
     return { status: 'FAILED', errorId: invoice.pdfErrorId };
@@ -316,11 +326,16 @@ export function toPublicInvoice(
 ): PublicInvoice {
   const profitability = administratorProfitability(invoice, viewer);
   const document = toPublicInvoiceDocument(invoice);
-  const payment = summarizePayments(invoice);
+  const completed = invoice.status === 'COMPLETED' || invoice.status === 'CANCELLED';
+  const payment = completed ? summarizePayments(invoice) : null;
   return {
     id: invoice.id,
     status: invoice.status,
     number: invoice.number,
+    quoteNumber: invoice.quoteNumber,
+    quoteIssuedAt: invoice.quoteIssuedAt?.toISOString() ?? null,
+    quoteExpiresAt: invoice.quoteExpiresAt?.toISOString() ?? null,
+    quoteExpired: isQuoteExpired(invoice.quoteExpiresAt),
     currency: invoice.currency,
     fiscal: invoice.fiscal,
     applyItbis: invoice.applyItbis,
@@ -332,7 +347,7 @@ export function toPublicInvoice(
     cancelledAt: invoice.cancelledAt?.toISOString() ?? null,
     cancelReason: invoice.cancelReason,
     cancelledByName: invoice.cancelledByName,
-    ...administratorLedger(viewer, {
+    ...(payment ? administratorLedger(viewer, {
       paymentState: payment.state,
       payments: invoice.payments.map((entry) => ({
         id: entry.id,
@@ -347,7 +362,7 @@ export function toPublicInvoice(
       paid: moneyString(payment.paid),
       refunded: moneyString(payment.refunded),
       balance: moneyString(payment.balance),
-    }),
+    }) : {}),
     lines: invoice.lines.map((line, index) =>
       toPublicLine(line, invoice.applyItbis, profitability?.lines[index]),
     ),
@@ -374,7 +389,8 @@ export function toPublicInvoiceListItem(
   viewer: InvoiceViewer,
 ): PublicInvoiceListItem {
   const profitability = administratorProfitability(invoice, viewer);
-  const payment = summarizePayments(invoice);
+  const completed = invoice.status === 'COMPLETED' || invoice.status === 'CANCELLED';
+  const payment = completed ? summarizePayments(invoice) : null;
   const storedRate =
     viewer.role === 'ADMINISTRATOR' && invoice.exchangeRateDopPerUsd != null
       ? invoice.exchangeRateDopPerUsd.toString()
@@ -383,6 +399,10 @@ export function toPublicInvoiceListItem(
     id: invoice.id,
     status: invoice.status,
     number: invoice.number,
+    quoteNumber: invoice.quoteNumber,
+    quoteIssuedAt: invoice.quoteIssuedAt?.toISOString() ?? null,
+    quoteExpiresAt: invoice.quoteExpiresAt?.toISOString() ?? null,
+    quoteExpired: isQuoteExpired(invoice.quoteExpiresAt),
     currency: invoice.currency,
     fiscal: invoice.fiscal,
     applyItbis: invoice.applyItbis,
@@ -390,11 +410,11 @@ export function toPublicInvoiceListItem(
     customerSnapshot: customerSnapshotOf(invoice),
     confirmedAt: invoice.confirmedAt?.toISOString() ?? null,
     dueDate: invoice.dueDate ? databaseDateString(invoice.dueDate) : null,
-    ...administratorLedger(viewer, {
+    ...(payment ? administratorLedger(viewer, {
       paymentState: payment.state,
       payments: toPublicListPayments(invoice),
       balance: moneyString(payment.balance),
-    }),
+    }) : {}),
     totals: invoiceTotals(invoice),
     ...(profitability ? { profitability: profitability.invoice } : {}),
     ...(storedRate ? { exchangeRateDopPerUsd: storedRate } : {}),

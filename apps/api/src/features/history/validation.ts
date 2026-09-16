@@ -27,6 +27,16 @@ const invoiceDraftSnapshot = z
     customerId: z.uuid(),
   })
   .strict();
+const quoteDraftSnapshot = z
+  .object({
+    status: z.literal('QUOTE_DRAFT'),
+    quoteNumber: z.null(),
+    currency: z.enum(['DOP', 'USD']),
+    fiscal: z.boolean(),
+    applyItbis: z.boolean(),
+    customerId: z.uuid(),
+  })
+  .strict();
 const invoiceCustomerSnapshot = z
   .object({
     name: z.string(),
@@ -244,6 +254,55 @@ export const historyEventSchema = z
         ...invoiceBase,
         eventType: z.literal('INVOICE_DRAFT_CREATED'),
         payload: invoiceDraftSnapshot,
+      })
+      .strict(),
+    z
+      .object({
+        ...invoiceBase,
+        eventType: z.literal('QUOTE_DRAFT_CREATED'),
+        payload: quoteDraftSnapshot,
+      })
+      .strict(),
+    z
+      .object({
+        ...invoiceBase,
+        eventType: z.literal('QUOTE_ISSUED'),
+        payload: z
+          .object({
+            quoteNumber: z.string().regex(/^COT-\d{6}$/),
+            issuedAt: z.iso.datetime(),
+            expiresAt: z.iso.datetime(),
+            customerSnapshot: invoiceCustomerSnapshot,
+            totals: z.object({ gross: z.string(), base: z.string(), itbis: z.string() }).strict(),
+          })
+          .strict(),
+      })
+      .strict(),
+    z
+      .object({
+        ...invoiceBase,
+        eventType: z.literal('QUOTE_DUPLICATED'),
+        payload: z
+          .object({
+            sourceQuoteId: z.uuid(),
+            sourceQuoteNumber: z.string().regex(/^COT-\d{6}$/),
+            duplicatedQuoteId: z.uuid(),
+          })
+          .strict(),
+      })
+      .strict(),
+    z
+      .object({
+        ...invoiceBase,
+        eventType: z.literal('QUOTE_CONVERTED'),
+        payload: z
+          .object({
+            quoteNumber: z.string().regex(/^COT-\d{6}$/),
+            invoiceNumber: z.string().regex(/^FAC-\d{6}$/),
+            issuedAt: z.iso.datetime(),
+            convertedAt: z.iso.datetime(),
+          })
+          .strict(),
       })
       .strict(),
     z

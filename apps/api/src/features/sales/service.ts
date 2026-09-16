@@ -35,6 +35,10 @@ import {
   PAYMENT_IDEMPOTENCY_MISMATCH_MESSAGE,
   CANCELLATION_COMPLETED_ONLY_MESSAGE,
   CANCELLATION_REASON_REQUIRED_MESSAGE,
+  EXPIRED_QUOTE_CONVERT_MESSAGE,
+  QUOTE_DRAFT_ONLY_ISSUE_MESSAGE,
+  QUOTE_ISSUED_ONLY_CONVERT_MESSAGE,
+  QUOTE_ISSUED_ONLY_DUPLICATE_MESSAGE,
 } from './constants.js';
 import { DEFAULT_LINE_QUANTITY } from './money/constants.js';
 import {
@@ -63,6 +67,7 @@ import {
   toUsdFxRecordedHistorySnapshot,
 } from './projection.js';
 import { SalesRepository } from './repository.js';
+import { isQuoteExpired, quoteExpirationDate } from './quote-dates.js';
 import { salesTransaction, type SalesTransaction } from './transaction.js';
 import type { CreateInvoiceLineRecord, InvoiceRecord } from './types.js';
 import {
@@ -85,8 +90,8 @@ import {
 
 type DraftLineWrite = Omit<CreateInvoiceLineRecord, 'invoiceId'>;
 
-function assertDraftStatus(status: InvoiceStatus, message: string): void {
-  if (status !== 'DRAFT') throw AppError.conflict(message);
+function assertEditableStatus(status: InvoiceStatus, message: string): void {
+  if (status !== 'DRAFT' && status !== 'QUOTE_DRAFT') throw AppError.conflict(message);
 }
 
 function assertFiscalCustomer(
@@ -204,6 +209,42 @@ export class SalesService {
     });
   }
 
+  async createQuote(actorId: string, input: unknown) {
+    const profile = createDraftSchema.parse(input ?? {});
+    return this.transaction(async ({ sales, customers, users, history }) => {
+      const actor = requireInvoiceManager(await users.findById(actorId));
+      const customer = profile.customerId
+        ? await customers.findById(profile.customerId)
+        : await customers.findDefault();
+      if (profile.customerId && !customer) throw AppError.notFound('Customer not found');
+      if (!customer) throw AppError.internal(MISSING_GENERIC_CUSTOMER_MESSAGE);
+      const fiscal = profile.fiscal ?? false;
+      assertFiscalCustomer(customer, fiscal);
+      const quote = await sales.createDraft({
+        status: 'QUOTE_DRAFT',
+        customerId: customer.id,
+        currency: profile.currency ?? DEFAULT_DRAFT_CURRENCY,
+        fiscal,
+        applyItbis: profile.applyItbis ?? false,
+      });
+      await history.append({
+        actor: { actorType: 'USER', actorUserId: actorId },
+        subjectType: 'INVOICE',
+        subjectId: quote.id,
+        eventType: 'QUOTE_DRAFT_CREATED',
+        payload: {
+          status: 'QUOTE_DRAFT',
+          quoteNumber: null,
+          currency: quote.currency,
+          fiscal: quote.fiscal,
+          applyItbis: quote.applyItbis,
+          customerId: quote.customerId,
+        },
+      });
+      return toPublicInvoice(quote, actor);
+    });
+  }
+
   async list(actorId: string, query: unknown) {
     const filters = listInvoicesSchema.parse(query);
     return this.transaction(async ({ sales, users }) => {
@@ -256,7 +297,7 @@ export class SalesService {
       const actor = requireInvoiceManager(await users.findById(actorId));
       const existing = await sales.findById(id);
       if (!existing) throw AppError.notFound('Invoice not found');
-      assertDraftStatus(existing.status, DRAFT_ONLY_EDIT_MESSAGE);
+      assertEditableStatus(existing.status, DRAFT_ONLY_EDIT_MESSAGE);
 
       let customer = existing.customer;
       if (patch.customerId) {
@@ -284,14 +325,16 @@ export class SalesService {
       requireInvoiceManager(await users.findById(actorId));
       const existing = await sales.findById(id);
       if (!existing) throw AppError.notFound('Invoice not found');
-      assertDraftStatus(existing.status, DRAFT_ONLY_DISCARD_MESSAGE);
-      await history.append({
-        actor: { actorType: 'USER', actorUserId: actorId },
-        subjectType: 'INVOICE',
-        subjectId: id,
-        eventType: 'INVOICE_DRAFT_DISCARDED',
-        payload: toDraftHistorySnapshot(existing),
-      });
+      assertEditableStatus(existing.status, DRAFT_ONLY_DISCARD_MESSAGE);
+      if (existing.status === 'DRAFT') {
+        await history.append({
+          actor: { actorType: 'USER', actorUserId: actorId },
+          subjectType: 'INVOICE',
+          subjectId: id,
+          eventType: 'INVOICE_DRAFT_DISCARDED',
+          payload: toDraftHistorySnapshot(existing),
+        });
+      }
       await sales.deleteById(id);
     });
   }
@@ -304,7 +347,7 @@ export class SalesService {
       const actor = requireInvoiceManager(await users.findById(actorId));
       const existing = await sales.findById(invoiceId);
       if (!existing) throw AppError.notFound('Invoice not found');
-      assertDraftStatus(existing.status, DRAFT_ONLY_EDIT_MESSAGE);
+      assertEditableStatus(existing.status, DRAFT_ONLY_EDIT_MESSAGE);
       assertDraftLineTypeEnabled(candidate.type);
       if (
         candidate.type === 'DELIVERY' &&
@@ -337,7 +380,7 @@ export class SalesService {
       const actor = requireInvoiceManager(await users.findById(actorId));
       const existing = await sales.findById(invoiceId);
       if (!existing) throw AppError.notFound('Invoice not found');
-      assertDraftStatus(existing.status, DRAFT_ONLY_EDIT_MESSAGE);
+      assertEditableStatus(existing.status, DRAFT_ONLY_EDIT_MESSAGE);
       const line = existing.lines.find((entry) => entry.id === lineId);
       if (!line) throw AppError.notFound(LINE_NOT_FOUND_MESSAGE);
       assertDraftLineTypeEnabled(line.type);
@@ -378,7 +421,7 @@ export class SalesService {
       const actor = requireInvoiceManager(await users.findById(actorId));
       const existing = await sales.findById(invoiceId);
       if (!existing) throw AppError.notFound('Invoice not found');
-      assertDraftStatus(existing.status, DRAFT_ONLY_EDIT_MESSAGE);
+      assertEditableStatus(existing.status, DRAFT_ONLY_EDIT_MESSAGE);
       const line = existing.lines.find((entry) => entry.id === lineId);
       if (!line) throw AppError.notFound(LINE_NOT_FOUND_MESSAGE);
 
@@ -387,7 +430,127 @@ export class SalesService {
     });
   }
 
+  async issueQuote(actorId: string, id: string) {
+    invoiceIdSchema.parse({ id });
+    return this.transaction(async ({ sales, customers, users, history }) => {
+      const actor = requireInvoiceManager(await users.findById(actorId));
+      await sales.lockById(id);
+      const existing = await sales.findById(id);
+      if (!existing) throw AppError.notFound('Invoice not found');
+      if (existing.status === 'QUOTE_ISSUED') return toPublicInvoice(existing, actor);
+      if (existing.status !== 'QUOTE_DRAFT') {
+        throw AppError.conflict(QUOTE_DRAFT_ONLY_ISSUE_MESSAGE);
+      }
+      if (existing.lines.length === 0) throw AppError.conflict(EMPTY_DRAFT_CONFIRM_MESSAGE);
+      for (const line of existing.lines) assertDraftLineTypeEnabled(line.type);
+
+      await customers.lockById(existing.customerId);
+      const customer = await customers.findById(existing.customerId);
+      if (!customer) throw AppError.notFound('Customer not found');
+      assertFiscalCustomer(customer, existing.fiscal);
+      const lineMoney = existing.lines.map((line) => ({
+        line,
+        money: calculateLineMoney({
+          type: line.type,
+          unitPrice: line.unitPrice,
+          quantity: line.quantity,
+          applyItbis: existing.applyItbis,
+        }),
+      }));
+      const totals = sumInvoiceMoney(lineMoney.map(({ money }) => money));
+      const issuedAt = new Date();
+      const issued = await sales.issueQuote({
+        id,
+        quoteNumber: await sales.allocateNextQuoteNumber(),
+        quoteIssuedAt: issuedAt,
+        quoteExpiresAt: quoteExpirationDate(issuedAt),
+        customerName: customer.name,
+        customerRnc: customer.rnc,
+        customerPhone: customer.contacts.find((contact) => contact.isPrimary)?.phone ?? null,
+        gross: totals.gross,
+        base: totals.base,
+        itbis: totals.itbis,
+        lines: lineMoney.map(({ line, money }) => ({ id: line.id, ...money })),
+      });
+      await history.append({
+        actor: { actorType: 'USER', actorUserId: actorId },
+        subjectType: 'INVOICE',
+        subjectId: id,
+        eventType: 'QUOTE_ISSUED',
+        payload: {
+          quoteNumber: issued.quoteNumber!,
+          issuedAt: issued.quoteIssuedAt!.toISOString(),
+          expiresAt: issued.quoteExpiresAt!.toISOString(),
+          customerSnapshot: {
+            name: issued.customerName!,
+            rnc: issued.customerRnc,
+            phone: issued.customerPhone,
+          },
+          totals: {
+            gross: issued.gross!.toFixed(2),
+            base: issued.base!.toFixed(2),
+            itbis: issued.itbis!.toFixed(2),
+          },
+        },
+      });
+      return toPublicInvoice(issued, actor);
+    });
+  }
+
+  async duplicateQuote(actorId: string, id: string) {
+    invoiceIdSchema.parse({ id });
+    return this.transaction(async ({ sales, users, history }) => {
+      const actor = requireInvoiceManager(await users.findById(actorId));
+      await sales.lockById(id);
+      const source = await sales.findById(id);
+      if (!source) throw AppError.notFound('Invoice not found');
+      if (source.status !== 'QUOTE_ISSUED' || source.quoteNumber == null) {
+        throw AppError.conflict(QUOTE_ISSUED_ONLY_DUPLICATE_MESSAGE);
+      }
+      const duplicate = await sales.duplicateAsQuoteDraft(source);
+      await history.append({
+        actor: { actorType: 'USER', actorUserId: actorId },
+        subjectType: 'INVOICE',
+        subjectId: source.id,
+        eventType: 'QUOTE_DUPLICATED',
+        payload: {
+          sourceQuoteId: source.id,
+          sourceQuoteNumber: source.quoteNumber,
+          duplicatedQuoteId: duplicate.id,
+        },
+      });
+      await history.append({
+        actor: { actorType: 'USER', actorUserId: actorId },
+        subjectType: 'INVOICE',
+        subjectId: duplicate.id,
+        eventType: 'QUOTE_DRAFT_CREATED',
+        payload: {
+          status: 'QUOTE_DRAFT',
+          quoteNumber: null,
+          currency: duplicate.currency,
+          fiscal: duplicate.fiscal,
+          applyItbis: duplicate.applyItbis,
+          customerId: duplicate.customerId,
+        },
+      });
+      return toPublicInvoice(duplicate, actor);
+    });
+  }
+
   async confirm(actorId: string, id: string, input: unknown) {
+    return this.completeSale(actorId, id, input, 'DRAFT');
+  }
+
+  async convertQuote(actorId: string, id: string, input: unknown) {
+    return this.completeSale(actorId, id, input, 'QUOTE_ISSUED');
+  }
+
+  private async completeSale(
+    actorId: string,
+    id: string,
+    input: unknown,
+    sourceStatus: 'DRAFT' | 'QUOTE_ISSUED',
+  ) {
     invoiceIdSchema.parse({ id });
     const profile = confirmInvoiceSchema.parse(input ?? {});
     const { invoice, actor, alreadyCompleted } = await this.transaction(
@@ -396,10 +559,22 @@ export class SalesService {
         await sales.lockById(id);
         const existing = await sales.findById(id);
         if (!existing) throw AppError.notFound('Invoice not found');
-        if (existing.status === 'COMPLETED') {
+        if (
+          existing.status === 'COMPLETED' &&
+          (sourceStatus === 'DRAFT' || existing.quoteNumber != null)
+        ) {
           return { invoice: existing, actor, alreadyCompleted: true };
         }
-        if (existing.status !== 'DRAFT') throw AppError.conflict(DRAFT_ONLY_CONFIRM_MESSAGE);
+        if (existing.status !== sourceStatus) {
+          throw AppError.conflict(
+            sourceStatus === 'DRAFT'
+              ? DRAFT_ONLY_CONFIRM_MESSAGE
+              : QUOTE_ISSUED_ONLY_CONVERT_MESSAGE,
+          );
+        }
+        if (sourceStatus === 'QUOTE_ISSUED' && isQuoteExpired(existing.quoteExpiresAt)) {
+          throw AppError.conflict(EXPIRED_QUOTE_CONVERT_MESSAGE);
+        }
         if (existing.lines.length === 0) throw AppError.conflict(EMPTY_DRAFT_CONFIRM_MESSAGE);
 
         for (const line of existing.lines) {
@@ -409,16 +584,26 @@ export class SalesService {
         await customers.lockById(existing.customerId);
         const customer = await customers.findById(existing.customerId);
         if (!customer) throw AppError.notFound('Customer not found');
-        assertFiscalCustomer(customer, existing.fiscal);
+        // The issued quote owns the immutable commercial identity; conversion only
+        // revalidates the customer's current credit classification, limit and term.
+        if (sourceStatus === 'DRAFT') assertFiscalCustomer(customer, existing.fiscal);
 
         const lineMoney = existing.lines.map((line) => ({
           line,
-          money: calculateLineMoney({
-            type: line.type,
-            unitPrice: line.unitPrice,
-            quantity: line.quantity,
-            applyItbis: existing.applyItbis,
-          }),
+          money:
+            sourceStatus === 'QUOTE_ISSUED'
+              ? (() => {
+                  if (line.gross == null || line.base == null || line.itbis == null) {
+                    throw AppError.internal('Issued quote line is missing frozen money');
+                  }
+                  return { gross: line.gross, base: line.base, itbis: line.itbis };
+                })()
+              : calculateLineMoney({
+                  type: line.type,
+                  unitPrice: line.unitPrice,
+                  quantity: line.quantity,
+                  applyItbis: existing.applyItbis,
+                }),
         }));
         const totals = sumInvoiceMoney(lineMoney.map((entry) => entry.money));
         const initialPaymentAmount = profile.payment
@@ -454,9 +639,10 @@ export class SalesService {
           number,
           confirmedAt,
           dueDate: invoiceDueDate(confirmedAt, confirmationDueTermDays(customer, existing.currency)),
-          customerName: customer.name,
-          customerRnc: customer.rnc,
-          customerPhone: primaryPhone,
+          customerName: sourceStatus === 'QUOTE_ISSUED' ? existing.customerName! : customer.name,
+          customerRnc: sourceStatus === 'QUOTE_ISSUED' ? existing.customerRnc : customer.rnc,
+          customerPhone:
+            sourceStatus === 'QUOTE_ISSUED' ? existing.customerPhone : primaryPhone,
           snapshotCustomerType: customer.customerType,
           snapshotCreditTermDays: customer.creditTermDays,
           confirmedByUserId: actorId,
@@ -471,13 +657,28 @@ export class SalesService {
             itbis: money.itbis,
           })),
         });
-        await history.append({
-          actor: { actorType: 'USER', actorUserId: actorId },
-          subjectType: 'INVOICE',
-          subjectId: id,
-          eventType: 'INVOICE_CONFIRMED',
-          payload: toConfirmedHistorySnapshot(completed),
-        });
+        if (sourceStatus === 'QUOTE_ISSUED') {
+          await history.append({
+            actor: { actorType: 'USER', actorUserId: actorId },
+            subjectType: 'INVOICE',
+            subjectId: id,
+            eventType: 'QUOTE_CONVERTED',
+            payload: {
+              quoteNumber: existing.quoteNumber!,
+              invoiceNumber: completed.number!,
+              issuedAt: existing.quoteIssuedAt!.toISOString(),
+              convertedAt: completed.confirmedAt!.toISOString(),
+            },
+          });
+        } else {
+          await history.append({
+            actor: { actorType: 'USER', actorUserId: actorId },
+            subjectType: 'INVOICE',
+            subjectId: id,
+            eventType: 'INVOICE_CONFIRMED',
+            payload: toConfirmedHistorySnapshot(completed),
+          });
+        }
         if (profile.payment && initialPaymentAmount) {
           const payment = await payments.createPayment({
             invoiceId: id,

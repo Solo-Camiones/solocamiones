@@ -1,13 +1,14 @@
 import { Prisma, type Invoice, type InvoiceSequence } from '@prisma/client';
 
 import { prisma } from '../../infrastructure/database/index.js';
-import { formatInvoiceNumber } from './constants.js';
+import { formatInvoiceNumber, formatQuoteNumber } from './constants.js';
 import type {
   CompleteInvoiceRecord,
   CreateDraftInvoiceRecord,
   CreateInvoiceLineRecord,
   InvoiceListRecord,
   InvoiceRecord,
+  IssueQuoteRecord,
   InvoiceSequenceRecord,
   ListInvoicesQuery,
   ListReceivablesQuery,
@@ -20,6 +21,7 @@ import type {
 } from './types.js';
 
 export const INVOICE_SEQUENCE_NAME = 'FAC';
+export const QUOTE_SEQUENCE_NAME = 'COT';
 
 type SalesDatabase = Pick<Prisma.TransactionClient, 'invoice' | 'invoiceSequence' | '$queryRaw'>;
 
@@ -55,6 +57,7 @@ function listInvoiceWhere(query: ListInvoicesQuery): Prisma.InvoiceWhereInput {
   if (q) {
     const search: Prisma.InvoiceWhereInput[] = [
       { number: { contains: q, mode: 'insensitive' } },
+      { quoteNumber: { contains: q, mode: 'insensitive' } },
       { customerName: { contains: q, mode: 'insensitive' } },
       { customer: { name: { contains: q, mode: 'insensitive' } } },
     ];
@@ -122,11 +125,36 @@ export class SalesRepository {
   createDraft(input: CreateDraftInvoiceRecord): Promise<InvoiceRecord> {
     return this.database.invoice.create({
       data: {
-        status: 'DRAFT',
+        status: input.status ?? 'DRAFT',
         currency: input.currency,
         fiscal: input.fiscal,
         applyItbis: input.applyItbis,
         customerId: input.customerId,
+      },
+      include: invoiceDetailInclude,
+    });
+  }
+
+  duplicateAsQuoteDraft(source: InvoiceRecord): Promise<InvoiceRecord> {
+    return this.database.invoice.create({
+      data: {
+        status: 'QUOTE_DRAFT',
+        currency: source.currency,
+        fiscal: source.fiscal,
+        applyItbis: source.applyItbis,
+        customerId: source.customerId,
+        lines: {
+          create: source.lines.map((line) => ({
+            type: line.type,
+            description: line.description,
+            notes: line.notes,
+            quantity: line.quantity,
+            unitPrice: line.unitPrice,
+            acquisitionCostDop: line.acquisitionCostDop,
+            costProvenance: line.costProvenance,
+            serviceId: line.serviceId,
+          })),
+        },
       },
       include: invoiceDetailInclude,
     });
@@ -318,6 +346,41 @@ export class SalesRepository {
       data: { nextValue: sequence.nextValue + 1 },
     });
     return number;
+  }
+
+  async allocateNextQuoteNumber(): Promise<string> {
+    const sequence = await this.lockSequenceForUpdate(QUOTE_SEQUENCE_NAME);
+    const number = formatQuoteNumber(sequence.nextValue);
+    await this.database.invoiceSequence.update({
+      where: { name: QUOTE_SEQUENCE_NAME },
+      data: { nextValue: sequence.nextValue + 1 },
+    });
+    return number;
+  }
+
+  issueQuote(input: IssueQuoteRecord): Promise<InvoiceRecord> {
+    return this.database.invoice.update({
+      where: { id: input.id },
+      data: {
+        status: 'QUOTE_ISSUED',
+        quoteNumber: input.quoteNumber,
+        quoteIssuedAt: input.quoteIssuedAt,
+        quoteExpiresAt: input.quoteExpiresAt,
+        customerName: input.customerName,
+        customerRnc: input.customerRnc,
+        customerPhone: input.customerPhone,
+        gross: input.gross,
+        base: input.base,
+        itbis: input.itbis,
+        lines: {
+          update: input.lines.map((line) => ({
+            where: { id: line.id },
+            data: { gross: line.gross, base: line.base, itbis: line.itbis },
+          })),
+        },
+      },
+      include: invoiceDetailInclude,
+    });
   }
 
   completeInvoice(input: CompleteInvoiceRecord): Promise<InvoiceRecord> {

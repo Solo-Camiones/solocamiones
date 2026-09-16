@@ -28,6 +28,24 @@ export async function postDraft(req: Request, res: Response) {
     .json(await salesServiceOf(req).createDraft(actor(req), req.validated?.body ?? {}));
 }
 
+export async function postQuote(req: Request, res: Response) {
+  res
+    .status(201)
+    .json(await salesServiceOf(req).createQuote(actor(req), req.validated?.body ?? {}));
+}
+
+export async function postIssueQuote(req: Request, res: Response) {
+  res.json(await salesServiceOf(req).issueQuote(actor(req), id(req)));
+}
+
+export async function postDuplicateQuote(req: Request, res: Response) {
+  res.status(201).json(await salesServiceOf(req).duplicateQuote(actor(req), id(req)));
+}
+
+export async function postConvertQuote(req: Request, res: Response) {
+  res.json(await salesServiceOf(req).convertQuote(actor(req), id(req), req.validated?.body ?? {}));
+}
+
 export async function getInvoices(req: Request, res: Response) {
   res.json(await salesServiceOf(req).list(actor(req), req.validated?.query));
 }

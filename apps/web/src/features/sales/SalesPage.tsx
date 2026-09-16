@@ -18,6 +18,8 @@ import {
 const TABS: { id: SalesListTab; label: string }[] = [
   { id: 'ALL', label: 'Todas' },
   { id: 'DRAFT', label: 'Borrador' },
+  { id: 'QUOTE_DRAFT', label: 'Cotizaciones en borrador' },
+  { id: 'QUOTE_ISSUED', label: 'Cotizaciones emitidas' },
   { id: 'COMPLETED', label: 'Completada' },
   { id: 'CANCELLED', label: 'Cancelada' },
 ];
@@ -104,9 +106,16 @@ export function SalesPage() {
     <>
       <PageHeader
         title="Ventas y Facturas"
-        description="Facturas, pagos y cancelación."
+        description="Ventas, cotizaciones, facturas y pagos."
         actions={
-          <Button onClick={() => navigate('/sales/draft/new')}>Nuevo borrador</Button>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="secondary" onClick={() => navigate('/sales/quote/new')}>
+              Nueva cotización
+            </Button>
+            <Button aria-label="Nuevo borrador" onClick={() => navigate('/sales/draft/new')}>
+              Nueva venta
+            </Button>
+          </div>
         }
       />
 
@@ -114,7 +123,7 @@ export function SalesPage() {
         <SearchInput
           id="sales-search"
           label="Buscar por número o cliente"
-          placeholder="FAC-000098, nombre del cliente…"
+          placeholder="FAC-000098, COT-000123, cliente…"
           value={query}
           onChange={(event) => {
             setQuery(event.target.value);

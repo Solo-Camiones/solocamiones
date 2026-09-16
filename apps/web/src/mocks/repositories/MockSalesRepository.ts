@@ -18,10 +18,14 @@ import {
   addPayment,
   cancelInvoice,
   confirmInvoice,
+  convertQuote,
   correctCurrency,
   createDraft,
+  createQuote,
+  duplicateQuote,
   discardDraft,
   removeDraftLine,
+  issueQuote,
   setDraftLinePrice,
   setDraftLineQuantity,
   setDraftMeta,
@@ -136,6 +140,12 @@ export class MockSalesRepository implements SalesRepository {
     return ok(cloneForRead(result.value));
   }
 
+  async createQuote() {
+    const permission = requirePermission('sales.manage');
+    if (!permission.ok) return permission;
+    return createQuote(getMockState(), permission.value);
+  }
+
   async getDraft(id: string) {
     const permission = requirePermission('sales.manage');
     if (!permission.ok) {
@@ -231,6 +241,28 @@ export class MockSalesRepository implements SalesRepository {
       return result;
     }
 
+    return ok(cloneForRead(buildPosDraftView(getMockState(), result.value)));
+  }
+
+  async issueQuote(draftId: string) {
+    const permission = requirePermission('sales.manage');
+    if (!permission.ok) return permission;
+    const result = issueQuote(getMockState(), permission.value, draftId);
+    if (!result.ok) return result;
+    return ok(cloneForRead(buildPosDraftView(getMockState(), result.value)));
+  }
+
+  async duplicateQuote(quoteId: string) {
+    const permission = requirePermission('sales.manage');
+    if (!permission.ok) return permission;
+    return duplicateQuote(getMockState(), permission.value, quoteId);
+  }
+
+  async convertQuote(quoteId: string, payment?: ConfirmInvoicePayment) {
+    const permission = requirePermission('sales.manage');
+    if (!permission.ok) return permission;
+    const result = convertQuote(getMockState(), permission.value, quoteId, payment);
+    if (!result.ok) return result;
     return ok(cloneForRead(buildPosDraftView(getMockState(), result.value)));
   }
 

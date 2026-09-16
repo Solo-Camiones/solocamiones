@@ -24,6 +24,16 @@ function renderPos(draftId = 'INV-DRAFT-01', capabilities?: AppCapabilities) {
   );
 }
 
+function renderQuote(quoteId: string, capabilities?: AppCapabilities) {
+  return renderWithProviders(
+    <Routes>
+      <Route path="/sales/quote/:id" element={<PosPage />} />
+      <Route path="/sales/:id" element={<p>Detalle de factura</p>} />
+    </Routes>,
+    { route: `/sales/quote/${quoteId}`, capabilities },
+  );
+}
+
 const originalMatchMedia = window.matchMedia;
 
 function stubViewportWidth(width: number) {
@@ -539,5 +549,34 @@ describe('PosPage', () => {
     expect(screen.getByText('Pieza · ALT-004')).toBeVisible();
     expect(screen.getAllByText('Cantidad')).toHaveLength(2);
     expect(screen.getAllByRole('button', { name: /^Quitar / })).toHaveLength(2);
+  });
+
+  it('issues a quote draft from the quote editor', async () => {
+    const created = await mockSalesRepository.createQuote();
+    expect(created.ok).toBe(true);
+    if (!created.ok) return;
+    const quoteId = created.value.draftId;
+    expect((await mockSalesRepository.setDraftMeta({ draftId: quoteId, customerId: 'C1' })).ok).toBe(true);
+    expect(
+      (
+        await mockSalesRepository.addLine({
+          draftId: quoteId,
+          type: 'GENERIC',
+          description: 'Filtro cotizado',
+          unitPrice: 100,
+        })
+      ).ok,
+    ).toBe(true);
+
+    renderQuote(quoteId);
+    expect(await screen.findByRole('heading', { name: 'Cotización' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Emitir cotización' })).toBeVisible();
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: 'Emitir cotización' }));
+
+    expect(await screen.findAllByText(/COT-000001/)).not.toHaveLength(0);
+    expect(screen.getByRole('button', { name: 'Convertir a factura' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Duplicar cotización' })).toBeVisible();
   });
 });

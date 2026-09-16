@@ -73,7 +73,9 @@ export function InvoiceDetailPage() {
       <PageHeader
         leading={<BackToSalesLink />}
         title={detail.number ?? 'Factura'}
-        description={`${detail.customerName}${detail.customerRnc ? ` · ${detail.customerRnc}` : ''}`}
+        description={`${detail.customerName}${detail.customerRnc ? ` · ${detail.customerRnc}` : ''}${
+          detail.quoteNumber ? ` · Origen ${detail.quoteNumber}` : ''
+        }`}
         actions={
           <div className="flex flex-wrap gap-2">
             {detail.actions.canViewPdf && (
@@ -164,6 +166,7 @@ export function InvoiceDetailPage() {
             <PaymentChip state={detail.paymentState} />
           )}
         {detail.fiscal ? <Chip tone="brand">Fiscal</Chip> : <Chip>Sin comprobante fiscal</Chip>}
+        {detail.quoteNumber ? <Chip>Origen {detail.quoteNumber}</Chip> : null}
         <Chip>{detail.currency}</Chip>
       </div>
 

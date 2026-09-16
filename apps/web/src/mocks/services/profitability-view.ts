@@ -66,7 +66,7 @@ export function profitabilityForInvoice(
     return undefined;
   }
 
-  if (invoice.status === 'DRAFT') {
+  if (invoice.status !== 'COMPLETED' && invoice.status !== 'CANCELLED') {
     return undefined;
   }
 

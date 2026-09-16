@@ -52,6 +52,10 @@ const desktopChildRoutes = [
     element: <PosPage />,
   },
   {
+    path: '/sales/quote/:id',
+    element: <PosPage />,
+  },
+  {
     path: '/sales/:id',
     element: <InvoiceDetailPage />,
   },

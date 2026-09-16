@@ -664,6 +664,7 @@ export function createInitialState(): AppState {
     fxAvailable: false,
     fxRateDopPerUsd: 61.5,
     facSeq: 100,
+    cotSeq: 1,
     itemCodeSeq: buildItemCodeSeq(
       categories,
       items.map((item) => item.id),

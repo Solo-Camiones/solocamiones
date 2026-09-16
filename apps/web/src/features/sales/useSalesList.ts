@@ -5,7 +5,14 @@ import type { SalesListRow, SalesListTab } from '../../api/contracts/sales';
 import type { AppError, Result } from '../../shared/auth/types';
 import { salesRepository } from '../../api/repositories';
 
-export const SALES_LIST_TABS: SalesListTab[] = ['ALL', 'DRAFT', 'COMPLETED', 'CANCELLED'];
+export const SALES_LIST_TABS: SalesListTab[] = [
+  'ALL',
+  'DRAFT',
+  'QUOTE_DRAFT',
+  'QUOTE_ISSUED',
+  'COMPLETED',
+  'CANCELLED',
+];
 
 /** Matches dashboard invoicesToday (`DEMO_NOW_ISO` in the demo clock). */
 const DEMO_TODAY = '2026-08-25';

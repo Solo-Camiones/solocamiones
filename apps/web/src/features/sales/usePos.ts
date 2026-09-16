@@ -147,7 +147,7 @@ type PosQuery =
   | { status: 'error'; error: AppError }
   | { status: 'ready'; draft: PosDraftView };
 
-export function usePos(draftId: string | undefined) {
+export function usePos(draftId: string | undefined, creationKind: 'sale' | 'quote' = 'sale') {
   const navigate = useNavigate();
   const draftCreationRef = useRef<ReturnType<typeof salesRepository.createDraft> | null>(null);
   const [reloadToken, setReloadToken] = useState(0);
@@ -170,7 +170,8 @@ export function usePos(draftId: string | undefined) {
     if (draftId === 'new') {
       let cancelled = false;
       setResult({ status: 'loading' });
-      draftCreationRef.current ??= salesRepository.createDraft();
+      draftCreationRef.current ??=
+        creationKind === 'quote' ? salesRepository.createQuote() : salesRepository.createDraft();
       draftCreationRef.current.then((response) => {
         if (cancelled) {
           return;
@@ -179,7 +180,12 @@ export function usePos(draftId: string | undefined) {
           setResult({ status: 'error', error: response.error });
           return;
         }
-        navigate(`/sales/draft/${response.value.draftId}`, { replace: true });
+        navigate(
+          creationKind === 'quote'
+            ? `/sales/quote/${response.value.draftId}`
+            : `/sales/draft/${response.value.draftId}`,
+          { replace: true },
+        );
       });
       return () => {
         cancelled = true;
@@ -204,7 +210,7 @@ export function usePos(draftId: string | undefined) {
     return () => {
       cancelled = true;
     };
-  }, [draftId, navigate, reloadToken]);
+  }, [creationKind, draftId, navigate, reloadToken]);
 
   const applyDraftResult = useCallback((response: Result<PosDraftView>): Result<void> => {
     if (!response.ok) {
@@ -343,6 +349,40 @@ export function usePos(draftId: string | undefined) {
     [draftId, reload, runExclusive],
   );
 
+  const issueQuote = useCallback(async (): Promise<Result<void>> => {
+    if (!draftId || draftId === 'new') {
+      return { ok: false, error: { code: 'VALIDATION', message: 'Cotización no lista' } };
+    }
+    return runExclusive(async () => applyDraftResult(await salesRepository.issueQuote(draftId)));
+  }, [applyDraftResult, draftId, runExclusive]);
+
+  const duplicateQuote = useCallback(async (): Promise<Result<void>> => {
+    if (!draftId || draftId === 'new') {
+      return { ok: false, error: { code: 'VALIDATION', message: 'Cotización no lista' } };
+    }
+    return runExclusive(async () => {
+      const response = await salesRepository.duplicateQuote(draftId);
+      if (!response.ok) return response;
+      navigate(`/sales/quote/${response.value.draftId}`);
+      return { ok: true, value: undefined };
+    });
+  }, [draftId, navigate, runExclusive]);
+
+  const convertQuote = useCallback(
+    async (payment?: ConfirmInvoicePayment): Promise<Result<void>> => {
+      if (!draftId || draftId === 'new') {
+        return { ok: false, error: { code: 'VALIDATION', message: 'Cotización no lista' } };
+      }
+      return runExclusive(async () => {
+        const response = await salesRepository.convertQuote(draftId, payment);
+        if (!response.ok) return response;
+        navigate(`/sales/${draftId}`, { replace: true });
+        return { ok: true, value: undefined };
+      });
+    },
+    [draftId, navigate, runExclusive],
+  );
+
   const discard = useCallback(async (): Promise<Result<void>> => {
     if (!draftId || draftId === 'new') {
       return { ok: false, error: { code: 'VALIDATION', message: 'Borrador no listo' } };
@@ -377,6 +417,9 @@ export function usePos(draftId: string | undefined) {
     updateLine,
     setMeta,
     confirm,
+    issueQuote,
+    duplicateQuote,
+    convertQuote,
     discard,
     restoreRemovedLine,
   };

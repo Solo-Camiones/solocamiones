@@ -15,6 +15,10 @@ import {
   patchDraftLine,
   postConfirmInvoice,
   postDraft,
+  postQuote,
+  postIssueQuote,
+  postDuplicateQuote,
+  postConvertQuote,
   postDraftLine,
   postRegenerateInvoicePdf,
   postInvoicePayment,
@@ -32,6 +36,7 @@ import {
   updateDraftMetaSchema,
   addPaymentSchema,
   cancelInvoiceSchema,
+  emptyCommandSchema,
 } from './validation.js';
 
 export const salesRouter = Router();
@@ -57,6 +62,7 @@ salesRouter.post(
 );
 salesRouter.get('/:id', validate({ params: invoiceIdSchema }), getInvoice);
 salesRouter.post('/', requireCsrfHeader, validate({ body: createDraftSchema }), postDraft);
+salesRouter.post('/quotes', requireCsrfHeader, validate({ body: createDraftSchema }), postQuote);
 salesRouter.patch(
   '/:id',
   requireCsrfHeader,
@@ -69,6 +75,24 @@ salesRouter.post(
   requireCsrfHeader,
   validate({ params: invoiceIdSchema, body: confirmInvoiceSchema }),
   postConfirmInvoice,
+);
+salesRouter.post(
+  '/:id/issue-quote',
+  requireCsrfHeader,
+  validate({ params: invoiceIdSchema, body: emptyCommandSchema }),
+  postIssueQuote,
+);
+salesRouter.post(
+  '/:id/duplicate-quote',
+  requireCsrfHeader,
+  validate({ params: invoiceIdSchema, body: emptyCommandSchema }),
+  postDuplicateQuote,
+);
+salesRouter.post(
+  '/:id/convert-quote',
+  requireCsrfHeader,
+  validate({ params: invoiceIdSchema, body: confirmInvoiceSchema }),
+  postConvertQuote,
 );
 salesRouter.post(
   '/:id/payments',

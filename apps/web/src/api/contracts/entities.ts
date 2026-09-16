@@ -133,7 +133,7 @@ export type Service = {
   active: boolean;
 };
 
-export type InvoiceStatus = 'DRAFT' | 'COMPLETED' | 'CANCELLED';
+export type InvoiceStatus = 'DRAFT' | 'QUOTE_DRAFT' | 'QUOTE_ISSUED' | 'COMPLETED' | 'CANCELLED';
 export type PaymentState =
   'UNPAID' | 'PARTIALLY_PAID' | 'PENDING' | 'OVERDUE' | 'PAID' | 'PAID_LATE' | 'CANCELLED';
 export type Currency = 'DOP' | 'USD';
@@ -194,6 +194,9 @@ export type Payment = {
 export type Invoice = {
   id: string;
   number?: string;
+  quoteNumber?: string;
+  quoteIssuedAt?: string;
+  quoteExpiresAt?: string;
   status: InvoiceStatus;
   customerId: string;
   currency: Currency;
@@ -224,6 +227,7 @@ export type Invoice = {
   customerSnapshot?: {
     name: string;
     rnc?: string;
+    phone?: string;
     customerType?: CustomerType;
     creditTermDays?: CreditTermDays;
   };
@@ -291,6 +295,8 @@ export type AppState = {
   fxAvailable: boolean;
   fxRateDopPerUsd: number;
   facSeq: number;
+  /** Next unused public quote number (COT-000001). */
+  cotSeq?: number;
   /** Next unused number per category id for individually tracked item codes. */
   itemCodeSeq: Record<string, number>;
 };

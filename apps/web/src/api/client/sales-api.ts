@@ -37,7 +37,7 @@ type ApiCustomerView = {
   name: string;
   rnc: string | null;
   isDefault: boolean;
-  customerType?: 'CASH' | 'CREDIT';
+  customerType?: string;
 };
 
 type ApiInvoiceLine = {
@@ -77,8 +77,12 @@ type ApiHistoryEntry = {
 
 type ApiInvoice = {
   id: string;
-  status: 'DRAFT' | 'COMPLETED' | 'CANCELLED';
+  status: 'DRAFT' | 'QUOTE_DRAFT' | 'QUOTE_ISSUED' | 'COMPLETED' | 'CANCELLED';
   number: string | null;
+  quoteNumber?: string | null;
+  quoteIssuedAt?: string | null;
+  quoteExpiresAt?: string | null;
+  quoteExpired?: boolean;
   currency: 'DOP' | 'USD';
   fiscal: boolean;
   applyItbis: boolean;
@@ -156,6 +160,10 @@ function toPosDraft(
     id: invoice.id,
     status: invoice.status,
     number: optionalText(invoice.number),
+    quoteNumber: optionalText(invoice.quoteNumber),
+    quoteIssuedAt: optionalText(invoice.quoteIssuedAt),
+    quoteExpiresAt: optionalText(invoice.quoteExpiresAt),
+    quoteExpired: invoice.quoteExpired === true,
     customerId: invoice.customer.id,
     customerName: invoice.customer.name,
     customerRnc: optionalText(invoice.customer.rnc),
@@ -182,11 +190,15 @@ function toPosDraft(
 
 function invoiceListNumber(item: ApiInvoiceListItem): string {
   if (item.number) return item.number;
-  return item.status === 'DRAFT' ? 'Borrador' : 'Factura';
+  if (item.quoteNumber) return item.quoteNumber;
+  return item.status === 'QUOTE_DRAFT' ? 'Cotización borrador' : item.status === 'DRAFT' ? 'Borrador' : 'Factura';
 }
 
 function invoiceHref(item: ApiInvoiceListItem): string {
-  return item.status === 'DRAFT' ? `/sales/draft/${item.id}` : `/sales/${item.id}`;
+  return item.status === 'DRAFT' ? `/sales/draft/${item.id}` :
+    item.status === 'QUOTE_DRAFT' || item.status === 'QUOTE_ISSUED'
+      ? `/sales/quote/${item.id}`
+      : `/sales/${item.id}`;
 }
 
 function toSalesListRow(item: ApiInvoiceListItem): SalesListRow {
@@ -195,6 +207,7 @@ function toSalesListRow(item: ApiInvoiceListItem): SalesListRow {
   return {
     id: item.id,
     number: invoiceListNumber(item),
+    quoteNumber: optionalText(item.quoteNumber),
     status: item.status,
     customerId: item.customer.id,
     customerName: item.customer.name,
@@ -204,6 +217,9 @@ function toSalesListRow(item: ApiInvoiceListItem): SalesListRow {
     createdAt: item.createdAt,
     confirmedAt: optionalText(item.confirmedAt),
     dueDate: optionalText(item.dueDate),
+    quoteIssuedAt: optionalText(item.quoteIssuedAt),
+    quoteExpiresAt: optionalText(item.quoteExpiresAt),
+    quoteExpired: item.quoteExpired === true,
     href: invoiceHref(item),
     ...(item.paymentState ? { paymentState: item.paymentState } : {}),
     ...(item.balance != null ? { balance: moneyNumber(item.balance) } : {}),
@@ -257,6 +273,7 @@ function toInvoiceDetail(invoice: ApiInvoice): InvoiceDetailView {
   return {
     id: invoice.id,
     number: optionalText(invoice.number),
+    quoteNumber: optionalText(invoice.quoteNumber),
     status: invoice.status,
     customerId: invoice.customer.id,
     customerName: invoice.customer.name,
@@ -368,7 +385,7 @@ export function toHttpAddLineBody(input: AddDraftLineInput): Record<string, unkn
 
 function invoicesCollectionPath(
   page: number,
-  status?: 'DRAFT' | 'COMPLETED' | 'CANCELLED',
+  status?: ApiInvoice['status'],
   q?: string,
 ): string {
   const params = new URLSearchParams();
@@ -563,6 +580,17 @@ export function createDraftWithHttp(): Promise<Result<CreateDraftResult>> {
   });
 }
 
+export function createQuoteWithHttp(): Promise<Result<CreateDraftResult>> {
+  return request(async () => {
+    const invoice = await httpClient<ApiInvoice>(`${SALES_PATH}/quotes`, {
+      method: 'POST',
+      headers: CSRF_HEADERS,
+      body: JSON.stringify({}),
+    });
+    return { draftId: invoice.id };
+  });
+}
+
 export async function getDraftWithHttp(id: string): Promise<Result<PosDraftView>> {
   try {
     const invoice = await httpClient<ApiInvoice>(`${SALES_PATH}/${id}`);
@@ -660,6 +688,44 @@ export function confirmInvoiceWithHttp(
                 idempotencyKey: payment.idempotencyKey,
               },
             }
+          : {},
+      ),
+    }),
+  );
+}
+
+export function issueQuoteWithHttp(quoteId: string): Promise<Result<PosDraftView>> {
+  return mutateDraft(() =>
+    httpClient<ApiInvoice>(`${SALES_PATH}/${quoteId}/issue-quote`, {
+      method: 'POST',
+      headers: CSRF_HEADERS,
+      body: JSON.stringify({}),
+    }),
+  );
+}
+
+export function duplicateQuoteWithHttp(quoteId: string): Promise<Result<CreateDraftResult>> {
+  return request(async () => {
+    const invoice = await httpClient<ApiInvoice>(`${SALES_PATH}/${quoteId}/duplicate-quote`, {
+      method: 'POST',
+      headers: CSRF_HEADERS,
+      body: JSON.stringify({}),
+    });
+    return { draftId: invoice.id };
+  });
+}
+
+export function convertQuoteWithHttp(
+  quoteId: string,
+  payment?: ConfirmInvoicePayment,
+): Promise<Result<PosDraftView>> {
+  return mutateDraft(() =>
+    httpClient<ApiInvoice>(`${SALES_PATH}/${quoteId}/convert-quote`, {
+      method: 'POST',
+      headers: CSRF_HEADERS,
+      body: JSON.stringify(
+        payment
+          ? { payment: { ...payment, amount: moneyString(payment.amount) } }
           : {},
       ),
     }),

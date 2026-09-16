@@ -24,6 +24,10 @@ export const COST_PROVENANCE_REQUIRED_MESSAGE =
   'Cost provenance is required when acquisition cost is updated';
 export const EMPTY_DRAFT_CONFIRM_MESSAGE = 'Agregue al menos una línea';
 export const DRAFT_ONLY_CONFIRM_MESSAGE = 'Solo se puede confirmar un borrador';
+export const QUOTE_DRAFT_ONLY_ISSUE_MESSAGE = 'Solo se puede emitir una cotización en borrador';
+export const QUOTE_ISSUED_ONLY_DUPLICATE_MESSAGE = 'Solo se puede duplicar una cotización emitida';
+export const QUOTE_ISSUED_ONLY_CONVERT_MESSAGE = 'Solo se puede convertir una cotización emitida';
+export const EXPIRED_QUOTE_CONVERT_MESSAGE = 'La cotización está vencida y no puede convertirse';
 export const PAYMENT_COMPLETED_ONLY_MESSAGE =
   'Solo se pueden registrar pagos en facturas completadas';
 export const PAYMENT_DATE_RANGE_MESSAGE =
@@ -42,8 +46,13 @@ export const PAYMENT_IDEMPOTENCY_MISMATCH_MESSAGE =
 export const CANCELLATION_COMPLETED_ONLY_MESSAGE = 'Solo se pueden cancelar facturas completadas';
 export const CANCELLATION_REASON_REQUIRED_MESSAGE = 'La cancelación requiere un motivo';
 export const INVOICE_NUMBER_PREFIX = 'FAC-';
+export const QUOTE_NUMBER_PREFIX = 'COT-';
 export const INVOICE_NUMBER_PAD_WIDTH = 6;
 
 export function formatInvoiceNumber(sequenceValue: number): string {
   return `${INVOICE_NUMBER_PREFIX}${String(sequenceValue).padStart(INVOICE_NUMBER_PAD_WIDTH, '0')}`;
+}
+
+export function formatQuoteNumber(sequenceValue: number): string {
+  return `${QUOTE_NUMBER_PREFIX}${String(sequenceValue).padStart(INVOICE_NUMBER_PAD_WIDTH, '0')}`;
 }

@@ -393,9 +393,13 @@ export function correctCurrency(
 export {
   addDraftLine,
   confirmInvoice,
+  convertQuote,
   createDraft,
+  createQuote,
+  duplicateQuote,
   discardDraft,
   removeDraftLine,
+  issueQuote,
   setDraftLinePrice,
   setDraftLineQuantity,
   setDraftMeta,
