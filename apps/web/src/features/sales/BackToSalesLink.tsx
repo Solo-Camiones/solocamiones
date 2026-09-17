@@ -40,7 +40,7 @@ export function BackToSalesLink() {
       type="button"
       aria-label="Volver atrás"
       onClick={handleBack}
-      className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-navy hover:bg-navy-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-light/50"
+      className="inline-flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-lg text-navy hover:bg-navy-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-light/50"
     >
       <svg viewBox="0 0 24 24" className="h-5 w-5" aria-hidden>
         <path

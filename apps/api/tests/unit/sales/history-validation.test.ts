@@ -265,7 +265,7 @@ describe('invoice draft history validation', () => {
       subjectType: 'INVOICE' as const,
       subjectId: id,
       eventType: 'INVOICE_PDF_GENERATED' as const,
-      payload: { status: 'READY' as const, errorId: null, templateVersion: 'internal-v1' },
+      payload: { status: 'READY' as const, errorId: null, templateVersion: 'internal-v4' },
     };
     expect(historyEventSchema.parse(generated)).toEqual(generated);
     const failed = {
@@ -274,7 +274,7 @@ describe('invoice draft history validation', () => {
       payload: {
         status: 'FAILED' as const,
         errorId: id,
-        templateVersion: 'internal-v1',
+        templateVersion: 'internal-v4',
       },
     };
     expect(historyEventSchema.parse(failed)).toEqual(failed);

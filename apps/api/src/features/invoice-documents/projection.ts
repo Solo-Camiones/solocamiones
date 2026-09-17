@@ -4,9 +4,11 @@ import {
   INVOICE_PDF_TEMPLATE_VERSION,
   type InvoicePdfFacts,
 } from '../../infrastructure/invoice-pdf/index.js';
+import type { QuotePdfFacts } from '../../infrastructure/quote-pdf/index.js';
+import { formatFiscalId } from '../customers/fiscal.js';
+import { formatDominicanPhone } from '../customers/phone.js';
 import { MONEY_DECIMAL_PLACES } from '../sales/money/constants.js';
 import type { InvoicePdfHistorySnapshot, InvoiceRecord } from '../sales/types.js';
-import { summarizePayments } from '../payments/summary.js';
 
 function moneyString(value: { toFixed(places: number): string }): string {
   return value.toFixed(MONEY_DECIMAL_PLACES);
@@ -38,6 +40,7 @@ export function toInvoicePdfFacts(invoice: InvoiceRecord): InvoicePdfFacts | nul
 
   const lines: InvoicePdfFacts['lines'] = [];
   for (const line of invoice.lines) {
+    // Use stored line money. Recalculating would rewrite historical invoices.
     const money = persistedLineMoney(line);
     if (money == null) return null;
     lines.push({
@@ -51,21 +54,18 @@ export function toInvoicePdfFacts(invoice: InvoiceRecord): InvoicePdfFacts | nul
     });
   }
 
-  const payment = summarizePayments(invoice);
   return {
     status: invoice.status,
     number: invoice.number,
+    originQuoteNumber: invoice.quoteNumber,
     currency: invoice.currency,
     fiscal: invoice.fiscal,
     customerName: invoice.customerName,
-    customerRnc: invoice.customerRnc,
-    customerPhone: invoice.customerPhone,
+    customerRnc: formatFiscalId(invoice.customerRnc) || null,
+    customerPhone: formatDominicanPhone(invoice.customerPhone) || null,
     sellerName: invoice.confirmedByName,
     confirmedAt: invoice.confirmedAt,
     dueDate: invoice.dueDate,
-    paymentState: payment.state,
-    balance: moneyString(payment.balance),
-    generatedAt: new Date(),
     cancelledAt: invoice.cancelledAt,
     cancelReason: invoice.cancelReason,
     cancelledByName: invoice.cancelledByName,
@@ -75,7 +75,60 @@ export function toInvoicePdfFacts(invoice: InvoiceRecord): InvoicePdfFacts | nul
       base: moneyString(invoice.base),
       itbis: moneyString(invoice.itbis),
     },
-    templateVersion: invoice.pdfTemplateVersion ?? INVOICE_PDF_TEMPLATE_VERSION,
+    // Stored pdfTemplateVersion is generation metadata. Re-downloads always use
+    // the current writer so retired local labels like internal-v3 keep working
+    // without a permanent relabel migration (DOC-001).
+    templateVersion: INVOICE_PDF_TEMPLATE_VERSION,
+  };
+}
+
+export function toQuotePdfFacts(invoice: InvoiceRecord): QuotePdfFacts | null {
+  if (invoice.status !== 'QUOTE_ISSUED') return null;
+  if (
+    invoice.quoteNumber == null ||
+    invoice.quoteIssuedAt == null ||
+    invoice.quoteExpiresAt == null ||
+    invoice.customerName == null ||
+    invoice.gross == null ||
+    invoice.base == null ||
+    invoice.itbis == null
+  ) {
+    return null;
+  }
+
+  const lines: QuotePdfFacts['lines'] = [];
+  for (const line of invoice.lines) {
+    // Issued quote money is frozen on the aggregate. Recalculating would rewrite
+    // the document if tax rules change after QUOTE_ISSUED.
+    const money = persistedLineMoney(line);
+    if (money == null) return null;
+    lines.push({
+      description: line.description,
+      notes: line.notes,
+      quantity: moneyString(line.quantity),
+      unitPrice: moneyString(line.unitPrice),
+      base: moneyString(money.base),
+      gross: moneyString(money.gross),
+      itbis: moneyString(money.itbis),
+    });
+  }
+
+  return {
+    status: 'QUOTE_ISSUED',
+    quoteNumber: invoice.quoteNumber,
+    currency: invoice.currency,
+    customerName: invoice.customerName,
+    customerRnc: formatFiscalId(invoice.customerRnc) || null,
+    customerPhone: formatDominicanPhone(invoice.customerPhone) || null,
+    sellerName: invoice.confirmedByName,
+    quoteIssuedAt: invoice.quoteIssuedAt,
+    quoteExpiresAt: invoice.quoteExpiresAt,
+    lines,
+    totals: {
+      gross: moneyString(invoice.gross),
+      base: moneyString(invoice.base),
+      itbis: moneyString(invoice.itbis),
+    },
   };
 }
 

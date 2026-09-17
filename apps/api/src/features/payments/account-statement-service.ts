@@ -5,6 +5,7 @@ import {
   pdfkitAccountStatementRenderer,
   type AccountStatementPdfRenderer,
 } from '../../infrastructure/account-statement-pdf/index.js';
+import { formatFiscalId } from '../customers/fiscal.js';
 import { statementCustomerIdSchema } from '../sales/validation.js';
 import { salesTransaction, type SalesTransaction } from '../sales/transaction.js';
 import { assertAdministrator } from '../users/policies.js';
@@ -76,7 +77,7 @@ export class AccountStatementService {
     );
     const body = await this.renderer.render({
       customerName: loaded.customer.name,
-      customerRnc: loaded.customer.rnc,
+      customerRnc: formatFiscalId(loaded.customer.rnc) || null,
       generatedAt,
       rows: rows.map((row) => ({
         number: row.invoice.number!,

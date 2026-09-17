@@ -2,20 +2,22 @@
 
 ## Estado del inventario
 
-Inventario actual: **13 de septiembre de 2026**. Los conteos de unitarias web/API, integración web y componentes salen de Vitest e incluyen cada caso expandido de `it.each`. Las rutas son relativas a `apps/web/tests` o `apps/api/tests`.
+Inventario actual: **17 de septiembre de 2026**. Los conteos de unitarias web/API, integración web y componentes salen de Vitest e incluyen cada caso expandido de `it.each`. Las rutas son relativas a `apps/web/tests` o `apps/api/tests`.
 
-Esta pasada registró **9 archivos** que existían en disco y no estaban en las tablas, y actualizó las cantidades de **12 archivos** ya listados cuyo `it.each` o casos nuevos no coincidían con el inventario del 11-sep. Más tarde el mismo día se añadieron **2 unitarias** en `unit/mocks/services/users.test.ts` (`getInitialPassword` / `INITIAL_PASSWORD`); se reejecutaron esa suite, `users.repository.test.ts` e `UsersPage.test.tsx` (integración y componentes sin cambio de conteo). La integración API **no se reejecutó** el 13-sep: `vitest.integration.config.ts` llama `npx prisma migrate reset --force --skip-generate` contra `DATABASE_URL_TEST` (`truck_parts_test` en `localhost:5433`) y Prisma lo bloqueó sin consentimiento explícito del operador.
+Esta pasada encontró **22 archivos** en disco que no estaban en las tablas (8 web, 14 API: cotizaciones `COT-`, crédito CASH/CREDIT, estado de cuenta, perfil corporativo/PDF y rate-limit global). También actualizó cantidades de archivos ya listados cuyo `it.each` o casos nuevos no coincidían con el inventario del 13-sep.
 
-| Aplicación            | Tipo        | Archivos | Pruebas | Resultado 13-sep-2026 |
+Ejecución 17-sep: las suites completas de API y web fueron aprobadas. La integración API reinició con autorización explícita la base aislada `DATABASE_URL_TEST` (`solocamiones_test` en `localhost:5433`) mediante `prisma migrate reset --force --skip-generate`; las **238 pruebas / 27 archivos** terminaron correctamente.
+
+| Aplicación            | Tipo        | Archivos | Pruebas | Resultado 17-sep-2026 |
 | --------------------- | ----------- | -------: | ------: | --------------------- |
-| Frontend              | Unitarias   |       43 |     384 | 384 aprobadas         |
-| Frontend              | Integración |       10 |      69 | 69 aprobadas          |
-| Frontend              | Componentes |       45 |     225 | 225 aprobadas         |
-| **Subtotal frontend** |             |   **98** | **678** | **678 aprobadas**     |
-| Backend               | Unitarias   |       36 |     331 | 331 aprobadas         |
-| Backend               | Integración |       23 |     183 | No ejecutada el 13-sep (reset de `truck_parts_test`); 181 del inventario 11-sep + 2 de `rate-limit-http` |
-| **Subtotal backend**  |             |   **59** | **514** | Unitarias 331 verdes; integración pendiente de reejecución |
-| **Total**             |             |  **157** | **1192** | Frontend 678 + API unit 331 ejecutados; API integración 183 inventario |
+| Frontend              | Unitarias   |       48 |     418 | 418 aprobadas         |
+| Frontend              | Integración |       10 |      71 | 71 aprobadas          |
+| Frontend              | Componentes |       48 |     261 | 261 aprobadas         |
+| **Subtotal frontend** |             |  **106** | **750** | **750 aprobadas**     |
+| Backend               | Unitarias   |       46 |     393 | 393 aprobadas         |
+| Backend               | Integración |       27 |     238 | 238 aprobadas         |
+| **Subtotal backend**  |             |   **73** | **631** | **631 aprobadas**     |
+| **Total**             |             |  **179** | **1381** | **1381 aprobadas**    |
 
 El inventario M20 (**897 / 129 archivos**, 9 de septiembre de 2026) ya no describe la rama: faltaban POS/confirmación/PDF/rentabilidad HTTP (M21–M24), timeline de factura, pagos/CxC/cancelación y plantilla PDF `internal-v3`. Cierre funcional de API R2: [`done_api/release_2.md`](done_api/release_2.md). Slice financiero R3: [`done_api/release_3.md`](done_api/release_3.md). Cierre Access/Users HTTP: [`done_api/release-1.md`](done_api/release-1.md).
 
@@ -27,7 +29,7 @@ El inventario de **679 pruebas / 97 archivos** (5 de septiembre de 2026) es el c
 
 ### Pruebas unitarias
 
-Validan funciones, reglas y proyecciones aisladas, sin renderizar React ni depender de estado compartido. Hay **384 pruebas en 43 archivos** (ejecución 2026-09-13).
+Validan funciones, reglas y proyecciones aisladas, sin renderizar React ni depender de estado compartido. Hay **418 pruebas en 48 archivos** (ejecución 2026-09-17).
 
 | Archivo                                                    | Cantidad | Pruebas realizadas                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                | Resultado esperado                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | ---------------------------------------------------------- | -------: | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -189,7 +191,7 @@ Renderizan React en jsdom con Testing Library y validan comportamiento visible. 
 
 ### Pruebas unitarias
 
-Validan salud, errores, configuración de pruebas, credenciales, sesiones, autorización, proyecciones, PDF, FX, rentabilidad, pagos y reglas de usuarios, clientes, catálogo y ventas con dependencias aisladas. Hay **331 pruebas en 36 archivos** (ejecución 2026-09-13).
+Validan salud, errores, configuración de pruebas, credenciales, sesiones, autorización, proyecciones, PDF, FX, rentabilidad, pagos y reglas de usuarios, clientes, catálogo y ventas con dependencias aisladas. Hay **393 pruebas en 46 archivos** (ejecución 2026-09-17).
 
 | Archivo                                        | Cantidad | Pruebas realizadas                                                                                                                                                     | Resultado esperado                                                                                                                                        |
 | ---------------------------------------------- | -------: | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -200,7 +202,14 @@ Validan salud, errores, configuración de pruebas, credenciales, sesiones, autor
 | `unit/infrastructure/prisma-config.test.ts`    |        1 | Carga de configuración y validación del esquema con el override de dependencias de Prisma.                                                                             | El CLI de Prisma carga la configuración y valida el esquema.                                                                                              |
 | `unit/infrastructure/test-environment.test.ts` |       13 | Selección de BD de pruebas; entorno de CI; URL ausente, inválida o no aislada; ocultación de credenciales.                                                             | Elimina el fallback de desarrollo y rechaza configuraciones inseguras sin exponer secretos.                                                               |
 | `unit/infrastructure/fx.test.ts`               |       35 | Tasa DOP por USD live e histórica; key ausente; timeout; cuota/plan inválido; payload incorrecto; Pair del mismo día UTC vs History; live no se usa cuando hace falta histórica. | Normaliza únicamente tasas válidas, no expone la API key ni inventa una tasa cuando el proveedor falla.                                                   |
-| `unit/infrastructure/invoice-pdf.test.ts`      |        5 | PDF `internal-v1` con `FAC-`, moneda, dos decimales y NCF vacío; notas de línea en `internal-v2`; PRECIO base y estado de pago/cancelación en `internal-v3`; versión desconocida. | Produce el documento de la plantilla persistida; no cambia silenciosamente a otra versión. |
+| `unit/infrastructure/invoice-pdf.test.ts`      |        9 | PDF `internal-v4`, notas, base/ITBIS/total, cancelación, `COT-` opcional, perfil/pagos corporativos y paginación; rechazo de versiones retiradas; ausencia de estado, saldo y movimientos de cobro. | Solo `internal-v4` renderiza; conserva hechos comerciales y excluye datos privados de cobro. |
+| `unit/infrastructure/quote-pdf.test.ts`        |        6 | Filename `COT-`, hechos congelados, título y totales, exclusión de etiquetas de factura/cobro, perfil corporativo, notas/paginación y estado permitido. | Solo `QUOTE_ISSUED` renderiza una cotización independiente y legible con el pie compartido. |
+| `unit/infrastructure/account-statement-pdf.test.ts` |   2 | Estados, abonado y saldo; perfil corporativo, medios de pago y paginación. | El estado de cuenta conserva la información financiera agregada sin movimientos individuales. |
+| `unit/infrastructure/corporate-profile.test.ts` |       1 | Identidad, contactos, redes y medios de pago aprobados. | Los valores corporativos exactos permanecen centralizados. |
+| `unit/infrastructure/document-profile.test.ts` |        1 | Contrato compartido del perfil documental. | Factura, cotización y estado de cuenta consumen una sola fuente de verdad. |
+| `unit/infrastructure/document-visual-review.test.ts` |  9 | Extracción textual y rasterizado de facturas con/sin ITBIS, desde cotización, cancelada, muchas líneas y notas; cotizaciones vigente/vencida; estado de cuenta multipágina. | Todas las páginas se generan y permiten validar contenido, pies, firmas y saltos sin solapamientos. |
+| `unit/invoice-documents/projection.test.ts`    |        9 | Proyección de hechos almacenados para factura y cotización, totales congelados, snapshots, campos requeridos y estados rechazados. | No recalcula dinero ni incorpora ledger o datos vivos del cliente. |
+| `unit/invoice-documents/filename.test.ts`      |        2 | Nombres públicos `FAC-xxxxxx.pdf` y `COT-xxxxxx.pdf`. | Cada documento conserva su prefijo correcto. |
 | `unit/infrastructure/transactions.test.ts`     |       24 | Catálogo, cliente y ventas: éxito, reintento P2034, agotamiento P2034, P2025 y error desconocido (`it.each`); duplicado fiscal de cliente; serialización cruda 40001 en ventas; FK de cliente ausente; P2002 de delivery vs P2002 no relacionados. | Serializable; P2034 reintenta y al agotar emite CONFLICT; P2025 es NOT_FOUND sin reintento; ventas también reintentan 40001 y no reinterpretan unique constraints ajenas. |
 | `unit/http/trust-proxy.test.ts`                |        3 | Peer privado/loopback; `X-Forwarded-For` ignorado si `TRUST_PROXY` está desactivado; un hop inmediato cuando está activado.                                            | No confía en forwarded-for salvo configuración explícita.                                                                                                 |
 | `unit/access/constants.test.ts`                |        1 | Opciones de cookie según entorno.                                                                                                                                      | `SameSite` explícito y `Secure` solo en producción HTTPS.                                                                                                 |
@@ -232,7 +241,7 @@ Validan salud, errores, configuración de pruebas, credenciales, sesiones, autor
 
 ### Pruebas de integración
 
-Ejercitan persistencia y transacciones contra PostgreSQL y rutas HTTP con Supertest. Hay **183 pruebas en 23 archivos** en inventario (181 del 11-sep más 2 de `rate-limit-http`). Deben correr contra `DATABASE_URL_TEST` aislada. `vitest.config.ts` declara `fileParallelism: false` porque los archivos comparten esa base. El 13-sep no se reejecutó la suite: Prisma bloqueó `migrate reset` sobre `truck_parts_test`.
+Ejercitan persistencia y transacciones contra PostgreSQL y rutas HTTP con Supertest. Hay **238 pruebas en 27 archivos**, aprobadas el 17-sep contra `DATABASE_URL_TEST` aislada. `vitest.config.ts` declara `fileParallelism: false` porque los archivos comparten esa base.
 
 | Archivo                                         | Cantidad | Pruebas realizadas                                                                                                                                                                                                                                    | Resultado esperado                                                                                                                                                                                                                                                                     |
 | ----------------------------------------------- | -------: | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -329,6 +338,47 @@ Los archivos y conteos completos de M13–M16 también están registrados en las
 - `tests/integration/setup.ts` comprueba conectividad y ejecuta `prisma migrate reset --force --skip-generate` sobre esa base antes de correr la suite. Esto elimina sus datos y aplica las migraciones del proyecto.
 - La ejecución actual reaplica las **16 migraciones** del repositorio, desde `20260826000000_init` hasta `20260910220000_cancelled_invoice_document_checks` (incluye notas de línea, FX, profit manual, PDF, términos/pagos/cancelación). Las suites que generan historial limpian sus fixtures mediante `tests/helpers/history.ts`: verifica `NODE_ENV=test`, coincidencia de `DATABASE_URL` con `DATABASE_URL_TEST` y el nombre efectivo mediante `current_database()` antes de TRUNCATE sobre `HistoryEvent`. No desactiva el trigger de inmutabilidad y no forma parte de la aplicación. Las suites de clientes borran contactos y clientes no genéricos en `afterEach` y conservan la semilla `Cliente contado`. Las de catálogo/ventas borran facturas y servicios de prueba; las de ventas también reinician `InvoiceSequence.nextValue` a 1. Varios archivos R1 aún hacen `user.deleteMany()` sin borrar antes `Invoice`/`InvoicePayment`; si otro archivo corre en paralelo, aparece FK `InvoicePayment_actorUserId_fkey`.
 - Si falta la URL, no es válida/no está aislada o PostgreSQL no responde, la ejecución falla. Ya no se usa `describe.skipIf` para health. Aunque el router del contrato de errores no consulta PostgreSQL, el comando de integración completo exige la preparación global de BD.
+
+### Cobertura y verificación del Paso 9 — DOC-001
+
+El contraste entre las pruebas escritas y este inventario detectó cobertura del Paso 9 que no estaba documentada o todavía describía plantillas retiradas. Queda registrada así:
+
+- **Unitarias API (39 casos):** perfil corporativo compartido (2), factura `internal-v4` (9), cotización (6), estado de cuenta (2), proyecciones documentales (9), filenames (2) y revisión textual/visual rasterizada (9).
+- **Integración API:** `integration/sales/quotes-http.test.ts` cubre descarga Seller/Administrator, rechazo Mechanic y `QUOTE_DRAFT`, cotización vencida, invariantes sin pagos/eventos/cambio de estado, conversión posterior y `COT-` de origen; `integration/sales/pdf-http.test.ts` conserva generación/regeneración de factura, autorización, cancelación y versión persistida; `integration/sales/account-statement-http.test.ts` conserva la descarga Administrator-only con saldos.
+- **Web:** `unit/api/http-sales.test.ts` cubre blob/`Content-Disposition` para `FAC-` y `COT-`; `component/sales/PdfPreviewModal.test.tsx` distingue factura/cotización y descarga el filename recibido; `component/sales/PosPage.test.tsx` cubre visibilidad por estado, preview, error sin perder acciones, cotización vencida y revocación de `ObjectURL`.
+- **Muestras verificadas:** `invoice-short-no-itbis`, `invoice-with-itbis`, `invoice-from-quote`, `invoice-cancelled`, `invoice-many-lines`, `invoice-multiline-notes`, `quote-current`, `quote-expired` y `statement-multipage`, con PDF y todas sus páginas PNG bajo `tmp/pdf-visual-review/`.
+
+Verificación técnica ejecutada el 17-sep-2026, en el orden del plan:
+
+| Comando | Resultado |
+| --- | --- |
+| `npm run test:unit -w @solocamiones/api` | 393/393 aprobadas (46 archivos) |
+| `npm run test:integration -w @solocamiones/api` | 238/238 aprobadas (27 archivos); reinicio autorizado de `solocamiones_test` |
+| `npm run test:web:component` | 261/261 aprobadas (48 archivos) |
+| `npm run lint` | Aprobado sin errores; 8 warnings preexistentes de `react-refresh/only-export-components` |
+| `npm run typecheck` | Aprobado en API, pruebas API y web |
+| `npm run test` | Aprobado: API 631/631 y web 750/750; total 1381/1381 |
+| `npm run build` | Primer intento bloqueado por `EPERM` del sandbox sobre `apps/api/dist`; repetición autorizada fuera del sandbox aprobó API y web |
+
+### Archivos incorporados al inventario documental
+
+El contraste archivo por archivo también encontró **13 suites (50 casos)** existentes que no tenían una entrada nominal en `TESTING.md`. Sus casos ya formaban parte de los totales ejecutados de la tabla principal; esta lista completa la trazabilidad sin volver a sumarlos:
+
+| Archivo | Casos | Cobertura |
+| --- | ---: | --- |
+| `unit/sales/quote-dates.test.ts` | 1 | Vencimiento al final del día calendario 30 en Santo Domingo. |
+| `unit/sales/credit-confirmation.test.ts` | 8 | Confirmación CASH/CREDIT por rol, moneda, pago, plazo, exposición y límite. |
+| `unit/shared/domain/phone.test.ts` | 2 | Formato y máscara progresiva de teléfonos dominicanos. |
+| `unit/shared/domain/fiscal-id.test.ts` | 3 | Formato y máscara parcial de RNC y cédula. |
+| `unit/shared/begin-query-reload.test.ts` | 2 | Recarga con snapshot listo frente a carga inicial completa. |
+| `unit/infrastructure/rate-limit.test.ts` | 1 | Holgura global de lecturas SPA y límites específicos de rutas sensibles. |
+| `unit/mocks/services/email.test.ts` | 2 | Formato mínimo válido y rechazos de correo en mocks. |
+| `integration/sales/domain-migration.test.ts` | 5 | Backfill CASH, defaults ITBIS, restricciones de crédito y persistencia de cotización emitida. |
+| `integration/sales/credit-confirmation-http.test.ts` | 10 | Confirmación HTTP CASH/CREDIT, roles, límites, USD, snapshot, privacidad Seller y concurrencia. |
+| `component/shared/PaymentChip.test.tsx` | 7 | Etiquetas y colores identificables para todos los estados de pago. |
+| `component/shared/LoadingOverlay.test.tsx` | 2 | Conservación del contenido y anuncio accesible durante recarga. |
+| `component/sales/ConfirmSaleModal.test.tsx` | 5 | Pago inicial por rol, tipo de cliente y moneda. |
+| `unit/features/sales/useSalesList.test.ts` | 2 | Inclusión/exclusión de estados pagados, parciales, vencidos y cancelados. |
 
 ## Comandos
 

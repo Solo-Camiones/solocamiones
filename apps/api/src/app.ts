@@ -29,6 +29,10 @@ import {
   type InvoicePdfRenderer,
 } from './infrastructure/invoice-pdf/index.js';
 import {
+  pdfkitQuotePdfRenderer,
+  type QuotePdfRenderer,
+} from './infrastructure/quote-pdf/index.js';
+import {
   pdfkitAccountStatementRenderer,
   type AccountStatementPdfRenderer,
 } from './infrastructure/account-statement-pdf/index.js';
@@ -45,6 +49,8 @@ export type CreateAppOptions = {
   fxRateProvider?: FxRateProvider;
   /** Test double for SALE-004. Production uses pdfkit. */
   invoicePdfRenderer?: InvoicePdfRenderer;
+  /** Test double for DOC-001 quote PDFs. Production uses pdfkit. */
+  quotePdfRenderer?: QuotePdfRenderer;
   /** Test double for STMT-001. Production uses its dedicated pdfkit renderer. */
   accountStatementPdfRenderer?: AccountStatementPdfRenderer;
   /** Override for tests. Production defaults to 100 requests per 15-minute window. */
@@ -70,6 +76,7 @@ export function createApp(options: CreateAppOptions = {}): express.Application {
   const invoiceDocuments = new InvoiceDocumentService(
     salesTransaction,
     options.invoicePdfRenderer ?? pdfkitInvoicePdfRenderer,
+    options.quotePdfRenderer ?? pdfkitQuotePdfRenderer,
   );
   const salesService = new SalesService(
     salesTransaction,

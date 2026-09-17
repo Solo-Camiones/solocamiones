@@ -1,4 +1,5 @@
 import { currencyLabel, Field, Info, SelectMenu } from '../../shared/ui';
+import { formatFiscalId } from '../../shared/domain/fiscal-id';
 import type { Currency } from '../../api/contracts/entities';
 import type { PosDraftView } from '../../api/contracts/sales';
 
@@ -27,7 +28,7 @@ export function DocumentPanel({
   const customerOptions = draft.customers.map((customer) => ({
     value: customer.id,
     label: customer.isDefault ? `${customer.name} (predeterminado)` : customer.name,
-    description: customer.rnc,
+    description: customer.rnc ? formatFiscalId(customer.rnc) : undefined,
   }));
 
   return (

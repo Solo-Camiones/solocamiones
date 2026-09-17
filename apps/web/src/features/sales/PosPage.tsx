@@ -36,6 +36,7 @@ import {
   posLineSku,
   toPosUserMessage,
 } from './pos-copy';
+import { PdfPreviewModal } from './PdfPreviewModal';
 import { TotalsPanel } from './TotalsPanel';
 import { restoreDiscardedDraft, snapshotPosDraft, snapshotPosLine, usePos } from './usePos';
 
@@ -63,6 +64,30 @@ export function PosPage() {
   const [confirmError, setConfirmError] = useState<string | null>(null);
   const [discardError, setDiscardError] = useState<string | null>(null);
   const [operationError, setOperationError] = useState<string | null>(null);
+  const [pdfOpen, setPdfOpen] = useState(false);
+  const [pdfFile, setPdfFile] = useState<{ url: string; filename: string } | null>(null);
+
+  function revokePdfFile() {
+    setPdfFile((current) => {
+      if (current) URL.revokeObjectURL(current.url);
+      return null;
+    });
+  }
+
+  async function handleViewQuotePdf() {
+    setOperationError(null);
+    const response = await pos.getQuotePdf();
+    if (!response.ok) {
+      setOperationError(toPosUserMessage(response.error));
+      return;
+    }
+    revokePdfFile();
+    setPdfFile({
+      url: URL.createObjectURL(response.value.blob),
+      filename: response.value.filename,
+    });
+    setPdfOpen(true);
+  }
 
   if (pos.result.status === 'error') {
     return (
@@ -251,6 +276,16 @@ export function PosPage() {
                 }}
               >
                 Duplicar cotización
+              </Button>
+              <Button
+                variant="secondary"
+                size="sm"
+                disabled={pos.isMutating}
+                onClick={() => {
+                  void handleViewQuotePdf();
+                }}
+              >
+                Ver/Descargar PDF
               </Button>
             </div>
           </Info>
@@ -519,6 +554,16 @@ export function PosPage() {
             setConfirmOpen(false);
             pushToast(isIssuedQuote ? 'Cotización convertida' : 'Venta confirmada', 'success');
           });
+        }}
+      />
+
+      <PdfPreviewModal
+        open={pdfOpen}
+        kind="quote"
+        pdfFile={pdfFile ?? undefined}
+        onClose={() => {
+          setPdfOpen(false);
+          revokePdfFile();
         }}
       />
     </>

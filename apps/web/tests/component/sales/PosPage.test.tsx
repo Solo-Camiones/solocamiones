@@ -9,7 +9,7 @@ import { PosPage } from '../../../src/features/sales/PosPage';
 import { CAPABILITY_PRESETS, type AppCapabilities } from '../../../src/shared/config/capabilities';
 import { mockCustomerRepository } from '../../../src/mocks/repositories/MockCustomerRepository';
 import { mockSalesRepository } from '../../../src/mocks/repositories/MockSalesRepository';
-import { reloadMockStateFromStorage, resetMockState } from '../../../src/mocks/state';
+import { getMockState, reloadMockStateFromStorage, resetMockState } from '../../../src/mocks/state';
 import { createAuthValue, renderWithProviders } from '../../support/render';
 import { chooseSelectOption } from '../../support/select-menu';
 import { signInAs } from '../../support/session';
@@ -578,5 +578,130 @@ describe('PosPage', () => {
     expect(await screen.findAllByText(/COT-000001/)).not.toHaveLength(0);
     expect(screen.getByRole('button', { name: 'Convertir a factura' })).toBeEnabled();
     expect(screen.getByRole('button', { name: 'Duplicar cotización' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Ver/Descargar PDF' })).toBeVisible();
+  });
+
+  it('does not show the PDF action on a quote draft', async () => {
+    const created = await mockSalesRepository.createQuote();
+    expect(created.ok).toBe(true);
+    if (!created.ok) return;
+    const quoteId = created.value.draftId;
+    expect((await mockSalesRepository.setDraftMeta({ draftId: quoteId, customerId: 'C1' })).ok).toBe(true);
+    expect(
+      (
+        await mockSalesRepository.addLine({
+          draftId: quoteId,
+          type: 'GENERIC',
+          description: 'Filtro cotizado',
+          unitPrice: 100,
+        })
+      ).ok,
+    ).toBe(true);
+
+    renderQuote(quoteId);
+    expect(await screen.findByRole('heading', { name: 'Cotización' })).toBeVisible();
+    expect(screen.queryByRole('button', { name: 'Ver/Descargar PDF' })).not.toBeInTheDocument();
+  });
+
+  it('opens the quote PDF preview, downloads COT- filename, and revokes the object URL', async () => {
+    const created = await mockSalesRepository.createQuote();
+    expect(created.ok).toBe(true);
+    if (!created.ok) return;
+    const quoteId = created.value.draftId;
+    expect((await mockSalesRepository.setDraftMeta({ draftId: quoteId, customerId: 'C1' })).ok).toBe(true);
+    expect(
+      (
+        await mockSalesRepository.addLine({
+          draftId: quoteId,
+          type: 'GENERIC',
+          description: 'Filtro cotizado',
+          unitPrice: 100,
+        })
+      ).ok,
+    ).toBe(true);
+    expect((await mockSalesRepository.issueQuote(quoteId)).ok).toBe(true);
+
+    const createObjectURL = vi.fn(() => 'blob:http://localhost/COT-000001');
+    const revokeObjectURL = vi.fn();
+    class TestUrl extends URL {}
+    TestUrl.createObjectURL = createObjectURL;
+    TestUrl.revokeObjectURL = revokeObjectURL;
+    vi.stubGlobal('URL', TestUrl);
+
+    const user = userEvent.setup();
+    renderQuote(quoteId);
+    expect(await screen.findByRole('button', { name: 'Ver/Descargar PDF' })).toBeVisible();
+    await user.click(screen.getByRole('button', { name: 'Ver/Descargar PDF' }));
+
+    const dialog = await screen.findByRole('dialog', { name: 'Vista previa de cotización' });
+    expect(within(dialog).getByTitle('COT-000001.pdf')).toHaveAttribute(
+      'src',
+      'blob:http://localhost/COT-000001',
+    );
+    await user.click(within(dialog).getByRole('button', { name: 'Descargar' }));
+    await user.click(within(dialog).getByText('Cerrar'));
+    expect(revokeObjectURL).toHaveBeenCalledWith('blob:http://localhost/COT-000001');
+    expect(screen.getByRole('button', { name: 'Duplicar cotización' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Convertir a factura' })).toBeEnabled();
+  });
+
+  it('keeps quote actions when PDF download fails', async () => {
+    const created = await mockSalesRepository.createQuote();
+    expect(created.ok).toBe(true);
+    if (!created.ok) return;
+    const quoteId = created.value.draftId;
+    expect((await mockSalesRepository.setDraftMeta({ draftId: quoteId, customerId: 'C1' })).ok).toBe(true);
+    expect(
+      (
+        await mockSalesRepository.addLine({
+          draftId: quoteId,
+          type: 'GENERIC',
+          description: 'Filtro cotizado',
+          unitPrice: 100,
+        })
+      ).ok,
+    ).toBe(true);
+    expect((await mockSalesRepository.issueQuote(quoteId)).ok).toBe(true);
+    vi.spyOn(mockSalesRepository, 'getQuotePdf').mockResolvedValue({
+      ok: false,
+      error: { code: 'INTERNAL', message: 'No se pudo generar el PDF' },
+    });
+
+    const user = userEvent.setup();
+    renderQuote(quoteId);
+    await user.click(await screen.findByRole('button', { name: 'Ver/Descargar PDF' }));
+
+    expect(await screen.findByText('No se pudo generar el PDF')).toBeVisible();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Duplicar cotización' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Convertir a factura' })).toBeEnabled();
+  });
+
+  it('shows the PDF action on an expired issued quote without enabling convert', async () => {
+    const created = await mockSalesRepository.createQuote();
+    expect(created.ok).toBe(true);
+    if (!created.ok) return;
+    const quoteId = created.value.draftId;
+    expect((await mockSalesRepository.setDraftMeta({ draftId: quoteId, customerId: 'C1' })).ok).toBe(true);
+    expect(
+      (
+        await mockSalesRepository.addLine({
+          draftId: quoteId,
+          type: 'GENERIC',
+          description: 'Filtro cotizado',
+          unitPrice: 100,
+        })
+      ).ok,
+    ).toBe(true);
+    expect((await mockSalesRepository.issueQuote(quoteId)).ok).toBe(true);
+    const issued = getMockState().invoices.find((invoice) => invoice.id === quoteId);
+    expect(issued).toBeDefined();
+    if (!issued) return;
+    issued.quoteIssuedAt = '2026-01-01T04:00:00.000Z';
+    issued.quoteExpiresAt = '2026-01-31T03:59:59.000Z';
+
+    renderQuote(quoteId);
+    expect(await screen.findByRole('button', { name: 'Ver/Descargar PDF' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Convertir a factura' })).toBeDisabled();
   });
 });

@@ -189,6 +189,7 @@ describe('M19 HTTP customer directory UI', () => {
 
     await user.click(screen.getByRole('button', { name: 'Nuevo cliente' }));
     await user.type(screen.getByLabelText('Nombre'), 'Flota Este');
+    await user.click(screen.getByRole('radio', { name: 'Cédula' }));
     await user.type(screen.getByLabelText('Identificación fiscal / cédula'), '1234567890');
     await user.click(screen.getByRole('button', { name: 'Guardar' }));
     await user.click(screen.getByRole('button', { name: 'Confirmar creación' }));

@@ -11,7 +11,7 @@ import {
   resolveCreateCreditProfile,
   resolveUpdateCreditProfile,
 } from '../../../src/features/customers/credit-rules.js';
-import { satisfiesFiscalIdentity, fiscalIdDigits, isValidFiscalId } from '../../../src/features/customers/fiscal.js';
+import { satisfiesFiscalIdentity, fiscalIdDigits, formatFiscalId, isValidFiscalId } from '../../../src/features/customers/fiscal.js';
 import {
   createCustomerSchema,
   searchCustomersSchema,
@@ -23,6 +23,8 @@ describe('customer fiscal identity', () => {
     expect(fiscalIdDigits('1-31-12345-6')).toBe('131123456');
     expect(isValidFiscalId('131123456')).toBe(true);
     expect(isValidFiscalId('00112345678')).toBe(true);
+    expect(formatFiscalId('131123456')).toBe('1-31-12345-6');
+    expect(formatFiscalId('00101234567')).toBe('001-0123456-7');
     expect(isValidFiscalId('12345678')).toBe(false);
     expect(isValidFiscalId('1234567890')).toBe(false);
   });

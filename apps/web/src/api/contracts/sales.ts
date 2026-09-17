@@ -121,12 +121,14 @@ export type InvoiceProfitabilityView = {
 
 export type InvoiceDocumentView = { status: 'READY' } | { status: 'FAILED'; errorId: string };
 
-export type InvoicePdfDownload = {
+export type SalesDocumentPdfDownload = {
   blob: Blob;
   filename: string;
 };
 
-export type AccountStatementPdfDownload = InvoicePdfDownload;
+export type InvoicePdfDownload = SalesDocumentPdfDownload;
+export type QuotePdfDownload = SalesDocumentPdfDownload;
+export type AccountStatementPdfDownload = SalesDocumentPdfDownload;
 
 export type InvoiceDetailActions = {
   canPay: boolean;

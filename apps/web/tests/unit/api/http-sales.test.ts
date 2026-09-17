@@ -1140,7 +1140,7 @@ describe('HTTP sales draft contract', () => {
           status: 200,
           headers: {
             'Content-Type': 'application/pdf',
-            'Content-Disposition': 'attachment; filename="FAC-000002.pdf"',
+            'Content-Disposition': 'attachment; filename="FAC-000002_Transportes-del-Caribe-SRL.pdf"',
           },
         }),
     );
@@ -1149,7 +1149,7 @@ describe('HTTP sales draft contract', () => {
     const result = await repository.getInvoicePdf(draftId);
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    expect(result.value.filename).toBe('FAC-000002.pdf');
+    expect(result.value.filename).toBe('FAC-000002_Transportes-del-Caribe-SRL.pdf');
     expect(new Uint8Array(await result.value.blob.arrayBuffer())).toEqual(bytes);
     expect(fetchMock).toHaveBeenCalledWith(
       `/api/sales/${draftId}/pdf`,
@@ -1158,6 +1158,30 @@ describe('HTTP sales draft contract', () => {
     const init = fetchMock.mock.calls[0]?.[1];
     expect(init?.method).toBeUndefined();
     expect(new Headers(init?.headers).get('X-Requested-With')).toBeNull();
+  });
+
+  it('downloads quote PDF bytes with the COT- filename from the same document route', async () => {
+    const bytes = new Uint8Array([0x25, 0x50, 0x44, 0x46]);
+    const fetchMock = vi.fn(
+      async (_path: string, _init?: RequestInit) =>
+        new Response(bytes, {
+          status: 200,
+          headers: {
+            'Content-Type': 'application/pdf',
+            'Content-Disposition': 'attachment; filename="COT-000001.pdf"',
+          },
+        }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await repository.getQuotePdf(draftId);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value.filename).toBe('COT-000001.pdf');
+    expect(fetchMock).toHaveBeenCalledWith(
+      `/api/sales/${draftId}/pdf`,
+      expect.objectContaining({ credentials: 'include' }),
+    );
   });
 
   it('surfaces a failed PDF download as a conflict without treating it as JSON success', async () => {

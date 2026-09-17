@@ -6,6 +6,11 @@ import {
   pdfkitInvoicePdfRenderer,
   type InvoicePdfRenderer,
 } from '../../infrastructure/invoice-pdf/index.js';
+import {
+  pdfkitQuotePdfRenderer,
+  quotePdfFilename,
+  type QuotePdfRenderer,
+} from '../../infrastructure/quote-pdf/index.js';
 import { logger } from '../../infrastructure/logging/index.js';
 import { invoiceIdSchema } from '../sales/validation.js';
 import { requireInvoiceManager } from '../sales/policies.js';
@@ -19,13 +24,15 @@ import {
   PDF_NOT_READY_MESSAGE,
   PDF_REGENERATE_FAILED_ONLY_MESSAGE,
 } from './constants.js';
-import { toInvoicePdfFacts } from './projection.js';
+import { toInvoicePdfFacts, toQuotePdfFacts } from './projection.js';
+import { invoicePdfFilename } from './filename.js';
 import type { InvoicePdfFile } from './types.js';
 
 export class InvoiceDocumentService {
   constructor(
     private readonly transaction: SalesTransaction = salesTransaction,
-    private readonly renderer: InvoicePdfRenderer = pdfkitInvoicePdfRenderer,
+    private readonly invoiceRenderer: InvoicePdfRenderer = pdfkitInvoicePdfRenderer,
+    private readonly quoteRenderer: QuotePdfRenderer = pdfkitQuotePdfRenderer,
   ) {}
 
   /**
@@ -38,7 +45,7 @@ export class InvoiceDocumentService {
     if (facts == null) return invoice;
 
     try {
-      await this.renderer.render(facts);
+      await this.invoiceRenderer.render(facts);
       return await this.persistStatus(actorId, invoice.id, 'READY', null, null);
     } catch (error) {
       const errorId = randomUUID();
@@ -63,26 +70,13 @@ export class InvoiceDocumentService {
       return existing;
     });
 
-    if (invoice.status === 'DRAFT' || invoice.status === 'QUOTE_DRAFT' || invoice.status === 'QUOTE_ISSUED') {
+    if (invoice.status === 'DRAFT' || invoice.status === 'QUOTE_DRAFT') {
       throw AppError.conflict(PDF_COMPLETED_ONLY_MESSAGE);
     }
-    if (invoice.pdfStatus === 'FAILED') {
-      throw AppError.conflict(PDF_FAILED_MESSAGE, {
-        ...(invoice.pdfErrorId ? { errorId: invoice.pdfErrorId } : {}),
-      });
+    if (invoice.status === 'QUOTE_ISSUED') {
+      return this.downloadQuote(invoice);
     }
-    if (invoice.pdfStatus !== 'READY') {
-      throw AppError.conflict(PDF_NOT_READY_MESSAGE);
-    }
-
-    const facts = toInvoicePdfFacts(invoice);
-    if (facts == null) throw AppError.conflict(PDF_NOT_READY_MESSAGE);
-    const body = await this.renderer.render(facts);
-    return {
-      filename: `${facts.number}.pdf`,
-      contentType: PDF_CONTENT_TYPE,
-      body,
-    };
+    return this.downloadInvoice(invoice);
   }
 
   /**
@@ -119,7 +113,7 @@ export class InvoiceDocumentService {
 
     let outcome: { status: 'READY'; errorId: null } | { status: 'FAILED'; errorId: string };
     try {
-      await this.renderer.render(facts);
+      await this.invoiceRenderer.render(facts);
       outcome = { status: 'READY', errorId: null };
     } catch (error) {
       const errorId = randomUUID();
@@ -143,6 +137,44 @@ export class InvoiceDocumentService {
         'FAILED',
       ),
       actor: loaded.actor,
+    };
+  }
+
+  private async downloadInvoice(invoice: InvoiceRecord): Promise<InvoicePdfFile> {
+    if (invoice.status !== 'COMPLETED' && invoice.status !== 'CANCELLED') {
+      throw AppError.conflict(PDF_COMPLETED_ONLY_MESSAGE);
+    }
+    if (invoice.pdfStatus === 'FAILED') {
+      throw AppError.conflict(PDF_FAILED_MESSAGE, {
+        ...(invoice.pdfErrorId ? { errorId: invoice.pdfErrorId } : {}),
+      });
+    }
+    if (invoice.pdfStatus !== 'READY') {
+      throw AppError.conflict(PDF_NOT_READY_MESSAGE);
+    }
+
+    const facts = toInvoicePdfFacts(invoice);
+    if (facts == null) throw AppError.conflict(PDF_NOT_READY_MESSAGE);
+    const body = await this.invoiceRenderer.render(facts);
+    return {
+      filename: invoicePdfFilename(facts.number),
+      contentType: PDF_CONTENT_TYPE,
+      body,
+    };
+  }
+
+  /**
+   * Quotes have no stored pdfStatus. Download renders from issued facts and
+   * must not invent invoice-style FAILED/regenerate recovery.
+   */
+  private async downloadQuote(invoice: InvoiceRecord): Promise<InvoicePdfFile> {
+    const facts = toQuotePdfFacts(invoice);
+    if (facts == null) throw AppError.conflict(PDF_NOT_READY_MESSAGE);
+    const body = await this.quoteRenderer.render(facts);
+    return {
+      filename: quotePdfFilename(facts.quoteNumber),
+      contentType: PDF_CONTENT_TYPE,
+      body,
     };
   }
 

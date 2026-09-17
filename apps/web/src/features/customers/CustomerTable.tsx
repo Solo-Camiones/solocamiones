@@ -2,6 +2,8 @@ import { Fragment, useState } from 'react';
 
 import { DEFAULT_CASH_CUSTOMER_ID, type CustomerListRow } from '../../api/contracts/customers';
 import type { CustomerContact } from '../../api/contracts/entities';
+import { formatFiscalId } from '../../shared/domain/fiscal-id';
+import { formatDominicanPhone } from '../../shared/domain/phone';
 import { Button, Chip, Empty, HoverRow, TableShell } from '../../shared/ui';
 import { customerTypeChipTone, customerTypeLabel } from './customer-type-labels';
 
@@ -42,7 +44,7 @@ function CustomerContactsPanel({ contacts }: { contacts: CustomerContact[] }) {
           {trimmed(contact.title) && trimmed(contact.name) ? (
             <p className="mt-0.5 text-xs text-navy-400">{contact.title}</p>
           ) : null}
-          <p className="mt-1 text-navy-500">{contact.phone ?? '—'}</p>
+          <p className="mt-1 text-navy-500">{formatDominicanPhone(contact.phone) || '—'}</p>
           {contact.email && <p className="text-xs text-navy-400">{contact.email}</p>}
         </li>
       ))}
@@ -120,9 +122,9 @@ export function CustomerTable({ rows, canManageCredit, onEdit }: CustomerTablePr
                     {isDefault && <Chip tone="brand">Predeterminado</Chip>}
                   </div>
                 </td>
-                <td className="px-4 py-3 text-navy-400">{row.rnc ?? '—'}</td>
+                <td className="px-4 py-3 text-navy-400">{formatFiscalId(row.rnc) || '—'}</td>
                 <td className="px-4 py-3 text-navy-400">
-                  {primary?.phone ?? '—'}
+                  {formatDominicanPhone(primary?.phone) || '—'}
                   {hasMultipleContacts && (
                     <button
                       type="button"

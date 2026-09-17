@@ -8,6 +8,8 @@
 - **Estado de definición:** reglas de negocio confirmadas y **trasladadas a las features** (Paso 1 cerrado 2026-09-15). Este archivo queda como secuencia técnica, diseño de migración y registro histórico. Los datos bancarios definitivos siguen como configuración operativa posterior.
 - **Objetivo de secuencia:** completar estos cambios y su estabilización antes de iniciar las configuraciones separadas de ambientes.
 
+
+
 ## Orden recomendado de implementación
 
 Este es el orden que debe seguirse. Cada paso depende de las garantías establecidas por los anteriores; no conviene comenzar por las pantallas o el PDF antes de estabilizar el dominio y la autorización.
@@ -30,6 +32,7 @@ Este es el orden que debe seguirse. Cada paso depende de las garantías establec
 
 #### Trazabilidad H/M/L → IDs canónicos
 
+
 | ID de impacto    | Feature       | IDs canónicos                                                        |
 | ---------------- | ------------- | -------------------------------------------------------------------- |
 | H-01             | 10            | `SALE-010` (cálculo); `SALE-003` enmendado (ya no es ITBIS incluido) |
@@ -43,6 +46,9 @@ Este es el orden que debe seguirse. Cada paso depende de las garantías establec
 | M-02             | 12            | `PAY-007`                                                            |
 | M-03             | 12            | `STMT-001`                                                           |
 | L-01, L-02, L-03 | 10            | `DOC-001`                                                            |
+
+
+
 
 #### Decisión de implementación — `dueDate` de contado (cerrada 2026-09-16)
 
@@ -166,7 +172,7 @@ Este es el orden que debe seguirse. Cada paso depende de las garantías establec
 - [x] Añadir `confirmedAt` como fecha emitida en CxC.
 - [x] Restringir pantalla y endpoint CxC al Administrador.
 - [x] Mantener la proyección financiera del Vendedor sin estado, saldo ni movimientos de pago, según `PAY-007` y el cierre del Paso 5.
-- [x] Completar filtros por cliente y factura (`FAC-`). _(Decisión del propietario 2026-09-16: no exponer filtros por estado, fecha emitida, moneda ni UUID.)_
+- [x] Completar filtros por cliente y factura (`FAC-`). *(Decisión del propietario 2026-09-16: no exponer filtros por estado, fecha emitida, moneda ni UUID.)*
 - [x] Mantener el resumen por cliente y la lista de facturas limitados a saldos abiertos.
 - [x] Actualizar chips, contratos, mocks, etiquetas del PDF de factura y pruebas de transición/vencimiento.
 
@@ -181,7 +187,7 @@ Este es el orden que debe seguirse. Cada paso depende de las garantías establec
 **Tareas:**
 
 - Reemplazar búsqueda libre de CxC por selector buscable de clientes con saldo.
-- Añadir botón `Generar estado de cuenta` habilitado con selección válida.
+- Añadir botón `Generar estado de cuenta`ción válida.
 - Crear read model Administrador-only para todas las facturas DOP con saldo del cliente.
 - Incluir número, fecha emitida, vencimiento, estado, total, abonado acumulado y saldo.
 - Excluir canceladas, reembolsos y detalle de movimientos individuales.
@@ -192,16 +198,18 @@ Este es el orden que debe seguirse. Cada paso depende de las garantías establec
 
 ### Paso 9 — Actualizar PDFs y datos corporativos
 
+**Estado:** **Completado localmente 2026-09-17** (`DOC-001`: perfil corporativo en código, `internal-v4`, PDF de cotización, factura sin estado/saldo/movimientos y estado de cuenta con saldos). Verificación técnica completa y muestras empresariales aprobadas; el Paso 10 continúa pendiente.
+
 **Requisitos cubiertos:** `H-01`, `H-05`, `H-07`, `M-01`, `L-01`, `L-02` y `L-03`.
 
 **Tareas:**
 
 - Crear/ajustar plantilla de cotización y `internal-v4` de factura.
-- Mostrar base, ITBIS, total, estado de pago y `COT-` de origen.
-- Agregar aclaración editable de transferencia y cheque a nombre de `Solo Camiones`.
+- Mostrar base, ITBIS, total y `COT-` de origen; retirar de la factura estado de pago, saldo pendiente y fecha de actualización del saldo.
+- Agregar al pie de factura, cotización y estado de cuenta los datos confirmados de transferencia y cheque a nombre de `Solo Camiones SRL`.
 - Cambiar WhatsApp derecho a `829-627-3168` y correo a `solocamionessrl@gmail.com`.
 - Corregir `Pte.` a `Pdte.` y agregar TikTok `solo.camiones.srl`.
-- Aplicar perfil corporativo vigente al volver a descargar facturas históricas.
+- Mantener una sola versión de factura, `internal-v4`; retirar `internal-v1/v2/v3`, sin migración permanente, y limpiar/recrear los datos locales de prueba.
 - Preservar importes, cliente, líneas, fechas y demás hechos históricos.
 - Verificar paginación, firmas, pies y documentos con muchas líneas.
 
@@ -248,6 +256,8 @@ Los hitos de la sección 6 desarrollan este mismo orden con mayor detalle.
 - Administrador en CREDIT+DOP: puede omitir el pago inicial, o registrar `amount` > 0 hasta el gross (parcial o total). No se persiste un pago de 0.
 - Vendedor CREDIT+DOP: confirma sin pago; 403 si envía `payment`. `POST /payments` y `GET /receivables` son Admin-only (403 Vendedor). Nav/deep links CxC Admin-only. El Vendedor no recibe estado, saldo ni movimientos de pago. `ABONADO`, fecha emitida y filtros CxC se completaron en Paso 7; `STMT-001` sigue en Paso 8.
 
+
+
 ### Decisiones confirmadas — 2026-09-15
 
 - La cotización se implementa ahora dentro del mismo agregado que luego será factura.
@@ -278,13 +288,18 @@ Los hitos de la sección 6 desarrollan este mismo orden con mayor detalle.
 - La rentabilidad manual no bloquea la confirmación: cada factura nueva queda pendiente de ese seguimiento y el Administrador la registra después mediante el flujo actual.
 - Los clientes nombrados existentes se migran como `CASH`; el Administrador promoverá a `CREDIT` los que correspondan sin cambiar sus nombres.
 - Los estados abiertos derivados distinguirán `PENDING`, `PARTIALLY_PAID`, `OVERDUE` y `PARTIALLY_PAID_OVERDUE`; las etiquetas visibles serán `PENDIENTE`, `ABONADO`, `VENCIDA` y `ABONADA VENCIDA`.
-- `ABONADO`/`ABONADA VENCIDA` también aparecerán en el PDF de factura.
+- `ABONADO`/`ABONADA VENCIDA` permanecen en CxC y en el estado de cuenta, pero no aparecen en el PDF de factura.
 - La fecha emitida es `confirmedAt`, cuando se completa la factura y se asigna `FAC-`.
 - El estado de cuenta será un PDF Administrador-only generado desde CxC para un cliente seleccionado, con todas sus facturas que tengan saldo y sin canceladas/reembolsos.
 - El estado de cuenta muestra por factura únicamente el total abonado acumulado, no los movimientos individuales.
 - En la factura se sustituye el WhatsApp derecho `809-212-7751` por `829-627-3168`, el correo por `solocamionessrl@gmail.com`, la abreviatura por `Pdte.` y se agrega TikTok `solo.camiones.srl`.
-- La aclaración de transferencias quedará como plantilla centralizada y editable hasta confirmar los datos bancarios; los cheques se indican a nombre de `Solo Camiones`.
+- El perfil y los medios de pago se mantienen centralizados únicamente en código, sin tabla, API ni pantalla administrativa.
+- El pie de factura, cotización y estado de cuenta indica Banco Popular Dominicano, Cuenta Corriente DOP, cuenta `857578579`, titular `Solo Camiones SRL`, y cheques a nombre de `Solo Camiones SRL`.
+- La factura no muestra estado de pago, saldo pendiente ni fecha de actualización del saldo; el estado de cuenta conserva esos datos financieros.
+- Solo se soportará `internal-v4`; `internal-v1/v2/v3` se retirarán y los datos locales de prueba se limpiarán/recrearán sin una migración permanente de relabeling.
 - Al volver a descargar una factura histórica se aplican los datos corporativos y aclaraciones vigentes, preservando intactos sus hechos comerciales y monetarios.
+
+
 
 ## 1. Resumen ejecutivo
 
@@ -302,12 +317,16 @@ Por el alcance transversal, recomiendo tratarlo como un **change set preproducci
 
 ## 2. Estado actual comprobado
 
+
+
 ### 2.1 Release y arquitectura
 
 - Release 2 (Billing Core) está completado localmente.
 - Release 3 (Payments y CxC) está parcialmente completado; los filtros de CxC quedaron en cliente/factura y el pendiente restante es `STMT-001`.
 - La arquitectura existente es React/Vite + Express + Prisma/PostgreSQL, con flujo `Route -> Controller -> Service -> Repository -> Database`.
 - El esquema actual no contiene tipo de cliente, límite de crédito ni plazo configurable.
+
+
 
 ### 2.2 Clientes y crédito
 
@@ -317,6 +336,8 @@ Por el alcance transversal, recomiendo tratarlo como un **change set preproducci
 - La fecha de vencimiento es fija: 30 días calendario después de la confirmación para todas las facturas.
 - Los límites de crédito y estados de cuenta estaban diferidos expresamente en Feature 12.
 
+
+
 ### 2.3 Costos y facturación
 
 - Los formularios `AddLineModal` y `EditLineModal` permiten costo y procedencia para líneas `GENERIC` y `EXTERNAL`.
@@ -324,12 +345,16 @@ Por el alcance transversal, recomiendo tratarlo como un **change set preproducci
 - La documentación actual permite al Vendedor ver costo de adquisición, aunque no rentabilidad.
 - El costo de líneas no inventariadas alimenta la rentabilidad; quitar su captura deja esas líneas con costo desconocido hasta que exista la integración con inventario u otro flujo autorizado.
 
+
+
 ### 2.4 ITBIS
 
 - El cálculo vigente interpreta el precio digitado como total con ITBIS incluido.
 - Ejemplo actual: precio `118.00` -> base `100.00`, ITBIS `18.00`, total `118.00`.
 - El cambio solicitado produciría: base `118.00`, ITBIS `21.24`, total `139.24`.
 - Servicios y entrega son no gravados actualmente.
+
+
 
 ### 2.5 Pagos y CxC
 
@@ -340,6 +365,8 @@ Por el alcance transversal, recomiendo tratarlo como un **change set preproducci
 - La tabla CxC muestra factura, cliente, estado, vencimiento, total y saldo, pero no la fecha de emisión.
 - No existe un estado de cuenta formal por cliente.
 
+
+
 ### 2.6 PDF
 
 - La plantilla vigente es `internal-v3` y guarda su versión en cada factura.
@@ -348,7 +375,10 @@ Por el alcance transversal, recomiendo tratarlo como un **change set preproducci
 - El PDF muestra estado y saldo, pero omite movimientos y métodos de pago.
 - No incluye aclaraciones bancarias ni beneficiario de cheques.
 
+
+
 ## 3. Clasificación por impacto
+
 
 | ID   | Requerimiento                                                                                  | Impacto    | Motivo principal                                                                                                                     |
 | ---- | ---------------------------------------------------------------------------------------------- | ---------- | ------------------------------------------------------------------------------------------------------------------------------------ |
@@ -359,18 +389,25 @@ Por el alcance transversal, recomiendo tratarlo como un **change set preproducci
 | H-05 | Separar cálculo de ITBIS y comprobante fiscal                                                  | **HIGH**   | Hoy un único flag activa ambos; la nueva regla permite ITBIS sin comprobante y exige identificación para emitir comprobante.         |
 | H-06 | Eliminar costo de adquisición de líneas para ambos roles y usar rentabilidad manual temporal   | **HIGH**   | Cambia captura, contrato API, cálculo de rentabilidad y la futura fuente de costo desde inventario.                                  |
 | H-07 | Implementar cotización convertible en factura                                                  | **HIGH**   | Agrega ciclo de vida, numeración/documento y una transición que debe conservar la misma operación, cliente y líneas sin duplicarlas. |
-| M-01 | Estado visible `ABONADO` después de un pago parcial                                            | **MEDIUM** | Afecta modelo derivado, filtros, chips, PDF, consultas y precedencia con vencimiento.                                                |
+| M-01 | Estado visible `ABONADO` después de un pago parcial                                            | **MEDIUM** | Afecta modelo derivado, filtros, chips, CxC/estado de cuenta, consultas y precedencia con vencimiento; no se imprime en la factura.  |
 | M-02 | Fecha emitida en detalle/listado CxC                                                           | **MEDIUM** | La fecha existe (`confirmedAt`), pero debe proyectarse, etiquetarse y probarse sin confundirla con `createdAt`.                      |
 | M-03 | Estado de cuenta por cliente                                                                   | **MEDIUM** | Es un nuevo read model/reporte con filtros, separación por moneda y posible PDF/descarga.                                            |
-| L-01 | Aclaraciones de transferencia y cheque en PDF                                                  | **LOW**    | Cambio de contenido/layout; transferencia usa plantilla editable y cheque usa `Solo Camiones`.                                       |
+| L-01 | Aclaraciones de transferencia y cheque en PDF                                                  | **LOW**    | Cambio de contenido/layout al pie de los tres PDFs con banco/cuenta DOP confirmados y titular `Solo Camiones SRL`.                   |
 | L-02 | Cambiar WhatsApp, correo y abreviatura de dirección                                            | **LOW**    | Actualiza datos corporativos también al volver a descargar facturas históricas.                                                      |
 | L-03 | Agregar TikTok a factura                                                                       | **LOW**    | Cambio visual y de contenido con el usuario `solo.camiones.srl`.                                                                     |
 
+
 > `HIGH`, `MEDIUM` y `LOW` expresan impacto técnico y riesgo de negocio, no prioridad empresarial. Los cambios `LOW` pueden entregarse temprano una vez recibidos los textos exactos.
+
+
 
 ## 4. Diseño propuesto por requerimiento
 
+
+
 ### H-01 — ITBIS como base + 18 %
+
+
 
 #### Regla propuesta
 
@@ -403,6 +440,8 @@ Mantener cálculo por línea y sumar líneas ya redondeadas. No calcular 18 % so
 - Preservar facturas `COMPLETED` con sus `gross`, `base` e `itbis` ya guardados; nunca recalcular documentos completados al leerlos.
 - Recalcular borradores existentes bajo base + 18 % al activar el cambio; preservar facturas completadas con sus snapshots monetarios históricos.
 
+
+
 #### Pruebas mínimas
 
 - `118.00` gravado -> `21.24` ITBIS y `139.24` total.
@@ -413,7 +452,11 @@ Mantener cálculo por línea y sumar líneas ya redondeadas. No calcular 18 % so
 - Facturas completadas antiguas conservan totales.
 - PDF y vista previa coinciden exactamente con la API.
 
+
+
 ### H-02/H-03/H-05 — Tipo, condiciones y elegibilidad de crédito
+
+
 
 #### Modelo de datos propuesto
 
@@ -437,6 +480,8 @@ Reglas de integridad recomendadas:
 - La API ignora nunca campos inválidos: los rechaza con error de validación.
 - La migración no modifica ningún nombre de cliente ni clasifica silenciosamente a nadie como crédito.
 
+
+
 #### Autorización
 
 - Administrador: crear/editar `CASH` y `CREDIT`.
@@ -444,13 +489,17 @@ Reglas de integridad recomendadas:
 - El servidor determina capacidades por rol; los campos ocultos en UI no sustituyen la autorización.
 - Registrar en historial el tipo, límite y plazo, incluyendo `before/after` en cambios administrativos.
 
+
+
 #### Flujo de facturación propuesto
 
 - Cliente `CASH`: debe quedar pagado completamente en la confirmación.
 - Cliente `CREDIT`: solo puede venderse a crédito en DOP. Cuando confirma un Vendedor, el pago inicial debe ser cero y los cobros posteriores pertenecen al Administrador. El Administrador sí puede registrar un pago parcial durante la confirmación; el saldo restante es la nueva exposición de crédito.
 - Al confirmar, copiar al snapshot de factura el tipo y el plazo aplicados; cambios posteriores al cliente no reescriben la factura.
 - `dueDate` de una venta a crédito = fecha local de confirmación + plazo aprobado.
-- Una venta al contado no aparece como CxC abierta. `dueDate` de contado ya pagado = fecha local de confirmación en `America/Santo_Domingo` (mismo día, fin de día); no `null`; no +30. Facturas históricas `COMPLETED` conservan el `dueDate` almacenado. _(Cerrado 2026-09-16.)_
+- Una venta al contado no aparece como CxC abierta. `dueDate` de contado ya pagado = fecha local de confirmación en `America/Santo_Domingo` (mismo día, fin de día); no `null`; no +30. Facturas históricas `COMPLETED` conservan el `dueDate` almacenado. *(Cerrado 2026-09-16.)*
+
+
 
 #### Control del límite
 
@@ -478,6 +527,8 @@ La nueva regla desacopla dos conceptos que hoy dependen del mismo checkbox:
 `Cliente contado` predeterminado nunca puede emitir comprobante fiscal, pero sí puede generar ITBIS cuando se marque `Aplicar ITBIS`. Un cliente contado nombrado sin RNC/cédula tampoco puede emitir comprobante; uno que sí tenga RNC/cédula válido puede emitirlo. Por ahora la aplicación de ITBIS usa su propio checkbox, separado del comprobante fiscal. Cuando se integre eNCF, la empresa prevé que todas las facturas apliquen ITBIS y esa regla temporal deberá retirarse de forma controlada.
 
 ### H-04 — Restricción integral del Vendedor
+
+
 
 #### Superficie propuesta
 
@@ -515,6 +566,8 @@ No basta con remover el menú. Actualmente las rutas de ventas aceptan Administr
 
 ### H-06 — Eliminar costo de adquisición de la línea de factura
 
+
+
 #### Implementación recomendada
 
 - Retirar “Origen del costo” y “Costo de adquisición” de alta y edición de línea.
@@ -526,6 +579,8 @@ No basta con remover el menú. Actualmente las rutas de ventas aceptan Administr
 - Guardar el costo de nuevas líneas no inventariadas como `UNKNOWN`, sin inventar cero.
 - Habilitar el flujo existente de rentabilidad manual para que el Administrador registre la rentabilidad de la factura cuando el costo sea desconocido.
 - Cuando se implemente inventario, el costo de adquisición se capturará en el registro/recepción de inventario y se copiará al snapshot de la línea al vender, no se volverá a pedir en facturación.
+
+
 
 #### Comportamiento temporal confirmado
 
@@ -584,11 +639,16 @@ La vigencia será de 30 días y terminará al final del día calendario número 
 - History: eventos aditivos de cotización y conversión.
 - Tests: identidad preservada, líneas no duplicadas, doble conversión y prohibición de pagos/CxC/inventario antes de completar.
 
+
+
 ### M-01 — Estado `ABONADO`
+
+
 
 #### Alternativas de modelo
 
 El estado seguirá derivándose del ledger, no se almacenará como una columna mutable:
+
 
 | Condición                       | Estado técnico           | Etiqueta visible     |
 | ------------------------------- | ------------------------ | -------------------- |
@@ -600,6 +660,7 @@ El estado seguirá derivándose del ledger, no se almacenará como una columna m
 | Saldo cero después del plazo    | `PAID_LATE`              | `PAGADA CON RETRASO` |
 | Factura cancelada               | `CANCELLED`              | `CANCELADA`          |
 
+
 El cambio aplica a API, filtros CxC, chips, detalle, mocks, pruebas y PDF de factura.
 
 ### M-02 — Fecha emitida en CxC
@@ -609,7 +670,11 @@ El cambio aplica a API, filtros CxC, chips, detalle, mocks, pruebas y PDF de fac
 - Mantener `createdAt` como fecha de creación del borrador; no mezclar ambas.
 - Formatear en `America/Santo_Domingo`.
 
+
+
 ### M-03 — Estado de cuenta por cliente
+
+
 
 #### Read model propuesto
 
@@ -628,6 +693,8 @@ Contenido mínimo recomendado:
 - totales facturados, abonados y pendientes;
 - fecha/hora de generación.
 
+
+
 #### Reglas y experiencia aprobada
 
 - Solo Administrador puede generar el documento.
@@ -640,11 +707,15 @@ Contenido mínimo recomendado:
 - Crear un renderer y tipo de hechos distinto al PDF de factura.
 - No es necesaria una pantalla de vista previa adicional como requisito; la acción genera/descarga el PDF.
 
+
+
 ### L-01/L-02/L-03 — PDF y datos corporativos
+
+
 
 #### Implementación recomendada
 
-- Crear `internal-v4` para la nueva estructura monetaria y de contenido.
+- Crear `internal-v4` como única versión de factura para la nueva estructura monetaria y de contenido; retirar `internal-v1/v2/v3` y limpiar/recrear datos locales de prueba sin migración permanente.
 - Tratar los hechos comerciales históricos (cliente, líneas, importes, ITBIS, fechas, estado) como inmutables.
 - Tratar los datos corporativos y aclaraciones del emisor como presentación vigente: al volver a descargar una factura histórica deben mostrarse los valores actuales confirmados por la empresa.
 - Compartir un perfil corporativo centralizado entre los writers soportados, en vez de duplicar teléfonos/correo/redes en cada plantilla.
@@ -652,11 +723,14 @@ Contenido mínimo recomendado:
 - Sustituir únicamente el teléfono derecho de `809-875-3161 / 809-212-7751`, dejando `809-875-3161 / 829-627-3168`.
 - Cambiar el correo a `solocamionessrl@gmail.com`.
 - Corregir `Av. Pte.` a `Av. Pdte.` conservando el resto de la dirección actual.
-- Agregar al pie aclaraciones como:
-  - una constante claramente identificada y fácil de editar para `Pagos por transferencia a cuenta: <BANCO / TIPO / NÚMERO / TITULAR PENDIENTES DE CONFIRMACIÓN>`;
-  - `Pagos con cheques a nombre de: Solo Camiones`.
+- Agregar al pie de factura, cotización y estado de cuenta, desde una configuración centralizada únicamente en código:
+  - `Pagos por transferencia`: Banco Popular Dominicano, Cuenta Corriente DOP, No. de cuenta `857578579`, a nombre de `Solo Camiones SRL`;
+  - `Pagos con cheques a nombre de: Solo Camiones SRL`.
+- Retirar de la factura el estado de pago, saldo pendiente y fecha de actualización del saldo para cualquier rol; conservar estados, abonos, saldos y totales en el estado de cuenta.
 - No imprimir movimientos privados ni afirmar que el sistema procesa el pago.
 - Probar extracción textual del PDF, paginación y facturas con muchas líneas.
+
+
 
 #### Datos confirmados y pendiente operativo
 
@@ -664,11 +738,16 @@ Contenido mínimo recomendado:
 - Correo: `solocamionessrl@gmail.com`.
 - Dirección: usar `Pdte.` en lugar de `Pte.` y conservar el resto del texto actual.
 - TikTok: `solo.camiones.srl`.
-- Cheques: `Solo Camiones`.
-- Transferencias: plantilla editable; banco, tipo/número de cuenta, moneda y titular quedan pendientes de confirmación y no se inventarán.
+- Perfil: configuración centralizada únicamente en código; no se crea tabla, API ni pantalla administrativa.
+- Cheques: `Solo Camiones SRL`.
+- Transferencias: Banco Popular Dominicano; Cuenta Corriente; DOP; cuenta `857578579`; titular `Solo Camiones SRL`.
 - Los datos corporativos vigentes se aplican también al volver a descargar facturas históricas.
 
+
+
 ## 5. Cambios por capa
+
+
 
 ### Base de datos y migraciones
 
@@ -678,6 +757,8 @@ Contenido mínimo recomendado:
 - Índices para exposición abierta por cliente/moneda/estado.
 - Migración de backfill documentada y ensayada sobre copia de datos.
 - Ninguna modificación a migraciones ya aplicadas; crear migraciones nuevas.
+
+
 
 ### Backend
 
@@ -692,6 +773,8 @@ Contenido mínimo recomendado:
 - Proyecciones ordinarias de factura sin costo para ambos roles; rentabilidad manual permanece Administrador-only.
 - PDF `internal-v4`.
 
+
+
 ### Frontend
 
 - Formulario de cliente con selector tipo y campos de crédito visibles/editables solo para Administrador.
@@ -702,6 +785,8 @@ Contenido mínimo recomendado:
 - Mostrar nuevo estado de abono y fecha emitida.
 - Pantalla/acción de estado de cuenta para Administrador.
 - Actualizar resumen del POS para dejar claro `Subtotal/Base + ITBIS = Total`.
+
+
 
 ### Documentación
 
@@ -717,7 +802,11 @@ Antes de implementar código, las fuentes de verdad ya actualizadas (Paso 1) son
 - `docs/PROTOTYPE_PLAN.md` — navegación y demo corregidos.
 - `docs/FUTURE_ROADMAP.md` — cotizaciones y estados de cuenta/crédito básico retirados del futuro.
 
+
+
 ## 6. Plan de entrega recomendado
+
+
 
 ### Hito 0 — Formalización de decisiones y documentación
 
@@ -786,7 +875,7 @@ Antes de implementar código, las fuentes de verdad ya actualizadas (Paso 1) son
 - Estado `ABONADO` según semántica aprobada.
 - Fecha emitida.
 - Completar filtros Release 3 ya pendientes.
-- Restringir CxC a Administrador. _(API 403 + nav Seller cerrados en Hito 3 / Paso 5.)_
+- Restringir CxC a Administrador. *(API 403 + nav Seller cerrados en Hito 3 / Paso 5.)*
 
 **Salida:** Administrador puede explicar por cliente y moneda cada factura, pago y saldo.
 
@@ -803,11 +892,11 @@ Antes de implementar código, las fuentes de verdad ya actualizadas (Paso 1) son
 
 ### Hito 7 — PDFs y presentación corporativa
 
-- PDF de cotización y factura con base, ITBIS, totales y estados aprobados.
+- PDF de cotización y factura con base, ITBIS y totales; la factura omite estado de pago, saldo pendiente y fecha de actualización del saldo.
 - Datos corporativos confirmados, TikTok y `COT-` de origen.
-- Plantilla editable de transferencia y cheques a nombre de Solo Camiones.
+- Pie compartido con la cuenta DOP confirmada y cheques a nombre de Solo Camiones SRL.
 - Perfil corporativo vigente al volver a descargar facturas históricas, sin alterar hechos monetarios.
-- Texto correcto de ITBIS y estado.
+- Texto correcto de ITBIS; los estados financieros permanecen únicamente en CxC/estado de cuenta.
 - Verificación visual y de paginación.
 
 **Salida:** cotización, factura nueva, factura histórica y estado de cuenta de prueba aprobados por la empresa.
@@ -824,7 +913,11 @@ Antes de implementar código, las fuentes de verdad ya actualizadas (Paso 1) son
 - Regresión de PDFs históricos y nuevos.
 - Solo después: configuración de development/staging/production y gate operativo.
 
+
+
 ## 7. Estrategia de pruebas
+
+
 
 ### Unitarias
 
@@ -835,6 +928,8 @@ Antes de implementar código, las fuentes de verdad ya actualizadas (Paso 1) son
 - Estado `ABONADO` y precedencia con vencimiento.
 - Totales DOP del estado de cuenta.
 - Máquina de estados de cotización y elegibilidad de conversión.
+
+
 
 ### Integración PostgreSQL/API
 
@@ -856,6 +951,8 @@ Antes de implementar código, las fuentes de verdad ya actualizadas (Paso 1) son
 - Conversión contado exige pago completo y método antes de asignar `FAC-`.
 - PDF de cotización muestra base, ITBIS y total consistentes con API y editor.
 
+
+
 ### Componentes/web
 
 - Campos condicionales por tipo y rol.
@@ -867,15 +964,20 @@ Antes de implementar código, las fuentes de verdad ya actualizadas (Paso 1) son
 - Formularios de línea no exponen costo según alcance confirmado.
 - Editor de cotización continúa como la misma operación al convertir, sin pedir recaptura.
 
+
+
 ### PDF
 
 - Contactos y textos exactos.
 - TikTok y medios de pago.
 - ITBIS no aparece como “incluido” en `internal-v4`.
 - Facturas largas no superponen pie, firmas o totales.
-- `internal-v1/v2/v3` preservan hechos monetarios históricos y usan el perfil corporativo vigente al volver a descargarse.
+- Solo `internal-v4` está soportada; los datos locales de prueba anteriores se limpian/recrean y no se agrega una migración permanente que los relabele.
+
+
 
 ## 8. Riesgos y mitigaciones
+
 
 | Riesgo                                                        | Mitigación                                                                                                                     |
 | ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
@@ -888,74 +990,92 @@ Antes de implementar código, las fuentes de verdad ya actualizadas (Paso 1) son
 | Clasificar mal clientes existentes                            | Backfill aprobado, reporte previo y migración ensayada.                                                                        |
 | Duplicar datos al convertir cotización                        | Mantener un solo agregado/identificador y hacer la conversión como transición idempotente.                                     |
 
+
+
+
 ## 9. Registro de decisiones de la empresa
+
+
 
 ### ITBIS
 
 1. **Confirmado:** el 18 % sobre la base aplica a `GENERIC`, `EXTERNAL`, `ITEM` y `QTY`; servicios y entrega permanecen sin ITBIS.
 2. **Confirmado:** los borradores existentes se recalculan con base + 18 %.
 3. **Confirmado:** las facturas completadas conservan exactamente sus importes históricos.
-   3.a. **Confirmado:** por ahora habrá un checkbox `Aplicar ITBIS`, independiente de `Comprobante fiscal`.
+  3.a. **Confirmado:** por ahora habrá un checkbox `Aplicar ITBIS`, independiente de `Comprobante fiscal`.
    3.b. **Confirmado:** `Aplicar ITBIS` estará desmarcado de forma predeterminada al crear una cotización/borrador.
+
+
 
 ### Clientes y crédito
 
-4. **Confirmado:** `CASH/CREDIT` es una clasificación separada del nombre; los clientes nombrados existentes se migran como `CASH` y el Administrador promoverá los que correspondan a `CREDIT`.
-5. **Confirmado:** el crédito y su límite operan solamente en DOP; una factura USD debe quedar pagada completamente.
-6. **Confirmado:** el límite controla saldo pendiente actual más el saldo que generará la nueva factura después de cualquier pago inicial autorizado.
-7. **Confirmado:** nunca se permite exceder el límite, ni siquiera al Administrador.
-8. **Confirmado:** el plazo 30/45/60/90/120 queda fijo en el cliente.
-9. **Confirmado:** pagar total o parcialmente una factura no cambia la clasificación; el cliente continúa siendo `CREDIT`.
-10. **Confirmado:** un cliente `CREDIT` con saldo abierto no puede cambiarse a `CASH`.
-11. **Confirmado:** un cliente contado nombrado sin RNC/cédula no puede emitir comprobante fiscal.
-12. **Confirmado:** `Cliente contado` genérico no puede emitir comprobante fiscal, pero sí puede calcular ITBIS.
-    12.a. **Confirmado:** un cliente contado nombrado con RNC/cédula válido puede emitir comprobante fiscal.
+1. **Confirmado:** `CASH/CREDIT` es una clasificación separada del nombre; los clientes nombrados existentes se migran como `CASH` y el Administrador promoverá los que correspondan a `CREDIT`.
+2. **Confirmado:** el crédito y su límite operan solamente en DOP; una factura USD debe quedar pagada completamente.
+3. **Confirmado:** el límite controla saldo pendiente actual más el saldo que generará la nueva factura después de cualquier pago inicial autorizado.
+4. **Confirmado:** nunca se permite exceder el límite, ni siquiera al Administrador.
+5. **Confirmado:** el plazo 30/45/60/90/120 queda fijo en el cliente.
+6. **Confirmado:** pagar total o parcialmente una factura no cambia la clasificación; el cliente continúa siendo `CREDIT`.
+7. **Confirmado:** un cliente `CREDIT` con saldo abierto no puede cambiarse a `CASH`.
+8. **Confirmado:** un cliente contado nombrado sin RNC/cédula no puede emitir comprobante fiscal.
+9. **Confirmado:** `Cliente contado` genérico no puede emitir comprobante fiscal, pero sí puede calcular ITBIS.
+  12.a. **Confirmado:** un cliente contado nombrado con RNC/cédula válido puede emitir comprobante fiscal.
+
+
 
 ### Vendedor
 
-13. **Confirmado:** el Vendedor puede ver clientes crédito existentes y venderles a crédito; solo el Administrador puede registrar o clasificar un cliente como crédito.
-14. **Confirmado:** el Vendedor puede abrir el detalle comercial de una factura crédito, pero no recibe estado de pago, monto pagado, saldo, reembolsos ni movimientos registrados.
-15. **Confirmado:** el Vendedor registra el pago completo durante la confirmación contado; una factura contado no puede confirmarse pendiente ni cobrarla posteriormente como excepción.
-16. **Confirmado:** el Vendedor conserva Clientes, pero al crear solo puede registrar clientes `CASH`.
-17. **Confirmado:** la cotización se convierte directamente a `COMPLETED`, sobre la misma operación y asignando `FAC-`, sin crear/copiar otro borrador.
-18. **Confirmado:** tendrá número propio `COT-`, PDF con título `COTIZACIÓN` y vigencia de 30 días.
-19. **Confirmado:** una vez emitida no puede modificarse ni reactivarse; puede duplicarse como una cotización nueva, que obtiene un nuevo `COT-` al emitirse.
-20. **Confirmado:** la factura conserva y muestra el número `COT-` original.
-21. **Confirmado:** la cotización vence al final del día número 30 en `America/Santo_Domingo`.
-22. **Confirmado:** una cotización vencida queda bloqueada para convertir a factura.
-23. **Confirmado:** al duplicar se copian cliente, moneda, condición fiscal, líneas, precios y notas a una nueva cotización editable.
-24. **Confirmado:** la cotización no reserva inventario; la disponibilidad se valida únicamente al convertirla.
-25. **Confirmado:** la conversión contado usa el flujo normal de borrador a factura y exige pago completo/método antes de asignar `FAC-`.
-26. **Confirmado:** el PDF de cotización muestra base, ITBIS y total.
+1. **Confirmado:** el Vendedor puede ver clientes crédito existentes y venderles a crédito; solo el Administrador puede registrar o clasificar un cliente como crédito.
+2. **Confirmado:** el Vendedor puede abrir el detalle comercial de una factura crédito, pero no recibe estado de pago, monto pagado, saldo, reembolsos ni movimientos registrados.
+3. **Confirmado:** el Vendedor registra el pago completo durante la confirmación contado; una factura contado no puede confirmarse pendiente ni cobrarla posteriormente como excepción.
+4. **Confirmado:** el Vendedor conserva Clientes, pero al crear solo puede registrar clientes `CASH`.
+5. **Confirmado:** la cotización se convierte directamente a `COMPLETED`, sobre la misma operación y asignando `FAC-`, sin crear/copiar otro borrador.
+6. **Confirmado:** tendrá número propio `COT-`, PDF con título `COTIZACIÓN` y vigencia de 30 días.
+7. **Confirmado:** una vez emitida no puede modificarse ni reactivarse; puede duplicarse como una cotización nueva, que obtiene un nuevo `COT-` al emitirse.
+8. **Confirmado:** la factura conserva y muestra el número `COT-` original.
+9. **Confirmado:** la cotización vence al final del día número 30 en `America/Santo_Domingo`.
+10. **Confirmado:** una cotización vencida queda bloqueada para convertir a factura.
+11. **Confirmado:** al duplicar se copian cliente, moneda, condición fiscal, líneas, precios y notas a una nueva cotización editable.
+12. **Confirmado:** la cotización no reserva inventario; la disponibilidad se valida únicamente al convertirla.
+13. **Confirmado:** la conversión contado usa el flujo normal de borrador a factura y exige pago completo/método antes de asignar `FAC-`.
+14. **Confirmado:** el PDF de cotización muestra base, ITBIS y total.
+
+
 
 ### Costo
 
-27. **Confirmado:** los campos de costo se eliminan del formulario para Administrador y Vendedor.
-28. **Confirmado:** hasta integrar inventario, las líneas nuevas quedan con costo `UNKNOWN` y el Administrador registra manualmente la rentabilidad de cada factura.
-29. **Confirmado:** el costo tampoco se entrega en las proyecciones ordinarias de factura; la futura fuente será el registro/recepción de inventario.
-    29.a. **Confirmado:** la factura se confirma sin bloquearse, queda con rentabilidad desconocida y el Administrador registra posteriormente la ganancia manual mediante el flujo actual.
+1. **Confirmado:** los campos de costo se eliminan del formulario para Administrador y Vendedor.
+2. **Confirmado:** hasta integrar inventario, las líneas nuevas quedan con costo `UNKNOWN` y el Administrador registra manualmente la rentabilidad de cada factura.
+3. **Confirmado:** el costo tampoco se entrega en las proyecciones ordinarias de factura; la futura fuente será el registro/recepción de inventario.
+  29.a. **Confirmado:** la factura se confirma sin bloquearse, queda con rentabilidad desconocida y el Administrador registra posteriormente la ganancia manual mediante el flujo actual.
+
+
 
 ### Pagos y CxC
 
-30. **Confirmado:** se necesitan `ABONADO` dentro del plazo y `ABONADA VENCIDA` después del vencimiento.
-31. **Confirmado:** esos estados también aparecen en el PDF de factura.
-32. **Confirmado:** “fecha emitida” es `confirmedAt`, cuando se asigna `FAC-`.
-33. **Confirmado:** solo el Administrador puede generar estados de cuenta.
-34. **Confirmado:** el estado de cuenta incluye todas las facturas vigentes que tengan saldo del cliente seleccionado.
-35. **Confirmado:** se genera como PDF desde un botón en CxC, después de seleccionar el cliente en un selector buscable/lista desplegable.
-36. **Confirmado:** no usa un período predeterminado; incluye todas las facturas con saldo.
-37. **Confirmado:** excluye facturas canceladas y reembolsos.
-    37.a. **Confirmado:** por cada factura se muestra únicamente el total abonado acumulado, sin movimientos individuales.
+1. **Confirmado:** se necesitan `ABONADO` dentro del plazo y `ABONADA VENCIDA` después del vencimiento.
+2. **Confirmado:** esos estados también aparecen en el PDF de factura.
+3. **Confirmado:** “fecha emitida” es `confirmedAt`, cuando se asigna `FAC-`.
+4. **Confirmado:** solo el Administrador puede generar estados de cuenta.
+5. **Confirmado:** el estado de cuenta incluye todas las facturas vigentes que tengan saldo del cliente seleccionado.
+6. **Confirmado:** se genera como PDF desde un botón en CxC, después de seleccionar el cliente en un selector buscable/lista desplegable.
+7. **Confirmado:** no usa un período predeterminado; incluye todas las facturas con saldo.
+8. **Confirmado:** excluye facturas canceladas y reembolsos.
+  37.a. **Confirmado:** por cada factura se muestra únicamente el total abonado acumulado, sin movimientos individuales.
+
+
 
 ### PDF y datos corporativos
 
-38. **Confirmado:** sustituir el teléfono derecho `809-212-7751` por `829-627-3168`; conservar `809-875-3161`.
-39. **Confirmado:** usar `solocamionessrl@gmail.com`.
-40. **Confirmado:** corregir la abreviatura a `Pdte.` y conservar el resto de la dirección actual.
-41. **Confirmado:** agregar TikTok `solo.camiones.srl`.
-42. **Confirmado temporalmente:** dejar una plantilla centralizada/editable para banco, tipo/número de cuenta, moneda y titular hasta recibir los valores definitivos; no inventar datos.
-43. **Confirmado temporalmente:** indicar cheques a nombre de `Solo Camiones`.
-44. **Confirmado:** al volver a descargar/regenerar facturas históricas se aplican los datos corporativos y aclaraciones vigentes sin modificar sus hechos comerciales o monetarios.
+1. **Confirmado:** sustituir el teléfono derecho `809-212-7751` por `829-627-3168`; conservar `809-875-3161`.
+2. **Confirmado:** usar `solocamionessrl@gmail.com`.
+3. **Confirmado:** corregir la abreviatura a `Pdte.` y conservar el resto de la dirección actual.
+4. **Confirmado:** agregar TikTok `solo.camiones.srl`.
+5. **Confirmado:** mantener el perfil corporativo y los medios de pago centralizados únicamente en código, sin tabla, API ni pantalla administrativa.
+6. **Confirmado:** mostrar al pie de factura, cotización y estado de cuenta: Banco Popular Dominicano, Cuenta Corriente DOP, cuenta `857578579`, titular `Solo Camiones SRL`; cheques a nombre de `Solo Camiones SRL`.
+7. **Confirmado:** la factura elimina estado de pago, saldo pendiente y fecha de actualización del saldo para cualquier rol; el estado de cuenta conserva estados, abonos, saldos y totales.
+8. **Confirmado:** mantener únicamente `internal-v4`; retirar `internal-v1/v2/v3`, limpiar/recrear datos locales de prueba y no crear una migración permanente que relabele versiones antiguas, porque aún no existen datos reales.
+
+
 
 ## 10. Criterio de terminado
 
@@ -971,3 +1091,4 @@ Este change set estará listo antes de configurar ambientes cuando:
 - facturas históricas permanezcan coherentes;
 - la suite completa, lint, typecheck y build pasen;
 - la empresa apruebe un walkthrough por rol y ejemplos de PDF/estado de cuenta.
+

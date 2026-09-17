@@ -52,6 +52,7 @@ export const REPOSITORY_ENDPOINT_MAP = {
     removeLine: 'DELETE /api/sales/:id/lines/:lineId',
     confirmInvoice: 'POST /api/sales/:id/confirm',
     getInvoicePdf: 'GET /api/sales/:id/pdf',
+    getQuotePdf: 'GET /api/sales/:id/pdf',
     regenerateInvoicePdf: 'POST /api/sales/:id/pdf/regenerate',
     addPayment: 'POST /api/sales/:id/payments',
     cancelInvoice: 'POST /api/sales/:id/cancel',

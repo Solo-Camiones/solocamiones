@@ -7,6 +7,7 @@ import type {
   ConfirmInvoicePayment,
   PosDraftView,
   PosLineView,
+  QuotePdfDownload,
   SetDraftMetaInput,
 } from '../../api/contracts/sales';
 import type { AppError, Result } from '../../shared/auth/types';
@@ -383,6 +384,13 @@ export function usePos(draftId: string | undefined, creationKind: 'sale' | 'quot
     [draftId, navigate, runExclusive],
   );
 
+  const getQuotePdf = useCallback(async (): Promise<Result<QuotePdfDownload>> => {
+    if (!draftId || draftId === 'new') {
+      return { ok: false, error: { code: 'VALIDATION', message: 'Cotización no lista' } };
+    }
+    return salesRepository.getQuotePdf(draftId);
+  }, [draftId]);
+
   const discard = useCallback(async (): Promise<Result<void>> => {
     if (!draftId || draftId === 'new') {
       return { ok: false, error: { code: 'VALIDATION', message: 'Borrador no listo' } };
@@ -420,6 +428,7 @@ export function usePos(draftId: string | undefined, creationKind: 'sale' | 'quot
     issueQuote,
     duplicateQuote,
     convertQuote,
+    getQuotePdf,
     discard,
     restoreRemovedLine,
   };

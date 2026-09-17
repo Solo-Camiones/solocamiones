@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 
 import { useAuth } from '../auth/useAuth';
 import { InvoiceStatusChip, PaymentChip } from '../../shared/domain';
+import { formatFiscalId } from '../../shared/domain/fiscal-id';
 import { can } from '../../shared/auth/policies';
 import { useAppCapabilities } from '../../shared/config/CapabilitiesProvider';
 import { Button, Card, Chip, Info, money, Mono, Skeleton } from '../../shared/ui';
@@ -70,7 +71,7 @@ export function InvoiceDetailPage() {
       <PageHeader
         leading={<BackToSalesLink />}
         title={detail.number ?? 'Factura'}
-        description={`${detail.customerName}${detail.customerRnc ? ` · ${detail.customerRnc}` : ''}${
+        description={`${detail.customerName}${detail.customerRnc ? ` · ${formatFiscalId(detail.customerRnc)}` : ''}${
           detail.quoteNumber ? ` · Origen ${detail.quoteNumber}` : ''
         }`}
         actions={
@@ -342,6 +343,7 @@ export function InvoiceDetailPage() {
 
       <PdfPreviewModal
         open={pdfOpen}
+        kind="invoice"
         detail={detail}
         pdfFile={pdfFile ?? undefined}
         onClose={() => {

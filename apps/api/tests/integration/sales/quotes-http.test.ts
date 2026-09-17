@@ -7,6 +7,7 @@ import { afterAll, afterEach, describe, expect, it, vi } from 'vitest';
 import { hashPassword } from '../../../src/features/access/password.js';
 import { resetLoginRateLimit } from '../../../src/features/access/login-rate-limit.js';
 import { HistoryRepository } from '../../../src/features/history/repository.js';
+import { PDF_COMPLETED_ONLY_MESSAGE } from '../../../src/features/invoice-documents/constants.js';
 import {
   CASH_CUSTOMER_CREDIT_FORBIDDEN_MESSAGE,
   DRAFT_ONLY_CONFIRM_MESSAGE,
@@ -25,6 +26,13 @@ const users = new UserRepository();
 const ROOT = '/api/sales';
 const PASSWORD = 'personal-password';
 
+function concatenatedPdfHexOperands(pdf: Buffer): string {
+  return [...pdf.toString('latin1').matchAll(/\[(.*?)\]\s*TJ/gs)]
+    .flatMap((textOperation) => [...textOperation[1].matchAll(/<([0-9a-f]+)>/gi)])
+    .map((hexOperand) => hexOperand[1])
+    .join('');
+}
+
 async function fixture(role: Role = 'ADMINISTRATOR') {
   const user = await users.create({
     name: 'Fixture',
@@ -40,11 +48,11 @@ async function fixture(role: Role = 'ADMINISTRATOR') {
   return { user, agent };
 }
 
-async function creditCustomer(name = 'Cliente cotizado') {
+async function creditCustomer(name = 'Cliente cotizado', rnc = '00112345678') {
   return prisma.customer.create({
     data: {
       name,
-      rnc: '00112345678',
+      rnc,
       customerType: 'CREDIT',
       creditLimitDop: '10000.00',
       creditTermDays: 60,
@@ -238,6 +246,90 @@ describe('convertible quotes HTTP (QUOTE-001/002)', () => {
 
     const mechanic = await fixture('MECHANIC');
     expect((await mechanic.agent.post(`${ROOT}/quotes`).set(TEST_CSRF_HEADERS).send({})).status).toBe(403);
+  });
+
+  it('lets Seller download an issued quote as COT- without changing the aggregate', async () => {
+    const { agent } = await fixture('SELLER');
+    const draft = await quoteWithLine(agent, (await creditCustomer()).id);
+    const issued = await agent.post(`${ROOT}/${draft.id}/issue-quote`).set(TEST_CSRF_HEADERS).send({});
+    expect(issued.status).toBe(200);
+
+    const pdf = await agent.get(`${ROOT}/${draft.id}/pdf`).buffer(true);
+    expect(pdf.status).toBe(200);
+    expect(pdf.headers['content-type']).toMatch(/application\/pdf/);
+    expect(pdf.headers['content-disposition']).toMatch(/filename="COT-000001\.pdf"/);
+    expect(Buffer.from(pdf.body).subarray(0, 5).toString('latin1')).toBe('%PDF-');
+
+    const stored = await prisma.invoice.findUnique({ where: { id: draft.id } });
+    expect(stored).toMatchObject({
+      status: 'QUOTE_ISSUED',
+      number: null,
+      quoteNumber: 'COT-000001',
+    });
+    expect(await prisma.invoicePayment.count({ where: { invoiceId: draft.id } })).toBe(0);
+    expect(
+      await prisma.historyEvent.count({
+        where: { subjectId: draft.id, eventType: 'INVOICE_PDF_GENERATED' },
+      }),
+    ).toBe(0);
+    expect(
+      await prisma.historyEvent.count({
+        where: { subjectId: draft.id, eventType: 'QUOTE_ISSUED' },
+      }),
+    ).toBe(1);
+
+    const converted = await agent.post(`${ROOT}/${draft.id}/convert-quote`).set(TEST_CSRF_HEADERS).send({});
+    expect(converted.status).toBe(200);
+    expect(converted.body).toMatchObject({
+      status: 'COMPLETED',
+      number: 'FAC-000001',
+      quoteNumber: 'COT-000001',
+    });
+    const invoicePdf = await agent.get(`${ROOT}/${draft.id}/pdf`).buffer(true);
+    expect(invoicePdf.status).toBe(200);
+    expect(invoicePdf.headers['content-disposition']).toMatch(/filename="FAC-000001\.pdf"/);
+    const invoicePdfBuffer = Buffer.from(invoicePdf.body);
+    expect(invoicePdfBuffer.subarray(0, 5).toString('latin1')).toBe('%PDF-');
+    expect(concatenatedPdfHexOperands(invoicePdfBuffer)).toContain(
+      Buffer.from('COT-000001').toString('hex'),
+    );
+    await expect(prisma.invoice.findUnique({ where: { id: draft.id } })).resolves.toMatchObject({
+      pdfTemplateVersion: 'internal-v4',
+    });
+  });
+
+  it('lets Administrator download an expired issued quote and rejects draft and Mechanic', async () => {
+    const { agent } = await fixture();
+    const mechanic = await fixture('MECHANIC');
+    const source = await quoteWithLine(agent, (await creditCustomer()).id);
+    expect((await agent.post(`${ROOT}/${source.id}/issue-quote`).set(TEST_CSRF_HEADERS).send({})).status).toBe(
+      200,
+    );
+    await prisma.invoice.update({
+      where: { id: source.id },
+      data: {
+        quoteIssuedAt: new Date('2026-01-01T04:00:00.000Z'),
+        quoteExpiresAt: new Date('2026-01-31T03:59:59.999Z'),
+      },
+    });
+
+    const expiredPdf = await agent.get(`${ROOT}/${source.id}/pdf`).buffer(true);
+    expect(expiredPdf.status).toBe(200);
+    expect(expiredPdf.headers['content-disposition']).toMatch(/filename="COT-000001\.pdf"/);
+    expect(await prisma.invoice.findUnique({ where: { id: source.id } })).toMatchObject({
+      status: 'QUOTE_ISSUED',
+      number: null,
+    });
+
+    const quoteDraft = await quoteWithLine(
+      agent,
+      (await creditCustomer('Otro cliente', '00112345679')).id,
+    );
+    const draftPdf = await agent.get(`${ROOT}/${quoteDraft.id}/pdf`);
+    expect(draftPdf.status).toBe(409);
+    expect(draftPdf.body.error.message).toBe(PDF_COMPLETED_ONLY_MESSAGE);
+
+    expect((await mechanic.agent.get(`${ROOT}/${source.id}/pdf`)).status).toBe(403);
   });
 
   it('rolls back quote issue and COT allocation when history fails', async () => {

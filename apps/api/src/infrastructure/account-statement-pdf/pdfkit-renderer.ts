@@ -1,16 +1,16 @@
 import PDFDocument from 'pdfkit';
 import { fileURLToPath } from 'node:url';
 
-import {
-  INVOICE_PDF_INTERNAL_NOTICE,
-  INVOICE_PDF_ISSUER_ADDRESS,
-  INVOICE_PDF_ISSUER_EMAIL,
-  INVOICE_PDF_ISSUER_NAME,
-  INVOICE_PDF_ISSUER_PHONES,
-  INVOICE_PDF_ISSUER_RNC,
-} from '../invoice-pdf/constants.js';
-import { PAYMENT_STATE_LABEL } from '../invoice-pdf/pdfkit-renderer.js';
+import { CORPORATE_PROFILE } from '../document-profile/index.js';
+import { INVOICE_PDF_INTERNAL_NOTICE } from '../invoice-pdf/constants.js';
 import type { AccountStatementPdfFacts, AccountStatementPdfRenderer } from './types.js';
+
+const PAYMENT_STATE_LABEL = {
+  PENDING: 'PENDIENTE',
+  PARTIALLY_PAID: 'ABONADO',
+  OVERDUE: 'VENCIDA',
+  PARTIALLY_PAID_OVERDUE: 'ABONADA VENCIDA',
+} as const;
 
 type PdfDocument = InstanceType<typeof PDFDocument>;
 
@@ -20,8 +20,9 @@ const LIGHT_BLUE = '#eaf6fc';
 const MUTED = '#526173';
 const BORDER = '#d6e0e8';
 const PAGE_MARGIN = 44;
-const FOOTER_TOP = 730;
+const FOOTER_RESERVE = 140;
 const ROW_HEIGHT = 28;
+const TOTALS_BOX_HEIGHT = 92;
 const LOGO_PATH = fileURLToPath(
   new URL('../../../../web/src/shared/assets/brand/SoloCamionesLogo.png', import.meta.url),
 );
@@ -54,6 +55,22 @@ function money(value: string): string {
   })}`;
 }
 
+function contentBottom(document: PdfDocument): number {
+  return document.page.height - FOOTER_RESERVE;
+}
+
+function corporateProfileLine(): string {
+  return [
+    CORPORATE_PROFILE.legalName,
+    `RNC: ${CORPORATE_PROFILE.rnc}`,
+    CORPORATE_PROFILE.whatsApp,
+    CORPORATE_PROFILE.email,
+    CORPORATE_PROFILE.social.instagram,
+    CORPORATE_PROFILE.social.facebook,
+    CORPORATE_PROFILE.social.tiktok,
+  ].join('  ·  ');
+}
+
 function drawHeader(document: PdfDocument, continued: boolean): number {
   const left = document.page.margins.left;
   const right = document.page.width - document.page.margins.right;
@@ -62,13 +79,23 @@ function drawHeader(document: PdfDocument, continued: boolean): number {
     .fillColor(BRAND_NAVY)
     .font('Helvetica-Bold')
     .fontSize(14)
-    .text(INVOICE_PDF_ISSUER_NAME, 122, 38);
+    .text(CORPORATE_PROFILE.legalName, 122, 38);
   document.fillColor(MUTED).font('Helvetica').fontSize(7.5);
-  document.text(`RNC: ${INVOICE_PDF_ISSUER_RNC}`, 122, 57);
-  document.text(INVOICE_PDF_ISSUER_ADDRESS, 122, 70, { width: 270 });
-  document.text(`${INVOICE_PDF_ISSUER_PHONES} | ${INVOICE_PDF_ISSUER_EMAIL}`, 122, 84, {
-    width: 300,
+  document.text(`RNC: ${CORPORATE_PROFILE.rnc}`, 122, 57);
+  document.text(CORPORATE_PROFILE.address, 122, 70, { width: 270 });
+  document.text(`${CORPORATE_PROFILE.whatsApp} | ${CORPORATE_PROFILE.email}`, 122, 84, {
+    width: 240,
   });
+  document.text(
+    [
+      CORPORATE_PROFILE.social.instagram,
+      CORPORATE_PROFILE.social.facebook,
+      CORPORATE_PROFILE.social.tiktok,
+    ].join('  ·  '),
+    122,
+    96,
+    { width: 240 },
+  );
   document
     .fillColor(BRAND_BLUE)
     .font('Helvetica-Bold')
@@ -87,8 +114,8 @@ function drawHeader(document: PdfDocument, continued: boolean): number {
         align: 'right',
       });
   }
-  document.moveTo(left, 112).lineTo(right, 112).lineWidth(2).strokeColor(BRAND_BLUE).stroke();
-  return 128;
+  document.moveTo(left, 118).lineTo(right, 118).lineWidth(2).strokeColor(BRAND_BLUE).stroke();
+  return 134;
 }
 
 function drawCustomer(document: PdfDocument, facts: AccountStatementPdfFacts, y: number): number {
@@ -154,27 +181,68 @@ function drawTableHeader(document: PdfDocument, y: number): number {
 function drawFooter(document: PdfDocument, generatedAt: Date): void {
   const left = document.page.margins.left;
   const right = document.page.width - document.page.margins.right;
+  const footerTop = contentBottom(document);
+  const transfer = CORPORATE_PROFILE.payment.transfer;
   const range = document.bufferedPageRange();
+  const rightColumnWidth = right - left - 300;
+
   for (let page = range.start; page < range.start + range.count; page += 1) {
     document.switchToPage(page);
     document
-      .moveTo(left, FOOTER_TOP)
-      .lineTo(right, FOOTER_TOP)
+      .moveTo(left, footerTop)
+      .lineTo(right, footerTop)
       .strokeColor(BORDER)
       .lineWidth(0.5)
       .stroke();
-    document.fillColor(MUTED).font('Helvetica').fontSize(6.8);
-    document.text(INVOICE_PDF_INTERNAL_NOTICE, left, FOOTER_TOP + 8, {
-      width: 260,
-      lineBreak: false,
+    document
+      .fillColor(MUTED)
+      .font('Helvetica')
+      .fontSize(6.2)
+      .text(corporateProfileLine(), left, footerTop + 6, {
+        width: right - left,
+      });
+    document
+      .fillColor(BRAND_NAVY)
+      .font('Helvetica-Bold')
+      .fontSize(6.8)
+      .text('Pagos por transferencia:', left, footerTop + 22);
+    document
+      .fillColor(MUTED)
+      .font('Helvetica')
+      .fontSize(6.8)
+      .text(
+        [
+          transfer.bankName,
+          transfer.accountType,
+          `No. de cuenta: ${transfer.accountNumber}`,
+          `A nombre de: ${transfer.accountHolder}`,
+        ].join('\n'),
+        left,
+        footerTop + 32,
+        { width: 280, lineGap: 1 },
+      );
+    document
+      .fillColor(BRAND_NAVY)
+      .font('Helvetica-Bold')
+      .fontSize(6.8)
+      .text(
+        `Pagos con cheques a nombre de: ${CORPORATE_PROFILE.payment.chequePayee}`,
+        left + 300,
+        footerTop + 22,
+        { width: rightColumnWidth },
+      );
+    document
+      .fillColor(MUTED)
+      .font('Helvetica')
+      .fontSize(6.5)
+      .text(`Saldo actualizado al ${formatDateTime(generatedAt)}`, left + 300, footerTop + 46, {
+        width: rightColumnWidth,
+      });
+    document.text(INVOICE_PDF_INTERNAL_NOTICE, left + 300, footerTop + 60, {
+      width: rightColumnWidth,
     });
-    document.text(`Saldo actualizado al ${formatDateTime(generatedAt)}`, 215, FOOTER_TOP + 8, {
-      width: 230,
-      align: 'center',
-      lineBreak: false,
-    });
-    document.text(`Página ${page + 1} de ${range.count}`, right - 85, FOOTER_TOP + 8, {
-      width: 85,
+    document.text(`Página ${page + 1} de ${range.count}`, left + 300, footerTop + 86, {
+      width: rightColumnWidth,
       align: 'right',
       lineBreak: false,
     });
@@ -189,7 +257,7 @@ function writeStatement(facts: AccountStatementPdfFacts, document: PdfDocument):
   y = drawTableHeader(document, y);
 
   facts.rows.forEach((row, index) => {
-    if (y + ROW_HEIGHT > FOOTER_TOP - 16) {
+    if (y + ROW_HEIGHT > contentBottom(document) - 16) {
       document.addPage();
       y = drawTableHeader(document, drawHeader(document, true));
     }
@@ -224,7 +292,7 @@ function writeStatement(facts: AccountStatementPdfFacts, document: PdfDocument):
     y += ROW_HEIGHT;
   });
 
-  if (y + 92 > FOOTER_TOP) {
+  if (y + TOTALS_BOX_HEIGHT > contentBottom(document)) {
     document.addPage();
     y = drawHeader(document, true);
   } else {

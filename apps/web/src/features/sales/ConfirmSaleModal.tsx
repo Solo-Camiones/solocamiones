@@ -5,6 +5,7 @@ import type { ConfirmInvoicePayment, PosDraftView } from '../../api/contracts/sa
 import { useAuth } from '../auth/useAuth';
 import { useAppCapabilities } from '../../shared/config/CapabilitiesProvider';
 import { UX_TERMS } from '../../shared/copy/glossary';
+import { formatFiscalId } from '../../shared/domain/fiscal-id';
 import {
   Button,
   Field,
@@ -179,7 +180,7 @@ export function ConfirmSaleModal({
         <ReviewSummary
           rows={[
             { label: 'Cliente', value: draft.customerName },
-            { label: 'Identificación fiscal / cédula', value: draft.customerRnc ?? '' },
+            { label: 'Identificación fiscal / cédula', value: formatFiscalId(draft.customerRnc) },
             { label: 'Moneda', value: currencyLabel(draft.currency) },
             { label: 'Comprobante fiscal', value: draft.fiscal ? 'Sí' : 'No' },
             { label: 'Aplicar ITBIS', value: draft.applyItbis ? 'Sí' : 'No' },

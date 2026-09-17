@@ -133,7 +133,7 @@ describe('M17 PDF generate + failed status (SALE-004)', () => {
     const pdf = await seller.agent.get(`${SALES}/${invoice.id}/pdf`).buffer(true);
     expect(pdf.status).toBe(200);
     expect(pdf.headers['content-type']).toMatch(/application\/pdf/);
-    expect(pdf.headers['content-disposition']).toContain('FAC-000001.pdf');
+    expect(pdf.headers['content-disposition']).toMatch(/filename="FAC-000001\.pdf"/);
     const body = Buffer.from(pdf.body);
     const text = body.toString('latin1');
     expect(text.slice(0, 5)).toBe('%PDF-');
@@ -161,7 +161,7 @@ describe('M17 PDF generate + failed status (SALE-004)', () => {
     await expect(prisma.invoice.findUnique({ where: { id: invoice.id } })).resolves.toMatchObject({
       status: 'CANCELLED',
       pdfStatus: 'READY',
-      pdfTemplateVersion: 'internal-v3',
+      pdfTemplateVersion: 'internal-v4',
     });
 
     const pdf = await admin.agent.get(`${SALES}/${invoice.id}/pdf`).buffer(true);
@@ -169,21 +169,21 @@ describe('M17 PDF generate + failed status (SALE-004)', () => {
     expect(Buffer.from(pdf.body).subarray(0, 5).toString('latin1')).toBe('%PDF-');
   });
 
-  it('passes the persisted template version to the renderer on download', async () => {
+  it('re-downloads retired stored template labels with the current invoice writer', async () => {
     const render = vi.fn().mockResolvedValue(Buffer.from('%PDF-versioned'));
     const app = createTestApp({ invoicePdfRenderer: { render } });
     const admin = await fixture(request.agent(app));
     const invoice = await confirmGeneric(admin.agent);
     await prisma.invoice.update({
       where: { id: invoice.id },
-      data: { pdfTemplateVersion: 'internal-legacy' },
+      data: { pdfTemplateVersion: 'internal-v3' },
     });
 
     const pdf = await admin.agent.get(`${SALES}/${invoice.id}/pdf`).buffer(true);
 
     expect(pdf.status).toBe(200);
     expect(render).toHaveBeenLastCalledWith(
-      expect.objectContaining({ templateVersion: 'internal-legacy' }),
+      expect.objectContaining({ templateVersion: 'internal-v4' }),
     );
   });
 

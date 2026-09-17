@@ -3,6 +3,7 @@ import { useEffect, useState, type FormEvent } from 'react';
 import type { UpdateOwnProfileInput } from '../../api/contracts/profile';
 import type { AuthUser } from '../auth/auth-context';
 import { roleLabel } from '../../shared/auth/policies';
+import { formatDominicanPhone } from '../../shared/domain/phone';
 import { Button, Card, Field, Info, Input } from '../../shared/ui';
 
 type ProfileFormProps = {
@@ -24,7 +25,7 @@ type FormFields = {
 function fieldsFromUser(user: AuthUser): FormFields {
   return {
     name: user.name,
-    phone: user.phone ?? '',
+    phone: formatDominicanPhone(user.phone),
     email: user.email ?? '',
     currentPassword: '',
     newPassword: '',
@@ -86,11 +87,16 @@ export function ProfileForm({ user, isSaving, error, onSubmit }: ProfileFormProp
           <Field label="Teléfono" htmlFor="profile-phone" hint="Opcional">
             <Input
               id="profile-phone"
+              inputMode="numeric"
               value={fields.phone}
               onChange={(event) =>
-                setFields((current) => ({ ...current, phone: event.target.value }))
+                setFields((current) => ({
+                  ...current,
+                  phone: formatDominicanPhone(event.target.value),
+                }))
               }
               autoComplete="tel"
+              placeholder="809-555-0100"
             />
           </Field>
           <Field label="Correo" htmlFor="profile-email" hint="Opcional">

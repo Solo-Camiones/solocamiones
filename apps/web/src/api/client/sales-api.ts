@@ -10,6 +10,8 @@ import type {
   InvoiceDetailView,
   InvoiceDocumentView,
   InvoicePdfDownload,
+  QuotePdfDownload,
+  SalesDocumentPdfDownload,
   AccountStatementPdfDownload,
   PosDraftView,
   PosLineView,
@@ -535,8 +537,16 @@ export function getInvoiceWithHttp(id: string): Promise<Result<InvoiceDetailView
   });
 }
 
-export function getInvoicePdfWithHttp(id: string): Promise<Result<InvoicePdfDownload>> {
+function getSalesDocumentPdfWithHttp(id: string): Promise<Result<SalesDocumentPdfDownload>> {
   return request(() => httpClientBlob(`${SALES_PATH}/${id}/pdf`));
+}
+
+export function getInvoicePdfWithHttp(id: string): Promise<Result<InvoicePdfDownload>> {
+  return getSalesDocumentPdfWithHttp(id);
+}
+
+export function getQuotePdfWithHttp(id: string): Promise<Result<QuotePdfDownload>> {
+  return getSalesDocumentPdfWithHttp(id);
 }
 
 export function getAccountStatementPdfWithHttp(

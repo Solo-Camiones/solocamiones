@@ -35,6 +35,7 @@ describe('CustomerFormModal', () => {
     });
 
     await user.type(screen.getByLabelText('Nombre'), 'Flota Este');
+    await user.click(screen.getByRole('radio', { name: 'RNC' }));
     await user.type(screen.getByLabelText('Identificación fiscal / cédula'), '131000001');
     await user.type(screen.getByLabelText('Dirección'), 'Santo Domingo');
     await user.type(screen.getByLabelText('Notas'), 'Cliente nuevo');
@@ -42,14 +43,14 @@ describe('CustomerFormModal', () => {
 
     expect(onSubmit).not.toHaveBeenCalled();
     expect(screen.getByText('Revisa los datos antes de crear el cliente.')).toBeVisible();
-    expect(screen.getByText('131000001')).toBeVisible();
+    expect(screen.getByText('1-31-00000-1')).toBeVisible();
 
     await user.click(screen.getByRole('button', { name: 'Confirmar creación' }));
 
     expect(onSubmit).toHaveBeenCalledWith({
       id: undefined,
       name: 'Flota Este',
-      rnc: '131000001',
+      rnc: '1-31-00000-1',
       address: 'Santo Domingo',
       notes: 'Cliente nuevo',
       contacts: [],
@@ -135,7 +136,7 @@ describe('CustomerFormModal', () => {
     expect(
       screen.getAllByText('Ya existe un cliente con esta identificación fiscal / cédula.').length,
     ).toBeGreaterThan(0);
-    expect(screen.getByLabelText('Identificación fiscal / cédula')).toHaveAttribute(
+    expect(screen.getByRole('radiogroup', { name: 'Tipo de identificación' })).toHaveAttribute(
       'aria-invalid',
       'true',
     );
@@ -230,6 +231,19 @@ describe('CustomerFormModal', () => {
     expect(screen.queryByLabelText('Límite de crédito (DOP)')).not.toBeInTheDocument();
   });
 
+  it('keeps the fiscal identifier disabled until RNC or cédula is selected', () => {
+    renderModal({
+      open: true,
+      customer: null,
+      isSaving: false,
+      error: null,
+      onClose: vi.fn(),
+      onSubmit: vi.fn(),
+    });
+
+    expect(screen.getByLabelText('Identificación fiscal / cédula')).toBeDisabled();
+  });
+
   it('hides credit controls for sellers', () => {
     renderModal({
       open: true,
@@ -261,6 +275,7 @@ describe('CustomerFormModal', () => {
     await chooseSelectOption(user, 'Tipo de cliente', 'Crédito');
     await user.type(screen.getByLabelText('Límite de crédito (DOP)'), '10000.00');
     await chooseSelectOption(user, 'Plazo de crédito (días)', '60 días');
+    await user.click(screen.getByRole('radio', { name: 'RNC' }));
     await user.type(screen.getByLabelText('Identificación fiscal / cédula'), '131000001');
     await user.click(screen.getByRole('button', { name: 'Guardar' }));
     await user.click(screen.getByRole('button', { name: 'Confirmar creación' }));
@@ -271,7 +286,7 @@ describe('CustomerFormModal', () => {
       customerType: 'CREDIT',
       creditLimitDop: '10000.00',
       creditTermDays: 60,
-      rnc: '131000001',
+      rnc: '1-31-00000-1',
       address: '',
       notes: '',
       contacts: [],

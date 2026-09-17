@@ -7,6 +7,13 @@ import {
   type SaveCustomerInput,
 } from '../../api/contracts/customers';
 import {
+  formatFiscalId,
+  inferFiscalIdKind,
+  maskFiscalIdInput,
+  type FiscalIdKind,
+} from '../../shared/domain/fiscal-id';
+import { formatDominicanPhone } from '../../shared/domain/phone';
+import {
   Button,
   Field,
   GuardedModal,
@@ -45,6 +52,7 @@ type FormFields = {
   customerType: CustomerType;
   creditLimitDop: string;
   creditTermDays: string;
+  fiscalKind: '' | FiscalIdKind;
   rnc: string;
   address: string;
   notes: string;
@@ -56,11 +64,18 @@ const EMPTY_FIELDS: FormFields = {
   customerType: 'CASH',
   creditLimitDop: '',
   creditTermDays: '',
+  fiscalKind: '',
   rnc: '',
   address: '',
   notes: '',
   contacts: [],
 };
+
+function fiscalLabel(kind: '' | FiscalIdKind): string {
+  if (kind === 'RNC') return 'RNC';
+  if (kind === 'CEDULA') return 'Cédula';
+  return 'Identificación fiscal / cédula';
+}
 
 function toSaveContacts(drafts: ContactDraft[]): SaveCustomerContactInput[] {
   return drafts.map((contact) => ({
@@ -113,7 +128,8 @@ export function CustomerFormModal({
           customerType: customer.customerType,
           creditLimitDop: customer.creditLimitDop ?? '',
           creditTermDays: customer.creditTermDays ? String(customer.creditTermDays) : '',
-          rnc: customer.rnc ?? '',
+          fiscalKind: inferFiscalIdKind(customer.rnc),
+          rnc: customer.rnc ? formatFiscalId(customer.rnc) : '',
           address: customer.address ?? '',
           notes: customer.notes ?? '',
           contacts: customer.contacts.map((contact) => {
@@ -122,7 +138,7 @@ export function CustomerFormModal({
               key: contact.id || `contact-draft-${nextKeyRef.current}`,
               id: contact.id,
               name: contact.name ?? '',
-              phone: contact.phone ?? '',
+              phone: formatDominicanPhone(contact.phone ?? ''),
               email: contact.email ?? '',
               title: contact.title ?? '',
               isPrimary: contact.isPrimary === true,
@@ -278,7 +294,7 @@ export function CustomerFormModal({
                         : []),
                     ]
                   : []),
-                { label: 'Identificación fiscal / cédula', value: fields.rnc },
+                { label: fiscalLabel(fields.fiscalKind), value: fields.rnc },
                 { label: 'Dirección', value: fields.address },
                 { label: 'Notas', value: fields.notes },
                 ...(fields.contacts.length === 0 ? [{ label: 'Contactos', value: '' }] : []),
@@ -397,22 +413,90 @@ export function CustomerFormModal({
             </Field>
           </>
         )}
-        <Field
-          label="Identificación fiscal / cédula"
-          htmlFor="customer-rnc"
-          hint={isCredit ? 'Obligatorio para clientes a crédito' : 'Opcional en ventas no fiscales'}
-          error={visibleError(['rnc'])}
-        >
-          <Input
-            id="customer-rnc"
-            value={fields.rnc}
-            onChange={(event) => {
-              clearFieldError('rnc');
-              setFields((current) => ({ ...current, rnc: event.target.value }));
-            }}
-            required={isCredit}
-          />
-        </Field>
+        <div className="space-y-1.5">
+          <div
+            id="customer-fiscal-kind"
+            role="radiogroup"
+            aria-label="Tipo de identificación"
+            aria-required={isCredit || undefined}
+            aria-invalid={
+              !fields.fiscalKind && Boolean(visibleError(['rnc'])) ? true : undefined
+            }
+            className="flex items-center gap-3"
+          >
+            <label className="flex items-center gap-1.5 text-xs font-medium text-navy-500">
+              <input
+                type="radio"
+                name="customer-fiscal-kind"
+                value="RNC"
+                checked={fields.fiscalKind === 'RNC'}
+                required={isCredit}
+                className="h-3.5 w-3.5 accent-brand"
+                onChange={() => {
+                  clearFieldError('rnc');
+                  setFields((current) => ({ ...current, fiscalKind: 'RNC', rnc: '' }));
+                }}
+              />
+              RNC
+            </label>
+            <label className="flex items-center gap-1.5 text-xs font-medium text-navy-500">
+              <input
+                type="radio"
+                name="customer-fiscal-kind"
+                value="CEDULA"
+                checked={fields.fiscalKind === 'CEDULA'}
+                required={isCredit}
+                className="h-3.5 w-3.5 accent-brand"
+                onChange={() => {
+                  clearFieldError('rnc');
+                  setFields((current) => ({ ...current, fiscalKind: 'CEDULA', rnc: '' }));
+                }}
+              />
+              Cédula
+            </label>
+          </div>
+          {!fields.fiscalKind && visibleError(['rnc']) ? (
+            <p className="text-xs text-red-600" role="alert">
+              {visibleError(['rnc'])}
+            </p>
+          ) : null}
+          <Field
+            label="Identificación fiscal / cédula"
+            htmlFor="customer-rnc"
+            hint={
+              fields.fiscalKind === 'RNC'
+                ? '9 dígitos, por ejemplo 1-31-12345-6'
+                : fields.fiscalKind === 'CEDULA'
+                  ? '11 dígitos, por ejemplo 001-0123456-7'
+                  : 'Elija RNC o cédula para habilitar el campo'
+            }
+            error={fields.fiscalKind ? visibleError(['rnc']) : undefined}
+          >
+            <Input
+              id="customer-rnc"
+              inputMode="numeric"
+              autoComplete="off"
+              disabled={!fields.fiscalKind}
+              value={fields.rnc}
+              onChange={(event) => {
+                if (!fields.fiscalKind) return;
+                clearFieldError('rnc');
+                setFields((current) => ({
+                  ...current,
+                  rnc: maskFiscalIdInput(current.fiscalKind as FiscalIdKind, event.target.value),
+                }));
+              }}
+              required={isCredit}
+              placeholder={
+                fields.fiscalKind === 'RNC'
+                  ? '1-31-12345-6'
+                  : fields.fiscalKind === 'CEDULA'
+                    ? '001-0123456-7'
+                    : undefined
+              }
+            />
+          </Field>
+        </div>
         <Field label="Dirección" htmlFor="customer-address" error={visibleError(['address'])}>
           <Input
             id="customer-address"
@@ -475,10 +559,15 @@ export function CustomerFormModal({
                 >
                   <Input
                     id={`contact-${index}-phone`}
+                    inputMode="numeric"
+                    autoComplete="tel"
                     value={contact.phone}
                     onChange={(event) =>
-                      updateContact(contact.key, index, { phone: event.target.value })
+                      updateContact(contact.key, index, {
+                        phone: formatDominicanPhone(event.target.value),
+                      })
                     }
+                    placeholder="809-555-0100"
                   />
                 </Field>
                 <Field

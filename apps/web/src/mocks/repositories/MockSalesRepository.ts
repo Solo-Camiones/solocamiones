@@ -97,6 +97,25 @@ export class MockSalesRepository implements SalesRepository {
     });
   }
 
+  async getQuotePdf(id: string) {
+    const permission = requirePermission('sales.manage');
+    if (!permission.ok) return permission;
+    const invoice = getMockState().invoices.find((entry) => entry.id === id);
+    if (!invoice) {
+      return err({ code: 'NOT_FOUND', message: 'Cotización no encontrada' });
+    }
+    if (invoice.status !== 'QUOTE_ISSUED' || invoice.quoteNumber == null) {
+      return err({
+        code: 'CONFLICT',
+        message: 'El PDF solo está disponible para cotizaciones emitidas',
+      });
+    }
+    return ok({
+      blob: new Blob(['%PDF-1.4 mock quote'], { type: 'application/pdf' }),
+      filename: `${invoice.quoteNumber}.pdf`,
+    });
+  }
+
   async getAccountStatementPdf(customerId: string) {
     const permission = requireAdministrator();
     if (!permission.ok) return permission;
