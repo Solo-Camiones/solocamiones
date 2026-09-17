@@ -83,7 +83,7 @@ export function derivePaymentState(invoice: Invoice): PaymentState {
     const settledOn = invoice.payments
       .filter((payment) => !isRefund(payment))
       .map((payment) => payment.effectiveDate ?? payment.createdAt)
-      .sort()
+      .sort((left, right) => left.localeCompare(right))
       .at(-1);
     return settledOn && invoice.dueDate && utcCalendarDate(settledOn) > invoice.dueDate
       ? 'PAID_LATE'
