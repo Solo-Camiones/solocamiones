@@ -13,6 +13,7 @@ import {
   SearchInput,
   Select,
   Skeleton,
+  LoadingOverlay,
   toPageLoadMessage,
   useToast,
 } from '../../shared/ui';
@@ -147,7 +148,7 @@ export function CustomersPage() {
       {result.status === 'loading' ? (
         <Skeleton label="Cargando clientes" />
       ) : (
-        <>
+        <LoadingOverlay active={result.isRefreshing} label="Actualizando clientes">
           <CustomerTable
             rows={result.rows}
             canManageCredit={canManageCredit}
@@ -168,7 +169,7 @@ export function CustomersPage() {
               );
             }}
           />
-        </>
+        </LoadingOverlay>
       )}
 
       <CustomerFormModal

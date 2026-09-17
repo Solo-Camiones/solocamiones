@@ -174,6 +174,8 @@ Este es el orden que debe seguirse. Cada paso depende de las garantías establec
 
 ### Paso 8 — Generar el estado de cuenta PDF
 
+**Estado:** cerrado 2026-09-16 en código local (`STMT-001`).
+
 **Requisitos cubiertos:** `M-03`.
 
 **Tareas:**
@@ -789,6 +791,8 @@ Antes de implementar código, las fuentes de verdad ya actualizadas (Paso 1) son
 **Salida:** Administrador puede explicar por cliente y moneda cada factura, pago y saldo.
 
 ### Hito 6 — Estado de cuenta PDF
+
+**Estado:** cerrado 2026-09-16 en código local (Paso 8).
 
 - Selector buscable de clientes con saldo en CxC.
 - Botón `Generar estado de cuenta`.

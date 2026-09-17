@@ -13,6 +13,7 @@ import {
   PaginationBar,
   SearchInput,
   Skeleton,
+  LoadingOverlay,
   toPageLoadMessage,
 } from '../../shared/ui';
 import { PageHeader } from '../../shared/layout/PageHeader';
@@ -243,7 +244,7 @@ export function SalesPage() {
       {result.status === 'loading' ? (
         <Skeleton label="Cargando facturas" />
       ) : (
-        <>
+        <LoadingOverlay active={result.isRefreshing} label="Actualizando facturas">
           <SalesTable
             rows={visibleRows}
             hasQuery={
@@ -259,7 +260,7 @@ export function SalesPage() {
             total={result.total}
             onPageChange={goToPage}
           />
-        </>
+        </LoadingOverlay>
       )}
     </>
   );

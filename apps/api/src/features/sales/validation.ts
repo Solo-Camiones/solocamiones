@@ -5,6 +5,7 @@ import { DRAFT_META_REQUIRED_MESSAGE, LINE_NOTE_MAX_LENGTH } from './constants.j
 import { INVOICE_LINE_TYPES } from './money/types.js';
 
 export const invoiceIdSchema = z.strictObject({ id: z.uuid() });
+export const statementCustomerIdSchema = z.strictObject({ customerId: z.uuid() });
 
 export const paginationSchema = z.strictObject({
   page: z.coerce.number().int().min(1).max(1000000).default(1),

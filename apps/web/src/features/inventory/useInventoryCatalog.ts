@@ -9,11 +9,12 @@ import {
   inventoryFiltersFromSearch,
   inventorySearchFromFilters,
 } from './inventory-list-search';
+import { beginQueryReload } from '../../shared/query/begin-query-reload';
 
 type CatalogQuery =
   | { status: 'loading' }
   | { status: 'error'; error: AppError }
-  | { status: 'ready'; rows: InventoryListRow[] };
+  | { status: 'ready'; rows: InventoryListRow[]; isRefreshing: boolean };
 
 /**
  * Loads the unified inventory catalog. Filter state lives in the URL so
@@ -37,7 +38,7 @@ export function useInventoryCatalog() {
 
   useEffect(() => {
     let cancelled = false;
-    setResult({ status: 'loading' });
+    setResult(beginQueryReload);
 
     inventoryRepository.listCatalog(filters).then((response) => {
       if (cancelled) {
@@ -49,7 +50,7 @@ export function useInventoryCatalog() {
         return;
       }
 
-      setResult({ status: 'ready', rows: response.value });
+      setResult({ status: 'ready', rows: response.value, isRefreshing: false });
     });
 
     return () => {

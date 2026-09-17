@@ -14,7 +14,7 @@ The old consolidated requirements/validation files are intentionally no longer r
 
 **Implementation (2026-09-10):** Pulled forward into the Release 2 local codebase. Production API + HTTP UI for the financial slice are in place (`InvoicePayment`, confirm-time optional payment, `POST /api/sales/:id/payments`, `GET /api/sales/receivables`, invoice payment history). **Do not treat this feature as complete.** Remaining checklist items that belong to Release 3 must still be implemented (Release 2 is closed). Aging and collections stay deferred as specified in this file.
 
-**Pre-production change set (2026-09-16):** Paso 7 implements derived `ABONADO` states (`PAY-006`), issued date on the AR list, and Administrator AR filters limited to customer and invoice (`PAY-007`). Paso 5 already restricted later payments and CxC: `POST /payments` and `GET /receivables` are Administrator-only (Seller 403); Seller nav/deep links to CxC are denied, and Seller invoice list/detail omit payment state, paid amount, outstanding balance, refunds, and movements. Customer account-statement PDF (`STMT-001`) remains specified and not yet implemented (Paso 8).
+**Pre-production change set (2026-09-16):** Paso 7 implements derived `ABONADO` states (`PAY-006`), issued date on the AR list, and Administrator AR filters limited to customer and invoice (`PAY-007`). Paso 5 already restricted later payments and CxC: `POST /payments` and `GET /receivables` are Administrator-only (Seller 403); Seller nav/deep links to CxC are denied, and Seller invoice list/detail omit payment state, paid amount, outstanding balance, refunds, and movements. Paso 8 implements the Administrator-only customer account-statement PDF (`STMT-001`) from CxC.
 
 ## What this feature does
 
@@ -133,8 +133,8 @@ Advanced AR such as aging buckets, interest, collection promises/tasks, automate
 
 - [x] Derive `PARTIALLY_PAID` and `PARTIALLY_PAID_OVERDUE` with visible labels `ABONADO` / `ABONADA VENCIDA` (PAY-006). _(Paso 7, 2026-09-16.)_
 - [x] Project `confirmedAt` as issued date on AR (PAY-007). _(Paso 7, 2026-09-16; display in `America/Santo_Domingo`, never as a query filter.)_
-- [x] Restrict AR UI/API and later payments to Administrator; Seller invoice omits payment state, paid, balance, and movements (PAY-007). _(Paso 5 2026-09-16: API 403 on `POST /payments` and `GET /receivables`; UI nav + deep links Admin-only. Owner 2026-09-16: Seller GET list/detail omit `paymentState`/`paid`/`balance`/`payments`. 2026-09-16: Seller invoice timeline also omits `PAYMENT_RECORDED`. STMT-001 remains open.)_
-- [ ] Administrator-only account-statement PDF from CxC customer selector (STMT-001).
+- [x] Restrict AR UI/API and later payments to Administrator; Seller invoice omits payment state, paid, balance, and movements (PAY-007). _(Paso 5 2026-09-16: API 403 on `POST /payments` and `GET /receivables`; UI nav + deep links Admin-only. Owner 2026-09-16: Seller GET list/detail omit `paymentState`/`paid`/`balance`/`payments`. 2026-09-16: Seller invoice timeline also omits `PAYMENT_RECORDED`.)_
+- [x] Administrator-only account-statement PDF from CxC customer selector (STMT-001). _(Paso 8, 2026-09-16: read model DOP abierto, renderer independiente, descarga HTTP, rechazo sin saldo y paginación probada.)_
 - [x] Finish the approved Release 3 filters (customer and invoice by `FAC-` number) on the Administrator AR surface. _(Paso 7, 2026-09-16; owner explicitly removed payment-state, issued-date, currency, and UUID invoice lookup. Invoice list and customer summary remain open-balance only.)_
 
 ## Canonical validated requirements

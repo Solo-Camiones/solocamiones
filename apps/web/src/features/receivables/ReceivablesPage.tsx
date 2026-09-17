@@ -1,13 +1,14 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { useSearchParams } from 'react-router-dom';
 
-import type { ReceivablesFilters } from '../../api/contracts/sales';
+import type { CustomerOutstandingRow, ReceivablesFilters } from '../../api/contracts/sales';
 import { parseListPage, setListPageParam } from '../../api/contracts/pagination';
 import {
   Button,
   Field,
   Info,
   Input,
+  LoadingOverlay,
   PaginationBar,
   Select,
   Skeleton,
@@ -21,6 +22,7 @@ import {
 } from './invoice-filter';
 import { CustomerOutstandingTable, OpenReceivablesTable } from './ReceivablesTables';
 import { useReceivables } from './useReceivables';
+import { salesRepository } from '../../api/repositories';
 
 function optionalParam(value: string | null): string | undefined {
   return value?.trim() || undefined;
@@ -43,9 +45,32 @@ export function ReceivablesPage() {
   };
   const [invoiceInput, setInvoiceInput] = useState(invoiceParam ?? '');
   const [submittedInvoiceError, setSubmittedInvoiceError] = useState<string>();
+  const [statementError, setStatementError] = useState<string>();
+  const [isGeneratingStatement, setIsGeneratingStatement] = useState(false);
   const result = useReceivables(page, filters);
+  const [customerFilterOptions, setCustomerFilterOptions] = useState<CustomerOutstandingRow[]>([]);
   const hasAppliedFilters = Boolean(customerId || invoiceFromUrl);
   const hasUrlFilters = Boolean(customerId || invoiceParam);
+
+  // The summary/invoices snapshot is filtered, but the customer picker must keep
+  // the full outstanding-customer directory so another client can be chosen
+  // without first returning to "Todos".
+  useEffect(() => {
+    if (result.status !== 'ready' || hasAppliedFilters) return;
+    setCustomerFilterOptions(uniqueCustomerOptions(result.snapshot.customers));
+  }, [result, hasAppliedFilters]);
+
+  useEffect(() => {
+    if (!hasAppliedFilters || customerFilterOptions.length > 0) return;
+    let cancelled = false;
+    salesRepository.listReceivables(1, {}).then((response) => {
+      if (cancelled || !response.ok) return;
+      setCustomerFilterOptions(uniqueCustomerOptions(response.value.customers));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [hasAppliedFilters, customerFilterOptions.length]);
   const invoiceError =
     submittedInvoiceError ?? (urlInvoiceInvalid ? RECEIVABLES_INVOICE_FILTER_ERROR : undefined);
 
@@ -97,15 +122,35 @@ export function ReceivablesPage() {
     return <Skeleton label="Cargando cuentas por cobrar" variant="cards" lines={4} />;
   }
 
-  const customerOptions = uniqueCustomerOptions(result.snapshot.customers);
+  const customerOptions = uniqueCustomerOptions(
+    customerFilterOptions.length > 0 ? customerFilterOptions : result.snapshot.customers,
+  );
+  const selectedCustomerHasDopBalance = result.snapshot.customers.some(
+    (customer) => customer.customerId === customerId && customer.currency === 'DOP',
+  );
   const showInvoices = result.snapshot.invoices.length > 0 || hasAppliedFilters;
+
+  async function generateStatement() {
+    if (!customerId || !selectedCustomerHasDopBalance || isGeneratingStatement) return;
+    setStatementError(undefined);
+    setIsGeneratingStatement(true);
+    const response = await salesRepository.getAccountStatementPdf(customerId);
+    setIsGeneratingStatement(false);
+    if (!response.ok) {
+      setStatementError(response.error.message);
+      return;
+    }
+    const url = URL.createObjectURL(response.value.blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = response.value.filename;
+    link.click();
+    URL.revokeObjectURL(url);
+  }
 
   return (
     <>
-      <PageHeader
-        title="Cuentas por cobrar"
-        description="Saldos abiertos por cliente y moneda."
-      />
+      <PageHeader title="Cuentas por cobrar" description="Saldos abiertos por cliente y moneda." />
       <div className="mb-6 grid gap-4 rounded-xl border border-navy-100 bg-white p-4 md:grid-cols-2">
         <Field label="Cliente" htmlFor="receivables-customer">
           <Select
@@ -152,32 +197,50 @@ export function ReceivablesPage() {
             </Button>
           </div>
         ) : null}
+        <div className="flex items-end justify-end md:col-start-2">
+          <Button
+            type="button"
+            disabled={!customerId || !selectedCustomerHasDopBalance || isGeneratingStatement}
+            onClick={generateStatement}
+          >
+            {isGeneratingStatement ? 'Generando…' : 'Generar estado de cuenta'}
+          </Button>
+        </div>
       </div>
-      <section className="mb-8">
-        <h2 className="mb-3 text-sm font-semibold text-navy">Resumen de saldos abiertos</h2>
-        <CustomerOutstandingTable rows={result.snapshot.customers} hasQuery={hasAppliedFilters} />
-      </section>
-      {showInvoices && (
-        <section>
-          <h2 className="mb-3 text-sm font-semibold text-navy">Facturas</h2>
-          <OpenReceivablesTable rows={result.snapshot.invoices} hasQuery={hasAppliedFilters} />
-          <PaginationBar
-            page={result.snapshot.page}
-            pageSize={result.snapshot.pageSize}
-            total={result.snapshot.total}
-            onPageChange={(nextPage) => {
-              setSearchParams(
-                (previous) => {
-                  const next = new URLSearchParams(previous);
-                  setListPageParam(next, nextPage);
-                  return next;
-                },
-                { replace: true },
-              );
-            }}
-          />
+      {statementError ? (
+        <div className="mb-6">
+          <Info tone="error" title="No se pudo generar el estado de cuenta">
+            {statementError}
+          </Info>
+        </div>
+      ) : null}
+      <LoadingOverlay active={result.isRefreshing} label="Actualizando cuentas por cobrar">
+        <section className="mb-8">
+          <h2 className="mb-3 text-sm font-semibold text-navy">Resumen de saldos abiertos</h2>
+          <CustomerOutstandingTable rows={result.snapshot.customers} hasQuery={hasAppliedFilters} />
         </section>
-      )}
+        {showInvoices && (
+          <section>
+            <h2 className="mb-3 text-sm font-semibold text-navy">Facturas</h2>
+            <OpenReceivablesTable rows={result.snapshot.invoices} hasQuery={hasAppliedFilters} />
+            <PaginationBar
+              page={result.snapshot.page}
+              pageSize={result.snapshot.pageSize}
+              total={result.snapshot.total}
+              onPageChange={(nextPage) => {
+                setSearchParams(
+                  (previous) => {
+                    const next = new URLSearchParams(previous);
+                    setListPageParam(next, nextPage);
+                    return next;
+                  },
+                  { replace: true },
+                );
+              }}
+            />
+          </section>
+        )}
+      </LoadingOverlay>
     </>
   );
 }

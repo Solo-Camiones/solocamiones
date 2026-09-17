@@ -5,7 +5,7 @@ import type { WorkOrderType } from '../../api/contracts/entities';
 import type { CreateManualWorkOrderInput, WorkOrderListTab } from '../../api/contracts/work-orders';
 import { can } from '../../shared/auth/policies';
 import { UX_TERMS } from '../../shared/copy/glossary';
-import { Button, Chip, Info, Skeleton, toPageLoadMessage } from '../../shared/ui';
+import { Button, Chip, Info, LoadingOverlay, Skeleton, toPageLoadMessage } from '../../shared/ui';
 import { PageHeader } from '../../shared/layout/PageHeader';
 import { TabBar } from '../../shared/layout/TabBar';
 import { useAuth } from '../auth/useAuth';
@@ -154,7 +154,9 @@ export function WorkOrdersPage() {
       {result.status === 'loading' ? (
         <Skeleton label="Cargando órdenes" />
       ) : (
-        <WorkOrderTable rows={visibleRows} />
+        <LoadingOverlay active={result.isRefreshing} label="Actualizando órdenes">
+          <WorkOrderTable rows={visibleRows} />
+        </LoadingOverlay>
       )}
 
       {canManageWorkOrders && (

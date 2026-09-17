@@ -5,6 +5,7 @@ import type { SalesListFilters, SalesListRow, SalesListTab } from '../../api/con
 import type { PaymentState } from '../../api/contracts/entities';
 import type { AppError, Result } from '../../shared/auth/types';
 import { salesRepository } from '../../api/repositories';
+import { beginQueryReload } from '../../shared/query/begin-query-reload';
 
 export const SALES_LIST_TABS: SalesListTab[] = [
   'ALL',
@@ -138,7 +139,14 @@ async function listSales(
 type SalesQuery =
   | { status: 'loading' }
   | { status: 'error'; error: AppError }
-  | { status: 'ready'; rows: SalesListRow[]; total: number; page: number; pageSize: number };
+  | {
+      status: 'ready';
+      rows: SalesListRow[];
+      total: number;
+      page: number;
+      pageSize: number;
+      isRefreshing: boolean;
+    };
 
 export function useSalesList(
   tab: SalesListTab,
@@ -154,7 +162,7 @@ export function useSalesList(
 
   useEffect(() => {
     let cancelled = false;
-    setResult({ status: 'loading' });
+    setResult(beginQueryReload);
 
     listSales(
       tab,
@@ -178,6 +186,7 @@ export function useSalesList(
         total: response.value.total,
         page: response.value.page,
         pageSize: response.value.pageSize,
+        isRefreshing: false,
       });
     });
 

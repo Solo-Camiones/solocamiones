@@ -4,11 +4,12 @@ import type { RecoverySnapshot, ReleaseReservationInput } from '../../api/contra
 import type { RetryUsdProfitabilityInput } from '../../api/contracts/profitability';
 import { recoveryRepository } from '../../api/repositories';
 import type { AppError, Result } from '../../shared/auth/types';
+import { beginQueryReload } from '../../shared/query/begin-query-reload';
 
 type Query =
   | { status: 'loading' }
   | { status: 'error'; error: AppError }
-  | { status: 'ready'; snapshot: RecoverySnapshot };
+  | { status: 'ready'; snapshot: RecoverySnapshot; isRefreshing: boolean };
 
 export function useRecovery() {
   const [reloadToken, setReloadToken] = useState(0);
@@ -21,7 +22,7 @@ export function useRecovery() {
 
   useEffect(() => {
     let cancelled = false;
-    setQuery({ status: 'loading' });
+    setQuery(beginQueryReload);
 
     recoveryRepository.getSnapshot().then((response) => {
       if (cancelled) {
@@ -31,7 +32,7 @@ export function useRecovery() {
         setQuery({ status: 'error', error: response.error });
         return;
       }
-      setQuery({ status: 'ready', snapshot: response.value });
+      setQuery({ status: 'ready', snapshot: response.value, isRefreshing: false });
     });
 
     return () => {
@@ -60,7 +61,7 @@ export function useRecovery() {
     if (!response.ok) {
       return response;
     }
-    setQuery({ status: 'ready', snapshot: response.value });
+    setQuery({ status: 'ready', snapshot: response.value, isRefreshing: false });
     return { ok: true, value: undefined };
   }, []);
 

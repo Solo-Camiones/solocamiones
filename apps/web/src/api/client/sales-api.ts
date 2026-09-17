@@ -10,6 +10,7 @@ import type {
   InvoiceDetailView,
   InvoiceDocumentView,
   InvoicePdfDownload,
+  AccountStatementPdfDownload,
   PosDraftView,
   PosLineView,
   ReceivablesFilters,
@@ -536,6 +537,14 @@ export function getInvoiceWithHttp(id: string): Promise<Result<InvoiceDetailView
 
 export function getInvoicePdfWithHttp(id: string): Promise<Result<InvoicePdfDownload>> {
   return request(() => httpClientBlob(`${SALES_PATH}/${id}/pdf`));
+}
+
+export function getAccountStatementPdfWithHttp(
+  customerId: string,
+): Promise<Result<AccountStatementPdfDownload>> {
+  return request(() =>
+    httpClientBlob(`${SALES_PATH}/receivables/${encodeURIComponent(customerId)}/statement.pdf`),
+  );
 }
 
 export function regenerateInvoicePdfWithHttp(id: string): Promise<Result<InvoiceDetailView>> {

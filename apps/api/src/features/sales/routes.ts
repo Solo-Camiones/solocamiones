@@ -4,6 +4,7 @@ import { validate } from '../../infrastructure/http/validate.js';
 import { requireAuth } from '../access/require-auth.js';
 import { requireCsrfHeader } from '../access/require-csrf.js';
 import { requireAdministrator, requireRole } from '../access/require-role.js';
+import { getAccountStatement } from '../payments/controller.js';
 import {
   deleteDraft,
   deleteDraftLine,
@@ -32,6 +33,7 @@ import {
   invoiceLineIdSchema,
   listInvoicesSchema,
   listReceivablesSchema,
+  statementCustomerIdSchema,
   setLinePriceSchema,
   updateDraftMetaSchema,
   addPaymentSchema,
@@ -51,6 +53,12 @@ salesRouter.get(
   requireAdministrator,
   validate({ query: listReceivablesSchema }),
   getReceivables,
+);
+salesRouter.get(
+  '/receivables/:customerId/statement.pdf',
+  requireAdministrator,
+  validate({ params: statementCustomerIdSchema }),
+  getAccountStatement,
 );
 salesRouter.get('/:id/pdf', validate({ params: invoiceIdSchema }), getInvoicePdf);
 salesRouter.post(

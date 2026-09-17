@@ -214,6 +214,30 @@ describe('HTTP sales draft contract', () => {
     );
   });
 
+  it('downloads the selected customer account statement from the dedicated endpoint', async () => {
+    const bytes = new Uint8Array([37, 80, 68, 70]);
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(bytes, {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/pdf',
+          'Content-Disposition': 'attachment; filename="estado-de-cuenta-flota-este.pdf"',
+        },
+      }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await repository.getAccountStatementPdf(cashCustomer.id);
+
+    expect(result).toMatchObject({
+      ok: true,
+      value: { filename: 'estado-de-cuenta-flota-este.pdf' },
+    });
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `/api/sales/receivables/${cashCustomer.id}/statement.pdf`,
+    );
+  });
+
   it('creates a draft with CSRF and loads lookups on getDraft', async () => {
     const fetchMock = vi.fn(async (path: string, init?: RequestInit) => {
       const url = String(path);

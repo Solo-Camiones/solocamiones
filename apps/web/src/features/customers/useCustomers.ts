@@ -3,11 +3,19 @@ import { useCallback, useEffect, useState } from 'react';
 import type { CustomerListRow, CustomerType, SaveCustomerInput } from '../../api/contracts/customers';
 import type { AppError, Result } from '../../shared/auth/types';
 import { customerRepository } from '../../api/repositories';
+import { beginQueryReload } from '../../shared/query/begin-query-reload';
 
 type CustomersQuery =
   | { status: 'loading' }
   | { status: 'error'; error: AppError }
-  | { status: 'ready'; rows: CustomerListRow[]; total: number; page: number; pageSize: number };
+  | {
+      status: 'ready';
+      rows: CustomerListRow[];
+      total: number;
+      page: number;
+      pageSize: number;
+      isRefreshing: boolean;
+    };
 
 /**
  * Loads the customer directory from the repository.
@@ -21,7 +29,7 @@ export function useCustomers(page: number, customerType?: CustomerType) {
 
   useEffect(() => {
     let cancelled = false;
-    setResult({ status: 'loading' });
+    setResult(beginQueryReload);
 
     customerRepository.search(query, page, customerType).then((response) => {
       if (cancelled) {
@@ -39,6 +47,7 @@ export function useCustomers(page: number, customerType?: CustomerType) {
         total: response.value.total,
         page: response.value.page,
         pageSize: response.value.pageSize,
+        isRefreshing: false,
       });
     });
 

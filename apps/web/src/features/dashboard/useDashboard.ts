@@ -4,11 +4,12 @@ import { useLocation } from 'react-router-dom';
 import type { DashboardSnapshot } from '../../api/contracts/dashboard';
 import type { AppError } from '../../shared/auth/types';
 import { dashboardRepository } from '../../api/repositories';
+import { beginQueryReload } from '../../shared/query/begin-query-reload';
 
 type DashboardQuery =
   | { status: 'loading' }
   | { status: 'error'; error: AppError }
-  | { status: 'ready'; snapshot: DashboardSnapshot };
+  | { status: 'ready'; snapshot: DashboardSnapshot; isRefreshing: boolean };
 
 /**
  * Loads the role-projected dashboard snapshot from the repository.
@@ -20,7 +21,7 @@ export function useDashboard(): DashboardQuery {
 
   useEffect(() => {
     let cancelled = false;
-    setQuery({ status: 'loading' });
+    setQuery(beginQueryReload);
 
     dashboardRepository.getSnapshot().then((result) => {
       if (cancelled) {
@@ -32,7 +33,7 @@ export function useDashboard(): DashboardQuery {
         return;
       }
 
-      setQuery({ status: 'ready', snapshot: result.value });
+      setQuery({ status: 'ready', snapshot: result.value, isRefreshing: false });
     });
 
     return () => {

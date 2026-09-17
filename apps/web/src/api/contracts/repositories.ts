@@ -53,6 +53,7 @@ import type {
   CreateDraftResult,
   InvoiceDetailView,
   InvoicePdfDownload,
+  AccountStatementPdfDownload,
   PosDraftView,
   ReceivablesSnapshot,
   ReceivablesFilters,
@@ -149,6 +150,7 @@ export type SalesRepository = {
   ): Promise<Result<ReceivablesSnapshot>>;
   getInvoice(id: string): Promise<Result<InvoiceDetailView>>;
   getInvoicePdf(id: string): Promise<Result<InvoicePdfDownload>>;
+  getAccountStatementPdf(customerId: string): Promise<Result<AccountStatementPdfDownload>>;
   regenerateInvoicePdf(id: string): Promise<Result<InvoiceDetailView>>;
   addPayment(input: AddPaymentInput): Promise<Result<InvoiceDetailView>>;
   cancelInvoice(input: CancelInvoiceInput): Promise<Result<InvoiceDetailView>>;

@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom';
 import { ABANDONED_DRAFT_AFTER_HOURS } from '../../api/contracts/recovery';
 import { KpiCard } from '../../shared/layout/KpiCard';
 import { PageHeader } from '../../shared/layout/PageHeader';
-import { Button, Card, Empty, Field, Info, Input, SectionTitle, useToast } from '../../shared/ui';
+import { Button, Card, Empty, Field, Info, Input, LoadingOverlay, SectionTitle, useToast } from '../../shared/ui';
 import { useRecovery } from './useRecovery';
 
 export function AdminRecoveryPage() {
@@ -56,6 +56,7 @@ export function AdminRecoveryPage() {
         description="Operaciones de corrección. Cada acción deja un registro en el historial."
       />
 
+      <LoadingOverlay active={query.isRefreshing} label="Actualizando recuperación">
       <div className="space-y-8">
         <div
           className={`grid gap-4 sm:grid-cols-2 ${snapshot.diagnostics.length >= 3 ? 'xl:grid-cols-3' : ''}`}
@@ -172,6 +173,7 @@ export function AdminRecoveryPage() {
           </div>
         </section>
       </div>
+      </LoadingOverlay>
     </>
   );
 }

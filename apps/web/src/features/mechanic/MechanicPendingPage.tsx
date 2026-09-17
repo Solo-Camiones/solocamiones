@@ -1,7 +1,7 @@
 import { Link, useNavigate } from 'react-router-dom';
 
 import { UX_TERMS } from '../../shared/copy/glossary';
-import { Empty, Skeleton, useToast } from '../../shared/ui';
+import { Empty, LoadingOverlay, Skeleton, useToast } from '../../shared/ui';
 import { MechanicOrderCard } from './MechanicOrderCard';
 import { MechanicQueryError } from './MechanicQueryError';
 import { toMechanicUserMessage } from './mechanic-copy';
@@ -57,13 +57,15 @@ export function MechanicPendingPage() {
           }
         />
       ) : (
-        <ul className="space-y-3">
-          {pending.map((order) => (
-            <li key={order.id}>
-              <MechanicOrderCard order={order} isMutating={isMutating} onTake={handleTake} />
-            </li>
-          ))}
-        </ul>
+        <LoadingOverlay active={result.isRefreshing} label="Actualizando pendientes">
+          <ul className="space-y-3">
+            {pending.map((order) => (
+              <li key={order.id}>
+                <MechanicOrderCard order={order} isMutating={isMutating} onTake={handleTake} />
+              </li>
+            ))}
+          </ul>
+        </LoadingOverlay>
       )}
     </div>
   );

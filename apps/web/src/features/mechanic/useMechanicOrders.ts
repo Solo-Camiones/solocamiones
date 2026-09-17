@@ -4,11 +4,12 @@ import type { MechanicWorkOrderView, WorkOrderType } from '../../api/contracts/e
 import type { AddWorkOrderPhotoInput, CompleteWorkOrderInput } from '../../api/contracts/work-orders';
 import type { AppError, Result } from '../../shared/auth/types';
 import { workOrderRepository } from '../../api/repositories';
+import { beginQueryReload } from '../../shared/query/begin-query-reload';
 
 type Query =
   | { status: 'loading' }
   | { status: 'error'; error: AppError }
-  | { status: 'ready'; orders: MechanicWorkOrderView[] };
+  | { status: 'ready'; orders: MechanicWorkOrderView[]; isRefreshing: boolean };
 
 export function useMechanicOrders() {
   const [reloadToken, setReloadToken] = useState(0);
@@ -17,7 +18,7 @@ export function useMechanicOrders() {
 
   useEffect(() => {
     let cancelled = false;
-    setResult({ status: 'loading' });
+    setResult(beginQueryReload);
 
     workOrderRepository.listForMechanic().then((response) => {
       if (cancelled) {
@@ -29,7 +30,7 @@ export function useMechanicOrders() {
         return;
       }
 
-      setResult({ status: 'ready', orders: response.value });
+      setResult({ status: 'ready', orders: response.value, isRefreshing: false });
     });
 
     return () => {

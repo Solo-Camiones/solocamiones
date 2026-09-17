@@ -248,6 +248,40 @@ export class SalesRepository {
     };
   }
 
+  async listOpenDopInvoicesByCustomer(customerId: string) {
+    const balances = receivableBalances({ customerId, page: 1, pageSize: 1 });
+    const openRows = await this.database.$queryRaw<ReceivablePageRow[]>`
+      ${balances}
+      SELECT "id"
+      FROM "receivableBalances"
+      WHERE "currency" = 'DOP' AND "balance" > 0
+      ORDER BY "dueDate" ASC, "confirmedAt" ASC, "id" ASC
+    `;
+    const invoices = await this.database.invoice.findMany({
+      where: { id: { in: openRows.map((row) => row.id) } },
+      select: {
+        id: true,
+        number: true,
+        confirmedAt: true,
+        dueDate: true,
+        status: true,
+        gross: true,
+        payments: {
+          orderBy: [
+            { effectiveDate: 'asc' },
+            { createdAt: 'asc' },
+            { id: 'asc' },
+          ],
+        },
+      },
+    });
+    const invoicesById = new Map(invoices.map((invoice) => [invoice.id, invoice]));
+    return openRows.flatMap((row) => {
+      const invoice = invoicesById.get(row.id);
+      return invoice ? [invoice] : [];
+    });
+  }
+
   updateDraft(id: string, input: UpdateDraftInvoiceRecord): Promise<InvoiceRecord> {
     return this.database.invoice.update({
       where: { id },

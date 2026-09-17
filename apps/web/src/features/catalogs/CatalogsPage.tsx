@@ -6,6 +6,7 @@ import {
   Button,
   ConfirmActionModal,
   Info,
+  LoadingOverlay,
   Skeleton,
   toPageLoadMessage,
   useToast,
@@ -133,19 +134,24 @@ export function CatalogsPage() {
 
   const isLoading =
     services.status === 'loading' || (showCategories && categories.status === 'loading');
+  const isRefreshing =
+    (services.status === 'ready' && services.isRefreshing) ||
+    (categories.status === 'ready' && categories.isRefreshing);
   const servicePanel = isLoading ? (
     <Skeleton label="Cargando catálogos" />
   ) : services.status === 'ready' ? (
-    <ServiceList
-      rows={services.rows}
-      togglingId={togglingServiceId}
-      onEdit={(row) => {
-        setEditingService(row);
-        setFormError(null);
-        setServiceModalOpen(true);
-      }}
-      onToggleActive={setPendingToggle}
-    />
+    <LoadingOverlay active={isRefreshing} label="Actualizando catálogos">
+      <ServiceList
+        rows={services.rows}
+        togglingId={togglingServiceId}
+        onEdit={(row) => {
+          setEditingService(row);
+          setFormError(null);
+          setServiceModalOpen(true);
+        }}
+        onToggleActive={setPendingToggle}
+      />
+    </LoadingOverlay>
   ) : null;
 
   return (
@@ -180,14 +186,16 @@ export function CatalogsPage() {
             categories: isLoading ? (
               <Skeleton label="Cargando catálogos" />
             ) : categories.status === 'ready' ? (
-              <CategoryList
-                rows={categories.rows}
-                onEdit={(row) => {
-                  setEditingCategory(row);
-                  setFormError(null);
-                  setCategoryModalOpen(true);
-                }}
-              />
+              <LoadingOverlay active={isRefreshing} label="Actualizando catálogos">
+                <CategoryList
+                  rows={categories.rows}
+                  onEdit={(row) => {
+                    setEditingCategory(row);
+                    setFormError(null);
+                    setCategoryModalOpen(true);
+                  }}
+                />
+              </LoadingOverlay>
             ) : null,
             services: servicePanel,
           }}

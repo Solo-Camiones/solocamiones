@@ -97,6 +97,22 @@ export class MockSalesRepository implements SalesRepository {
     });
   }
 
+  async getAccountStatementPdf(customerId: string) {
+    const permission = requireAdministrator();
+    if (!permission.ok) return permission;
+    const snapshot = buildReceivables(getMockState(), { customerId });
+    const hasDopBalance = snapshot.customers.some(
+      (customer) => customer.customerId === customerId && customer.currency === 'DOP',
+    );
+    if (!hasDopBalance) {
+      return err({ code: 'CONFLICT', message: 'El cliente no tiene saldo abierto en DOP.' });
+    }
+    return ok({
+      blob: new Blob(['%PDF-1.4 mock account statement'], { type: 'application/pdf' }),
+      filename: 'estado-de-cuenta.pdf',
+    });
+  }
+
   async regenerateInvoicePdf() {
     return err({
       code: 'INTERNAL',

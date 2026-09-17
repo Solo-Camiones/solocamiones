@@ -43,6 +43,7 @@ import {
   getDraftWithHttp,
   getInvoiceWithHttp,
   getInvoicePdfWithHttp,
+  getAccountStatementPdfWithHttp,
   listInvoicesWithHttp,
   listReceivablesWithHttp,
   issueQuoteWithHttp,
@@ -230,6 +231,10 @@ export class HttpSalesRepository implements SalesRepository {
 
   async getInvoicePdf(id: string) {
     return getInvoicePdfWithHttp(id);
+  }
+
+  async getAccountStatementPdf(customerId: string) {
+    return getAccountStatementPdfWithHttp(customerId);
   }
 
   async regenerateInvoicePdf(id: string) {

@@ -4,11 +4,19 @@ import { toListPage, type ListPage } from '../../api/contracts/pagination';
 import type { ManagedUser, SaveUserInput, SaveUserResult } from '../../api/contracts/users';
 import type { AppError, Result } from '../../shared/auth/types';
 import { userRepository } from '../../api/repositories';
+import { beginQueryReload } from '../../shared/query/begin-query-reload';
 
 type UsersQuery =
   | { status: 'loading' }
   | { status: 'error'; error: AppError }
-  | { status: 'ready'; rows: ManagedUser[]; total: number; page: number; pageSize: number };
+  | {
+      status: 'ready';
+      rows: ManagedUser[];
+      total: number;
+      page: number;
+      pageSize: number;
+      isRefreshing: boolean;
+    };
 
 async function listUsers(page: number, query: string): Promise<Result<ListPage<ManagedUser>>> {
   const normalized = query.trim().toLowerCase();
@@ -48,7 +56,7 @@ export function useUsers(page: number) {
 
   useEffect(() => {
     let cancelled = false;
-    setResult({ status: 'loading' });
+    setResult(beginQueryReload);
 
     listUsers(page, query).then((response) => {
       if (cancelled) {
@@ -66,6 +74,7 @@ export function useUsers(page: number) {
         total: response.value.total,
         page: response.value.page,
         pageSize: response.value.pageSize,
+        isRefreshing: false,
       });
     });
 

@@ -9,7 +9,7 @@ import { UX_TERMS } from '../../shared/copy/glossary';
 import { KpiCard } from '../../shared/layout/KpiCard';
 import { PageHeader } from '../../shared/layout/PageHeader';
 import { OPERATIONAL_HREFS } from '../../shared/navigation/operational-hrefs';
-import { Info, money, SectionTitle, Skeleton, toPageLoadMessage } from '../../shared/ui';
+import { Info, LoadingOverlay, money, SectionTitle, Skeleton, toPageLoadMessage } from '../../shared/ui';
 import { useAuth } from '../auth/useAuth';
 import { ActivityTimeline } from './ActivityTimeline';
 import { RecentInvoicesList } from './RecentInvoicesList';
@@ -272,7 +272,8 @@ export function DashboardPage() {
         }
       />
 
-      <div className="space-y-8">
+      <LoadingOverlay active={query.isRefreshing} label="Actualizando inicio">
+        <div className="space-y-8">
         {capabilities.hierarchy &&
           snapshot.pendingCatalogReviews &&
           snapshot.pendingCatalogReviews.length > 0 && (
@@ -299,7 +300,8 @@ export function DashboardPage() {
             <ActivityTimeline events={snapshot.activity} />
           </div>
         </div>
-      </div>
+        </div>
+      </LoadingOverlay>
     </>
   );
 }

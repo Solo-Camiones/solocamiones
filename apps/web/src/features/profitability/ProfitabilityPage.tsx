@@ -19,6 +19,7 @@ import {
   currencyLabel,
   SectionTitle,
   Skeleton,
+  LoadingOverlay,
   TableShell,
   toPageLoadMessage,
   useToast,
@@ -273,6 +274,7 @@ export function ProfitabilityPage() {
         }
       />
 
+      <LoadingOverlay active={query.isRefreshing} label="Actualizando rentabilidad">
       <div className="grid min-w-0 gap-4">
         <div className="grid min-w-0 gap-4 grid-cols-1 md:grid-cols-2 xl:grid-cols-3">
           <KpiCard
@@ -436,6 +438,7 @@ export function ProfitabilityPage() {
           )}
         </section>
       </div>
+      </LoadingOverlay>
 
       <RecordGrossProfitModal
         open={recording != null}

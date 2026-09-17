@@ -126,6 +126,8 @@ export type InvoicePdfDownload = {
   filename: string;
 };
 
+export type AccountStatementPdfDownload = InvoicePdfDownload;
+
 export type InvoiceDetailActions = {
   canPay: boolean;
   canCancel: boolean;

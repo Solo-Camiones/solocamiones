@@ -3,11 +3,12 @@ import { useEffect, useState } from 'react';
 import type { ReceivablesFilters, ReceivablesSnapshot } from '../../api/contracts/sales';
 import { salesRepository } from '../../api/repositories';
 import type { AppError } from '../../shared/auth/types';
+import { beginQueryReload } from '../../shared/query/begin-query-reload';
 
 type ReceivablesQuery =
   | { status: 'loading' }
   | { status: 'error'; error: AppError }
-  | { status: 'ready'; snapshot: ReceivablesSnapshot };
+  | { status: 'ready'; snapshot: ReceivablesSnapshot; isRefreshing: boolean };
 
 export function useReceivables(page: number, filters: ReceivablesFilters = {}) {
   const [result, setResult] = useState<ReceivablesQuery>({ status: 'loading' });
@@ -15,7 +16,7 @@ export function useReceivables(page: number, filters: ReceivablesFilters = {}) {
 
   useEffect(() => {
     let cancelled = false;
-    setResult({ status: 'loading' });
+    setResult(beginQueryReload);
     salesRepository
       .listReceivables(page, {
         customerId,
@@ -27,7 +28,7 @@ export function useReceivables(page: number, filters: ReceivablesFilters = {}) {
           setResult({ status: 'error', error: response.error });
           return;
         }
-        setResult({ status: 'ready', snapshot: response.value });
+        setResult({ status: 'ready', snapshot: response.value, isRefreshing: false });
       });
     return () => {
       cancelled = true;
