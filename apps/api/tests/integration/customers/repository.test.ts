@@ -22,6 +22,9 @@ describe('CustomerRepository (PostgreSQL)', () => {
       name: 'Cliente contado',
       rnc: null,
       isDefault: true,
+      customerType: 'CASH',
+      creditLimitDop: null,
+      creditTermDays: null,
       contacts: [],
     });
     expect(generic?.id).toMatch(

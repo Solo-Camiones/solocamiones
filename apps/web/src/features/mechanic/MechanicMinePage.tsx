@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 
 import type { MechanicWorkOrderView } from '../../api/contracts/entities';
-import { Empty, Skeleton } from '../../shared/ui';
+import { Empty, LoadingOverlay, Skeleton } from '../../shared/ui';
 import { MechanicOrderCard } from './MechanicOrderCard';
 import { MechanicQueryError } from './MechanicQueryError';
 import { useMechanicOrders } from './useMechanicOrders';
@@ -63,7 +63,8 @@ export function MechanicMinePage() {
           }
         />
       ) : (
-        <>
+        <LoadingOverlay active={result.isRefreshing} label="Actualizando mis órdenes">
+          <div className="space-y-6">
           <section className="space-y-3">
             <h2 className="text-lg font-semibold">En proceso</h2>
             {inProgress.length === 0 ? (
@@ -94,7 +95,8 @@ export function MechanicMinePage() {
               )}
             </div>
           </section>
-        </>
+          </div>
+        </LoadingOverlay>
       )}
     </div>
   );

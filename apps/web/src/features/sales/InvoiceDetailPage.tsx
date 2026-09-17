@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 
 import { useAuth } from '../auth/useAuth';
 import { InvoiceStatusChip, PaymentChip } from '../../shared/domain';
+import { formatFiscalId } from '../../shared/domain/fiscal-id';
 import { can } from '../../shared/auth/policies';
 import { useAppCapabilities } from '../../shared/config/CapabilitiesProvider';
 import { Button, Card, Chip, Info, money, Mono, Skeleton } from '../../shared/ui';
@@ -60,13 +61,19 @@ export function InvoiceDetailPage() {
   const detail = result.detail;
   const canViewProfit = can(user, 'profit.view');
   const canManageWorkOrders = can(user, 'workOrders.manage');
+  const isAdministrator = user?.role === 'ADMINISTRATOR';
+  const canRegisterPayment =
+    isAdministrator && capabilities.payments && detail.actions.canPay && can(user, 'sales.manage');
+  const canViewPaymentSettlement = isAdministrator;
 
   return (
     <>
       <PageHeader
         leading={<BackToSalesLink />}
         title={detail.number ?? 'Factura'}
-        description={`${detail.customerName}${detail.customerRnc ? ` · ${detail.customerRnc}` : ''}`}
+        description={`${detail.customerName}${detail.customerRnc ? ` · ${formatFiscalId(detail.customerRnc)}` : ''}${
+          detail.quoteNumber ? ` · Origen ${detail.quoteNumber}` : ''
+        }`}
         actions={
           <div className="flex flex-wrap gap-2">
             {detail.actions.canViewPdf && (
@@ -108,7 +115,7 @@ export function InvoiceDetailPage() {
                 Regenerar documento
               </Button>
             )}
-            {detail.actions.canPay && can(user, 'sales.manage') && capabilities.payments && (
+            {canRegisterPayment && (
               <Button
                 onClick={() => {
                   setActionError(null);
@@ -148,31 +155,36 @@ export function InvoiceDetailPage() {
 
       <div className="mb-6 flex flex-wrap items-center gap-2">
         <InvoiceStatusChip status={detail.status} />
-        {detail.status === 'COMPLETED' &&
+        {canViewPaymentSettlement &&
+          detail.status === 'COMPLETED' &&
           capabilities.payments &&
-          detail.paymentState !== 'PENDING' &&
-          detail.paymentState !== 'UNPAID' && (
-            <PaymentChip state={detail.paymentState} />
-          )}
+          detail.paymentState && <PaymentChip state={detail.paymentState} />}
         {detail.fiscal ? <Chip tone="brand">Fiscal</Chip> : <Chip>Sin comprobante fiscal</Chip>}
+        {detail.quoteNumber ? <Chip>Origen {detail.quoteNumber}</Chip> : null}
         <Chip>{detail.currency}</Chip>
       </div>
 
-      <div className="mb-8 grid gap-4 sm:grid-cols-3">
+      <div className={`mb-8 grid gap-4 ${canViewPaymentSettlement ? 'sm:grid-cols-3' : ''}`}>
         <Card>
           <p className="text-xs font-medium uppercase tracking-wide text-navy-400">Total</p>
           <p className="mt-1 font-mono text-xl text-navy">{money(detail.total, detail.currency)}</p>
         </Card>
-        <Card>
-          <p className="text-xs font-medium uppercase tracking-wide text-navy-400">Pagado</p>
-          <p className="mt-1 font-mono text-xl text-navy">{money(detail.paid, detail.currency)}</p>
-        </Card>
-        <Card>
-          <p className="text-xs font-medium uppercase tracking-wide text-navy-400">Saldo</p>
-          <p className="mt-1 font-mono text-xl text-navy">
-            {money(detail.balance, detail.currency)}
-          </p>
-        </Card>
+        {canViewPaymentSettlement ? (
+          <>
+            <Card>
+              <p className="text-xs font-medium uppercase tracking-wide text-navy-400">Pagado</p>
+              <p className="mt-1 font-mono text-xl text-navy">
+                {money(detail.paid ?? 0, detail.currency)}
+              </p>
+            </Card>
+            <Card>
+              <p className="text-xs font-medium uppercase tracking-wide text-navy-400">Saldo</p>
+              <p className="mt-1 font-mono text-xl text-navy">
+                {money(detail.balance ?? 0, detail.currency)}
+              </p>
+            </Card>
+          </>
+        ) : null}
       </div>
 
       {actionError && !payOpen && !cancelOpen && !currencyOpen && (
@@ -245,7 +257,7 @@ export function InvoiceDetailPage() {
         </section>
       )}
 
-      {capabilities.payments && (
+      {canViewPaymentSettlement && capabilities.payments && (
         <div className="mb-8">
           <PaymentHistory payments={detail.payments} currency={detail.currency} />
         </div>
@@ -259,33 +271,35 @@ export function InvoiceDetailPage() {
 
       <InvoiceHistory events={detail.history} />
 
-      <PayModal
-        open={payOpen}
-        invoiceId={detail.id}
-        currency={detail.currency}
-        balance={detail.balance}
-        confirmedAt={detail.confirmedAt}
-        isSaving={isMutating}
-        error={payOpen ? actionError : null}
-        onClose={() => {
-          if (!isMutating) {
+      {canRegisterPayment && (
+        <PayModal
+          open={payOpen}
+          invoiceId={detail.id}
+          currency={detail.currency}
+          balance={detail.balance ?? 0}
+          confirmedAt={detail.confirmedAt}
+          isSaving={isMutating}
+          error={payOpen ? actionError : null}
+          onClose={() => {
+            if (!isMutating) {
+              setPayOpen(false);
+              setActionError(null);
+            }
+          }}
+          onSubmit={async (input) => {
+            const response = await addPayment({ invoiceId: detail.id, ...input });
+            if (!response.ok) {
+              setActionError(response.error.message);
+              return;
+            }
             setPayOpen(false);
-            setActionError(null);
-          }
-        }}
-        onSubmit={async (input) => {
-          const response = await addPayment({ invoiceId: detail.id, ...input });
-          if (!response.ok) {
-            setActionError(response.error.message);
-            return;
-          }
-          setPayOpen(false);
-        }}
-      />
+          }}
+        />
+      )}
 
       <CancelInvoiceModal
         open={cancelOpen}
-        paid={detail.paid - detail.refunded}
+        paid={(detail.paid ?? 0) - (detail.refunded ?? 0)}
         currency={detail.currency}
         workOrders={detail.linkedWorkOrders}
         isSaving={isMutating}
@@ -329,6 +343,7 @@ export function InvoiceDetailPage() {
 
       <PdfPreviewModal
         open={pdfOpen}
+        kind="invoice"
         detail={detail}
         pdfFile={pdfFile ?? undefined}
         onClose={() => {

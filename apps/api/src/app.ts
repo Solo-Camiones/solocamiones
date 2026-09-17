@@ -10,6 +10,7 @@ import { profitabilityRouter } from './features/profitability/routes.js';
 import { ProfitabilityService } from './features/profitability/service.js';
 import { InvoiceDocumentService } from './features/invoice-documents/service.js';
 import { salesRouter } from './features/sales/routes.js';
+import { AccountStatementService } from './features/payments/account-statement-service.js';
 import { SalesService } from './features/sales/service.js';
 import { SalesRepository } from './features/sales/repository.js';
 import { salesTransaction } from './features/sales/transaction.js';
@@ -27,6 +28,14 @@ import {
   pdfkitInvoicePdfRenderer,
   type InvoicePdfRenderer,
 } from './infrastructure/invoice-pdf/index.js';
+import {
+  pdfkitQuotePdfRenderer,
+  type QuotePdfRenderer,
+} from './infrastructure/quote-pdf/index.js';
+import {
+  pdfkitAccountStatementRenderer,
+  type AccountStatementPdfRenderer,
+} from './infrastructure/account-statement-pdf/index.js';
 
 export type CreateAppOptions = {
   /** Test-only routers, mounted after feature routes and before the 404 handler. */
@@ -40,6 +49,10 @@ export type CreateAppOptions = {
   fxRateProvider?: FxRateProvider;
   /** Test double for SALE-004. Production uses pdfkit. */
   invoicePdfRenderer?: InvoicePdfRenderer;
+  /** Test double for DOC-001 quote PDFs. Production uses pdfkit. */
+  quotePdfRenderer?: QuotePdfRenderer;
+  /** Test double for STMT-001. Production uses its dedicated pdfkit renderer. */
+  accountStatementPdfRenderer?: AccountStatementPdfRenderer;
   /** Override for tests. Production defaults to 100 requests per 15-minute window. */
   apiRateLimitMaxRequests?: number;
 };
@@ -63,6 +76,7 @@ export function createApp(options: CreateAppOptions = {}): express.Application {
   const invoiceDocuments = new InvoiceDocumentService(
     salesTransaction,
     options.invoicePdfRenderer ?? pdfkitInvoicePdfRenderer,
+    options.quotePdfRenderer ?? pdfkitQuotePdfRenderer,
   );
   const salesService = new SalesService(
     salesTransaction,
@@ -71,9 +85,14 @@ export function createApp(options: CreateAppOptions = {}): express.Application {
     invoiceDocuments,
   );
   const profitabilityService = new ProfitabilityService(salesTransaction, fxRateProvider);
+  const accountStatementService = new AccountStatementService(
+    salesTransaction,
+    options.accountStatementPdfRenderer ?? pdfkitAccountStatementRenderer,
+  );
   const apiRateLimiter = createApiRateLimiter(options.apiRateLimitMaxRequests);
   app.locals.salesService = salesService;
   app.locals.profitabilityService = profitabilityService;
+  app.locals.accountStatementService = accountStatementService;
 
   // nginx replaces X-Forwarded-For with one client address. Enable only behind that unpublished hop.
   app.set('trust proxy', (address: string, hop: number) =>

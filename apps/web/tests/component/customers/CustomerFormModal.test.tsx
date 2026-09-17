@@ -1,29 +1,41 @@
 // @vitest-environment jsdom
 
+import type { ComponentProps } from 'react';
 import { screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 
 import { CustomerFormModal } from '../../../src/features/customers/CustomerFormModal';
-import { renderWithProviders } from '../../support/render';
+import { createAuthValue, renderWithProviders } from '../../support/render';
+import { chooseSelectOption } from '../../support/select-menu';
 import '../../support/dom';
+
+function renderModal(
+  props: Omit<ComponentProps<typeof CustomerFormModal>, 'canManageCredit'> & {
+    role?: 'ADMINISTRATOR' | 'SELLER';
+  },
+) {
+  const { role = 'SELLER', ...modalProps } = props;
+  return renderWithProviders(<CustomerFormModal canManageCredit={role === 'ADMINISTRATOR'} {...modalProps} />, {
+    auth: createAuthValue(role),
+  });
+}
 
 describe('CustomerFormModal', () => {
   it('collects all fields for a new customer', async () => {
     const user = userEvent.setup();
     const onSubmit = vi.fn();
-    renderWithProviders(
-      <CustomerFormModal
-        open
-        customer={null}
-        isSaving={false}
-        error={null}
-        onClose={vi.fn()}
-        onSubmit={onSubmit}
-      />,
-    );
+    renderModal({
+      open: true,
+      customer: null,
+      isSaving: false,
+      error: null,
+      onClose: vi.fn(),
+      onSubmit,
+    });
 
     await user.type(screen.getByLabelText('Nombre'), 'Flota Este');
+    await user.click(screen.getByRole('radio', { name: 'RNC' }));
     await user.type(screen.getByLabelText('Identificación fiscal / cédula'), '131000001');
     await user.type(screen.getByLabelText('Dirección'), 'Santo Domingo');
     await user.type(screen.getByLabelText('Notas'), 'Cliente nuevo');
@@ -31,14 +43,14 @@ describe('CustomerFormModal', () => {
 
     expect(onSubmit).not.toHaveBeenCalled();
     expect(screen.getByText('Revisa los datos antes de crear el cliente.')).toBeVisible();
-    expect(screen.getByText('131000001')).toBeVisible();
+    expect(screen.getByText('1-31-00000-1')).toBeVisible();
 
     await user.click(screen.getByRole('button', { name: 'Confirmar creación' }));
 
     expect(onSubmit).toHaveBeenCalledWith({
       id: undefined,
       name: 'Flota Este',
-      rnc: '131000001',
+      rnc: '1-31-00000-1',
       address: 'Santo Domingo',
       notes: 'Cliente nuevo',
       contacts: [],
@@ -48,16 +60,14 @@ describe('CustomerFormModal', () => {
   it('submits two contacts from the dynamic list', async () => {
     const user = userEvent.setup();
     const onSubmit = vi.fn();
-    renderWithProviders(
-      <CustomerFormModal
-        open
-        customer={null}
-        isSaving={false}
-        error={null}
-        onClose={vi.fn()}
-        onSubmit={onSubmit}
-      />,
-    );
+    renderModal({
+      open: true,
+      customer: null,
+      isSaving: false,
+      error: null,
+      onClose: vi.fn(),
+      onSubmit,
+    });
 
     await user.type(screen.getByLabelText('Nombre'), 'Flota Este');
     await user.click(screen.getByRole('button', { name: 'Agregar contacto' }));
@@ -109,26 +119,24 @@ describe('CustomerFormModal', () => {
   });
 
   it('prefills an edit and displays save errors inside the dialog', () => {
-    renderWithProviders(
-      <CustomerFormModal
-        open
-        customer={{ id: 'C1', name: 'Transportes del Caribe', contacts: [] }}
-        isSaving={false}
-        error="Ya existe un cliente con esta identificación fiscal / cédula."
-        fieldErrors={{
-          rnc: 'Ya existe un cliente con esta identificación fiscal / cédula.',
-        }}
-        onClose={vi.fn()}
-        onSubmit={vi.fn()}
-      />,
-    );
+    renderModal({
+      open: true,
+      customer: { id: 'C1', name: 'Transportes del Caribe', customerType: 'CASH', contacts: [] },
+      isSaving: false,
+      error: 'Ya existe un cliente con esta identificación fiscal / cédula.',
+      fieldErrors: {
+        rnc: 'Ya existe un cliente con esta identificación fiscal / cédula.',
+      },
+      onClose: vi.fn(),
+      onSubmit: vi.fn(),
+    });
 
     expect(screen.getByRole('dialog', { name: 'Editar cliente' })).toBeVisible();
     expect(screen.getByLabelText('Nombre')).toHaveValue('Transportes del Caribe');
     expect(
       screen.getAllByText('Ya existe un cliente con esta identificación fiscal / cédula.').length,
     ).toBeGreaterThan(0);
-    expect(screen.getByLabelText('Identificación fiscal / cédula')).toHaveAttribute(
+    expect(screen.getByRole('radiogroup', { name: 'Tipo de identificación' })).toHaveAttribute(
       'aria-invalid',
       'true',
     );
@@ -136,26 +144,25 @@ describe('CustomerFormModal', () => {
 
   it('clears indexed contact errors when removing a contact', async () => {
     const user = userEvent.setup();
-    renderWithProviders(
-      <CustomerFormModal
-        open
-        customer={{
-          id: 'C1',
-          name: 'Transportes del Caribe',
-          contacts: [
-            { id: 'CT1', phone: '', email: '' },
-            { id: 'CT2', phone: '809-555-0100' },
-          ],
-        }}
-        isSaving={false}
-        error="Cada contacto debe tener teléfono o correo."
-        fieldErrors={{
-          'contacts.0': 'Cada contacto debe tener teléfono o correo.',
-        }}
-        onClose={vi.fn()}
-        onSubmit={vi.fn()}
-      />,
-    );
+    renderModal({
+      open: true,
+      customer: {
+        id: 'C1',
+        name: 'Transportes del Caribe',
+        customerType: 'CASH',
+        contacts: [
+          { id: 'CT1', phone: '', email: '' },
+          { id: 'CT2', phone: '809-555-0100' },
+        ],
+      },
+      isSaving: false,
+      error: 'Cada contacto debe tener teléfono o correo.',
+      fieldErrors: {
+        'contacts.0': 'Cada contacto debe tener teléfono o correo.',
+      },
+      onClose: vi.fn(),
+      onSubmit: vi.fn(),
+    });
 
     expect(screen.getAllByText('Cada contacto debe tener teléfono o correo.')).not.toHaveLength(0);
 
@@ -168,16 +175,14 @@ describe('CustomerFormModal', () => {
   it('asks before discarding typed customer data', async () => {
     const user = userEvent.setup();
     const onClose = vi.fn();
-    renderWithProviders(
-      <CustomerFormModal
-        open
-        customer={null}
-        isSaving={false}
-        error={null}
-        onClose={onClose}
-        onSubmit={vi.fn()}
-      />,
-    );
+    renderModal({
+      open: true,
+      customer: null,
+      isSaving: false,
+      error: null,
+      onClose,
+      onSubmit: vi.fn(),
+    });
 
     const dialog = screen.getByRole('dialog');
     await user.type(within(dialog).getByLabelText('Nombre'), 'Flota que no debe perderse');
@@ -192,16 +197,14 @@ describe('CustomerFormModal', () => {
   it('returns to the form from review without submitting', async () => {
     const user = userEvent.setup();
     const onSubmit = vi.fn();
-    renderWithProviders(
-      <CustomerFormModal
-        open
-        customer={null}
-        isSaving={false}
-        error={null}
-        onClose={vi.fn()}
-        onSubmit={onSubmit}
-      />,
-    );
+    renderModal({
+      open: true,
+      customer: null,
+      isSaving: false,
+      error: null,
+      onClose: vi.fn(),
+      onSubmit,
+    });
 
     await user.type(screen.getByLabelText('Nombre'), 'Flota Este');
     await user.click(screen.getByRole('button', { name: 'Guardar' }));
@@ -211,5 +214,82 @@ describe('CustomerFormModal', () => {
 
     expect(screen.getByLabelText('Nombre')).toHaveValue('Flota Este');
     expect(onSubmit).not.toHaveBeenCalled();
+  });
+
+  it('shows customer type to administrators', () => {
+    renderModal({
+      open: true,
+      customer: null,
+      role: 'ADMINISTRATOR',
+      isSaving: false,
+      error: null,
+      onClose: vi.fn(),
+      onSubmit: vi.fn(),
+    });
+
+    expect(screen.getByLabelText('Tipo de cliente')).toBeVisible();
+    expect(screen.queryByLabelText('Límite de crédito (DOP)')).not.toBeInTheDocument();
+  });
+
+  it('keeps the fiscal identifier disabled until RNC or cédula is selected', () => {
+    renderModal({
+      open: true,
+      customer: null,
+      isSaving: false,
+      error: null,
+      onClose: vi.fn(),
+      onSubmit: vi.fn(),
+    });
+
+    expect(screen.getByLabelText('Identificación fiscal / cédula')).toBeDisabled();
+  });
+
+  it('hides credit controls for sellers', () => {
+    renderModal({
+      open: true,
+      customer: null,
+      role: 'SELLER',
+      isSaving: false,
+      error: null,
+      onClose: vi.fn(),
+      onSubmit: vi.fn(),
+    });
+
+    expect(screen.queryByLabelText('Tipo de cliente')).not.toBeInTheDocument();
+  });
+
+  it('submits CREDIT limit and term for administrators', async () => {
+    const user = userEvent.setup();
+    const onSubmit = vi.fn();
+    renderModal({
+      open: true,
+      customer: null,
+      role: 'ADMINISTRATOR',
+      isSaving: false,
+      error: null,
+      onClose: vi.fn(),
+      onSubmit,
+    });
+
+    await user.type(screen.getByLabelText('Nombre'), 'Flota Crédito');
+    await chooseSelectOption(user, 'Tipo de cliente', 'Crédito');
+    await user.type(screen.getByLabelText('Límite de crédito (DOP)'), '10000.00');
+    await chooseSelectOption(user, 'Plazo de crédito (días)', '60 días');
+    await user.click(screen.getByRole('radio', { name: 'RNC' }));
+    await user.type(screen.getByLabelText('Identificación fiscal / cédula'), '131000001');
+    await user.click(screen.getByRole('button', { name: 'Guardar' }));
+    await user.click(screen.getByRole('button', { name: 'Confirmar creación' }));
+
+    expect(onSubmit).toHaveBeenCalledWith({
+      id: undefined,
+      name: 'Flota Crédito',
+      customerType: 'CREDIT',
+      creditLimitDop: '10000.00',
+      creditTermDays: 60,
+      rnc: '1-31-00000-1',
+      address: '',
+      notes: '',
+      contacts: [],
+    });
   });
 });

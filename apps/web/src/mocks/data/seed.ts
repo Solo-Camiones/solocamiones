@@ -357,12 +357,16 @@ export function createInitialState(): AppState {
     {
       id: 'C0',
       name: 'Cliente Contado',
+      customerType: 'CASH' as const,
       isDefault: true,
       contacts: [],
     },
     {
       id: 'C1',
       name: 'Transportes del Caribe SRL',
+      customerType: 'CREDIT' as const,
+      creditLimitDop: '250000.00',
+      creditTermDays: 45 as const,
       rnc: '131-45678-9',
       contacts: [
         {
@@ -385,6 +389,7 @@ export function createInitialState(): AppState {
     {
       id: 'C2',
       name: 'Logística Norte SA',
+      customerType: 'CASH' as const,
       rnc: '101-98765-4',
       contacts: [
         {
@@ -449,9 +454,12 @@ export function createInitialState(): AppState {
           type: 'ITEM' as const,
           description: 'Turbo Garrett',
           itemId: 'TUR-009',
-          quantity: 1,
-          unitPrice: 1_200,
-          taxable: true,
+           quantity: 1,
+           unitPrice: 1_200,
+           taxable: true,
+           base: 1_016.95,
+           itbis: 183.05,
+           gross: 1_200,
         },
       ],
       payments: [],
@@ -474,9 +482,12 @@ export function createInitialState(): AppState {
           type: 'ITEM' as const,
           description: 'Motor de arranque 24V',
           itemId: 'ARR-002',
-          quantity: 1,
-          unitPrice: 19_500,
-          taxable: true,
+           quantity: 1,
+           unitPrice: 19_500,
+           taxable: true,
+           base: 16_525.42,
+           itbis: 2_974.58,
+           gross: 19_500,
         },
       ],
       payments: [],
@@ -653,6 +664,7 @@ export function createInitialState(): AppState {
     fxAvailable: false,
     fxRateDopPerUsd: 61.5,
     facSeq: 100,
+    cotSeq: 1,
     itemCodeSeq: buildItemCodeSeq(
       categories,
       items.map((item) => item.id),

@@ -8,11 +8,12 @@ import type {
 } from '../../api/contracts/work-orders';
 import type { AppError, Result } from '../../shared/auth/types';
 import { workOrderRepository } from '../../api/repositories';
+import { beginQueryReload } from '../../shared/query/begin-query-reload';
 
 type WorkOrdersQuery =
   | { status: 'loading' }
   | { status: 'error'; error: AppError }
-  | { status: 'ready'; rows: WorkOrderListRow[] };
+  | { status: 'ready'; rows: WorkOrderListRow[]; isRefreshing: boolean };
 
 export function useWorkOrders(tab: WorkOrderListTab) {
   const [reloadToken, setReloadToken] = useState(0);
@@ -22,7 +23,7 @@ export function useWorkOrders(tab: WorkOrderListTab) {
 
   useEffect(() => {
     let cancelled = false;
-    setResult({ status: 'loading' });
+    setResult(beginQueryReload);
 
     workOrderRepository.list(tab).then((response) => {
       if (cancelled) {
@@ -34,7 +35,7 @@ export function useWorkOrders(tab: WorkOrderListTab) {
         return;
       }
 
-      setResult({ status: 'ready', rows: response.value });
+      setResult({ status: 'ready', rows: response.value, isRefreshing: false });
     });
 
     return () => {

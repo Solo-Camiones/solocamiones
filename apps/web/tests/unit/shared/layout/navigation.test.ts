@@ -18,14 +18,13 @@ import { CAPABILITY_PRESETS } from '../../../../src/shared/config/capabilities';
 const prototype = CAPABILITY_PRESETS.prototype;
 
 describe('role navigation', () => {
-  it('shows ten desktop entries to administrators and five to sellers', () => {
+  it('shows ten desktop entries to administrators and four to sellers', () => {
     expect(navItemsForRole('ADMINISTRATOR', prototype)).toHaveLength(10);
     expect(navItemsForRole('SELLER', prototype).map((item) => item.id)).toEqual([
       'dashboard',
       'inventory',
       'sales',
       'customers',
-      'receivables',
     ]);
     expect(navItemsForRole('MECHANIC', prototype)).toEqual([]);
   });
@@ -51,8 +50,8 @@ describe('role navigation', () => {
       'recovery',
     ]);
     const sellerGroups = navGroupsForRole('SELLER', prototype);
-    expect(sellerGroups.map((group) => group.id)).toEqual(['operation', 'finance']);
-    expect(shouldShowNavGroupHeadings(sellerGroups)).toBe(true);
+    expect(sellerGroups.map((group) => group.id)).toEqual(['operation']);
+    expect(shouldShowNavGroupHeadings(sellerGroups)).toBe(false);
     expect(navGroupsForRole('MECHANIC', prototype)).toEqual([]);
 
     const releaseOneAdmin = navGroupsForRole('ADMINISTRATOR', CAPABILITY_PRESETS['release-1']);
@@ -90,6 +89,8 @@ describe('role navigation', () => {
 
   it('enforces administrator-only desktop sections', () => {
     expect(isRouteAllowedForRole('/customers', 'SELLER', prototype)).toBe(true);
+    expect(isRouteAllowedForRole('/receivables', 'SELLER', prototype)).toBe(false);
+    expect(isRouteAllowedForRole('/receivables', 'ADMINISTRATOR', prototype)).toBe(true);
     expect(isRouteAllowedForRole('/work-orders', 'SELLER', prototype)).toBe(false);
     expect(isRouteAllowedForRole('/work-orders/OD-DEMO-060', 'SELLER', prototype)).toBe(false);
     expect(isRouteAllowedForRole('/users', 'SELLER', prototype)).toBe(false);
@@ -110,6 +111,7 @@ describe('role navigation', () => {
     expect(isPathAllowedForRole('/profile', 'MECHANIC', prototype)).toBe(false);
     expect(isPathAllowedForRole('/mechanic/pending', 'ADMINISTRATOR', prototype)).toBe(false);
     expect(isPathAllowedForRole('/users', 'SELLER', prototype)).toBe(false);
+    expect(isPathAllowedForRole('/receivables', 'SELLER', prototype)).toBe(false);
     expect(isPathAllowedForRole('/inventory', 'SELLER', prototype)).toBe(true);
     expect(isPathAllowedForRole('/mechanic/pending', 'MECHANIC', prototype)).toBe(true);
   });
@@ -118,6 +120,7 @@ describe('role navigation', () => {
     expect(postLoginPath('/users', 'MECHANIC', prototype)).toBe('/mechanic');
     expect(postLoginPath('/mechanic/pending', 'ADMINISTRATOR', prototype)).toBe('/dashboard');
     expect(postLoginPath('/users', 'SELLER', prototype)).toBe('/dashboard');
+    expect(postLoginPath('/receivables', 'SELLER', prototype)).toBe('/dashboard');
     expect(postLoginPath('/inventory', 'SELLER', prototype)).toBe('/inventory');
     expect(postLoginPath(null, 'MECHANIC', prototype)).toBe('/mechanic');
   });

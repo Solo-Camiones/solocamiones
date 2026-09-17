@@ -1,6 +1,7 @@
 import type {
   CostProvenance,
   Customer,
+  CustomerType,
   Invoice,
   InvoiceCurrency,
   InvoiceLine,
@@ -31,31 +32,48 @@ export type InvoiceListRecord = Invoice & {
 export type InvoiceViewer = { role: Role };
 
 export type CreateDraftInvoiceRecord = {
+  status?: 'DRAFT' | 'QUOTE_DRAFT';
   customerId: string;
   currency: InvoiceCurrency;
   fiscal: boolean;
+  applyItbis: boolean;
+};
+
+export type IssueQuoteRecord = {
+  id: string;
+  quoteNumber: string;
+  quoteIssuedAt: Date;
+  quoteExpiresAt: Date;
+  customerName: string;
+  customerRnc: string | null;
+  customerPhone: string | null;
+  gross: Prisma.Decimal | string;
+  base: Prisma.Decimal | string;
+  itbis: Prisma.Decimal | string;
+  lines: CompleteInvoiceLineMoneyRecord[];
 };
 
 export type UpdateDraftInvoiceRecord = {
   customerId?: string;
   currency?: InvoiceCurrency;
   fiscal?: boolean;
+  applyItbis?: boolean;
 };
 
 export type ListInvoicesQuery = {
   status?: InvoiceStatus;
   q?: string;
+  dateFrom?: string;
+  dateTo?: string;
   page: number;
   pageSize: number;
 };
 
 export type ListReceivablesQuery = {
   customerId?: string;
-  currency?: InvoiceCurrency;
-  paymentState?: 'PENDING' | 'OVERDUE';
+  invoice?: string;
   page: number;
   pageSize: number;
-  today: Date;
 };
 
 export type ReceivablesCustomerAggregate = {
@@ -126,6 +144,8 @@ export type CompleteInvoiceRecord = {
   customerName: string;
   customerRnc: string | null;
   customerPhone: string | null;
+  snapshotCustomerType: CustomerType;
+  snapshotCreditTermDays: number | null;
   confirmedByUserId: string | null;
   confirmedByName: string | null;
   gross: Prisma.Decimal | string;
@@ -141,6 +161,9 @@ export type InvoiceCustomerView = {
   name: string;
   rnc: string | null;
   isDefault: boolean;
+  customerType: CustomerType;
+  creditTermDays: number | null;
+  creditLimitDop: string | null;
 };
 
 export type InvoiceCustomerSnapshot = {
@@ -149,7 +172,14 @@ export type InvoiceCustomerSnapshot = {
   phone: string | null;
 };
 
-export type PublicPaymentState = 'PENDING' | 'OVERDUE' | 'PAID' | 'PAID_LATE' | 'CANCELLED';
+export type PublicPaymentState =
+  | 'PENDING'
+  | 'PARTIALLY_PAID'
+  | 'OVERDUE'
+  | 'PARTIALLY_PAID_OVERDUE'
+  | 'PAID'
+  | 'PAID_LATE'
+  | 'CANCELLED';
 
 export type PublicInvoicePayment = {
   id: string;
@@ -202,8 +232,6 @@ export type PublicInvoiceLine = {
   gross: string;
   base: string;
   itbis: string;
-  acquisitionCostDop: string | null;
-  costProvenance: CostProvenance | null;
   serviceId: string | null;
   profitability?: PublicProfitability;
 };
@@ -231,8 +259,13 @@ export type PublicInvoice = {
   id: string;
   status: InvoiceStatus;
   number: string | null;
+  quoteNumber: string | null;
+  quoteIssuedAt: string | null;
+  quoteExpiresAt: string | null;
+  quoteExpired: boolean;
   currency: InvoiceCurrency;
   fiscal: boolean;
+  applyItbis: boolean;
   customer: InvoiceCustomerView;
   customerSnapshot: InvoiceCustomerSnapshot | null;
   confirmedAt: string | null;
@@ -241,11 +274,11 @@ export type PublicInvoice = {
   cancelledAt: string | null;
   cancelReason: string | null;
   cancelledByName: string | null;
-  paymentState: PublicPaymentState;
-  payments: PublicInvoicePayment[];
-  paid: string;
-  refunded: string;
-  balance: string;
+  paymentState?: PublicPaymentState;
+  payments?: PublicInvoicePayment[];
+  paid?: string;
+  refunded?: string;
+  balance?: string;
   lines: PublicInvoiceLine[];
   totals: { gross: string; base: string; itbis: string };
   profitability?: PublicProfitability;
@@ -266,15 +299,20 @@ export type PublicInvoiceListItem = {
   id: string;
   status: InvoiceStatus;
   number: string | null;
+  quoteNumber: string | null;
+  quoteIssuedAt: string | null;
+  quoteExpiresAt: string | null;
+  quoteExpired: boolean;
   currency: InvoiceCurrency;
   fiscal: boolean;
+  applyItbis: boolean;
   customer: InvoiceCustomerView;
   customerSnapshot: InvoiceCustomerSnapshot | null;
   confirmedAt: string | null;
   dueDate: string | null;
-  paymentState: PublicPaymentState;
-  payments: PublicInvoiceListPayment[];
-  balance: string;
+  paymentState?: PublicPaymentState;
+  payments?: PublicInvoiceListPayment[];
+  balance?: string;
   totals: { gross: string; base: string; itbis: string };
   profitability?: PublicProfitability;
   /** Stored profitability FX rate. Administrator-only; used to report USD receipts in DOP. */

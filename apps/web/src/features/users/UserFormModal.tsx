@@ -3,6 +3,7 @@ import { useEffect, useState, type FormEvent } from 'react';
 import type { Role } from '../../api/contracts/entities';
 import type { ManagedUser, SaveUserInput } from '../../api/contracts/users';
 import { roleLabel } from '../../shared/auth/policies';
+import { formatDominicanPhone } from '../../shared/domain/phone';
 import { Button, Field, GuardedModal, Info, Input, ReviewSummary, Select, isFormDirty } from '../../shared/ui';
 
 export type UserFormModalProps = {
@@ -58,7 +59,7 @@ export function UserFormModal({
           username: user.username,
           role: user.role,
           active: user.active,
-          phone: user.phone ?? '',
+          phone: formatDominicanPhone(user.phone),
           email: user.email ?? '',
         }
       : EMPTY_FIELDS;
@@ -182,11 +183,16 @@ export function UserFormModal({
         <Field label="Teléfono" htmlFor="user-phone">
           <Input
             id="user-phone"
+            inputMode="numeric"
             value={fields.phone}
             onChange={(event) =>
-              setFields((current) => ({ ...current, phone: event.target.value }))
+              setFields((current) => ({
+                ...current,
+                phone: formatDominicanPhone(event.target.value),
+              }))
             }
             autoComplete="tel"
+            placeholder="809-555-0100"
           />
         </Field>
         <Field label="Correo" htmlFor="user-email">

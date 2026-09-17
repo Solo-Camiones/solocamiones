@@ -9,6 +9,9 @@ const snapshot = {
   address: null,
   notes: null,
   isDefault: false,
+  customerType: 'CREDIT' as const,
+  creditLimitDop: '10000.00',
+  creditTermDays: 60,
   contacts: [
     { name: 'Ana', phone: '8090000000', email: null, title: null, isPrimary: true },
   ],
@@ -36,5 +39,19 @@ describe('customer history validation', () => {
         actor: { actorType: 'SYSTEM', actorUserId: null },
       }).success,
     ).toBe(false);
+  });
+
+  it('accepts CUSTOMER_UPDATED before/after snapshots with credit fields', () => {
+    const event = {
+      actor: { actorType: 'USER' as const, actorUserId: id },
+      subjectType: 'CUSTOMER' as const,
+      subjectId: id,
+      eventType: 'CUSTOMER_UPDATED' as const,
+      payload: {
+        before: { ...snapshot, creditLimitDop: '5000.00' },
+        after: snapshot,
+      },
+    };
+    expect(historyEventSchema.parse(event)).toEqual(event);
   });
 });

@@ -13,6 +13,7 @@ const customers = new CustomerRepository();
 const catalog = new CatalogRepository();
 
 async function cleanupSales() {
+  await prisma.invoicePayment.deleteMany();
   await prisma.invoice.deleteMany();
   await prisma.mechanicalService.deleteMany();
   await prisma.invoiceSequence.update({
@@ -33,11 +34,13 @@ describe('SalesRepository (PostgreSQL)', () => {
       customerId: customer!.id,
       currency: InvoiceCurrency.DOP,
       fiscal: false,
+      applyItbis: false,
     });
     const usd = await sales.createDraft({
       customerId: customer!.id,
       currency: InvoiceCurrency.USD,
       fiscal: true,
+      applyItbis: false,
     });
 
     expect(dop).toMatchObject({
@@ -74,6 +77,7 @@ describe('SalesRepository (PostgreSQL)', () => {
       customerId: customer!.id,
       currency: InvoiceCurrency.DOP,
       fiscal: false,
+      applyItbis: false,
     });
     const withLine = await sales.addLine({
       invoiceId: draft.id,
@@ -97,6 +101,8 @@ describe('SalesRepository (PostgreSQL)', () => {
         customerPhone: null,
         confirmedByUserId: null,
         confirmedByName: null,
+        snapshotCustomerType: 'CASH',
+        snapshotCreditTermDays: null,
         gross: '118.00',
         base: '118.00',
         itbis: '0.00',
@@ -130,6 +136,7 @@ describe('SalesRepository (PostgreSQL)', () => {
       customerId: customer!.id,
       currency: InvoiceCurrency.DOP,
       fiscal: false,
+      applyItbis: false,
     });
 
     const withGeneric = await sales.addLine({
@@ -193,6 +200,7 @@ describe('SalesRepository (PostgreSQL)', () => {
       customerId: customer!.id,
       currency: InvoiceCurrency.DOP,
       fiscal: false,
+      applyItbis: false,
     });
 
     await expect(
@@ -238,6 +246,7 @@ describe('SalesRepository (PostgreSQL)', () => {
       customerId: customer!.id,
       currency: InvoiceCurrency.DOP,
       fiscal: false,
+      applyItbis: false,
     });
 
     await expect(
@@ -258,6 +267,7 @@ describe('SalesRepository (PostgreSQL)', () => {
       customerId: customer!.id,
       currency: InvoiceCurrency.DOP,
       fiscal: false,
+      applyItbis: false,
     });
 
     await expect(
@@ -268,5 +278,142 @@ describe('SalesRepository (PostgreSQL)', () => {
         unitPrice: '100',
       }),
     ).rejects.toThrow(/InvoiceLine_serviceId_required_check/);
+  });
+
+  // Calendar days for list filters are Santo Domingo (-04:00), not UTC midnight.
+  const FILTER_DAY = '2026-03-10';
+  const FILTER_NEXT_DAY = '2026-03-11';
+  const FILTER_RANGE = { page: 1, pageSize: 20, dateFrom: FILTER_DAY, dateTo: FILTER_DAY };
+  const START_OF_FILTER_DAY = new Date(`${FILTER_DAY}T00:00:00-04:00`);
+  const END_OF_FILTER_DAY = new Date(`${FILTER_DAY}T23:59:59.999-04:00`);
+  const END_OF_PREVIOUS_DAY = new Date('2026-03-09T23:59:59.999-04:00');
+
+  async function createEmptyDraft(customerId: string, status?: 'DRAFT' | 'QUOTE_DRAFT') {
+    return sales.createDraft({
+      customerId,
+      currency: InvoiceCurrency.DOP,
+      fiscal: false,
+      applyItbis: false,
+      ...(status ? { status } : {}),
+    });
+  }
+
+  async function completeAt(input: {
+    id: string;
+    customerName: string;
+    confirmedAt: Date;
+    number: string;
+  }) {
+    return sales.completeInvoice({
+      id: input.id,
+      number: input.number,
+      confirmedAt: input.confirmedAt,
+      dueDate: new Date('2026-04-10T00:00:00.000Z'),
+      customerName: input.customerName,
+      customerRnc: null,
+      customerPhone: null,
+      confirmedByUserId: null,
+      confirmedByName: null,
+      snapshotCustomerType: 'CASH',
+      snapshotCreditTermDays: null,
+      gross: '0.00',
+      base: '0.00',
+      itbis: '0.00',
+      lines: [],
+    });
+  }
+
+  it('lists completed invoices by Santo Domingo confirmedAt, including midnight bounds', async () => {
+    const customer = await customers.findDefault();
+    const includedStart = await createEmptyDraft(customer!.id);
+    const includedEnd = await createEmptyDraft(customer!.id);
+    const previousDay = await createEmptyDraft(customer!.id);
+
+    await completeAt({
+      id: includedStart.id,
+      customerName: customer!.name,
+      confirmedAt: START_OF_FILTER_DAY,
+      number: 'FAC-DATE-001',
+    });
+    await completeAt({
+      id: includedEnd.id,
+      customerName: customer!.name,
+      confirmedAt: END_OF_FILTER_DAY,
+      number: 'FAC-DATE-002',
+    });
+    await completeAt({
+      id: previousDay.id,
+      customerName: customer!.name,
+      confirmedAt: END_OF_PREVIOUS_DAY,
+      number: 'FAC-DATE-003',
+    });
+
+    const page = await sales.list(FILTER_RANGE);
+    const ids = page.items.map((item) => item.id);
+    expect(ids).toEqual(expect.arrayContaining([includedStart.id, includedEnd.id]));
+    expect(ids).not.toContain(previousDay.id);
+    expect(page.total).toBe(2);
+  });
+
+  it('uses document-stage dates on mixed ALL lists so completed createdAt cannot leak in', async () => {
+    const customer = await customers.findDefault();
+    const draftInRange = await createEmptyDraft(customer!.id);
+    const completedOutside = await createEmptyDraft(customer!.id);
+
+    await prisma.invoice.update({
+      where: { id: draftInRange.id },
+      data: { createdAt: START_OF_FILTER_DAY },
+    });
+    await prisma.invoice.update({
+      where: { id: completedOutside.id },
+      data: { createdAt: START_OF_FILTER_DAY },
+    });
+    await completeAt({
+      id: completedOutside.id,
+      customerName: customer!.name,
+      confirmedAt: END_OF_PREVIOUS_DAY,
+      number: 'FAC-DATE-010',
+    });
+
+    const page = await sales.list(FILTER_RANGE);
+    const ids = page.items.map((item) => item.id);
+    expect(ids).toContain(draftInRange.id);
+    expect(ids).not.toContain(completedOutside.id);
+    expect(page.total).toBe(1);
+  });
+
+  it('matches QUOTE_ISSUED on quoteIssuedAt instead of the draft createdAt', async () => {
+    const customer = await customers.findDefault();
+    const quote = await createEmptyDraft(customer!.id, 'QUOTE_DRAFT');
+    await prisma.invoice.update({
+      where: { id: quote.id },
+      data: { createdAt: START_OF_FILTER_DAY },
+    });
+    await sales.issueQuote({
+      id: quote.id,
+      quoteNumber: 'COT-000001',
+      quoteIssuedAt: new Date(`${FILTER_NEXT_DAY}T08:00:00-04:00`),
+      quoteExpiresAt: new Date(`${FILTER_NEXT_DAY}T23:59:59.999-04:00`),
+      customerName: customer!.name,
+      customerRnc: null,
+      customerPhone: null,
+      gross: '0.00',
+      base: '0.00',
+      itbis: '0.00',
+      lines: [],
+    });
+
+    const onDraftDay = await sales.list(FILTER_RANGE);
+    expect(onDraftDay.items.map((item) => item.id)).not.toContain(quote.id);
+    expect(onDraftDay.total).toBe(0);
+
+    const onIssueDay = await sales.list({
+      page: 1,
+      pageSize: 20,
+      dateFrom: FILTER_NEXT_DAY,
+      dateTo: FILTER_NEXT_DAY,
+    });
+    expect(onIssueDay.items.map((item) => item.id)).toContain(quote.id);
+    expect(onIssueDay.total).toBe(1);
   });
 });

@@ -6,9 +6,17 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { CustomersPage } from '../../../src/features/customers/CustomersPage';
 import { resetMockState } from '../../../src/mocks/state';
-import { renderWithProviders } from '../../support/render';
+import { createAuthValue, renderWithProviders } from '../../support/render';
+import { chooseSelectOption } from '../../support/select-menu';
 import { signInAs } from '../../support/session';
 import '../../support/dom';
+
+function renderCustomersPage(route = '/customers') {
+  return renderWithProviders(<CustomersPage />, {
+    route,
+    auth: createAuthValue('SELLER'),
+  });
+}
 
 describe('CustomersPage', () => {
   beforeEach(() => {
@@ -22,7 +30,7 @@ describe('CustomersPage', () => {
 
   it('loads the customer directory and filters by name or RNC', async () => {
     const user = userEvent.setup();
-    renderWithProviders(<CustomersPage />, { route: '/customers' });
+    renderCustomersPage();
 
     expect(await screen.findByText('Transportes del Caribe SRL')).toBeVisible();
     expect(screen.queryByRole('columnheader', { name: 'Facturas' })).not.toBeInTheDocument();
@@ -34,7 +42,7 @@ describe('CustomersPage', () => {
 
   it('creates a customer and refreshes the directory', async () => {
     const user = userEvent.setup();
-    renderWithProviders(<CustomersPage />, { route: '/customers' });
+    renderCustomersPage();
     await screen.findByText('Transportes del Caribe SRL');
 
     await user.click(screen.getByRole('button', { name: 'Nuevo cliente' }));
@@ -48,7 +56,7 @@ describe('CustomersPage', () => {
 
   it('expands extra contacts without opening the editor', async () => {
     const user = userEvent.setup();
-    renderWithProviders(<CustomersPage />, { route: '/customers' });
+    renderCustomersPage();
 
     const customer = await screen.findByText('Transportes del Caribe SRL');
     const row = customer.closest('tr');
@@ -73,8 +81,37 @@ describe('CustomersPage', () => {
     expect(screen.queryByText('Carlos Peña')).not.toBeInTheDocument();
   });
 
+  it('shows type chips and filters by customer type', async () => {
+    const user = userEvent.setup();
+    renderCustomersPage();
+
+    expect(await screen.findByText('Transportes del Caribe SRL')).toBeVisible();
+    expect(screen.getAllByText('Crédito').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Contado').length).toBeGreaterThan(0);
+
+    await chooseSelectOption(user, 'Tipo de cliente', 'Crédito');
+
+    expect(await screen.findByText('Transportes del Caribe SRL')).toBeVisible();
+    expect(screen.queryByText('Logística Norte SA')).not.toBeInTheDocument();
+  });
+
+  it('disables edit for CREDIT customers when signed in as seller', async () => {
+    renderCustomersPage();
+
+    const creditCustomer = await screen.findByText('Transportes del Caribe SRL');
+    const row = creditCustomer.closest('tr');
+    expect(row).not.toBeNull();
+    const editButton = within(row!).getByRole('button', { name: 'Editar' });
+
+    expect(editButton).toBeDisabled();
+    expect(editButton).toHaveAttribute(
+      'title',
+      'Solo el Administrador puede editar clientes a crédito',
+    );
+  });
+
   it('keeps Cliente Contado visible but without an edit action', async () => {
-    renderWithProviders(<CustomersPage />, { route: '/customers' });
+    renderCustomersPage();
 
     const cashCustomer = await screen.findByText('Cliente Contado');
     const row = cashCustomer.closest('tr');

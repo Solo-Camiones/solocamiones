@@ -13,7 +13,7 @@ import { disconnectPrisma, prisma } from '../../../src/infrastructure/database/i
 import { createTestApp } from '../../helpers/app.js';
 import { successfulUsdDopRate, staticFxRateProvider } from '../../helpers/fx.js';
 import { clearTestHistory } from '../../helpers/history.js';
-import { assignNamedCustomerForCredit } from '../../helpers/sales.js';
+import { assignNamedCustomerForCredit, cashSaleFullPayment, seedKnownLineCost } from '../../helpers/sales.js';
 
 const users = new UserRepository();
 const PASSWORD = 'personal-password';
@@ -38,6 +38,7 @@ async function cleanup() {
   vi.restoreAllMocks();
   await resetLoginRateLimit();
   await clearTestHistory();
+  await prisma.invoicePayment.deleteMany();
   await prisma.invoice.deleteMany();
   await prisma.invoiceSequence.update({
     where: { name: 'FAC' },
@@ -65,19 +66,18 @@ describe('M15 FX adapter + pending (COST-003 USD)', () => {
       .post(ROOT)
       .set(CSRF)
       .send({ currency: 'USD', customerId: identified.id, fiscal: false });
-    expect(
-      (
-        await admin.agent.post(`${ROOT}/${draft.body.id}/lines`).set(CSRF).send({
-          type: 'GENERIC',
-          description: 'Filtro',
-          unitPrice: '118.00',
-          costProvenance: 'ACTUAL',
-          acquisitionCostDop: '80.00',
-        })
-      ).status,
-    ).toBe(201);
+    const priced = await admin.agent.post(`${ROOT}/${draft.body.id}/lines`).set(CSRF).send({
+      type: 'GENERIC',
+      description: 'Filtro',
+      unitPrice: '118.00',
+    });
+    expect(priced.status).toBe(201);
+    await seedKnownLineCost(priced.body.lines[0].id, 'ACTUAL', '80.00');
 
-    const confirmed = await admin.agent.post(`${ROOT}/${draft.body.id}/confirm`).set(CSRF).send({});
+    const confirmed = await admin.agent
+      .post(`${ROOT}/${draft.body.id}/confirm`)
+      .set(CSRF)
+      .send(cashSaleFullPayment('118.00'));
     expect(confirmed.status).toBe(200);
     expect(confirmed.body.number).toMatch(/^FAC-\d{6}$/);
     expect(confirmed.body.profitability).toMatchObject({
@@ -150,22 +150,17 @@ describe('M15 FX adapter + pending (COST-003 USD)', () => {
       });
       const admin = await fixture(request.agent(app));
       const draft = await admin.agent.post(ROOT).set(CSRF).send({ currency: 'USD' });
-      expect(
-        (
-          await admin.agent.post(`${ROOT}/${draft.body.id}/lines`).set(CSRF).send({
-            type: 'GENERIC',
-            description: 'Filtro',
-            unitPrice: '118.00',
-            costProvenance: 'ACTUAL',
-            acquisitionCostDop: '80.00',
-          })
-        ).status,
-      ).toBe(201);
+      const priced = await admin.agent.post(`${ROOT}/${draft.body.id}/lines`).set(CSRF).send({
+        type: 'GENERIC',
+        description: 'Filtro',
+        unitPrice: '118.00',
+      });
+      expect(priced.status).toBe(201);
       await assignNamedCustomerForCredit(admin.agent, draft.body.id);
       const confirmed = await admin.agent
         .post(`${ROOT}/${draft.body.id}/confirm`)
         .set(CSRF)
-        .send({});
+        .send(cashSaleFullPayment('118.00'));
       expect(confirmed.status).toBe(200);
       expect(confirmed.body.number).toMatch(/^FAC-\d{6}$/);
       expect(confirmed.body.status).toBe('COMPLETED');
@@ -202,12 +197,13 @@ describe('M15 FX adapter + pending (COST-003 USD)', () => {
       type: 'GENERIC',
       description: 'Filtro',
       unitPrice: '118.00',
-      costProvenance: 'ACTUAL',
-      acquisitionCostDop: '80.00',
     });
     await assignNamedCustomerForCredit(admin.agent, draft.body.id);
 
-    const confirmed = await admin.agent.post(`${ROOT}/${draft.body.id}/confirm`).set(CSRF).send({});
+    const confirmed = await admin.agent
+      .post(`${ROOT}/${draft.body.id}/confirm`)
+      .set(CSRF)
+      .send(cashSaleFullPayment('118.00'));
 
     expect(confirmed.status).toBe(200);
     expect(confirmed.body).toMatchObject({
@@ -235,17 +231,13 @@ describe('M15 FX adapter + pending (COST-003 USD)', () => {
     const app = createTestApp({ fxRateProvider: { getUsdToDopRate } });
     const admin = await fixture(request.agent(app));
     const draft = await admin.agent.post(ROOT).set(CSRF).send({});
-    expect(
-      (
-        await admin.agent.post(`${ROOT}/${draft.body.id}/lines`).set(CSRF).send({
-          type: 'GENERIC',
-          description: 'Filtro',
-          unitPrice: '18000.00',
-          costProvenance: 'ACTUAL',
-          acquisitionCostDop: '12300.00',
-        })
-      ).status,
-    ).toBe(201);
+    const priced = await admin.agent.post(`${ROOT}/${draft.body.id}/lines`).set(CSRF).send({
+      type: 'GENERIC',
+      description: 'Filtro',
+      unitPrice: '18000.00',
+    });
+    expect(priced.status).toBe(201);
+    await seedKnownLineCost(priced.body.lines[0].id, 'ACTUAL', '12300.00');
     await assignNamedCustomerForCredit(admin.agent, draft.body.id);
     const confirmed = await admin.agent.post(`${ROOT}/${draft.body.id}/confirm`).set(CSRF).send({});
     expect(confirmed.status).toBe(200);
@@ -264,10 +256,12 @@ describe('M15 FX adapter + pending (COST-003 USD)', () => {
       type: 'GENERIC',
       description: 'Filtro',
       unitPrice: '100.00',
-      costProvenance: 'UNKNOWN',
     });
     await assignNamedCustomerForCredit(admin.agent, draft.body.id);
-    await admin.agent.post(`${ROOT}/${draft.body.id}/confirm`).set(CSRF).send({});
+    await admin.agent
+      .post(`${ROOT}/${draft.body.id}/confirm`)
+      .set(CSRF)
+      .send(cashSaleFullPayment('100.00'));
 
     const recorded = await admin.agent
       .post(`/api/profitability/${draft.body.id}/manual-gross-profit`)

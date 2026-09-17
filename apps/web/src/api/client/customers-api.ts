@@ -1,5 +1,5 @@
 import type { CustomerListRow, SaveCustomerContactInput, SaveCustomerInput } from '../contracts/customers';
-import type { Customer, CustomerContact } from '../contracts/entities';
+import type { CreditTermDays, Customer, CustomerContact, CustomerType } from '../contracts/entities';
 import { LIST_PAGE_SIZE, type ListPage } from '../contracts/pagination';
 import { err, ok, type Result } from '../../shared/auth/types';
 import { httpClient, toAppError } from './http-client';
@@ -19,6 +19,9 @@ type ApiCustomerContact = {
 type ApiCustomer = {
   id: string;
   name: string;
+  customerType: CustomerType;
+  creditLimitDop: string | null;
+  creditTermDays: CreditTermDays | null;
   rnc: string | null;
   address: string | null;
   notes: string | null;
@@ -55,6 +58,9 @@ function toCustomer(customer: ApiCustomer): Customer {
   return {
     id: customer.id,
     name: customer.name,
+    customerType: customer.customerType,
+    creditLimitDop: optionalText(customer.creditLimitDop),
+    creditTermDays: customer.creditTermDays ?? undefined,
     rnc: optionalText(customer.rnc),
     address: optionalText(customer.address),
     notes: optionalText(customer.notes),
@@ -63,13 +69,18 @@ function toCustomer(customer: ApiCustomer): Customer {
   };
 }
 
-function customersCollectionPath(query: string | undefined, page: number): string {
+function customersCollectionPath(
+  query: string | undefined,
+  page: number,
+  customerType?: CustomerType,
+): string {
   const params = new URLSearchParams({
     page: String(page),
     pageSize: String(LIST_PAGE_SIZE),
   });
   const normalized = query?.trim();
   if (normalized) params.set('q', normalized);
+  if (customerType) params.set('customerType', customerType);
   return `${CUSTOMERS_PATH}?${params.toString()}`;
 }
 
@@ -104,6 +115,9 @@ function toContactBody(contact: SaveCustomerContactInput) {
 function toCustomerBody(input: SaveCustomerInput) {
   return {
     name: input.name,
+    ...(input.customerType ? { customerType: input.customerType } : {}),
+    ...(input.creditLimitDop !== undefined ? { creditLimitDop: input.creditLimitDop } : {}),
+    ...(input.creditTermDays !== undefined ? { creditTermDays: input.creditTermDays } : {}),
     rnc: input.rnc,
     address: input.address,
     notes: input.notes,
@@ -118,9 +132,12 @@ export function listCustomersWithHttp(): Promise<Result<CustomerListRow[]>> {
 export function searchCustomersWithHttp(
   query: string,
   page = 1,
+  customerType?: CustomerType,
 ): Promise<Result<ListPage<CustomerListRow>>> {
   return request(async () => {
-    const response = await httpClient<Page<ApiCustomer>>(customersCollectionPath(query, page));
+    const response = await httpClient<Page<ApiCustomer>>(
+      customersCollectionPath(query, page, customerType),
+    );
     return {
       items: response.items.map(toCustomer),
       total: response.total,

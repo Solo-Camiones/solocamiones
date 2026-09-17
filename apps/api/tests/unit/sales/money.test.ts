@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 
 import { AppError } from '../../../src/infrastructure/errors/app-error.js';
 import {
-  ITBIS_INCLUDED_RATE,
+  ITBIS_RATE,
   calculateLineMoney,
   calculateLineProfitDop,
   calculateLineProfitUsdReportingDop,
@@ -28,9 +28,9 @@ function expectMoney(actual: Prisma.Decimal, expected: string): void {
   expect(actual.toFixed(2)).toBe(expected);
 }
 
-describe('ITBIS included rate', () => {
+describe('ITBIS rate', () => {
   it('is the fixed 18% Decimal, not a scattered 0.18 number', () => {
-    expect(ITBIS_INCLUDED_RATE.equals(money('0.18'))).toBe(true);
+    expect(ITBIS_RATE.equals(money('0.18'))).toBe(true);
   });
 });
 
@@ -65,37 +65,43 @@ describe('isTaxableLineType', () => {
 });
 
 describe('calculateLineMoney', () => {
-  it('extracts included 18% ITBIS from fiscal GENERIC 118 → base 100, itbis 18', () => {
-    const line = calculateLineMoney({ type: 'GENERIC', unitPrice: '118', fiscal: true });
+  it('adds 18% ITBIS on tax-exclusive GENERIC 118 → base 118, itbis 21.24, gross 139.24', () => {
+    const line = calculateLineMoney({ type: 'GENERIC', unitPrice: '118', applyItbis: true });
 
     expect(line.taxable).toBe(true);
-    expectMoney(line.gross, '118.00');
-    expectMoney(line.base, '100.00');
-    expectMoney(line.itbis, '18.00');
+    expectMoney(line.gross, '139.24');
+    expectMoney(line.base, '118.00');
+    expectMoney(line.itbis, '21.24');
     expect(line.base.plus(line.itbis).equals(line.gross)).toBe(true);
   });
 
-  it('extracts included 18% from fiscal EXTERNAL 19.50 with per-line HALF_UP', () => {
-    const line = calculateLineMoney({ type: 'EXTERNAL', unitPrice: '19.50', fiscal: true });
+  it('adds 18% from EXTERNAL 19.50 with per-line HALF_UP', () => {
+    const line = calculateLineMoney({ type: 'EXTERNAL', unitPrice: '19.50', applyItbis: true });
 
-    expectMoney(line.gross, '19.50');
-    expectMoney(line.base, '16.53');
-    expectMoney(line.itbis, '2.97');
+    expectMoney(line.gross, '23.01');
+    expectMoney(line.base, '19.50');
+    expectMoney(line.itbis, '3.51');
     expect(line.base.plus(line.itbis).equals(line.gross)).toBe(true);
   });
 
   it('treats ITEM and QTY as taxable merchandise when passed in', () => {
-    const item = calculateLineMoney({ type: 'ITEM', unitPrice: '118', quantity: '1', fiscal: true });
-    const qty = calculateLineMoney({ type: 'QTY', unitPrice: '59', quantity: '2', fiscal: true });
+    const item = calculateLineMoney({
+      type: 'ITEM',
+      unitPrice: '118',
+      quantity: '1',
+      applyItbis: true,
+    });
+    const qty = calculateLineMoney({ type: 'QTY', unitPrice: '59', quantity: '2', applyItbis: true });
 
-    expectMoney(item.itbis, '18.00');
-    expectMoney(qty.gross, '118.00');
-    expectMoney(qty.itbis, '18.00');
+    expectMoney(item.itbis, '21.24');
+    expectMoney(qty.base, '118.00');
+    expectMoney(qty.itbis, '21.24');
+    expectMoney(qty.gross, '139.24');
   });
 
-  it('keeps SERVICE and DELIVERY at ITBIS 0 even when fiscal', () => {
-    const service = calculateLineMoney({ type: 'SERVICE', unitPrice: '500', fiscal: true });
-    const delivery = calculateLineMoney({ type: 'DELIVERY', unitPrice: '150', fiscal: true });
+  it('keeps SERVICE and DELIVERY at ITBIS 0 even when applyItbis is on', () => {
+    const service = calculateLineMoney({ type: 'SERVICE', unitPrice: '500', applyItbis: true });
+    const delivery = calculateLineMoney({ type: 'DELIVERY', unitPrice: '150', applyItbis: true });
 
     expect(service.taxable).toBe(false);
     expectMoney(service.gross, '500.00');
@@ -105,9 +111,9 @@ describe('calculateLineMoney', () => {
     expectMoney(delivery.base, '150.00');
   });
 
-  it('does not extract ITBIS from non-fiscal GENERIC or EXTERNAL', () => {
-    const generic = calculateLineMoney({ type: 'GENERIC', unitPrice: '118', fiscal: false });
-    const external = calculateLineMoney({ type: 'EXTERNAL', unitPrice: '19.50', fiscal: false });
+  it('does not add ITBIS when applyItbis is off', () => {
+    const generic = calculateLineMoney({ type: 'GENERIC', unitPrice: '118', applyItbis: false });
+    const external = calculateLineMoney({ type: 'EXTERNAL', unitPrice: '19.50', applyItbis: false });
 
     expectMoney(generic.itbis, '0.00');
     expectMoney(generic.base, '118.00');
@@ -117,7 +123,7 @@ describe('calculateLineMoney', () => {
   });
 
   it('allows free delivery as numeric 0', () => {
-    const delivery = calculateLineMoney({ type: 'DELIVERY', unitPrice: '0', fiscal: true });
+    const delivery = calculateLineMoney({ type: 'DELIVERY', unitPrice: '0', applyItbis: true });
 
     expectMoney(delivery.gross, '0.00');
     expectMoney(delivery.itbis, '0.00');
@@ -125,17 +131,17 @@ describe('calculateLineMoney', () => {
 
   it('rejects negative prices and quantities', () => {
     expect(() =>
-      calculateLineMoney({ type: 'GENERIC', unitPrice: '-1', fiscal: true }),
+      calculateLineMoney({ type: 'GENERIC', unitPrice: '-1', applyItbis: true }),
     ).toThrow(AppError);
     expect(() =>
-      calculateLineMoney({ type: 'DELIVERY', unitPrice: '-0.01', fiscal: false }),
+      calculateLineMoney({ type: 'DELIVERY', unitPrice: '-0.01', applyItbis: false }),
     ).toThrow(AppError);
     expect(() =>
-      calculateLineMoney({ type: 'GENERIC', unitPrice: '10', quantity: '-1', fiscal: true }),
+      calculateLineMoney({ type: 'GENERIC', unitPrice: '10', quantity: '-1', applyItbis: true }),
     ).toThrow(AppError);
 
     try {
-      calculateLineMoney({ type: 'GENERIC', unitPrice: '-10', fiscal: false });
+      calculateLineMoney({ type: 'GENERIC', unitPrice: '-10', applyItbis: false });
     } catch (error) {
       expect(error).toBeInstanceOf(AppError);
       expect((error as AppError).code).toBe('VALIDATION');
@@ -144,44 +150,44 @@ describe('calculateLineMoney', () => {
 
   it('rejects non-numeric prices and unknown line types', () => {
     expect(() =>
-      calculateLineMoney({ type: 'GENERIC', unitPrice: 'N/A', fiscal: true }),
+      calculateLineMoney({ type: 'GENERIC', unitPrice: 'N/A', applyItbis: true }),
     ).toThrow(AppError);
     expect(() =>
-      calculateLineMoney({ type: 'GENERIC', unitPrice: '', fiscal: true }),
+      calculateLineMoney({ type: 'GENERIC', unitPrice: '', applyItbis: true }),
     ).toThrow(AppError);
     expect(() =>
       calculateLineMoney({
         type: 'GENERIC',
         unitPrice: Number.NaN as unknown as string,
-        fiscal: true,
+        applyItbis: true,
       }),
     ).toThrow(AppError);
     expect(() =>
       calculateLineMoney({
         type: 'UNKNOWN' as 'GENERIC',
         unitPrice: '10',
-        fiscal: true,
+        applyItbis: true,
       }),
     ).toThrow(AppError);
   });
 });
 
 describe('sumInvoiceMoney', () => {
-  it('totals equal the sum of per-line rounded ITBIS, not one extraction from combined gross', () => {
-    const first = calculateLineMoney({ type: 'GENERIC', unitPrice: '19.50', fiscal: true });
-    const second = calculateLineMoney({ type: 'EXTERNAL', unitPrice: '19.50', fiscal: true });
+  it('totals equal the sum of per-line rounded ITBIS, not 18% of the combined base', () => {
+    const first = calculateLineMoney({ type: 'GENERIC', unitPrice: '10.01', applyItbis: true });
+    const second = calculateLineMoney({ type: 'EXTERNAL', unitPrice: '10.02', applyItbis: true });
     const totals = sumInvoiceMoney([first, second]);
 
-    expectMoney(first.itbis, '2.97');
-    expectMoney(second.itbis, '2.97');
-    expectMoney(totals.gross, '39.00');
-    expectMoney(totals.itbis, '5.94');
-    expectMoney(totals.base, '33.06');
+    expectMoney(first.itbis, '1.80');
+    expectMoney(second.itbis, '1.80');
+    expectMoney(totals.base, '20.03');
+    expectMoney(totals.itbis, '3.60');
+    expectMoney(totals.gross, '23.63');
     expect(totals.itbis.equals(first.itbis.plus(second.itbis))).toBe(true);
 
-    const combinedGrossItbis = roundMoney(money('39.00').minus(roundMoney(money('39.00').div('1.18'))));
-    expect(combinedGrossItbis.toFixed(2)).toBe('5.95');
-    expect(totals.itbis.equals(combinedGrossItbis)).toBe(false);
+    const combinedBaseItbis = roundMoney(money('20.03').times('0.18'));
+    expect(combinedBaseItbis.toFixed(2)).toBe('3.61');
+    expect(totals.itbis.equals(combinedBaseItbis)).toBe(false);
   });
 });
 
@@ -205,6 +211,24 @@ describe('normalizeAcquisitionCost', () => {
 });
 
 describe('calculateLineProfitDop', () => {
+  it('excludes added ITBIS from profit and margin', () => {
+    const taxed = calculateLineProfitDop(
+      {
+        type: 'GENERIC',
+        unitPrice: '118.00',
+        quantity: '1',
+        base: money('118.00'),
+        gross: money('139.24'),
+        acquisitionCostDop: money('80.00'),
+        costProvenance: 'ACTUAL',
+      },
+      true,
+    );
+
+    expectMoney(taxed.profitDop as Prisma.Decimal, '38.00');
+    expectMoney(taxed.margin as Prisma.Decimal, '32.20');
+  });
+
   it('subtracts actual or estimated DOP cost from selling price and never treats UNKNOWN as zero', () => {
     const actual = calculateLineProfitDop(
       {
@@ -311,20 +335,20 @@ describe('USD profitability COST-003', () => {
     const pending = calculatedCompletedProfitability({
       status: 'COMPLETED',
       currency: 'USD',
-      fiscal: false,
+      applyItbis: false,
       lines: [generic],
     });
     const withRate = calculatedCompletedProfitability({
       status: 'COMPLETED',
       currency: 'USD',
-      fiscal: false,
+      applyItbis: false,
       lines: [generic],
       exchangeRateDopPerUsd: money('61.50'),
     });
     const dop = calculatedCompletedProfitability({
       status: 'COMPLETED',
       currency: 'DOP',
-      fiscal: false,
+      applyItbis: false,
       lines: [generic],
       exchangeRateDopPerUsd: money('61.50'),
     });
@@ -342,7 +366,7 @@ describe('USD profitability COST-003', () => {
     const unknown = calculatedCompletedProfitability({
       status: 'COMPLETED',
       currency: 'USD',
-      fiscal: false,
+      applyItbis: false,
       lines: [
         {
           type: 'GENERIC',

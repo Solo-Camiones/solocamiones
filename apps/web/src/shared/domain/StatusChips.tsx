@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import type { PaymentState } from '../../api/contracts/entities';
+import type { InvoiceStatus, PaymentState } from '../../api/contracts/entities';
 
 import { UX_TERMS } from '../copy/glossary';
 import { Chip } from '../ui';
@@ -252,26 +252,31 @@ export function InventoryStatusCluster({
   );
 }
 
-export function InvoiceStatusChip({ status }: { status: 'DRAFT' | 'COMPLETED' | 'CANCELLED' }) {
+export function InvoiceStatusChip({ status }: { status: InvoiceStatus }) {
   if (status === 'DRAFT') {
     return <Chip tone="amber">Borrador</Chip>;
   }
   if (status === 'CANCELLED') {
     return <Chip tone="danger">Cancelada</Chip>;
   }
+  if (status === 'QUOTE_DRAFT') return <Chip tone="amber">Cotización borrador</Chip>;
+  if (status === 'QUOTE_ISSUED') return <Chip tone="brand">Cotización emitida</Chip>;
   return <Chip tone="success">Completada</Chip>;
 }
 
 export function PaymentChip({ state }: { state: PaymentState }) {
-  if (state === 'CANCELLED') return <Chip tone="danger">Cancelada</Chip>;
+  if (state === 'CANCELLED') return <Chip tone="neutral">Cancelada</Chip>;
   if (state === 'OVERDUE') return <Chip tone="danger">Vencida</Chip>;
+  if (state === 'PARTIALLY_PAID_OVERDUE') {
+    return <Chip tone="orange">Abonada vencida</Chip>;
+  }
   if (state === 'PAID_LATE') return <Chip tone="amber">Pagada con retraso</Chip>;
-  if (state === 'PENDING') return <Chip tone="amber">Pendiente</Chip>;
+  if (state === 'PENDING') return <Chip tone="brand">Pendiente</Chip>;
   if (state === 'PAID') {
     return <Chip tone="success">Pagada</Chip>;
   }
   if (state === 'PARTIALLY_PAID') {
-    return <Chip tone="amber">Pago parcial</Chip>;
+    return <Chip tone="violet">Abonado</Chip>;
   }
   return <Chip tone="danger">Sin pagar</Chip>;
 }

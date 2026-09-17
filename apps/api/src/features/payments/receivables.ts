@@ -26,12 +26,18 @@ export function moneyString(value: Prisma.Decimal): string {
   return value.toFixed(MONEY_DECIMAL_PLACES);
 }
 
-export function openReceivables(invoices: InvoiceListRecord[]): OpenReceivable[] {
+export function openReceivables(invoices: InvoiceListRecord[], now = new Date()): OpenReceivable[] {
   const open: OpenReceivable[] = [];
   for (const invoice of invoices) {
-    const summary = summarizePayments(invoice);
+    const summary = summarizePayments(invoice, now);
     if (!summary.balance.greaterThan(0)) continue;
-    if (summary.state !== 'PENDING' && summary.state !== 'OVERDUE') continue;
+    if (
+      summary.state !== 'PENDING' &&
+      summary.state !== 'PARTIALLY_PAID' &&
+      summary.state !== 'OVERDUE' &&
+      summary.state !== 'PARTIALLY_PAID_OVERDUE'
+    )
+      continue;
     open.push({
       invoice,
       invoiced: invoice.gross ?? new Prisma.Decimal(0),

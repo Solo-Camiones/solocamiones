@@ -12,22 +12,32 @@ import type {
 } from './entities';
 import type { HierarchyNode } from './inventory';
 
-export type SalesListTab = 'ALL' | 'DRAFT' | 'COMPLETED' | 'CANCELLED';
+export type SalesListTab =
+  'ALL' | 'DRAFT' | 'QUOTE_DRAFT' | 'QUOTE_ISSUED' | 'COMPLETED' | 'CANCELLED';
+
+export type SalesListFilters = {
+  dateFrom?: string;
+  dateTo?: string;
+};
 
 export type SalesListRow = {
   id: string;
   number: string;
+  quoteNumber?: string;
   status: InvoiceStatus;
-  paymentState: PaymentState;
+  paymentState?: PaymentState;
   customerId: string;
   customerName: string;
   currency: Currency;
   fiscal: boolean;
   total: number;
-  balance: number;
+  balance?: number;
   createdAt: string;
   confirmedAt?: string;
   dueDate?: string;
+  quoteIssuedAt?: string;
+  quoteExpiresAt?: string;
+  quoteExpired?: boolean;
   href: string;
 };
 
@@ -47,6 +57,11 @@ export type ReceivablesSnapshot = {
   total: number;
   page: number;
   pageSize: number;
+};
+
+export type ReceivablesFilters = {
+  customerId?: string;
+  invoice?: string;
 };
 
 export type InvoiceLineView = {
@@ -106,10 +121,14 @@ export type InvoiceProfitabilityView = {
 
 export type InvoiceDocumentView = { status: 'READY' } | { status: 'FAILED'; errorId: string };
 
-export type InvoicePdfDownload = {
+export type SalesDocumentPdfDownload = {
   blob: Blob;
   filename: string;
 };
+
+export type InvoicePdfDownload = SalesDocumentPdfDownload;
+export type QuotePdfDownload = SalesDocumentPdfDownload;
+export type AccountStatementPdfDownload = SalesDocumentPdfDownload;
 
 export type InvoiceDetailActions = {
   canPay: boolean;
@@ -122,19 +141,21 @@ export type InvoiceDetailActions = {
 export type InvoiceDetailView = {
   id: string;
   number?: string;
+  quoteNumber?: string;
   status: InvoiceStatus;
-  paymentState: PaymentState;
+  paymentState?: PaymentState;
   customerId: string;
   customerName: string;
   customerRnc?: string;
   currency: Currency;
   fiscal: boolean;
+  applyItbis: boolean;
   lines: InvoiceLineView[];
   payments: PaymentView[];
   total: number;
-  paid: number;
-  refunded: number;
-  balance: number;
+  paid?: number;
+  refunded?: number;
+  balance?: number;
   createdAt: string;
   confirmedAt?: string;
   dueDate?: string;
@@ -210,8 +231,6 @@ export type PosLineView = {
   itemId?: string;
   qtyProductId?: string;
   serviceId?: string;
-  acquisitionCostDop?: number;
-  costProvenance: CostProvenance;
   installed?: boolean;
   parentName?: string;
   isAssembly?: boolean;
@@ -223,12 +242,18 @@ export type PosDraftView = {
   id: string;
   status: InvoiceStatus;
   number?: string;
+  quoteNumber?: string;
+  quoteIssuedAt?: string;
+  quoteExpiresAt?: string;
+  quoteExpired?: boolean;
   customerId: string;
   customerName: string;
   customerRnc?: string;
   customerIsDefault: boolean;
+  customerType: 'CASH' | 'CREDIT';
   currency: Currency;
   fiscal: boolean;
+  applyItbis: boolean;
   lines: PosLineView[];
   totals: PosDraftTotals;
   customers: Array<{ id: string; name: string; rnc?: string; isDefault?: boolean }>;
@@ -253,8 +278,6 @@ export type AddDraftLineInput = {
   notes?: string;
   quantity?: number;
   unitPrice?: number;
-  acquisitionCostDop?: number;
-  costProvenance?: CostProvenance;
 };
 
 export type RemoveDraftLineInput = {
@@ -270,9 +293,6 @@ export type SetDraftLinePriceInput = {
   /** Free-form types only. */
   description?: string;
   notes?: string | null;
-  /** GENERIC / EXTERNAL only. */
-  acquisitionCostDop?: number | null;
-  costProvenance?: CostProvenance;
 };
 
 export type SetDraftLineQuantityInput = {
@@ -286,4 +306,5 @@ export type SetDraftMetaInput = {
   customerId?: string;
   currency?: Currency;
   fiscal?: boolean;
+  applyItbis?: boolean;
 };

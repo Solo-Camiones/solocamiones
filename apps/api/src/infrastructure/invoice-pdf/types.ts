@@ -11,6 +11,7 @@ export type InvoicePdfLineFacts = {
 export type InvoicePdfFacts = {
   status: 'COMPLETED' | 'CANCELLED';
   number: string;
+  originQuoteNumber: string | null;
   currency: 'DOP' | 'USD';
   fiscal: boolean;
   customerName: string;
@@ -19,9 +20,6 @@ export type InvoicePdfFacts = {
   sellerName: string | null;
   confirmedAt: Date;
   dueDate: Date;
-  paymentState: 'PENDING' | 'OVERDUE' | 'PAID' | 'PAID_LATE' | 'CANCELLED';
-  balance: string;
-  generatedAt: Date;
   cancelledAt: Date | null;
   cancelReason: string | null;
   cancelledByName: string | null;

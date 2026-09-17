@@ -9,7 +9,7 @@ import { UX_TERMS } from '../../shared/copy/glossary';
 import { KpiCard } from '../../shared/layout/KpiCard';
 import { PageHeader } from '../../shared/layout/PageHeader';
 import { OPERATIONAL_HREFS } from '../../shared/navigation/operational-hrefs';
-import { Info, money, SectionTitle, Skeleton, toPageLoadMessage } from '../../shared/ui';
+import { Info, LoadingOverlay, money, SectionTitle, Skeleton, toPageLoadMessage } from '../../shared/ui';
 import { useAuth } from '../auth/useAuth';
 import { ActivityTimeline } from './ActivityTimeline';
 import { RecentInvoicesList } from './RecentInvoicesList';
@@ -203,7 +203,7 @@ function buildFinanceKpis(
 ): DashboardKpiCard[] {
   const cards: DashboardKpiCard[] = [];
 
-  if (capabilities.payments) {
+  if (capabilities.payments && user?.role === 'ADMINISTRATOR') {
     cards.push({
       label: 'Saldo pendiente',
       value: money(kpis.outstandingDop, 'DOP'),
@@ -226,7 +226,7 @@ function buildFinanceKpis(
     });
   }
 
-  if (capabilities.payments) {
+  if (capabilities.payments && user?.role === 'ADMINISTRATOR') {
     cards.push({
       label: 'Cobros',
       value: 'Historial',
@@ -268,11 +268,12 @@ export function DashboardPage() {
         description={
           isAdmin
             ? 'Atención, operación del día y finanzas.'
-            : 'Resumen de inventario, ventas y cobros.'
+            : 'Resumen de inventario y ventas.'
         }
       />
 
-      <div className="space-y-8">
+      <LoadingOverlay active={query.isRefreshing} label="Actualizando inicio">
+        <div className="space-y-8">
         {capabilities.hierarchy &&
           snapshot.pendingCatalogReviews &&
           snapshot.pendingCatalogReviews.length > 0 && (
@@ -289,14 +290,18 @@ export function DashboardPage() {
         <div className="grid gap-8 lg:grid-cols-5">
           {capabilities.sales && (
             <div className="lg:col-span-3">
-              <RecentInvoicesList invoices={snapshot.recentInvoices} />
+              <RecentInvoicesList
+                invoices={snapshot.recentInvoices}
+                showPaymentState={user?.role === 'ADMINISTRATOR'}
+              />
             </div>
           )}
           <div className={capabilities.sales ? 'lg:col-span-2' : 'lg:col-span-5'}>
             <ActivityTimeline events={snapshot.activity} />
           </div>
         </div>
-      </div>
+        </div>
+      </LoadingOverlay>
     </>
   );
 }

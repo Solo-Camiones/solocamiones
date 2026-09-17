@@ -4,6 +4,7 @@ import { validate } from '../../infrastructure/http/validate.js';
 import { requireAuth } from '../access/require-auth.js';
 import { requireCsrfHeader } from '../access/require-csrf.js';
 import { requireAdministrator, requireRole } from '../access/require-role.js';
+import { getAccountStatement } from '../payments/controller.js';
 import {
   deleteDraft,
   deleteDraftLine,
@@ -15,6 +16,10 @@ import {
   patchDraftLine,
   postConfirmInvoice,
   postDraft,
+  postQuote,
+  postIssueQuote,
+  postDuplicateQuote,
+  postConvertQuote,
   postDraftLine,
   postRegenerateInvoicePdf,
   postInvoicePayment,
@@ -28,10 +33,12 @@ import {
   invoiceLineIdSchema,
   listInvoicesSchema,
   listReceivablesSchema,
+  statementCustomerIdSchema,
   setLinePriceSchema,
   updateDraftMetaSchema,
   addPaymentSchema,
   cancelInvoiceSchema,
+  emptyCommandSchema,
 } from './validation.js';
 
 export const salesRouter = Router();
@@ -41,7 +48,18 @@ salesRouter.use((_req, res, next) => {
   next();
 });
 salesRouter.get('/', validate({ query: listInvoicesSchema }), getInvoices);
-salesRouter.get('/receivables', validate({ query: listReceivablesSchema }), getReceivables);
+salesRouter.get(
+  '/receivables',
+  requireAdministrator,
+  validate({ query: listReceivablesSchema }),
+  getReceivables,
+);
+salesRouter.get(
+  '/receivables/:customerId/statement.pdf',
+  requireAdministrator,
+  validate({ params: statementCustomerIdSchema }),
+  getAccountStatement,
+);
 salesRouter.get('/:id/pdf', validate({ params: invoiceIdSchema }), getInvoicePdf);
 salesRouter.post(
   '/:id/pdf/regenerate',
@@ -52,6 +70,7 @@ salesRouter.post(
 );
 salesRouter.get('/:id', validate({ params: invoiceIdSchema }), getInvoice);
 salesRouter.post('/', requireCsrfHeader, validate({ body: createDraftSchema }), postDraft);
+salesRouter.post('/quotes', requireCsrfHeader, validate({ body: createDraftSchema }), postQuote);
 salesRouter.patch(
   '/:id',
   requireCsrfHeader,
@@ -66,8 +85,27 @@ salesRouter.post(
   postConfirmInvoice,
 );
 salesRouter.post(
+  '/:id/issue-quote',
+  requireCsrfHeader,
+  validate({ params: invoiceIdSchema, body: emptyCommandSchema }),
+  postIssueQuote,
+);
+salesRouter.post(
+  '/:id/duplicate-quote',
+  requireCsrfHeader,
+  validate({ params: invoiceIdSchema, body: emptyCommandSchema }),
+  postDuplicateQuote,
+);
+salesRouter.post(
+  '/:id/convert-quote',
+  requireCsrfHeader,
+  validate({ params: invoiceIdSchema, body: confirmInvoiceSchema }),
+  postConvertQuote,
+);
+salesRouter.post(
   '/:id/payments',
   requireCsrfHeader,
+  requireAdministrator,
   validate({ params: invoiceIdSchema, body: addPaymentSchema }),
   postInvoicePayment,
 );

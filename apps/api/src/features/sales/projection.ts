@@ -13,6 +13,7 @@ import {
 import { PROFITABILITY_REASONS, type Profitability } from './money/types.js';
 import { databaseDateString } from '../payments/dates.js';
 import { summarizePayments } from '../payments/summary.js';
+import { isQuoteExpired } from './quote-dates.js';
 import type { InvoiceHistoryEntryView } from '../history/invoice-timeline.js';
 import type {
   InvoiceConfirmedHistorySnapshot,
@@ -38,7 +39,6 @@ import type {
 import {
   moneyString as decimalMoneyString,
   type CustomerOutstanding,
-  type OpenReceivable,
 } from '../payments/receivables.js';
 
 function moneyString(value: { toFixed(places: number): string }): string {
@@ -77,18 +77,39 @@ function toPublicProfitability(value: Profitability, fx?: PublicFxProvenance): P
 function customerSnapshotOf(
   invoice: InvoiceRecord | InvoiceListRecord,
 ): InvoiceCustomerSnapshot | null {
-  if (invoice.status === 'DRAFT' || invoice.customerName == null) return null;
+  if (
+    invoice.status === 'DRAFT' ||
+    invoice.status === 'QUOTE_DRAFT' ||
+    invoice.customerName == null
+  )
+    return null;
   return { name: invoice.customerName, rnc: invoice.customerRnc, phone: invoice.customerPhone };
 }
 
 function toCustomerView(invoice: InvoiceRecord | InvoiceListRecord) {
   const snapshot = customerSnapshotOf(invoice);
+  const completed = invoice.status === 'COMPLETED' || invoice.status === 'CANCELLED';
   return {
     id: invoice.customer.id,
     name: snapshot?.name ?? invoice.customer.name,
     rnc: snapshot ? snapshot.rnc : invoice.customer.rnc,
     isDefault: invoice.customer.isDefault,
+    customerType: completed
+      ? (invoice.snapshotCustomerType ?? invoice.customer.customerType)
+      : invoice.customer.customerType,
+    creditTermDays: completed ? invoice.snapshotCreditTermDays : invoice.customer.creditTermDays,
+    creditLimitDop:
+      completed || invoice.customer.creditLimitDop == null
+        ? null
+        : moneyString(invoice.customer.creditLimitDop),
   };
+}
+
+function administratorLedger<T extends object>(
+  viewer: InvoiceViewer,
+  fields: T,
+): T | Record<string, never> {
+  return viewer.role === 'ADMINISTRATOR' ? fields : {};
 }
 
 function persistedLineMoney(line: InvoiceLine) {
@@ -101,6 +122,7 @@ function lineProfitInput(line: InvoiceLine) {
     type: line.type,
     unitPrice: line.unitPrice,
     quantity: line.quantity,
+    base: line.base,
     gross: line.gross,
     acquisitionCostDop: line.acquisitionCostDop,
     costProvenance: line.costProvenance,
@@ -108,8 +130,10 @@ function lineProfitInput(line: InvoiceLine) {
 }
 
 function invoiceSellingPrice(invoice: InvoiceRecord | InvoiceListRecord): Prisma.Decimal {
+  if (invoice.applyItbis && invoice.base != null) return invoice.base;
   if (invoice.gross != null) return invoice.gross;
-  return new Prisma.Decimal(invoiceTotals(invoice).gross);
+  const totals = invoiceTotals(invoice);
+  return new Prisma.Decimal(invoice.applyItbis ? totals.base : totals.gross);
 }
 
 function invoiceSellingPriceDop(invoice: InvoiceRecord | InvoiceListRecord): Prisma.Decimal {
@@ -126,7 +150,7 @@ function deriveCompletedProfitability(invoice: InvoiceRecord | InvoiceListRecord
   const calculated = calculatedCompletedProfitability({
     status: invoice.status,
     currency: invoice.currency,
-    fiscal: invoice.fiscal,
+    applyItbis: invoice.applyItbis,
     lines: lineInputs,
     exchangeRateDopPerUsd: invoice.exchangeRateDopPerUsd,
   });
@@ -149,8 +173,12 @@ function deriveCompletedProfitability(invoice: InvoiceRecord | InvoiceListRecord
   const lineProfit =
     invoice.currency === 'USD' && invoice.exchangeRateDopPerUsd != null
       ? (input: (typeof lineInputs)[number]) =>
-          calculateLineProfitUsdReportingDop(input, invoice.fiscal, invoice.exchangeRateDopPerUsd!)
-      : (input: (typeof lineInputs)[number]) => calculateLineProfitDop(input, invoice.fiscal);
+          calculateLineProfitUsdReportingDop(
+            input,
+            invoice.applyItbis,
+            invoice.exchangeRateDopPerUsd!,
+          )
+      : (input: (typeof lineInputs)[number]) => calculateLineProfitDop(input, invoice.applyItbis);
 
   return {
     invoice: toPublicProfitability(reported, fx),
@@ -226,7 +254,13 @@ function administratorProfitability(
 function toPublicInvoiceDocument(
   invoice: InvoiceRecord | InvoiceListRecord,
 ): PublicInvoiceDocument | undefined {
-  if (invoice.status === 'DRAFT' || invoice.pdfStatus == null) return undefined;
+  if (
+    invoice.status === 'DRAFT' ||
+    invoice.status === 'QUOTE_DRAFT' ||
+    invoice.status === 'QUOTE_ISSUED' ||
+    invoice.pdfStatus == null
+  )
+    return undefined;
   if (invoice.pdfStatus === 'FAILED') {
     if (invoice.pdfErrorId == null) return undefined;
     return { status: 'FAILED', errorId: invoice.pdfErrorId };
@@ -236,7 +270,7 @@ function toPublicInvoiceDocument(
 
 function toPublicLine(
   line: InvoiceLine,
-  fiscal: boolean,
+  applyItbis: boolean,
   profitability?: PublicProfitability,
 ): PublicInvoiceLine {
   const money =
@@ -245,7 +279,7 @@ function toPublicLine(
       type: line.type,
       unitPrice: line.unitPrice,
       quantity: line.quantity,
-      fiscal,
+      applyItbis,
     });
   return {
     id: line.id,
@@ -258,9 +292,6 @@ function toPublicLine(
     gross: moneyString(money.gross),
     base: moneyString(money.base),
     itbis: moneyString(money.itbis),
-    acquisitionCostDop:
-      line.acquisitionCostDop == null ? null : moneyString(line.acquisitionCostDop),
-    costProvenance: line.costProvenance,
     serviceId: line.serviceId,
     ...(profitability ? { profitability } : {}),
   };
@@ -280,7 +311,7 @@ function invoiceTotals(invoice: InvoiceRecord | InvoiceListRecord) {
         type: line.type,
         unitPrice: line.unitPrice,
         quantity: line.quantity,
-        fiscal: invoice.fiscal,
+        applyItbis: invoice.applyItbis,
       }),
     ),
   );
@@ -298,13 +329,19 @@ export function toPublicInvoice(
 ): PublicInvoice {
   const profitability = administratorProfitability(invoice, viewer);
   const document = toPublicInvoiceDocument(invoice);
-  const payment = summarizePayments(invoice);
+  const completed = invoice.status === 'COMPLETED' || invoice.status === 'CANCELLED';
+  const payment = completed ? summarizePayments(invoice) : null;
   return {
     id: invoice.id,
     status: invoice.status,
     number: invoice.number,
+    quoteNumber: invoice.quoteNumber,
+    quoteIssuedAt: invoice.quoteIssuedAt?.toISOString() ?? null,
+    quoteExpiresAt: invoice.quoteExpiresAt?.toISOString() ?? null,
+    quoteExpired: isQuoteExpired(invoice.quoteExpiresAt),
     currency: invoice.currency,
     fiscal: invoice.fiscal,
+    applyItbis: invoice.applyItbis,
     customer: toCustomerView(invoice),
     customerSnapshot: customerSnapshotOf(invoice),
     confirmedAt: invoice.confirmedAt?.toISOString() ?? null,
@@ -313,22 +350,26 @@ export function toPublicInvoice(
     cancelledAt: invoice.cancelledAt?.toISOString() ?? null,
     cancelReason: invoice.cancelReason,
     cancelledByName: invoice.cancelledByName,
-    paymentState: payment.state,
-    payments: invoice.payments.map((entry) => ({
-      id: entry.id,
-      kind: entry.kind,
-      amount: moneyString(entry.amount),
-      method: entry.method,
-      effectiveDate: databaseDateString(entry.effectiveDate),
-      recordedAt: entry.createdAt.toISOString(),
-      reference: entry.reference,
-      actorName: entry.actor.name,
-    })),
-    paid: moneyString(payment.paid),
-    refunded: moneyString(payment.refunded),
-    balance: moneyString(payment.balance),
+    ...(payment
+      ? administratorLedger(viewer, {
+          paymentState: payment.state,
+          payments: invoice.payments.map((entry) => ({
+            id: entry.id,
+            kind: entry.kind,
+            amount: moneyString(entry.amount),
+            method: entry.method,
+            effectiveDate: databaseDateString(entry.effectiveDate),
+            recordedAt: entry.createdAt.toISOString(),
+            reference: entry.reference,
+            actorName: entry.actor.name,
+          })),
+          paid: moneyString(payment.paid),
+          refunded: moneyString(payment.refunded),
+          balance: moneyString(payment.balance),
+        })
+      : {}),
     lines: invoice.lines.map((line, index) =>
-      toPublicLine(line, invoice.fiscal, profitability?.lines[index]),
+      toPublicLine(line, invoice.applyItbis, profitability?.lines[index]),
     ),
     totals: invoiceTotals(invoice),
     ...(profitability ? { profitability: profitability.invoice } : {}),
@@ -351,9 +392,11 @@ function toPublicListPayments(invoice: InvoiceListRecord): PublicInvoiceListPaym
 export function toPublicInvoiceListItem(
   invoice: InvoiceListRecord,
   viewer: InvoiceViewer,
+  now = new Date(),
 ): PublicInvoiceListItem {
   const profitability = administratorProfitability(invoice, viewer);
-  const payment = summarizePayments(invoice);
+  const completed = invoice.status === 'COMPLETED' || invoice.status === 'CANCELLED';
+  const payment = completed ? summarizePayments(invoice, now) : null;
   const storedRate =
     viewer.role === 'ADMINISTRATOR' && invoice.exchangeRateDopPerUsd != null
       ? invoice.exchangeRateDopPerUsd.toString()
@@ -362,15 +405,24 @@ export function toPublicInvoiceListItem(
     id: invoice.id,
     status: invoice.status,
     number: invoice.number,
+    quoteNumber: invoice.quoteNumber,
+    quoteIssuedAt: invoice.quoteIssuedAt?.toISOString() ?? null,
+    quoteExpiresAt: invoice.quoteExpiresAt?.toISOString() ?? null,
+    quoteExpired: isQuoteExpired(invoice.quoteExpiresAt),
     currency: invoice.currency,
     fiscal: invoice.fiscal,
+    applyItbis: invoice.applyItbis,
     customer: toCustomerView(invoice),
     customerSnapshot: customerSnapshotOf(invoice),
     confirmedAt: invoice.confirmedAt?.toISOString() ?? null,
     dueDate: invoice.dueDate ? databaseDateString(invoice.dueDate) : null,
-    paymentState: payment.state,
-    payments: toPublicListPayments(invoice),
-    balance: moneyString(payment.balance),
+    ...(payment
+      ? administratorLedger(viewer, {
+          paymentState: payment.state,
+          payments: toPublicListPayments(invoice),
+          balance: moneyString(payment.balance),
+        })
+      : {}),
     totals: invoiceTotals(invoice),
     ...(profitability ? { profitability: profitability.invoice } : {}),
     ...(storedRate ? { exchangeRateDopPerUsd: storedRate } : {}),
@@ -392,16 +444,17 @@ function toPublicCustomerOutstanding(row: CustomerOutstanding): PublicCustomerOu
 }
 
 export function toPublicReceivables(
-  open: OpenReceivable[],
+  invoiceRecords: InvoiceListRecord[],
   customers: CustomerOutstanding[],
   viewer: InvoiceViewer,
+  now: Date,
   page: number,
   pageSize: number,
-  total = open.length,
+  total = invoiceRecords.length,
 ): PublicReceivables {
-  const invoices: PublicReceivableInvoice[] = open.map((row) => ({
-    ...toPublicInvoiceListItem(row.invoice, viewer),
-    paid: decimalMoneyString(row.paid),
+  const invoices: PublicReceivableInvoice[] = invoiceRecords.map((invoice) => ({
+    ...toPublicInvoiceListItem(invoice, viewer, now),
+    paid: decimalMoneyString(summarizePayments(invoice, now).paid),
   }));
   return {
     invoices,

@@ -18,6 +18,7 @@ function detailRoute() {
     <Routes>
       <Route path="/sales/:id" element={<InvoiceDetailPage />} />
       <Route path="/sales/draft/:id" element={<p>POS placeholder</p>} />
+      <Route path="/sales/quote/:id" element={<p>Quote placeholder</p>} />
     </Routes>
   );
 }
@@ -33,31 +34,53 @@ describe('InvoiceDetailPage', () => {
     vi.unstubAllGlobals();
   });
 
-  it('lets a seller record a payment and updates the chip', async () => {
+  it('lets a seller see commercial totals without paid amount, balance, or payment state', async () => {
     signInAs('SELLER');
-    const user = userEvent.setup();
     renderWithProviders(detailRoute(), {
       route: '/sales/INV-098',
       auth: createAuthValue('SELLER'),
     });
 
     expect(await screen.findByRole('heading', { name: 'FAC-000098' })).toBeVisible();
-    const backButton = screen.getByRole('button', { name: 'Volver atrás' });
-    expect(backButton).toHaveTextContent('');
-    expect(screen.queryByText('Volver al listado')).not.toBeInTheDocument();
     expect(screen.getByText('Completada')).toBeVisible();
+    expect(screen.queryByText('Saldo')).not.toBeInTheDocument();
+    expect(screen.queryByText('Pagado')).not.toBeInTheDocument();
     expect(screen.queryByText('Sin pagar')).not.toBeInTheDocument();
-    expect(screen.queryByText('Pendiente')).not.toBeInTheDocument();
+    expect(screen.queryByText('Pago parcial')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Registrar pago' })).not.toBeInTheDocument();
+    expect(screen.queryByText('Pagos y reembolsos')).not.toBeInTheDocument();
+    expect(screen.queryByText('Sin movimientos registrados')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Cancelar factura' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Corregir moneda' })).not.toBeInTheDocument();
     expect(screen.queryByText('Rentabilidad')).not.toBeInTheDocument();
+  });
 
+  it('hides recorded payments from seller invoice history', async () => {
+    signInAs('SELLER');
+    renderWithProviders(detailRoute(), {
+      route: '/sales/INV-099',
+      auth: createAuthValue('SELLER'),
+    });
+
+    expect(await screen.findByRole('heading', { name: 'FAC-000099' })).toBeVisible();
+    expect(screen.getByText('Historial')).toBeVisible();
+    expect(screen.queryByText('Pago parcial en FAC-000099')).not.toBeInTheDocument();
+  });
+
+  it('lets an administrator record a payment and updates the chip', async () => {
+    signInAs('ADMINISTRATOR');
+    const user = userEvent.setup();
+    renderWithProviders(detailRoute(), {
+      route: '/sales/INV-098',
+      auth: createAuthValue('ADMINISTRATOR'),
+    });
+
+    expect(await screen.findByRole('heading', { name: 'FAC-000098' })).toBeVisible();
     await user.click(screen.getByRole('button', { name: 'Registrar pago' }));
     await user.type(screen.getByLabelText('Monto'), '5000');
     await user.click(screen.getByRole('button', { name: 'Confirmar pago' }));
 
-    expect(await screen.findByText('Pago parcial')).toBeVisible();
-    expect(screen.getAllByText(/por Laura Pérez/).length).toBeGreaterThan(0);
+    expect(await screen.findByText('Abonado')).toBeVisible();
+    expect(screen.getAllByText(/por Administrador Demo/).length).toBeGreaterThan(0);
   });
 
   it('shows ITBIS breakdown for fiscal invoices', async () => {
@@ -68,7 +91,7 @@ describe('InvoiceDetailPage', () => {
     });
 
     expect(await screen.findByRole('heading', { name: 'FAC-000098' })).toBeVisible();
-    expect(screen.getByText(/2,974\.58/)).toBeVisible();
+    expect(screen.getAllByText(/19,500/).length).toBeGreaterThan(0);
     expect(screen.getByText('Rentabilidad')).toBeVisible();
   });
 
@@ -87,7 +110,8 @@ describe('InvoiceDetailPage', () => {
 
     const dialog = await screen.findByRole('dialog');
     expect(within(dialog).getByText('NCF: ______________________')).toBeVisible();
-    expect(within(dialog).getByText('ITBIS incluido')).toBeVisible();
+    expect(within(dialog).getByText('Subtotal')).toBeVisible();
+    expect(within(dialog).getAllByText('ITBIS').length).toBeGreaterThan(0);
     expect(within(dialog).getAllByText('RD$0.00').length).toBeGreaterThan(0);
   });
 
@@ -174,5 +198,36 @@ describe('InvoiceDetailPage', () => {
     expect(within(screen.getByRole('dialog')).getByLabelText('Motivo')).toHaveValue(
       'Cliente desistió',
     );
+  });
+
+  it('shows the origin COT number on a converted invoice', async () => {
+    signInAs('ADMINISTRATOR');
+    const created = await mockSalesRepository.createQuote();
+    expect(created.ok).toBe(true);
+    if (!created.ok) return;
+    const quoteId = created.value.draftId;
+    expect(
+      (await mockSalesRepository.setDraftMeta({ draftId: quoteId, customerId: 'C1' })).ok,
+    ).toBe(true);
+    expect(
+      (
+        await mockSalesRepository.addLine({
+          draftId: quoteId,
+          type: 'GENERIC',
+          description: 'Filtro',
+          unitPrice: 100,
+        })
+      ).ok,
+    ).toBe(true);
+    expect((await mockSalesRepository.issueQuote(quoteId)).ok).toBe(true);
+    expect((await mockSalesRepository.convertQuote(quoteId)).ok).toBe(true);
+
+    renderWithProviders(detailRoute(), {
+      route: `/sales/${quoteId}`,
+      auth: createAuthValue('ADMINISTRATOR'),
+    });
+
+    expect(await screen.findByRole('heading', { name: 'FAC-000100' })).toBeVisible();
+    expect(screen.getAllByText('Origen COT-000001').length).toBeGreaterThan(0);
   });
 });

@@ -45,6 +45,10 @@ export function useInvoiceDetail(id: string | undefined) {
         navigate(`/sales/draft/${response.value.id}`, { replace: true });
         return;
       }
+      if (response.value.status === 'QUOTE_DRAFT' || response.value.status === 'QUOTE_ISSUED') {
+        navigate(`/sales/quote/${response.value.id}`, { replace: true });
+        return;
+      }
 
       setResult({ status: 'ready', detail: response.value });
     });

@@ -29,6 +29,12 @@ function renderBackStack(initialEntries: string[], initialIndex: number) {
 }
 
 describe('BackToSalesLink', () => {
+  it('uses a pointer cursor so the control reads as a link', () => {
+    renderBackStack(['/sales/INV-1'], 0);
+
+    expect(screen.getByRole('button', { name: 'Volver atrás' })).toHaveClass('cursor-pointer');
+  });
+
   it('returns to the previous in-app screen instead of always sales', async () => {
     const user = userEvent.setup();
     renderBackStack(['/profitability', '/sales/INV-1'], 1);

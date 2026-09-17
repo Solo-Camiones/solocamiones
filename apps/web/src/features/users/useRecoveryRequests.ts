@@ -7,11 +7,12 @@ import type {
   ResolveRecoveryResult,
 } from '../../api/contracts/users';
 import type { AppError, Result } from '../../shared/auth/types';
+import { beginQueryReload } from '../../shared/query/begin-query-reload';
 
 export type RecoveryRequestsQuery =
   | { status: 'loading' }
   | { status: 'error'; error: AppError }
-  | { status: 'ready'; rows: PasswordRecoveryRequest[] };
+  | { status: 'ready'; rows: PasswordRecoveryRequest[]; isRefreshing: boolean };
 
 export function useRecoveryRequests() {
   const [reloadToken, setReloadToken] = useState(0);
@@ -20,12 +21,12 @@ export function useRecoveryRequests() {
 
   useEffect(() => {
     let cancelled = false;
-    setResult({ status: 'loading' });
+    setResult(beginQueryReload);
     userRepository.listRecoveryRequests().then((response) => {
       if (cancelled) return;
       setResult(
         response.ok
-          ? { status: 'ready', rows: response.value }
+          ? { status: 'ready', rows: response.value, isRefreshing: false }
           : { status: 'error', error: response.error },
       );
     });

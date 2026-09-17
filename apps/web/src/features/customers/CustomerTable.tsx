@@ -2,7 +2,10 @@ import { Fragment, useState } from 'react';
 
 import { DEFAULT_CASH_CUSTOMER_ID, type CustomerListRow } from '../../api/contracts/customers';
 import type { CustomerContact } from '../../api/contracts/entities';
+import { formatFiscalId } from '../../shared/domain/fiscal-id';
+import { formatDominicanPhone } from '../../shared/domain/phone';
 import { Button, Chip, Empty, HoverRow, TableShell } from '../../shared/ui';
+import { customerTypeChipTone, customerTypeLabel } from './customer-type-labels';
 
 const CUSTOMER_TABLE_COLUMN_COUNT = 4;
 
@@ -41,7 +44,7 @@ function CustomerContactsPanel({ contacts }: { contacts: CustomerContact[] }) {
           {trimmed(contact.title) && trimmed(contact.name) ? (
             <p className="mt-0.5 text-xs text-navy-400">{contact.title}</p>
           ) : null}
-          <p className="mt-1 text-navy-500">{contact.phone ?? '—'}</p>
+          <p className="mt-1 text-navy-500">{formatDominicanPhone(contact.phone) || '—'}</p>
           {contact.email && <p className="text-xs text-navy-400">{contact.email}</p>}
         </li>
       ))}
@@ -51,10 +54,11 @@ function CustomerContactsPanel({ contacts }: { contacts: CustomerContact[] }) {
 
 export type CustomerTableProps = {
   rows: CustomerListRow[];
+  canManageCredit: boolean;
   onEdit: (row: CustomerListRow) => void;
 };
 
-export function CustomerTable({ rows, onEdit }: CustomerTableProps) {
+export function CustomerTable({ rows, canManageCredit, onEdit }: CustomerTableProps) {
   const [expandedIds, setExpandedIds] = useState<ReadonlySet<string>>(() => new Set());
 
   function toggleContacts(customerId: string) {
@@ -93,6 +97,14 @@ export function CustomerTable({ rows, onEdit }: CustomerTableProps) {
       <tbody className="divide-y divide-navy-100">
         {rows.map((row) => {
           const isDefault = row.id === DEFAULT_CASH_CUSTOMER_ID || row.isDefault === true;
+          const isCredit = row.customerType === 'CREDIT';
+          const creditEditBlocked = isCredit && !canManageCredit;
+          const editDisabled = isDefault || creditEditBlocked;
+          const editTitle = isDefault
+            ? 'Cliente Contado no se puede editar'
+            : creditEditBlocked
+              ? 'Solo el Administrador puede editar clientes a crédito'
+              : 'Editar cliente';
           const primary = primaryContact(row.contacts);
           const hasMultipleContacts = row.contacts.length > 1;
           const isExpanded = expandedIds.has(row.id);
@@ -104,12 +116,15 @@ export function CustomerTable({ rows, onEdit }: CustomerTableProps) {
                 <td className="px-4 py-3">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="font-medium">{row.name}</span>
+                    <Chip tone={customerTypeChipTone(row.customerType)}>
+                      {customerTypeLabel(row.customerType)}
+                    </Chip>
                     {isDefault && <Chip tone="brand">Predeterminado</Chip>}
                   </div>
                 </td>
-                <td className="px-4 py-3 text-navy-400">{row.rnc ?? '—'}</td>
+                <td className="px-4 py-3 text-navy-400">{formatFiscalId(row.rnc) || '—'}</td>
                 <td className="px-4 py-3 text-navy-400">
-                  {primary?.phone ?? '—'}
+                  {formatDominicanPhone(primary?.phone) || '—'}
                   {hasMultipleContacts && (
                     <button
                       type="button"
@@ -126,8 +141,8 @@ export function CustomerTable({ rows, onEdit }: CustomerTableProps) {
                   <Button
                     variant="secondary"
                     size="sm"
-                    disabled={isDefault}
-                    title={isDefault ? 'Cliente Contado no se puede editar' : 'Editar cliente'}
+                    disabled={editDisabled}
+                    title={editTitle}
                     onClick={() => onEdit(row)}
                   >
                     Editar

@@ -13,7 +13,11 @@ const COPY = {
   contactPrimary: 'Solo un contacto puede ser principal.',
   emailInvalid: 'El correo no es válido.',
   genericLocked: 'Cliente Contado es el predeterminado y no se puede editar.',
-  cashCustomerCreditForbidden: 'A Cliente contado no se le puede vender a crédito',
+  cashCustomerCreditForbidden: 'Las ventas de contado deben pagarse por completo al confirmar',
+  usdInvoiceMustBePaidInFull: 'Las facturas en USD deben pagarse por completo al confirmar',
+  sellerCreditConfirmPaymentForbidden:
+    'El Vendedor no puede registrar un pago al confirmar una venta a crédito',
+  creditLimitExceeded: 'El límite de crédito del cliente sería excedido',
   fiscalInvoiceIdentity: 'Una factura fiscal requiere un cliente con RNC o cédula.',
   pdfFailed: 'La generación del PDF falló',
   pdfNotReady: 'El PDF de la factura no está disponible',
@@ -36,6 +40,14 @@ const COPY = {
   currentPassword: 'La contraseña actual es incorrecta.',
   passwordMustDiffer: 'La nueva contraseña debe ser diferente de la actual.',
   passwordChangeRequired: 'Debe cambiar su contraseña desde Mi perfil para continuar.',
+  insufficientPermissions: 'No tiene permiso para realizar esta operación.',
+  creditDowngradeBlocked:
+    'No se puede cambiar a contado mientras el cliente tenga saldo pendiente en cuentas por cobrar.',
+  creditFiscalRequired: 'Los clientes a crédito requieren RNC o cédula.',
+  creditLimitRequired: 'Indique el límite de crédito en pesos dominicanos.',
+  creditTermRequired: 'Seleccione el plazo de crédito.',
+  creditLimitFormat: 'El límite debe ser un decimal con como máximo 2 decimales.',
+  cashCreditFieldsForbidden: 'Los clientes de contado no llevan límite ni plazo de crédito.',
 } as const;
 
 /**
@@ -57,6 +69,16 @@ const KNOWN_TEXT: Record<string, { text: string; field?: string }> = {
   'At least one field is required': { text: COPY.atLeastOneField },
   'Cliente contado cannot be edited': { text: COPY.genericLocked },
   'A Cliente contado no se le puede vender a crédito': { text: COPY.cashCustomerCreditForbidden },
+  'Las ventas de contado deben pagarse por completo al confirmar': {
+    text: COPY.cashCustomerCreditForbidden,
+  },
+  'Las facturas en USD deben pagarse por completo al confirmar': {
+    text: COPY.usdInvoiceMustBePaidInFull,
+  },
+  'El Vendedor no puede registrar un pago al confirmar una venta a crédito': {
+    text: COPY.sellerCreditConfirmPaymentForbidden,
+  },
+  'El límite de crédito del cliente sería excedido': { text: COPY.creditLimitExceeded },
   'Current password is incorrect': { text: COPY.currentPassword },
   'New password must differ from current password': { text: COPY.passwordMustDiffer },
   'El nombre es obligatorio': { text: COPY.nameRequired, field: 'name' },
@@ -102,6 +124,47 @@ const KNOWN_TEXT: Record<string, { text: string; field?: string }> = {
   'This line type has a fixed quantity of 1': { text: COPY.fixedLineQuantity },
   'A draft can have at most one DELIVERY line': { text: COPY.duplicateDelivery },
   'Inactive catalog services cannot be added to a draft': { text: COPY.inactiveService },
+  'Insufficient permissions': { text: COPY.insufficientPermissions },
+  'A CREDIT customer with an open receivable balance cannot be changed to CASH': {
+    text: COPY.creditDowngradeBlocked,
+  },
+  'A credit customer with an open receivable balance cannot be changed to cash': {
+    text: COPY.creditDowngradeBlocked,
+  },
+  'Customer cannot change to CASH while a completed invoice has an outstanding balance': {
+    text: COPY.creditDowngradeBlocked,
+  },
+  'RNC or Cédula is required for CREDIT customers': {
+    text: COPY.creditFiscalRequired,
+    field: 'rnc',
+  },
+  'CREDIT customers require a valid RNC or Cédula': {
+    text: COPY.creditFiscalRequired,
+    field: 'rnc',
+  },
+  'Credit limit is required for CREDIT customers': {
+    text: COPY.creditLimitRequired,
+    field: 'creditLimitDop',
+  },
+  'CREDIT customers require a positive credit limit in DOP': {
+    text: COPY.creditLimitRequired,
+    field: 'creditLimitDop',
+  },
+  'Credit term days is required for CREDIT customers': {
+    text: COPY.creditTermRequired,
+    field: 'creditTermDays',
+  },
+  'CREDIT customers require a credit term of 30, 45, 60, 90, or 120 days': {
+    text: COPY.creditTermRequired,
+    field: 'creditTermDays',
+  },
+  'Credit limit and term must be omitted for CASH customers': {
+    text: COPY.cashCreditFieldsForbidden,
+  },
+  'CASH customers cannot have a credit limit or term': {
+    text: COPY.cashCreditFieldsForbidden,
+    field: 'customerType',
+  },
 };
 
 const FIELD_LABELS: Array<{ pattern: RegExp; label: string }> = [
@@ -116,6 +179,9 @@ const FIELD_LABELS: Array<{ pattern: RegExp; label: string }> = [
   { pattern: /^contacts\.\d+\.phone$/, label: 'teléfono del contacto' },
   { pattern: /^contacts\.\d+\.name$/, label: 'nombre del contacto' },
   { pattern: /^contacts\.\d+\.title$/, label: 'cargo del contacto' },
+  { pattern: /^creditLimitDop$/, label: 'límite de crédito' },
+  { pattern: /^creditTermDays$/, label: 'plazo de crédito' },
+  { pattern: /^customerType$/, label: 'tipo de cliente' },
 ];
 
 type PresentInput = {
@@ -139,6 +205,8 @@ function translateByPath(path: string): { text: string; field: string } | undefi
   if (path === 'contacts') return { text: COPY.contactPrimary, field: path };
   if (/^contacts\.\d+$/.test(path)) return { text: COPY.contactPhoneOrEmail, field: path };
   if (/\.email$/.test(path)) return { text: COPY.emailInvalid, field: path };
+  if (path === 'creditLimitDop') return { text: COPY.creditLimitFormat, field: path };
+  if (path === 'creditTermDays') return { text: COPY.creditTermRequired, field: path };
   return undefined;
 }
 

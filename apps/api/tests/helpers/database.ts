@@ -1,4 +1,4 @@
-import { execSync } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -7,6 +7,7 @@ import { PrismaClient } from '@prisma/client';
 import { requireTestDatabaseUrl } from './environment.js';
 
 const apiRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
+const prismaCli = path.join(apiRoot, 'node_modules', 'prisma', 'build', 'index.js');
 
 export async function isDatabaseReachable(databaseUrl: string): Promise<boolean> {
   const probeClient = new PrismaClient({
@@ -30,9 +31,15 @@ export function resetTestDatabase(
   if (databaseUrl !== requireTestDatabaseUrl(environment)) {
     throw new Error('Test database reset must target DATABASE_URL_TEST.');
   }
-  execSync('npx prisma migrate reset --force --skip-generate', {
-    cwd: apiRoot,
-    env: { ...environment, DATABASE_URL: databaseUrl },
-    stdio: 'pipe',
-  });
+  // Use the current Node binary and the local Prisma CLI so the reset does not
+  // resolve `npx`/`prisma` through PATH (Sonar S4036).
+  execFileSync(
+    process.execPath,
+    [prismaCli, 'migrate', 'reset', '--force', '--skip-generate'],
+    {
+      cwd: apiRoot,
+      env: { ...environment, DATABASE_URL: databaseUrl },
+      stdio: 'pipe',
+    },
+  );
 }

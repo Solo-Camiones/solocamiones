@@ -22,10 +22,7 @@ import {
   updateOwnProfileWithHttp,
   requestRecoveryWithHttp,
 } from '../client/auth-api';
-import {
-  listServicesWithHttp,
-  saveServiceWithHttp,
-} from '../client/catalogs-api';
+import { listServicesWithHttp, saveServiceWithHttp } from '../client/catalogs-api';
 import {
   getCustomerByIdWithHttp,
   listCustomersWithHttp,
@@ -37,14 +34,20 @@ import {
   addPaymentWithHttp,
   cancelInvoiceWithHttp,
   confirmInvoiceWithHttp,
+  convertQuoteWithHttp,
   correctCurrencyWithHttp,
   createDraftWithHttp,
+  createQuoteWithHttp,
+  duplicateQuoteWithHttp,
   discardDraftWithHttp,
   getDraftWithHttp,
   getInvoiceWithHttp,
   getInvoicePdfWithHttp,
+  getQuotePdfWithHttp,
+  getAccountStatementPdfWithHttp,
   listInvoicesWithHttp,
   listReceivablesWithHttp,
+  issueQuoteWithHttp,
   regenerateInvoicePdfWithHttp,
   removeDraftLineWithHttp,
   setDraftLinePriceWithHttp,
@@ -196,8 +199,8 @@ export class HttpCustomerRepository implements CustomerRepository {
     return listCustomersWithHttp();
   }
 
-  async search(query: string, page = 1) {
-    return searchCustomersWithHttp(query, page);
+  async search(query: string, page = 1, customerType?: 'CASH' | 'CREDIT') {
+    return searchCustomersWithHttp(query, page, customerType);
   }
 
   async getById(id: string) {
@@ -214,12 +217,13 @@ export class HttpSalesRepository implements SalesRepository {
     tab?: Parameters<SalesRepository['listInvoices']>[0],
     page = 1,
     q?: string,
+    filters?: Parameters<SalesRepository['listInvoices']>[3],
   ) {
-    return listInvoicesWithHttp(tab, page, q);
+    return listInvoicesWithHttp(tab, page, q, filters);
   }
 
-  async listReceivables(page = 1) {
-    return listReceivablesWithHttp(page);
+  async listReceivables(page = 1, filters?: Parameters<SalesRepository['listReceivables']>[1]) {
+    return listReceivablesWithHttp(page, filters);
   }
 
   async getInvoice(id: string) {
@@ -228,6 +232,14 @@ export class HttpSalesRepository implements SalesRepository {
 
   async getInvoicePdf(id: string) {
     return getInvoicePdfWithHttp(id);
+  }
+
+  async getQuotePdf(id: string) {
+    return getQuotePdfWithHttp(id);
+  }
+
+  async getAccountStatementPdf(customerId: string) {
+    return getAccountStatementPdfWithHttp(customerId);
   }
 
   async regenerateInvoicePdf(id: string) {
@@ -248,6 +260,10 @@ export class HttpSalesRepository implements SalesRepository {
 
   async createDraft() {
     return createDraftWithHttp();
+  }
+
+  async createQuote() {
+    return createQuoteWithHttp();
   }
 
   async getDraft(id: string) {
@@ -276,6 +292,18 @@ export class HttpSalesRepository implements SalesRepository {
 
   async confirmInvoice(draftId: string, payment?: ConfirmInvoicePayment) {
     return confirmInvoiceWithHttp(draftId, payment);
+  }
+
+  async issueQuote(draftId: string) {
+    return issueQuoteWithHttp(draftId);
+  }
+
+  async duplicateQuote(quoteId: string) {
+    return duplicateQuoteWithHttp(quoteId);
+  }
+
+  async convertQuote(quoteId: string, payment?: ConfirmInvoicePayment) {
+    return convertQuoteWithHttp(quoteId, payment);
   }
 
   async discardDraft(draftId: string) {

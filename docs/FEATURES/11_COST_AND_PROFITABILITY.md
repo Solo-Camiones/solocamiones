@@ -2,7 +2,9 @@
 
 ## Status and authority
 
-**CONFIRMED.** This file is the implementation source of truth for requirement IDs: `COST-001, COST-002, COST-003, COST-004, COST-005`.
+**CONFIRMED.** This file is the implementation source of truth for requirement IDs: `COST-001, COST-002, COST-003, COST-004, COST-005, COST-006`.
+
+`COST-006` was added 2026-09-15. `COST-001` and `COST-004` were amended the same day so billing no longer captures or displays acquisition cost. This file is authoritative over `docs/pre_production_business_changes/IMPLEMENTATION_PLAN.md`.
 
 The old consolidated requirements/validation files are intentionally no longer required. If another retained document conflicts with a requirement block below, update that retained document rather than weakening this feature specification.
 
@@ -11,6 +13,8 @@ The old consolidated requirements/validation files are intentionally no longer r
 **Release 2 invoice-line cost, DOP profit, USD FX, COST-005, and FX retry; inventory-weighted cost completes in Release 4/5**
 
 **Implementation (2026-09-11):** Production **API is done** for invoice-line cost snapshots, Administrator profit projection, FX pending/retry, and COST-005. HTTP UI swap is **done** (R2 M24: `HttpProfitabilityRepository` composes the snapshot from completed sales; retry and COST-005 POSTs are wired). Protected acquisition-cost correction is **prototype mock / Release 8**, not an API command.
+
+**Pre-production change set (2026-09-15):** Billing capture of acquisition cost is withdrawn for both roles (`COST-006`, Paso 4). Inventory-sourced cost remains the future path. New billing lines persist `UNKNOWN` cost; Administrator COST-005 remains the follow-up.
 
 ## What this feature does
 
@@ -50,7 +54,7 @@ then `profitUsd = sellingPriceUsd - costUsd`. Keep `costUsd` and `profitUsd` at 
 
 and adds it to the DOP gross-profit total. The FX lookup is a secondary profitability enrichment, not a commercial dependency. If unavailable, confirmation still succeeds and profitability is `UNAVAILABLE / PENDING FX RATE`. A named Administrator recovery can retry later without rerunning the sale. Preserve normalized rate value, source/provider, relevant rate time/date, and calculation time.
 
-Seller and Administrator may view acquisition cost. Only Administrator may view gross profit, margin, aggregate profitability, pending-profitability diagnostics, or record a judged gross-profit amount when the system cannot calculate one.
+Seller and Administrator must not capture or receive acquisition cost on ordinary billing line create/update/read projections (`COST-006`). Only Administrator may view gross profit, margin, aggregate profitability, pending-profitability diagnostics, or record a judged gross-profit amount when the system cannot calculate one. Inventory registration remains the future source of known cost.
 
 ## Feature-level acceptance criteria
 
@@ -62,6 +66,7 @@ Seller and Administrator may view acquisition cost. Only Administrator may view 
 - FX failure never blocks confirmation and never invents a rate.
 - Retry changes only profitability enrichment, not invoice/inventory/payment state.
 - Seller cannot access profit/margin while Administrator can.
+- Ordinary billing payloads and projections omit acquisition cost for both roles; new non-inventory lines persist `UNKNOWN` until inventory supplies cost or Administrator records COST-005 profit.
 - When cost is unknown the system still does not invent profit; Administrator may record a judged DOP amount with a reason. Estimated cost continues to calculate automatically. Pending FX uses retry, not a typed amount.
 
 ## Implementation checklist
@@ -86,6 +91,12 @@ Seller and Administrator may view acquisition cost. Only Administrator may view 
 - [x] Seller profit endpoint/field denial. *(API R2 M13: omisión de campos en GET/confirm/list)*
 - [x] Administrator-recorded unknown-cost profit; denial for seller, pending FX, and already-calculated invoices. *(API R2 M14)*
 
+### Pre-production billing cost capture
+
+- [x] Remove acquisition-cost and cost-provenance fields from billing line forms and ordinary payloads for both roles (COST-006).
+- [x] Reject ordinary attempts to send those fields; persist new non-inventory lines as `UNKNOWN`.
+- [x] Keep COST-005 as the Administrator follow-up for unknown-cost invoices; confirmation stays unblocked.
+
 ## Canonical validated requirements
 
 The blocks below are the final reconciled requirements retained from the previous consolidated catalog. Keep their IDs stable for tests, commits, and traceability.
@@ -95,13 +106,15 @@ The blocks below are the final reconciled requirements retained from the previou
 **Name:** Actual, estimated, or unknown acquisition cost  
 **Status:** CONFIRMED  
 **Actors:** Seller, Administrator  
-**Requirement:** Applicable inventory and resale lines must preserve acquisition cost in `DOP` as actual, manually estimated, or unknown, and both Seller and Administrator may view it.  
+**Requirement:** Applicable inventory and resale lines must preserve acquisition cost in `DOP` as actual, manually estimated, or unknown. Ordinary billing no longer captures or displays that cost (COST-006). Inventory-backed workflows remain the source of known cost once those releases exist.  
 **Business Reason:** The owner replaced reference-price/discount tracking with actual cost and profitability, and a single stored cost currency keeps that cost comparable across `DOP` and `USD` sales.  
-**Main Flow:** An authorized workflow records a known or estimated `DOP` cost or explicitly leaves it unknown; confirmation snapshots the cost value and provenance used by the sale.  
-**Business Rules:** Acquisition cost is always stored in `DOP`, including individually tracked inventory, weighted-average quantity cost, externally sourced resale cost, and an entered estimate; the employee performs any purchase-currency conversion outside the application and enters the DOP-equivalent amount. Unknown must never be silently replaced with zero; acquisition cost is not a suggested selling price; Mechanic cannot view it; Seller may view but may not edit protected acquisition cost; Administrator corrections use INV-006.  
-**Important Exceptions/Edge Cases:** The MVP preserves no original purchase currency, no manual purchase conversion rate, and no supplier or import exchange-rate accounting; a part actually bought for `USD 200` is stored only as its DOP-equivalent cost such as `DOP 12,300.00`. A component acquired within an assembly may use a manual estimate or remain unknown; the system must not invent, equally divide, proportionally allocate, or residually allocate assembly cost; quantity cost uses QTY-003.  
-**Dependencies:** AUTH-005.  
-**Acceptance Notes:** Seller and Administrator can view the `DOP` cost and provenance, Mechanic cannot, unknown remains distinguishable from zero and from an estimate, and later edits cannot rewrite completed snapshots.
+**Main Flow:** An authorized inventory or protected-correction workflow records a known or estimated `DOP` cost or explicitly leaves it unknown; confirmation snapshots whatever cost basis exists at sale time. Billing line forms do not collect cost.  
+**Business Rules:** Acquisition cost is always stored in `DOP`, including individually tracked inventory, weighted-average quantity cost, externally sourced resale cost, and an entered estimate from an authorized non-billing workflow; the employee performs any purchase-currency conversion outside the application and enters the DOP-equivalent amount. Unknown must never be silently replaced with zero; acquisition cost is not a suggested selling price; Mechanic cannot view it; Seller cannot view it on billing surfaces; Administrator corrections use INV-006.  
+**Important Exceptions/Edge Cases:** The MVP preserves no original purchase currency, no manual purchase conversion rate, and no supplier or import exchange-rate accounting; a part actually bought for `USD 200` is stored only as its DOP-equivalent cost such as `DOP 12,300.00`. A component acquired within an assembly may use a manual estimate or remain unknown; the system must not invent, equally divide, proportionally allocate, or residually allocate assembly cost; quantity cost uses QTY-003. Historical completed lines that already stored cost keep that snapshot.  
+**Dependencies:** AUTH-005, COST-006.  
+**Acceptance Notes:** Mechanic cannot see cost. Unknown remains distinguishable from zero and from an estimate. Later edits cannot rewrite completed snapshots. Billing add/edit line does not show cost fields.
+
+**Amended 2026-09-15:** Seller billing visibility of acquisition cost is withdrawn; capture moved off the invoice line form.
 
 ---
 
@@ -116,7 +129,7 @@ The blocks below are the final reconciled requirements retained from the previou
 **Business Rules:** Do not calculate or present a reference-price discount as the primary model. Invoice monetary values use the invoice currency and two decimal places.  
 **Important Exceptions/Edge Cases:** Numeric-zero no-charge delivery is allowed under LINE-006; textual monetary placeholders and invalid negative prices are rejected.  
 **Dependencies:** LINE-001 through LINE-006.  
-**Acceptance Notes:** Invoice uses the entered final price and contains no required reference-price/discount workflow.
+**Acceptance Notes:** Invoice uses the entered final price and contains no required reference-price/discount workflow. When `applyItbis` is on, that entered price is the SALE-010 base, not a tax-inclusive gross.
 
 ---
 
@@ -141,13 +154,15 @@ The blocks below are the final reconciled requirements retained from the previou
 **Name:** Administrator-only profitability access  
 **Status:** CONFIRMED  
 **Actors:** Administrator  
-**Requirement:** Gross profit, margins, and profitability statistics must be visible only to Administrators, while Seller may view acquisition cost without receiving those derived values.  
-**Business Reason:** The owner explicitly restricted profitability information.  
+**Requirement:** Gross profit, margins, and profitability statistics must be visible only to Administrators. Ordinary billing projections must not include acquisition cost for Seller or Administrator (COST-006).  
+**Business Reason:** The owner explicitly restricted profitability information and withdrew cost capture from invoicing until inventory supplies it.  
 **Main Flow:** Administrator opens authorized profit information; other users are denied server-side.  
 **Business Rules:** Seller and Mechanic cannot view or receive gross profit, margin, or profitability statistics; authorization must be enforced server-side. A pending or unresolved profitability result, including `UNAVAILABLE / PENDING FX RATE` and its reason and any preserved rate provenance, is also Administrator-only.  
-**Important Exceptions/Edge Cases:** Unknown component cost makes calculated profit unavailable until Administrator records a judged amount under COST-005; estimated cost may support an explicitly identified estimate but does not authorize automatic assembly allocation. Seller cost visibility remains a `DOP` acquisition-cost value and never becomes profitability access, including for a `USD` invoice whose profitability is pending.  
-**Dependencies:** AUTH-005, COST-003, COST-005, HIER-001.  
-**Acceptance Notes:** Administrator can access allowed known/estimated profitability and COST-005 recorded amounts; Seller can see acquisition cost but not profit or margin; Mechanic sees neither.
+**Important Exceptions/Edge Cases:** Unknown component cost makes calculated profit unavailable until Administrator records a judged amount under COST-005; estimated cost may support an explicitly identified estimate but does not authorize automatic assembly allocation. Seller must not receive acquisition cost on invoice/draft projections.  
+**Dependencies:** AUTH-005, COST-003, COST-005, COST-006, HIER-001.  
+**Acceptance Notes:** Administrator can access allowed known/estimated profitability and COST-005 recorded amounts; Seller sees neither cost nor profit on billing screens; Mechanic sees neither.
+
+**Amended 2026-09-15:** Seller cost visibility on billing is removed.
 
 ---
 
@@ -164,3 +179,18 @@ The blocks below are the final reconciled requirements retained from the previou
 **Important Exceptions/Edge Cases:** Zero and negative amounts are allowed (break-even or loss). Blank or non-numeric amounts are rejected. Pending FX remains the retry path. Estimated cost already yields a calculated result and cannot be replaced by this command.  
 **Dependencies:** COST-003, COST-004, HIST-003.  
 **Acceptance Notes:** Unknown-cost invoices can receive a numbered `DOP` profit with provenance `MANUAL`; calculated invoices cannot; pending-FX invoices cannot; sellers are denied; totals include the recorded amount. For a `USD 100.00` selling total at a preserved `60.00` rate, a manual profit of `DOP 3,000.00` reports a `50.00%` margin.
+
+---
+
+### COST-006 — No Billing Capture of Acquisition Cost
+
+**Name:** Remove cost entry from invoice lines  
+**Status:** CONFIRMED  
+**Actors:** Seller, Administrator  
+**Requirement:** Add-line and edit-line billing must not collect “Origen del costo” or “Costo de adquisición”. Ordinary create/update payloads for both roles must omit `acquisitionCostDop` and `costProvenance`; the server rejects those fields on ordinary billing commands. Ordinary draft/invoice projections omit cost for both roles.  
+**Business Reason:** Until inventory integration supplies cost at sale time, asking for it on the invoice is error-prone and leaks a restricted number. Profit follow-up stays Administrator-only via COST-005.  
+**Main Flow:** User adds a generic or external line with description, quantity, and selling price only. New non-inventory lines persist cost provenance `UNKNOWN` without storing zero. Confirmation is not blocked. After confirmation, Administrator may record judged gross profit under COST-005.  
+**Business Rules:** Do not run a destructive migration that deletes historical cost columns or completed snapshots. Keep stored cost on old completed lines. Do not invent cost from the manual profit amount. When inventory is implemented, cost is captured at inventory registration/receipt and copied into the line snapshot at sale — not re-asked on the invoice form.  
+**Important Exceptions/Edge Cases:** Protected INV-006 cost correction remains Administrator-only and is not a billing form. Seller HTTP that includes cost fields is rejected.  
+**Dependencies:** COST-001, COST-004, COST-005, LINE-003, LINE-005.  
+**Acceptance Notes:** Administrator and Seller line modals have no cost inputs. A POST that includes `acquisitionCostDop` is rejected. New generic line confirms with unknown cost and unknown calculated profit. COST-005 still records profit afterward without changing prices, payments, or balance.

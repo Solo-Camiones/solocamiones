@@ -1,7 +1,18 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 
-import type { Customer } from '../../api/contracts/entities';
-import type { SaveCustomerContactInput, SaveCustomerInput } from '../../api/contracts/customers';
+import type { Customer, CustomerType, CreditTermDays } from '../../api/contracts/entities';
+import {
+  CREDIT_TERM_DAYS_OPTIONS,
+  type SaveCustomerContactInput,
+  type SaveCustomerInput,
+} from '../../api/contracts/customers';
+import {
+  formatFiscalId,
+  inferFiscalIdKind,
+  maskFiscalIdInput,
+  type FiscalIdKind,
+} from '../../shared/domain/fiscal-id';
+import { formatDominicanPhone } from '../../shared/domain/phone';
 import {
   Button,
   Field,
@@ -9,13 +20,16 @@ import {
   Info,
   Input,
   ReviewSummary,
+  Select,
   Textarea,
   isFormDirty,
 } from '../../shared/ui';
+import { customerTypeLabel } from './customer-type-labels';
 
 export type CustomerFormModalProps = {
   open: boolean;
   customer: Customer | null;
+  canManageCredit: boolean;
   isSaving: boolean;
   error: string | null;
   fieldErrors?: Record<string, string>;
@@ -35,6 +49,10 @@ type ContactDraft = {
 
 type FormFields = {
   name: string;
+  customerType: CustomerType;
+  creditLimitDop: string;
+  creditTermDays: string;
+  fiscalKind: '' | FiscalIdKind;
   rnc: string;
   address: string;
   notes: string;
@@ -43,11 +61,21 @@ type FormFields = {
 
 const EMPTY_FIELDS: FormFields = {
   name: '',
+  customerType: 'CASH',
+  creditLimitDop: '',
+  creditTermDays: '',
+  fiscalKind: '',
   rnc: '',
   address: '',
   notes: '',
   contacts: [],
 };
+
+function fiscalLabel(kind: '' | FiscalIdKind): string {
+  if (kind === 'RNC') return 'RNC';
+  if (kind === 'CEDULA') return 'Cédula';
+  return 'Identificación fiscal / cédula';
+}
 
 function toSaveContacts(drafts: ContactDraft[]): SaveCustomerContactInput[] {
   return drafts.map((contact) => ({
@@ -74,6 +102,7 @@ function firstError(
 export function CustomerFormModal({
   open,
   customer,
+  canManageCredit,
   isSaving,
   error,
   fieldErrors,
@@ -96,7 +125,11 @@ export function CustomerFormModal({
     const next: FormFields = customer
       ? {
           name: customer.name,
-          rnc: customer.rnc ?? '',
+          customerType: customer.customerType,
+          creditLimitDop: customer.creditLimitDop ?? '',
+          creditTermDays: customer.creditTermDays ? String(customer.creditTermDays) : '',
+          fiscalKind: inferFiscalIdKind(customer.rnc),
+          rnc: customer.rnc ? formatFiscalId(customer.rnc) : '',
           address: customer.address ?? '',
           notes: customer.notes ?? '',
           contacts: customer.contacts.map((contact) => {
@@ -105,7 +138,7 @@ export function CustomerFormModal({
               key: contact.id || `contact-draft-${nextKeyRef.current}`,
               id: contact.id,
               name: contact.name ?? '',
-              phone: contact.phone ?? '',
+              phone: formatDominicanPhone(contact.phone ?? ''),
               email: contact.email ?? '',
               title: contact.title ?? '',
               isPrimary: contact.isPrimary === true,
@@ -191,8 +224,10 @@ export function CustomerFormModal({
     }));
   }
 
+  const isCredit = canManageCredit && fields.customerType === 'CREDIT';
+
   function savePayload(): SaveCustomerInput {
-    return {
+    const payload: SaveCustomerInput = {
       id: customer?.id,
       name: fields.name,
       rnc: fields.rnc,
@@ -200,6 +235,16 @@ export function CustomerFormModal({
       notes: fields.notes,
       contacts: toSaveContacts(fields.contacts),
     };
+
+    if (canManageCredit) {
+      payload.customerType = fields.customerType;
+      if (fields.customerType === 'CREDIT') {
+        payload.creditLimitDop = fields.creditLimitDop.trim();
+        payload.creditTermDays = Number(fields.creditTermDays) as CreditTermDays;
+      }
+    }
+
+    return payload;
   }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -235,7 +280,21 @@ export function CustomerFormModal({
             <ReviewSummary
               rows={[
                 { label: 'Nombre', value: fields.name },
-                { label: 'Identificación fiscal / cédula', value: fields.rnc },
+                ...(canManageCredit
+                  ? [
+                      { label: 'Tipo', value: customerTypeLabel(fields.customerType) },
+                      ...(fields.customerType === 'CREDIT'
+                        ? [
+                            { label: 'Límite de crédito (DOP)', value: fields.creditLimitDop },
+                            {
+                              label: 'Plazo (días)',
+                              value: fields.creditTermDays,
+                            },
+                          ]
+                        : []),
+                    ]
+                  : []),
+                { label: fiscalLabel(fields.fiscalKind), value: fields.rnc },
                 { label: 'Dirección', value: fields.address },
                 { label: 'Notas', value: fields.notes },
                 ...(fields.contacts.length === 0 ? [{ label: 'Contactos', value: '' }] : []),
@@ -288,21 +347,156 @@ export function CustomerFormModal({
             autoFocus
           />
         </Field>
-        <Field
-          label="Identificación fiscal / cédula"
-          htmlFor="customer-rnc"
-          hint="Opcional en ventas no fiscales"
-          error={visibleError(['rnc'])}
-        >
-          <Input
-            id="customer-rnc"
-            value={fields.rnc}
-            onChange={(event) => {
-              clearFieldError('rnc');
-              setFields((current) => ({ ...current, rnc: event.target.value }));
-            }}
-          />
-        </Field>
+        {canManageCredit && (
+          <Field label="Tipo de cliente" htmlFor="customer-type" error={visibleError(['customerType'])}>
+            <Select
+              id="customer-type"
+              value={fields.customerType}
+              onChange={(event) => {
+                clearFieldError('customerType', 'creditLimitDop', 'creditTermDays', 'rnc');
+                const customerType = event.target.value as CustomerType;
+                setFields((current) => ({
+                  ...current,
+                  customerType,
+                  ...(customerType === 'CASH'
+                    ? { creditLimitDop: '', creditTermDays: '' }
+                    : {}),
+                }));
+              }}
+            >
+              <option value="CASH">Contado</option>
+              <option value="CREDIT">Crédito</option>
+            </Select>
+          </Field>
+        )}
+        {isCredit && (
+          <>
+            <Field
+              label="Límite de crédito (DOP)"
+              htmlFor="customer-credit-limit"
+              error={visibleError(['creditLimitDop'])}
+            >
+              <Input
+                id="customer-credit-limit"
+                inputMode="decimal"
+                value={fields.creditLimitDop}
+                onChange={(event) => {
+                  clearFieldError('creditLimitDop');
+                  setFields((current) => ({ ...current, creditLimitDop: event.target.value }));
+                }}
+                required
+              />
+            </Field>
+            <Field
+              label="Plazo de crédito (días)"
+              htmlFor="customer-credit-term"
+              error={visibleError(['creditTermDays'])}
+            >
+              <Select
+                id="customer-credit-term"
+                value={fields.creditTermDays}
+                onChange={(event) => {
+                  clearFieldError('creditTermDays');
+                  setFields((current) => ({ ...current, creditTermDays: event.target.value }));
+                }}
+                required
+              >
+                <option value="" disabled>
+                  Seleccione un plazo
+                </option>
+                {CREDIT_TERM_DAYS_OPTIONS.map((days) => (
+                  <option key={days} value={days}>
+                    {days} días
+                  </option>
+                ))}
+              </Select>
+            </Field>
+          </>
+        )}
+        <div className="space-y-1.5">
+          <div
+            id="customer-fiscal-kind"
+            role="radiogroup"
+            aria-label="Tipo de identificación"
+            aria-required={isCredit || undefined}
+            aria-invalid={
+              !fields.fiscalKind && Boolean(visibleError(['rnc'])) ? true : undefined
+            }
+            className="flex items-center gap-3"
+          >
+            <label className="flex items-center gap-1.5 text-xs font-medium text-navy-500">
+              <input
+                type="radio"
+                name="customer-fiscal-kind"
+                value="RNC"
+                checked={fields.fiscalKind === 'RNC'}
+                required={isCredit}
+                className="h-3.5 w-3.5 accent-brand"
+                onChange={() => {
+                  clearFieldError('rnc');
+                  setFields((current) => ({ ...current, fiscalKind: 'RNC', rnc: '' }));
+                }}
+              />
+              RNC
+            </label>
+            <label className="flex items-center gap-1.5 text-xs font-medium text-navy-500">
+              <input
+                type="radio"
+                name="customer-fiscal-kind"
+                value="CEDULA"
+                checked={fields.fiscalKind === 'CEDULA'}
+                required={isCredit}
+                className="h-3.5 w-3.5 accent-brand"
+                onChange={() => {
+                  clearFieldError('rnc');
+                  setFields((current) => ({ ...current, fiscalKind: 'CEDULA', rnc: '' }));
+                }}
+              />
+              Cédula
+            </label>
+          </div>
+          {!fields.fiscalKind && visibleError(['rnc']) ? (
+            <p className="text-xs text-red-600" role="alert">
+              {visibleError(['rnc'])}
+            </p>
+          ) : null}
+          <Field
+            label="Identificación fiscal / cédula"
+            htmlFor="customer-rnc"
+            hint={
+              fields.fiscalKind === 'RNC'
+                ? '9 dígitos, por ejemplo 1-31-12345-6'
+                : fields.fiscalKind === 'CEDULA'
+                  ? '11 dígitos, por ejemplo 001-0123456-7'
+                  : 'Elija RNC o cédula para habilitar el campo'
+            }
+            error={fields.fiscalKind ? visibleError(['rnc']) : undefined}
+          >
+            <Input
+              id="customer-rnc"
+              inputMode="numeric"
+              autoComplete="off"
+              disabled={!fields.fiscalKind}
+              value={fields.rnc}
+              onChange={(event) => {
+                if (!fields.fiscalKind) return;
+                clearFieldError('rnc');
+                setFields((current) => ({
+                  ...current,
+                  rnc: maskFiscalIdInput(current.fiscalKind as FiscalIdKind, event.target.value),
+                }));
+              }}
+              required={isCredit}
+              placeholder={
+                fields.fiscalKind === 'RNC'
+                  ? '1-31-12345-6'
+                  : fields.fiscalKind === 'CEDULA'
+                    ? '001-0123456-7'
+                    : undefined
+              }
+            />
+          </Field>
+        </div>
         <Field label="Dirección" htmlFor="customer-address" error={visibleError(['address'])}>
           <Input
             id="customer-address"
@@ -365,10 +559,15 @@ export function CustomerFormModal({
                 >
                   <Input
                     id={`contact-${index}-phone`}
+                    inputMode="numeric"
+                    autoComplete="tel"
                     value={contact.phone}
                     onChange={(event) =>
-                      updateContact(contact.key, index, { phone: event.target.value })
+                      updateContact(contact.key, index, {
+                        phone: formatDominicanPhone(event.target.value),
+                      })
                     }
+                    placeholder="809-555-0100"
                   />
                 </Field>
                 <Field

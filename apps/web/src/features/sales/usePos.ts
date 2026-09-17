@@ -7,6 +7,7 @@ import type {
   ConfirmInvoicePayment,
   PosDraftView,
   PosLineView,
+  QuotePdfDownload,
   SetDraftMetaInput,
 } from '../../api/contracts/sales';
 import type { AppError, Result } from '../../shared/auth/types';
@@ -23,8 +24,6 @@ export type PosLineSnapshot = Pick<
   | 'notes'
   | 'quantity'
   | 'unitPrice'
-  | 'acquisitionCostDop'
-  | 'costProvenance'
   | 'pricePending'
 >;
 
@@ -32,6 +31,7 @@ export type PosDraftSnapshot = {
   customerId: string;
   currency: Currency;
   fiscal: boolean;
+  applyItbis: boolean;
   lines: PosLineSnapshot[];
 };
 
@@ -45,8 +45,6 @@ export function snapshotPosLine(line: PosLineView): PosLineSnapshot {
     notes: line.notes,
     quantity: line.quantity,
     unitPrice: line.unitPrice,
-    acquisitionCostDop: line.acquisitionCostDop,
-    costProvenance: line.costProvenance,
     pricePending: line.pricePending,
   };
 }
@@ -56,6 +54,7 @@ export function snapshotPosDraft(draft: PosDraftView): PosDraftSnapshot {
     customerId: draft.customerId,
     currency: draft.currency,
     fiscal: draft.fiscal,
+    applyItbis: draft.applyItbis,
     lines: draft.lines.map(snapshotPosLine),
   };
 }
@@ -70,8 +69,6 @@ export function toPosAddLineInput(line: PosLineSnapshot): Omit<AddDraftLineInput
     notes: line.notes,
     quantity: line.quantity,
     unitPrice: line.unitPrice,
-    acquisitionCostDop: line.acquisitionCostDop,
-    costProvenance: line.costProvenance,
   };
 }
 
@@ -130,6 +127,7 @@ export async function restoreDiscardedDraft(snapshot: PosDraftSnapshot): Promise
     customerId: snapshot.customerId,
     currency: snapshot.currency,
     fiscal: snapshot.fiscal,
+    applyItbis: snapshot.applyItbis,
   });
   if (!meta.ok) {
     return meta;
@@ -150,7 +148,7 @@ type PosQuery =
   | { status: 'error'; error: AppError }
   | { status: 'ready'; draft: PosDraftView };
 
-export function usePos(draftId: string | undefined) {
+export function usePos(draftId: string | undefined, creationKind: 'sale' | 'quote' = 'sale') {
   const navigate = useNavigate();
   const draftCreationRef = useRef<ReturnType<typeof salesRepository.createDraft> | null>(null);
   const [reloadToken, setReloadToken] = useState(0);
@@ -173,7 +171,8 @@ export function usePos(draftId: string | undefined) {
     if (draftId === 'new') {
       let cancelled = false;
       setResult({ status: 'loading' });
-      draftCreationRef.current ??= salesRepository.createDraft();
+      draftCreationRef.current ??=
+        creationKind === 'quote' ? salesRepository.createQuote() : salesRepository.createDraft();
       draftCreationRef.current.then((response) => {
         if (cancelled) {
           return;
@@ -182,7 +181,12 @@ export function usePos(draftId: string | undefined) {
           setResult({ status: 'error', error: response.error });
           return;
         }
-        navigate(`/sales/draft/${response.value.draftId}`, { replace: true });
+        navigate(
+          creationKind === 'quote'
+            ? `/sales/quote/${response.value.draftId}`
+            : `/sales/draft/${response.value.draftId}`,
+          { replace: true },
+        );
       });
       return () => {
         cancelled = true;
@@ -207,7 +211,7 @@ export function usePos(draftId: string | undefined) {
     return () => {
       cancelled = true;
     };
-  }, [draftId, navigate, reloadToken]);
+  }, [creationKind, draftId, navigate, reloadToken]);
 
   const applyDraftResult = useCallback((response: Result<PosDraftView>): Result<void> => {
     if (!response.ok) {
@@ -296,8 +300,6 @@ export function usePos(draftId: string | undefined) {
         quantity?: number;
         description?: string;
         notes?: string | null;
-        acquisitionCostDop?: number | null;
-        costProvenance?: PosLineView['costProvenance'];
       },
     ): Promise<Result<void>> => {
       if (!draftId || draftId === 'new') {
@@ -312,8 +314,6 @@ export function usePos(draftId: string | undefined) {
             quantity: patch.quantity,
             description: patch.description,
             notes: patch.notes,
-            acquisitionCostDop: patch.acquisitionCostDop,
-            costProvenance: patch.costProvenance,
           }),
         ),
       );
@@ -350,6 +350,47 @@ export function usePos(draftId: string | undefined) {
     [draftId, reload, runExclusive],
   );
 
+  const issueQuote = useCallback(async (): Promise<Result<void>> => {
+    if (!draftId || draftId === 'new') {
+      return { ok: false, error: { code: 'VALIDATION', message: 'Cotización no lista' } };
+    }
+    return runExclusive(async () => applyDraftResult(await salesRepository.issueQuote(draftId)));
+  }, [applyDraftResult, draftId, runExclusive]);
+
+  const duplicateQuote = useCallback(async (): Promise<Result<void>> => {
+    if (!draftId || draftId === 'new') {
+      return { ok: false, error: { code: 'VALIDATION', message: 'Cotización no lista' } };
+    }
+    return runExclusive(async () => {
+      const response = await salesRepository.duplicateQuote(draftId);
+      if (!response.ok) return response;
+      navigate(`/sales/quote/${response.value.draftId}`);
+      return { ok: true, value: undefined };
+    });
+  }, [draftId, navigate, runExclusive]);
+
+  const convertQuote = useCallback(
+    async (payment?: ConfirmInvoicePayment): Promise<Result<void>> => {
+      if (!draftId || draftId === 'new') {
+        return { ok: false, error: { code: 'VALIDATION', message: 'Cotización no lista' } };
+      }
+      return runExclusive(async () => {
+        const response = await salesRepository.convertQuote(draftId, payment);
+        if (!response.ok) return response;
+        navigate(`/sales/${draftId}`, { replace: true });
+        return { ok: true, value: undefined };
+      });
+    },
+    [draftId, navigate, runExclusive],
+  );
+
+  const getQuotePdf = useCallback(async (): Promise<Result<QuotePdfDownload>> => {
+    if (!draftId || draftId === 'new') {
+      return { ok: false, error: { code: 'VALIDATION', message: 'Cotización no lista' } };
+    }
+    return salesRepository.getQuotePdf(draftId);
+  }, [draftId]);
+
   const discard = useCallback(async (): Promise<Result<void>> => {
     if (!draftId || draftId === 'new') {
       return { ok: false, error: { code: 'VALIDATION', message: 'Borrador no listo' } };
@@ -384,6 +425,10 @@ export function usePos(draftId: string | undefined) {
     updateLine,
     setMeta,
     confirm,
+    issueQuote,
+    duplicateQuote,
+    convertQuote,
+    getQuotePdf,
     discard,
     restoreRemovedLine,
   };

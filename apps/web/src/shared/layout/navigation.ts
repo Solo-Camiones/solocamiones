@@ -31,7 +31,7 @@ export type NavGroup = {
   items: NavItem[];
 };
 
-/** Desktop sidebar entries — Admin sees 10, Seller sees 5 when all capabilities are on. */
+/** Desktop sidebar entries — Admin sees 10, Seller sees 4 when all capabilities are on. */
 export const DESKTOP_NAV_ITEMS: NavItem[] = [
   {
     id: 'dashboard',
@@ -69,7 +69,7 @@ export const DESKTOP_NAV_ITEMS: NavItem[] = [
     id: 'receivables',
     label: 'Cuentas por cobrar',
     path: '/receivables',
-    roles: ['ADMINISTRATOR', 'SELLER'],
+    roles: ['ADMINISTRATOR'],
     group: 'finance',
     capability: 'payments',
   },

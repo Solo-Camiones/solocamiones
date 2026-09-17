@@ -41,7 +41,7 @@ describe('capability presets follow the Development Plan', () => {
       expect.arrayContaining(['sales', 'customers']),
     );
     expect(navItemsForRole('SELLER', capabilities).map((item) => item.id)).not.toContain(
-      'profitability',
+      'receivables',
     );
     expect(navItemsForRole('ADMINISTRATOR', capabilities).map((item) => item.id)).toContain(
       'profitability',
@@ -113,7 +113,8 @@ describe('capability presets follow the Development Plan', () => {
 
     expect(capabilities.payments).toBe(true);
     expect(capabilities.invoiceCancellation).toBe(true);
-    expect(isRouteAllowedForRole('/receivables', 'SELLER', capabilities)).toBe(true);
+    expect(isRouteAllowedForRole('/receivables', 'SELLER', capabilities)).toBe(false);
+    expect(isRouteAllowedForRole('/receivables', 'ADMINISTRATOR', capabilities)).toBe(true);
     expect(capabilities.inventory).toBe(false);
     expect(capabilities.inventorySales).toBe(false);
   });

@@ -53,10 +53,14 @@ import type {
   CreateDraftResult,
   InvoiceDetailView,
   InvoicePdfDownload,
+  QuotePdfDownload,
+  AccountStatementPdfDownload,
   PosDraftView,
   ReceivablesSnapshot,
+  ReceivablesFilters,
   RemoveDraftLineInput,
   SalesListRow,
+  SalesListFilters,
   SalesListTab,
   SetDraftLinePriceInput,
   SetDraftLineQuantityInput,
@@ -125,7 +129,11 @@ export type InventoryRepository = {
 export type CustomerRepository = {
   /** Full directory for POS lookups. The customers page uses `search` with paging. */
   list(): Promise<Result<CustomerListRow[]>>;
-  search(query: string, page?: number): Promise<Result<ListPage<CustomerListRow>>>;
+  search(
+    query: string,
+    page?: number,
+    customerType?: 'CASH' | 'CREDIT',
+  ): Promise<Result<ListPage<CustomerListRow>>>;
   getById(id: string): Promise<Result<Customer>>;
   save(input: SaveCustomerInput): Promise<Result<Customer>>;
 };
@@ -135,15 +143,22 @@ export type SalesRepository = {
     tab?: SalesListTab,
     page?: number,
     q?: string,
+    filters?: SalesListFilters,
   ): Promise<Result<ListPage<SalesListRow>>>;
-  listReceivables(page?: number): Promise<Result<ReceivablesSnapshot>>;
+  listReceivables(
+    page?: number,
+    filters?: ReceivablesFilters,
+  ): Promise<Result<ReceivablesSnapshot>>;
   getInvoice(id: string): Promise<Result<InvoiceDetailView>>;
   getInvoicePdf(id: string): Promise<Result<InvoicePdfDownload>>;
+  getQuotePdf(id: string): Promise<Result<QuotePdfDownload>>;
+  getAccountStatementPdf(customerId: string): Promise<Result<AccountStatementPdfDownload>>;
   regenerateInvoicePdf(id: string): Promise<Result<InvoiceDetailView>>;
   addPayment(input: AddPaymentInput): Promise<Result<InvoiceDetailView>>;
   cancelInvoice(input: CancelInvoiceInput): Promise<Result<InvoiceDetailView>>;
   correctCurrency(input: CorrectCurrencyInput): Promise<Result<InvoiceDetailView>>;
   createDraft(): Promise<Result<CreateDraftResult>>;
+  createQuote(): Promise<Result<CreateDraftResult>>;
   getDraft(id: string): Promise<Result<PosDraftView>>;
   addLine(input: AddDraftLineInput): Promise<Result<PosDraftView>>;
   removeLine(input: RemoveDraftLineInput): Promise<Result<PosDraftView>>;
@@ -151,6 +166,9 @@ export type SalesRepository = {
   setLineQuantity(input: SetDraftLineQuantityInput): Promise<Result<PosDraftView>>;
   setDraftMeta(input: SetDraftMetaInput): Promise<Result<PosDraftView>>;
   confirmInvoice(draftId: string, payment?: ConfirmInvoicePayment): Promise<Result<PosDraftView>>;
+  issueQuote(draftId: string): Promise<Result<PosDraftView>>;
+  duplicateQuote(quoteId: string): Promise<Result<CreateDraftResult>>;
+  convertQuote(quoteId: string, payment?: ConfirmInvoicePayment): Promise<Result<PosDraftView>>;
   discardDraft(draftId: string): Promise<Result<void>>;
 };
 

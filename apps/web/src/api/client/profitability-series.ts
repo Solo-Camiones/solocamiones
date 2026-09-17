@@ -1,4 +1,5 @@
 import type { ProfitabilityChartPoint, ProfitabilityCharts } from '../contracts/profitability';
+import type { InvoiceStatus } from '../contracts/entities';
 
 export const BUSINESS_TIME_ZONE = 'America/Santo_Domingo';
 
@@ -28,7 +29,7 @@ export type ProfitabilitySeriesReceipt = {
 };
 
 export type ProfitabilitySeriesInvoice = {
-  status: 'DRAFT' | 'COMPLETED' | 'CANCELLED';
+  status: InvoiceStatus;
   currency: 'DOP' | 'USD';
   confirmedAt: string | null;
   profit: number | null;
@@ -137,7 +138,11 @@ export function buildProfitabilitySeries(
   today = businessDateString(new Date()),
 ): ProfitabilitySeriesResult {
   const confirmedDays = invoices
-    .filter((invoice) => invoice.status !== 'DRAFT' && invoice.confirmedAt != null)
+    .filter(
+      (invoice) =>
+        (invoice.status === 'COMPLETED' || invoice.status === 'CANCELLED') &&
+        invoice.confirmedAt != null,
+    )
     .map((invoice) => businessDateFromTimestamp(invoice.confirmedAt as string));
 
   const invoicesMissingProfitCount = invoices.filter(

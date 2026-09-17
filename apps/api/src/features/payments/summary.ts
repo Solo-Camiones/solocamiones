@@ -2,7 +2,14 @@ import { Prisma, type InvoicePayment, type InvoiceStatus } from '@prisma/client'
 
 import { databaseDateString, todayBusinessDate } from './dates.js';
 
-export type PaymentState = 'PENDING' | 'OVERDUE' | 'PAID' | 'PAID_LATE' | 'CANCELLED';
+export type PaymentState =
+  | 'PENDING'
+  | 'PARTIALLY_PAID'
+  | 'OVERDUE'
+  | 'PARTIALLY_PAID_OVERDUE'
+  | 'PAID'
+  | 'PAID_LATE'
+  | 'CANCELLED';
 
 type PaymentSummaryInput = {
   status: InvoiceStatus;
@@ -56,12 +63,18 @@ export function summarizePayments(input: PaymentSummaryInput, now = new Date()):
     const late = databaseDateString(settledOn) > databaseDateString(input.dueDate);
     return { state: late ? 'PAID_LATE' : 'PAID', paid, refunded, balance, settledOn };
   }
-  if (
+  const overdue =
     balance.greaterThan(0) &&
-    input.dueDate &&
-    todayBusinessDate(now).getTime() > input.dueDate.getTime()
-  ) {
-    return { state: 'OVERDUE', paid, refunded, balance, settledOn };
+    input.dueDate != null &&
+    todayBusinessDate(now).getTime() > input.dueDate.getTime();
+  if (paid.greaterThan(0)) {
+    return {
+      state: overdue ? 'PARTIALLY_PAID_OVERDUE' : 'PARTIALLY_PAID',
+      paid,
+      refunded,
+      balance,
+      settledOn,
+    };
   }
-  return { state: 'PENDING', paid, refunded, balance, settledOn };
+  return { state: overdue ? 'OVERDUE' : 'PENDING', paid, refunded, balance, settledOn };
 }

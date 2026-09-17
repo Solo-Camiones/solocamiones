@@ -30,13 +30,18 @@ import {
   overlappingReservation,
   protectedAncestor,
 } from './inventory-helpers';
-import { derivePaymentState, invoiceTotal, roundMoney } from './invoice-money';
+import { derivePaymentState, invoiceBalance, invoiceTotal, roundMoney } from './invoice-money';
 import {
   activeWorkAffectingAssembly,
   CASH_CUSTOMER_CREDIT_FORBIDDEN_MESSAGE,
   CASH_CUSTOMER_ID,
+  confirmationDueDate,
+  confirmationRequiresFullPayment,
+  CREDIT_LIMIT_EXCEEDED_MESSAGE,
   customerQualifiesForFiscal,
-  isCashCustomer,
+  isCreditDopConfirmation,
+  SELLER_CREDIT_PAYMENT_FORBIDDEN_MESSAGE,
+  USD_INVOICE_MUST_BE_PAID_IN_FULL_MESSAGE,
 } from './sales-helpers';
 import { applyUsdProfitability } from './usd-profitability';
 
@@ -86,7 +91,7 @@ function findInvoice(state: AppState, invoiceId: string): Result<Invoice> {
 }
 
 function requireDraft(invoice: Invoice): Result<Invoice> {
-  if (invoice.status !== 'DRAFT') {
+  if (invoice.status !== 'DRAFT' && invoice.status !== 'QUOTE_DRAFT') {
     return err({ code: 'VALIDATION', message: 'Solo se puede editar un borrador' });
   }
   return ok(invoice);
@@ -210,25 +215,208 @@ function reserveItemOnDraft(
  * Inventory addToDraft still reuses the first open draft (WM5); POS needs distinct
  * drafts so "reservado por otro borrador" can be demonstrated.
  */
-export function createDraft(state: AppState, actor: User): Result<CreateDraftResult> {
-  const draft: Invoice = {
+function createEmptyInvoice(state: AppState, status: 'DRAFT' | 'QUOTE_DRAFT'): Invoice {
+  const invoice: Invoice = {
     id: nextNumericId(
-      state.invoices.map((invoice) => invoice.id),
+      state.invoices.map((entry) => entry.id),
       'INV-DRAFT-',
       2,
     ),
-    status: 'DRAFT',
+    status,
     customerId: CASH_CUSTOMER_ID,
     currency: 'DOP',
     fiscal: false,
+    applyItbis: false,
     lines: [],
     payments: [],
     paymentState: 'UNPAID',
     createdAt: currentDemoTimeIso(),
   };
-  state.invoices.push(draft);
+  state.invoices.push(invoice);
+  return invoice;
+}
+
+export function createDraft(state: AppState, actor: User): Result<CreateDraftResult> {
+  const draft = createEmptyInvoice(state, 'DRAFT');
   appendEvent(state, 'DRAFT_CREATED', `Borrador ${draft.id} creado`, actor, { draftId: draft.id });
   return ok({ draftId: draft.id });
+}
+
+export function createQuote(state: AppState, actor: User): Result<CreateDraftResult> {
+  const quote = createEmptyInvoice(state, 'QUOTE_DRAFT');
+  appendEvent(state, 'QUOTE_DRAFT_CREATED', `Cotización ${quote.id} creada`, actor, {
+    invoiceId: quote.id,
+  });
+  return ok({ draftId: quote.id });
+}
+
+function quoteExpiresAtIso(issuedAtIso: string): string {
+  const issuedAt = new Date(issuedAtIso);
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Santo_Domingo',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(issuedAt);
+  const year = Number(parts.find((part) => part.type === 'year')?.value);
+  const month = Number(parts.find((part) => part.type === 'month')?.value);
+  const day = Number(parts.find((part) => part.type === 'day')?.value);
+  const expiryDay = new Date(Date.UTC(year, month - 1, day + 30));
+  return new Date(`${expiryDay.toISOString().slice(0, 10)}T23:59:59.999-04:00`).toISOString();
+}
+
+export function issueQuote(state: AppState, actor: User, quoteId: string): Result<Invoice> {
+  const found = findInvoice(state, quoteId);
+  if (!found.ok) return found;
+  const quote = found.value;
+  if (quote.status === 'QUOTE_ISSUED') return ok(quote);
+  if (quote.status !== 'QUOTE_DRAFT') {
+    return err({ code: 'VALIDATION', message: 'Solo se puede emitir una cotización en borrador' });
+  }
+  if (quote.lines.length === 0) {
+    return err({ code: 'VALIDATION', message: 'Agregue al menos una línea' });
+  }
+  if (quote.lines.some((line) => line.pricePending)) {
+    return err({ code: 'VALIDATION', message: 'Hay precios pendientes' });
+  }
+  const customer = state.customers.find((entry) => entry.id === quote.customerId);
+  if (!customer) return err({ code: 'NOT_FOUND', message: 'Cliente no encontrado' });
+
+  const sequence = state.cotSeq ?? 1;
+  quote.quoteNumber = `COT-${String(sequence).padStart(6, '0')}`;
+  state.cotSeq = sequence + 1;
+  quote.quoteIssuedAt = currentDemoTimeIso();
+  quote.quoteExpiresAt = quoteExpiresAtIso(quote.quoteIssuedAt);
+  quote.customerSnapshot = {
+    name: customer.name,
+    rnc: customer.rnc,
+    phone: customer.contacts.find((contact) => contact.isPrimary)?.phone,
+    customerType: customer.customerType,
+    creditTermDays: customer.creditTermDays,
+  };
+  quote.status = 'QUOTE_ISSUED';
+  appendEvent(state, 'QUOTE_ISSUED', `Cotización ${quote.quoteNumber} emitida`, actor, {
+    invoiceId: quote.id,
+    quoteNumber: quote.quoteNumber,
+  });
+  return ok(quote);
+}
+
+export function duplicateQuote(
+  state: AppState,
+  actor: User,
+  quoteId: string,
+): Result<CreateDraftResult> {
+  const found = findInvoice(state, quoteId);
+  if (!found.ok) return found;
+  if (found.value.status !== 'QUOTE_ISSUED') {
+    return err({ code: 'VALIDATION', message: 'Solo se puede duplicar una cotización emitida' });
+  }
+  const created = createQuote(state, actor);
+  if (!created.ok) return created;
+  const duplicate = state.invoices.find((invoice) => invoice.id === created.value.draftId)!;
+  duplicate.customerId = found.value.customerId;
+  duplicate.currency = found.value.currency;
+  duplicate.fiscal = found.value.fiscal;
+  duplicate.applyItbis = found.value.applyItbis;
+  duplicate.lines = found.value.lines.map((line, index) => ({
+    ...line,
+    id: `LIN-${duplicate.id}-${String(index + 1).padStart(2, '0')}`,
+  }));
+  appendEvent(state, 'QUOTE_DUPLICATED', `Cotización ${found.value.quoteNumber} duplicada`, actor, {
+    invoiceId: duplicate.id,
+    sourceQuoteId: found.value.id,
+  });
+  return created;
+}
+
+export function convertQuote(
+  state: AppState,
+  actor: User,
+  quoteId: string,
+  payment?: ConfirmInvoicePayment,
+): Result<Invoice> {
+  const found = findInvoice(state, quoteId);
+  if (!found.ok) return found;
+  const quote = found.value;
+  if (quote.status === 'COMPLETED' && quote.quoteNumber) return ok(quote);
+  if (quote.status !== 'QUOTE_ISSUED') {
+    return err({ code: 'VALIDATION', message: 'Solo se puede convertir una cotización emitida' });
+  }
+  if (quote.quoteExpiresAt && Date.parse(currentDemoTimeIso()) > Date.parse(quote.quoteExpiresAt)) {
+    return err({
+      code: 'VALIDATION',
+      message: 'La cotización está vencida y no puede convertirse',
+    });
+  }
+  const requiredQuantityByProduct = new Map<string, number>();
+  for (const line of quote.lines) {
+    if (!line.qtyProductId) continue;
+    requiredQuantityByProduct.set(
+      line.qtyProductId,
+      (requiredQuantityByProduct.get(line.qtyProductId) ?? 0) + line.quantity,
+    );
+  }
+  for (const [productId, requiredQuantity] of requiredQuantityByProduct) {
+    const product = state.qtyProducts.find((entry) => entry.id === productId);
+    if (!product) return err({ code: 'NOT_FOUND', message: 'Producto no encontrado' });
+    if (product.onHand - product.reserved < requiredQuantity) {
+      return err({ code: 'CONFLICT', message: `Stock insuficiente para ${product.id}` });
+    }
+  }
+  const frozenIdentity = quote.customerSnapshot;
+  const itemReservations = quote.lines.flatMap((line) => {
+    if (!line.itemId) return [];
+    const item = itemById(state.items, line.itemId);
+    return item ? [{ item, reservedByDraftId: item.reservedByDraftId }] : [];
+  });
+  const quantityReservations = quote.lines.flatMap((line) => {
+    if (!line.qtyProductId) return [];
+    const product = state.qtyProducts.find((entry) => entry.id === line.qtyProductId);
+    return product ? [{ product, reserved: product.reserved }] : [];
+  });
+  quote.status = 'DRAFT';
+  for (const line of quote.lines) {
+    if (line.itemId) {
+      const item = itemById(state.items, line.itemId);
+      if (item && !item.reservedByDraftId) item.reservedByDraftId = quote.id;
+    }
+    if (line.qtyProductId) {
+      const product = state.qtyProducts.find((entry) => entry.id === line.qtyProductId);
+      if (product) product.reserved += line.quantity;
+    }
+  }
+  const converted = confirmInvoice(state, actor, quoteId, payment);
+  if (!converted.ok) {
+    quote.status = 'QUOTE_ISSUED';
+    for (const snapshot of itemReservations) {
+      snapshot.item.reservedByDraftId = snapshot.reservedByDraftId;
+    }
+    for (const snapshot of quantityReservations) {
+      snapshot.product.reserved = snapshot.reserved;
+    }
+    return converted;
+  }
+  if (frozenIdentity) {
+    quote.customerSnapshot = {
+      ...quote.customerSnapshot,
+      name: frozenIdentity.name,
+      rnc: frozenIdentity.rnc,
+      phone: frozenIdentity.phone,
+    };
+  }
+  appendEvent(
+    state,
+    'QUOTE_CONVERTED',
+    `Cotización ${quote.quoteNumber} convertida en ${quote.number}`,
+    actor,
+    {
+      invoiceId: quote.id,
+      quoteNumber: quote.quoteNumber,
+      invoiceNumber: quote.number,
+    },
+  );
+  return converted;
 }
 
 export function addDraftLine(
@@ -257,9 +445,11 @@ export function addDraftLine(
     if (draft.lines.some((line) => line.itemId === item.id)) {
       return ok(draft);
     }
-    const reserved = reserveItemOnDraft(state, actor, draft, item);
-    if (!reserved.ok) {
-      return reserved;
+    if (draft.status === 'DRAFT') {
+      const reserved = reserveItemOnDraft(state, actor, draft, item);
+      if (!reserved.ok) {
+        return reserved;
+      }
     }
     draft.lines.push({
       id: nextLineId(draft),
@@ -323,14 +513,16 @@ export function addDraftLine(
         acquisitionCostDop: product.unitCostDop,
       });
     }
-    product.reserved += quantity.value;
-    appendEvent(
-      state,
-      'QTY_RESERVED',
-      `${quantity.value} × ${product.id} reservado en borrador ${draft.id}`,
-      actor,
-      { qtyProductId: product.id, draftId: draft.id, quantity: quantity.value },
-    );
+    if (draft.status === 'DRAFT') {
+      product.reserved += quantity.value;
+      appendEvent(
+        state,
+        'QTY_RESERVED',
+        `${quantity.value} × ${product.id} reservado en borrador ${draft.id}`,
+        actor,
+        { qtyProductId: product.id, draftId: draft.id, quantity: quantity.value },
+      );
+    }
     return ok(draft);
   }
 
@@ -375,15 +567,6 @@ export function addDraftLine(
   if (!unitPrice.ok) {
     return unitPrice;
   }
-  if (
-    input.acquisitionCostDop != null &&
-    (!Number.isFinite(input.acquisitionCostDop) || input.acquisitionCostDop < 0)
-  ) {
-    return err({
-      code: 'VALIDATION',
-      message: 'El costo de adquisición debe ser un número válido',
-    });
-  }
 
   draft.lines.push({
     id: nextLineId(draft),
@@ -394,14 +577,7 @@ export function addDraftLine(
     unitPrice: unitPrice.value,
     taxable: isTaxableLineType(input.type),
     pricePending: false,
-    acquisitionCostDop:
-      input.type === 'GENERIC' || input.type === 'EXTERNAL' ? input.acquisitionCostDop : undefined,
-    costProvenance:
-      input.type === 'GENERIC' || input.type === 'EXTERNAL'
-        ? input.acquisitionCostDop == null
-          ? 'UNKNOWN'
-          : (input.costProvenance ?? 'ACTUAL')
-        : undefined,
+    costProvenance: input.type === 'GENERIC' || input.type === 'EXTERNAL' ? 'UNKNOWN' : undefined,
   });
   return ok(draft);
 }
@@ -426,7 +602,7 @@ export function removeDraftLine(
   }
 
   const [removed] = draft.lines.splice(index, 1);
-  if (removed) {
+  if (removed && draft.status === 'DRAFT') {
     releaseLineReservation(state, removed);
   }
   return ok(draft);
@@ -464,22 +640,6 @@ export function setDraftLinePrice(
     }
   }
 
-  let acquisitionCostDop: number | null | undefined;
-  if (
-    input.acquisitionCostDop !== undefined &&
-    (line.type === 'GENERIC' || line.type === 'EXTERNAL')
-  ) {
-    if (input.acquisitionCostDop == null) {
-      acquisitionCostDop = null;
-    } else {
-      const cost = parseNonNegativeMoney(input.acquisitionCostDop);
-      if (!cost.ok) {
-        return cost;
-      }
-      acquisitionCostDop = cost.value;
-    }
-  }
-
   let quantity: number | undefined;
   if (input.quantity !== undefined) {
     if (!QUANTITY_EDITABLE_LINE_TYPES.has(line.type)) {
@@ -493,7 +653,7 @@ export function setDraftLinePrice(
       return parsedQuantity;
     }
     quantity = parsedQuantity.value;
-    if (line.type === 'QTY' && quantity !== line.quantity) {
+    if (line.type === 'QTY' && quantity !== line.quantity && draftResult.value.status === 'DRAFT') {
       const adjusted = adjustQtyReservation(state, _actor, draftResult.value.id, line, quantity);
       if (!adjusted.ok) {
         return adjusted;
@@ -512,15 +672,6 @@ export function setDraftLinePrice(
     } else {
       delete line.notes;
     }
-  }
-  if (acquisitionCostDop === null) {
-    delete line.acquisitionCostDop;
-    line.costProvenance = 'UNKNOWN';
-  } else if (acquisitionCostDop !== undefined) {
-    line.acquisitionCostDop = acquisitionCostDop;
-    line.costProvenance = input.costProvenance ?? 'ACTUAL';
-  } else if (input.costProvenance !== undefined) {
-    line.costProvenance = input.costProvenance;
   }
 
   return ok(draftResult.value);
@@ -560,7 +711,7 @@ export function setDraftLineQuantity(
     return ok(draftResult.value);
   }
 
-  if (line.type === 'QTY') {
+  if (line.type === 'QTY' && draftResult.value.status === 'DRAFT') {
     const adjusted = adjustQtyReservation(state, actor, draftResult.value.id, line, quantity.value);
     if (!adjusted.ok) {
       return adjusted;
@@ -652,6 +803,10 @@ export function setDraftMeta(
     draft.fiscal = input.fiscal;
   }
 
+  if (input.applyItbis != null) {
+    draft.applyItbis = input.applyItbis;
+  }
+
   return ok(draft);
 }
 
@@ -666,8 +821,10 @@ export function discardDraft(state: AppState, actor: User, draftId: string): Res
   }
   const draft = draftResult.value;
 
-  for (const line of draft.lines) {
-    releaseLineReservation(state, line);
+  if (draft.status === 'DRAFT') {
+    for (const line of draft.lines) {
+      releaseLineReservation(state, line);
+    }
   }
 
   state.invoices = state.invoices.filter((invoice) => invoice.id !== draft.id);
@@ -893,6 +1050,12 @@ export function confirmInvoice(
   const invoiceGross = invoiceTotal(invoice);
   let initialPaymentAmount: number | undefined;
   if (payment) {
+    if (isCreditDopConfirmation(customer, invoice.currency) && actor.role === 'SELLER') {
+      return err({
+        code: 'FORBIDDEN',
+        message: SELLER_CREDIT_PAYMENT_FORBIDDEN_MESSAGE,
+      });
+    }
     if (!PAYMENT_METHODS.includes(payment.method)) {
       return err({ code: 'VALIDATION', message: 'El pago requiere un método' });
     }
@@ -909,14 +1072,38 @@ export function confirmInvoice(
     initialPaymentAmount = amount.value;
   }
   if (
-    isCashCustomer(customer) &&
+    confirmationRequiresFullPayment(customer, invoice.currency) &&
     invoiceGross > 0 &&
     (initialPaymentAmount == null || initialPaymentAmount !== invoiceGross)
   ) {
     return err({
       code: 'CONFLICT',
-      message: CASH_CUSTOMER_CREDIT_FORBIDDEN_MESSAGE,
+      message:
+        invoice.currency === 'USD'
+          ? USD_INVOICE_MUST_BE_PAID_IN_FULL_MESSAGE
+          : CASH_CUSTOMER_CREDIT_FORBIDDEN_MESSAGE,
     });
+  }
+
+  if (isCreditDopConfirmation(customer, invoice.currency)) {
+    const creditLimitDop = Number(customer.creditLimitDop);
+    const openExposure = state.invoices
+      .filter(
+        (entry) =>
+          entry.id !== invoice.id &&
+          entry.customerId === customer.id &&
+          entry.status === 'COMPLETED' &&
+          entry.currency === 'DOP',
+      )
+      .reduce((sum, entry) => roundMoney(sum + invoiceBalance(entry)), 0);
+    const newBalance = roundMoney(invoiceGross - (initialPaymentAmount ?? 0));
+
+    if (
+      !Number.isFinite(creditLimitDop) ||
+      roundMoney(openExposure + newBalance) > creditLimitDop
+    ) {
+      return err({ code: 'CONFLICT', message: CREDIT_LIMIT_EXCEEDED_MESSAGE });
+    }
   }
 
   for (const line of invoice.lines) {
@@ -928,8 +1115,14 @@ export function confirmInvoice(
   invoice.number = number;
   invoice.status = 'COMPLETED';
   invoice.confirmedAt = DEMO_NOW_ISO;
+  invoice.dueDate = confirmationDueDate(customer, invoice.currency, DEMO_NOW_ISO);
   invoice.paymentState = 'UNPAID';
-  invoice.customerSnapshot = { name: customer.name, rnc: customer.rnc };
+  invoice.customerSnapshot = {
+    name: customer.name,
+    rnc: customer.rnc,
+    customerType: customer.customerType,
+    creditTermDays: customer.creditTermDays,
+  };
   if (invoice.currency === 'USD') {
     applyUsdProfitability(state, invoice);
   }

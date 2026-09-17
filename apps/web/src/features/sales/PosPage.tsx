@@ -1,5 +1,5 @@
 import { Fragment, useState, type ReactNode } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 
 import type { PosDraftView, PosLineView } from '../../api/contracts/sales';
 import { PageHeader } from '../../shared/layout/PageHeader';
@@ -36,16 +36,20 @@ import {
   posLineSku,
   toPosUserMessage,
 } from './pos-copy';
+import { PdfPreviewModal } from './PdfPreviewModal';
 import { TotalsPanel } from './TotalsPanel';
 import { restoreDiscardedDraft, snapshotPosDraft, snapshotPosLine, usePos } from './usePos';
 
 /** Tailwind `lg` — table on desktop, cards on tablet/mobile. */
 const POS_LINES_TABLE_MIN_WIDTH_PX = 1024;
+const BUSINESS_TIME_ZONE = 'America/Santo_Domingo';
 
 export function PosPage() {
   const { id } = useParams();
+  const location = useLocation();
   const navigate = useNavigate();
-  const pos = usePos(id);
+  const creationKind = location.pathname.includes('/sales/quote/') ? 'quote' : 'sale';
+  const pos = usePos(id, creationKind);
   const capabilities = useAppCapabilities();
   const { pushToast } = useToast();
   const isDesktopLines = useMediaQuery(`(min-width: ${POS_LINES_TABLE_MIN_WIDTH_PX}px)`, true);
@@ -59,6 +63,31 @@ export function PosPage() {
   const [metaError, setMetaError] = useState<string | null>(null);
   const [confirmError, setConfirmError] = useState<string | null>(null);
   const [discardError, setDiscardError] = useState<string | null>(null);
+  const [operationError, setOperationError] = useState<string | null>(null);
+  const [pdfOpen, setPdfOpen] = useState(false);
+  const [pdfFile, setPdfFile] = useState<{ url: string; filename: string } | null>(null);
+
+  function revokePdfFile() {
+    setPdfFile((current) => {
+      if (current) URL.revokeObjectURL(current.url);
+      return null;
+    });
+  }
+
+  async function handleViewQuotePdf() {
+    setOperationError(null);
+    const response = await pos.getQuotePdf();
+    if (!response.ok) {
+      setOperationError(toPosUserMessage(response.error));
+      return;
+    }
+    revokePdfFile();
+    setPdfFile({
+      url: URL.createObjectURL(response.value.blob),
+      filename: response.value.filename,
+    });
+    setPdfOpen(true);
+  }
 
   if (pos.result.status === 'error') {
     return (
@@ -77,7 +106,9 @@ export function PosPage() {
   }
 
   const draft = pos.result.draft;
-  const readOnly = draft.status !== 'DRAFT';
+  const isQuoteDraft = draft.status === 'QUOTE_DRAFT';
+  const isIssuedQuote = draft.status === 'QUOTE_ISSUED';
+  const readOnly = draft.status !== 'DRAFT' && !isQuoteDraft;
   const confirmBlocked = draft.blockers.length > 0;
   const blockedSummary = posBlockedConfirmSummary(draft.blockers);
 
@@ -180,15 +211,17 @@ export function PosPage() {
     <>
       <PageHeader
         leading={<BackToSalesLink />}
-        title="Punto de venta"
+        title={isIssuedQuote || isQuoteDraft ? 'Cotización' : 'Punto de venta'}
         description={
-          readOnly
-            ? `${draft.number ? `Factura ${draft.number} confirmada` : 'Factura confirmada'}. ${
-                capabilities.payments
-                  ? 'Pagos y vista previa del documento están en el detalle.'
-                  : 'La vista previa del documento está en el detalle.'
-              }`
-            : posDraftDescription(capabilities)
+          isIssuedQuote
+            ? `${draft.quoteNumber ?? 'Cotización emitida'} · ${draft.quoteExpired ? 'Vencida' : 'Vigente'}`
+            : readOnly
+              ? `${draft.number ? `Factura ${draft.number} confirmada` : 'Factura confirmada'}. ${
+                  capabilities.payments
+                    ? 'Pagos y vista previa del documento están en el detalle.'
+                    : 'La vista previa del documento está en el detalle.'
+                }`
+              : posDraftDescription(capabilities)
         }
       />
 
@@ -200,7 +233,66 @@ export function PosPage() {
         </div>
       )}
 
-      {readOnly && (
+      {operationError && (
+        <div className="mb-4">
+          <Info tone="error" title="No se pudo completar la operación">
+            {operationError}
+          </Info>
+        </div>
+      )}
+
+      {isIssuedQuote && (
+        <div className="mb-6">
+          <Info
+            tone={draft.quoteExpired ? 'warning' : 'success'}
+            title={`${draft.quoteNumber ?? 'Cotización emitida'} ${draft.quoteExpired ? 'vencida' : 'vigente'}`}
+          >
+            Cliente {draft.customerName}. Total {money(draft.totals.gross, draft.currency)}.
+            {draft.quoteExpiresAt
+              ? ` Vence el ${new Date(draft.quoteExpiresAt).toLocaleDateString('es-DO', {
+                  timeZone: BUSINESS_TIME_ZONE,
+                })}.`
+              : ''}
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Button
+                size="sm"
+                disabled={pos.isMutating || draft.quoteExpired}
+                onClick={() => {
+                  setOperationError(null);
+                  setConfirmOpen(true);
+                }}
+              >
+                Convertir a factura
+              </Button>
+              <Button
+                variant="secondary"
+                size="sm"
+                disabled={pos.isMutating}
+                onClick={() => {
+                  setOperationError(null);
+                  void pos.duplicateQuote().then((response) => {
+                    if (!response.ok) setOperationError(toPosUserMessage(response.error));
+                  });
+                }}
+              >
+                Duplicar cotización
+              </Button>
+              <Button
+                variant="secondary"
+                size="sm"
+                disabled={pos.isMutating}
+                onClick={() => {
+                  void handleViewQuotePdf();
+                }}
+              >
+                Ver/Descargar PDF
+              </Button>
+            </div>
+          </Info>
+        </div>
+      )}
+
+      {readOnly && !isIssuedQuote && (
         <div className="mb-6">
           <Info tone="success" title={`Factura ${draft.number} confirmada`}>
             Cliente {draft.customerName}. Total {money(draft.totals.gross, draft.currency)}.
@@ -231,7 +323,11 @@ export function PosPage() {
           <Card id={POS_FIELD_IDS.lines} tabIndex={-1} className="outline-none">
             <div className="mb-4 flex flex-wrap items-center gap-2">
               <h2 className="text-lg font-semibold text-navy">Líneas</h2>
-              <Chip>{draft.number ?? (readOnly ? 'Factura' : 'Borrador')}</Chip>
+              <Chip>
+                {draft.number ??
+                  draft.quoteNumber ??
+                  (isQuoteDraft ? 'Cotización borrador' : readOnly ? 'Factura' : 'Borrador')}
+              </Chip>
               {draft.fiscal ? (
                 <Chip tone="brand">Fiscal</Chip>
               ) : (
@@ -273,9 +369,7 @@ export function PosPage() {
         </div>
 
         <div className="flex min-w-0 flex-col gap-4">
-          {!readOnly && (
-            <div className="hidden min-h-11 xl:block" aria-hidden />
-          )}
+          {!readOnly && <div className="hidden min-h-11 xl:block" aria-hidden />}
           <Card>
             <h2 className="mb-4 text-lg font-semibold text-navy">Documento</h2>
             <DocumentPanel
@@ -302,6 +396,14 @@ export function PosPage() {
               onFiscalChange={(fiscal) => {
                 setMetaError(null);
                 void pos.setMeta({ fiscal }).then((response) => {
+                  if (!response.ok) {
+                    setMetaError(toPosUserMessage(response.error));
+                  }
+                });
+              }}
+              onApplyItbisChange={(applyItbis) => {
+                setMetaError(null);
+                void pos.setMeta({ applyItbis }).then((response) => {
                   if (!response.ok) {
                     setMetaError(toPosUserMessage(response.error));
                   }
@@ -334,10 +436,23 @@ export function PosPage() {
                 setDiscardPending(true);
               }}
               onConfirm={() => {
+                if (isQuoteDraft) {
+                  setOperationError(null);
+                  void pos.issueQuote().then((response) => {
+                    if (!response.ok) {
+                      setOperationError(toPosUserMessage(response.error));
+                      return;
+                    }
+                    pushToast('Cotización emitida', 'success');
+                  });
+                  return;
+                }
                 setConfirmError(null);
                 setConfirmOpen(true);
               }}
               onViewRequirements={handleViewRequirements}
+              confirmLabel={isQuoteDraft ? 'Emitir cotización' : 'Confirmar venta'}
+              discardLabel={isQuoteDraft ? 'Descartar cotización' : 'Descartar borrador'}
             />
           )}
         </div>
@@ -430,14 +545,25 @@ export function PosPage() {
           }
         }}
         onConfirm={(payment) => {
-          void pos.confirm(payment).then((response) => {
+          const operation = isIssuedQuote ? pos.convertQuote(payment) : pos.confirm(payment);
+          void operation.then((response) => {
             if (!response.ok) {
               setConfirmError(toPosUserMessage(response.error));
               return;
             }
             setConfirmOpen(false);
-            pushToast('Venta confirmada', 'success');
+            pushToast(isIssuedQuote ? 'Cotización convertida' : 'Venta confirmada', 'success');
           });
+        }}
+      />
+
+      <PdfPreviewModal
+        open={pdfOpen}
+        kind="quote"
+        pdfFile={pdfFile ?? undefined}
+        onClose={() => {
+          setPdfOpen(false);
+          revokePdfFile();
         }}
       />
     </>
@@ -451,6 +577,8 @@ type PosCheckoutActionsProps = {
   onDiscard: () => void;
   onConfirm: () => void;
   onViewRequirements: () => void;
+  confirmLabel: string;
+  discardLabel: string;
 };
 
 /**
@@ -464,6 +592,8 @@ function PosCheckoutActions({
   onDiscard,
   onConfirm,
   onViewRequirements,
+  confirmLabel,
+  discardLabel,
 }: PosCheckoutActionsProps) {
   return (
     <div className="@container">
@@ -475,7 +605,7 @@ function PosCheckoutActions({
           disabled={isMutating}
           onClick={onDiscard}
         >
-          Descartar borrador
+          {discardLabel}
         </Button>
         <div className="flex flex-col items-end gap-1">
           <Button
@@ -485,7 +615,7 @@ function PosCheckoutActions({
             aria-describedby={confirmBlocked ? 'pos-confirm-block-reason' : undefined}
             onClick={onConfirm}
           >
-            Confirmar venta
+            {confirmLabel}
           </Button>
           {confirmBlocked && blockedSummary && (
             <div className="flex max-w-xs flex-wrap items-center justify-end gap-x-3 gap-y-1 text-sm text-amber-800">
@@ -517,9 +647,7 @@ type DraftLinesProps = {
 const DRAFT_LINE_DATA_COLUMN_COUNT = 6;
 
 function DraftLinesTable({ draft, readOnly, isMutating, onEdit, onRemove }: DraftLinesProps) {
-  const columnCount = readOnly
-    ? DRAFT_LINE_DATA_COLUMN_COUNT
-    : DRAFT_LINE_DATA_COLUMN_COUNT + 1;
+  const columnCount = readOnly ? DRAFT_LINE_DATA_COLUMN_COUNT : DRAFT_LINE_DATA_COLUMN_COUNT + 1;
 
   return (
     <div className="overflow-x-auto">
@@ -566,7 +694,7 @@ function DraftLinesTable({ draft, readOnly, isMutating, onEdit, onRemove }: Draf
               </tr>
               {line.notes ? (
                 <tr className="border-b border-navy-50">
-                    <td colSpan={columnCount} className="max-w-0 pb-3 pr-3 pt-0">
+                  <td colSpan={columnCount} className="max-w-0 pb-3 pr-3 pt-0">
                     <InvoiceLineNoteText notes={line.notes} />
                   </td>
                 </tr>

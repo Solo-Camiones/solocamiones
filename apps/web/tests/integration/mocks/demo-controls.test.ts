@@ -21,7 +21,12 @@ describe('demo controls', () => {
   });
 
   it('restores seed state and clears the active session', () => {
-    getMockState().customers.push({ id: 'C99', name: 'Cliente temporal', contacts: [] });
+    getMockState().customers.push({
+      id: 'C99',
+      name: 'Cliente temporal',
+      customerType: 'CASH',
+      contacts: [],
+    });
     setSession({ userId: 'U-ADMIN', createdAt: '2026-08-28T16:00:00.000Z' });
 
     const result = resetDemoData();
@@ -32,7 +37,12 @@ describe('demo controls', () => {
   });
 
   it('rejects unknown scenarios without resetting current state', () => {
-    getMockState().customers.push({ id: 'C99', name: 'Cliente temporal', contacts: [] });
+    getMockState().customers.push({
+      id: 'C99',
+      name: 'Cliente temporal',
+      customerType: 'CASH',
+      contacts: [],
+    });
 
     const result = runDemoScenario(999);
 

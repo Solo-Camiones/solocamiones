@@ -20,19 +20,25 @@ function row(
 
 describe('invoice history timeline', () => {
   it('describes invoice events and names the actor', () => {
-    const entries = toInvoiceHistoryEntries(
-      [
-        row('INVOICE_CONFIRMED', { number: 'FAC-000101' }),
-        row('PAYMENT_RECORDED', {
-          amount: '50.00',
-          currency: 'DOP',
-          method: 'CASH',
-        }),
-      ],
-      'SELLER',
-    );
+    const rows = [
+      row('INVOICE_CONFIRMED', { number: 'FAC-000101' }),
+      row('PAYMENT_RECORDED', {
+        amount: '50.00',
+        currency: 'DOP',
+        method: 'CASH',
+      }),
+    ];
 
-    expect(entries).toEqual([
+    expect(toInvoiceHistoryEntries(rows, 'SELLER')).toEqual([
+      {
+        id: '11111111-1111-4111-8111-111111111111',
+        type: 'INVOICE_CONFIRMED',
+        description: 'Factura FAC-000101 confirmada',
+        createdAt: occurredAt.toISOString(),
+        actorName: 'Ana Pérez',
+      },
+    ]);
+    expect(toInvoiceHistoryEntries(rows, 'ADMINISTRATOR')).toEqual([
       {
         id: '11111111-1111-4111-8111-111111111111',
         type: 'INVOICE_CONFIRMED',
@@ -49,6 +55,27 @@ describe('invoice history timeline', () => {
       },
     ]);
   });
+
+  it.each(['SELLER', 'MECHANIC'] as const)(
+    'hides payment events from %s and keeps them for Administrator',
+    (role) => {
+      const rows = [
+        row('INVOICE_CONFIRMED', { number: 'FAC-000101' }),
+        row('PAYMENT_RECORDED', { amount: '50.00', currency: 'DOP', method: 'CASH' }),
+        row('INVOICE_PDF_GENERATED', { status: 'READY' }),
+      ];
+
+      expect(toInvoiceHistoryEntries(rows, role).map((event) => event.type)).toEqual([
+        'INVOICE_CONFIRMED',
+        'INVOICE_PDF_GENERATED',
+      ]);
+      expect(toInvoiceHistoryEntries(rows, 'ADMINISTRATOR').map((event) => event.type)).toEqual([
+        'INVOICE_CONFIRMED',
+        'PAYMENT_RECORDED',
+        'INVOICE_PDF_GENERATED',
+      ]);
+    },
+  );
 
   it.each(['SELLER', 'MECHANIC'] as const)(
     'hides profitability events from %s and keeps them for Administrator',
@@ -138,7 +165,7 @@ describe('invoice history timeline', () => {
     [null, 'Pago de 0.00 en pago'],
     [[], 'Pago de 0.00 en pago'],
   ])('describes payment payload %# without exposing missing fields', (payload, description) => {
-    expect(toInvoiceHistoryEntries([row('PAYMENT_RECORDED', payload)], 'SELLER')[0]?.description).toBe(
+    expect(toInvoiceHistoryEntries([row('PAYMENT_RECORDED', payload)], 'ADMINISTRATOR')[0]?.description).toBe(
       description,
     );
   });

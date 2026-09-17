@@ -11,6 +11,7 @@ export { Select } from './Select';
 export { SelectMenu } from './SelectMenu';
 export { SearchInput } from './SearchInput';
 export { Info } from './Info';
+export { LoadingOverlay } from './LoadingOverlay';
 export { Modal } from './Modal';
 export { ConfirmActionModal } from './ConfirmActionModal';
 export { GuardedModal, isFormDirty } from './GuardedModal';

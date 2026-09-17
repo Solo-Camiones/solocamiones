@@ -18,7 +18,7 @@ import { disconnectPrisma, prisma } from '../../../src/infrastructure/database/i
 import { createTestApp } from '../../helpers/app.js';
 import { successfulUsdDopRate } from '../../helpers/fx.js';
 import { clearTestHistory } from '../../helpers/history.js';
-import { assignNamedCustomerForCredit } from '../../helpers/sales.js';
+import { assignNamedCustomerForCredit, cashSaleFullPayment, seedKnownLineCost } from '../../helpers/sales.js';
 
 const users = new UserRepository();
 const PASSWORD = 'personal-password';
@@ -44,6 +44,7 @@ async function cleanup() {
   vi.restoreAllMocks();
   await resetLoginRateLimit();
   await clearTestHistory();
+  await prisma.invoicePayment.deleteMany();
   await prisma.invoice.deleteMany();
   await prisma.invoiceSequence.update({
     where: { name: 'FAC' },
@@ -63,18 +64,20 @@ async function confirmUsdGeneric(
 ) {
   const draft = await agent.post(SALES).set(CSRF).send({ currency: 'USD' });
   expect(draft.status).toBe(201);
-  expect(
-    (
-      await agent.post(`${SALES}/${draft.body.id}/lines`).set(CSRF).send({
-        type: 'GENERIC',
-        description: 'Filtro',
-        unitPrice: '118.00',
-        ...cost,
-      })
-    ).status,
-  ).toBe(201);
+  const added = await agent.post(`${SALES}/${draft.body.id}/lines`).set(CSRF).send({
+    type: 'GENERIC',
+    description: 'Filtro',
+    unitPrice: '118.00',
+  });
+  expect(added.status).toBe(201);
+  if (cost.costProvenance !== 'UNKNOWN' && cost.acquisitionCostDop) {
+    await seedKnownLineCost(added.body.lines[0].id, cost.costProvenance, cost.acquisitionCostDop);
+  }
   await assignNamedCustomerForCredit(agent, draft.body.id);
-  const confirmed = await agent.post(`${SALES}/${draft.body.id}/confirm`).set(CSRF).send({});
+  const confirmed = await agent
+    .post(`${SALES}/${draft.body.id}/confirm`)
+    .set(CSRF)
+    .send(cashSaleFullPayment('118.00'));
   expect(confirmed.status).toBe(200);
   return confirmed.body;
 }
@@ -204,8 +207,6 @@ describe('M16 Retry FX Administrator', () => {
       type: 'GENERIC',
       description: 'Filtro',
       unitPrice: '18000.00',
-      costProvenance: 'ACTUAL',
-      acquisitionCostDop: '12300.00',
     });
     await assignNamedCustomerForCredit(admin.agent, dopDraft.body.id);
     const dop = await admin.agent.post(`${SALES}/${dopDraft.body.id}/confirm`).set(CSRF).send({});

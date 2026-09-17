@@ -1,13 +1,14 @@
 import { Prisma, type Invoice, type InvoiceSequence } from '@prisma/client';
 
 import { prisma } from '../../infrastructure/database/index.js';
-import { formatInvoiceNumber } from './constants.js';
+import { formatInvoiceNumber, formatQuoteNumber } from './constants.js';
 import type {
   CompleteInvoiceRecord,
   CreateDraftInvoiceRecord,
   CreateInvoiceLineRecord,
   InvoiceListRecord,
   InvoiceRecord,
+  IssueQuoteRecord,
   InvoiceSequenceRecord,
   ListInvoicesQuery,
   ListReceivablesQuery,
@@ -20,6 +21,7 @@ import type {
 } from './types.js';
 
 export const INVOICE_SEQUENCE_NAME = 'FAC';
+export const QUOTE_SEQUENCE_NAME = 'COT';
 
 type SalesDatabase = Pick<Prisma.TransactionClient, 'invoice' | 'invoiceSequence' | '$queryRaw'>;
 
@@ -42,9 +44,6 @@ const invoiceListInclude = {
   payments: { orderBy: [{ effectiveDate: 'asc' as const }, { createdAt: 'asc' as const }] },
 };
 
-const UUID_PATTERN =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-
 function listInvoiceWhere(query: ListInvoicesQuery): Prisma.InvoiceWhereInput {
   const clauses: Prisma.InvoiceWhereInput[] = [];
   if (query.status) {
@@ -53,15 +52,31 @@ function listInvoiceWhere(query: ListInvoicesQuery): Prisma.InvoiceWhereInput {
 
   const q = query.q?.trim();
   if (q) {
-    const search: Prisma.InvoiceWhereInput[] = [
-      { number: { contains: q, mode: 'insensitive' } },
-      { customerName: { contains: q, mode: 'insensitive' } },
-      { customer: { name: { contains: q, mode: 'insensitive' } } },
-    ];
-    if (UUID_PATTERN.test(q)) {
-      search.push({ id: q });
-    }
-    clauses.push({ OR: search });
+    clauses.push({
+      OR: [
+        { number: { contains: q, mode: 'insensitive' } },
+        { quoteNumber: { contains: q, mode: 'insensitive' } },
+        { customerName: { contains: q, mode: 'insensitive' } },
+        { customer: { name: { contains: q, mode: 'insensitive' } } },
+      ],
+    });
+  }
+
+  if (query.dateFrom || query.dateTo) {
+    const range = {
+      ...(query.dateFrom ? { gte: new Date(`${query.dateFrom}T00:00:00-04:00`) } : {}),
+      ...(query.dateTo ? { lte: new Date(`${query.dateTo}T23:59:59.999-04:00`) } : {}),
+    };
+
+    // Each document stage has its own business date. This keeps a mixed "Todas"
+    // list useful without treating a draft creation date as an invoice issue date.
+    clauses.push({
+      OR: [
+        { status: { in: ['COMPLETED', 'CANCELLED'] }, confirmedAt: range },
+        { status: 'QUOTE_ISSUED', quoteIssuedAt: range },
+        { status: { in: ['DRAFT', 'QUOTE_DRAFT'] }, createdAt: range },
+      ],
+    });
   }
 
   if (clauses.length === 0) return {};
@@ -69,6 +84,7 @@ function listInvoiceWhere(query: ListInvoicesQuery): Prisma.InvoiceWhereInput {
   return { AND: clauses };
 }
 type ReceivablePageRow = { id: string };
+type ReceivableCountRow = { count: bigint };
 type ReceivableCustomerRow = Omit<ReceivablesCustomerAggregate, 'invoiceCount'> & {
   invoiceCount: bigint;
 };
@@ -77,18 +93,18 @@ function receivableBalances(query: ListReceivablesQuery): Prisma.Sql {
   const customerFilter = query.customerId
     ? Prisma.sql`AND i."customerId" = ${query.customerId}::uuid`
     : Prisma.empty;
-  const currencyFilter = query.currency
-    ? Prisma.sql`AND i."currency" = ${query.currency}::"InvoiceCurrency"`
+  const invoiceFilter = query.invoice
+    ? Prisma.sql`AND i."number" = ${query.invoice}`
     : Prisma.empty;
-  const stateFilter =
-    query.paymentState === 'OVERDUE'
-      ? Prisma.sql`AND i."dueDate" < ${query.today}::date`
-      : query.paymentState === 'PENDING'
-        ? Prisma.sql`AND i."dueDate" >= ${query.today}::date`
-        : Prisma.empty;
-
   return Prisma.sql`
-    WITH "receivableBalances" AS (
+    WITH "paymentTotals" AS (
+      SELECT
+        "invoiceId",
+        SUM("amount") FILTER (WHERE "kind" = 'PAYMENT')::decimal AS "paid"
+      FROM "InvoicePayment"
+      GROUP BY "invoiceId"
+    ),
+    "receivableBalances" AS (
       SELECT
         i."id",
         i."customerId",
@@ -101,17 +117,11 @@ function receivableBalances(query: ListReceivablesQuery): Prisma.Sql {
         i."confirmedAt"
       FROM "Invoice" i
       INNER JOIN "Customer" c ON c."id" = i."customerId"
-      LEFT JOIN (
-        SELECT "invoiceId", SUM("amount") AS "paid"
-        FROM "InvoicePayment"
-        WHERE "kind" = 'PAYMENT'
-        GROUP BY "invoiceId"
-      ) p ON p."invoiceId" = i."id"
+      LEFT JOIN "paymentTotals" p ON p."invoiceId" = i."id"
       WHERE i."status" = 'COMPLETED'
         AND i."gross" > COALESCE(p."paid", 0)
         ${customerFilter}
-        ${currencyFilter}
-        ${stateFilter}
+        ${invoiceFilter}
     )
   `;
 }
@@ -122,10 +132,36 @@ export class SalesRepository {
   createDraft(input: CreateDraftInvoiceRecord): Promise<InvoiceRecord> {
     return this.database.invoice.create({
       data: {
-        status: 'DRAFT',
+        status: input.status ?? 'DRAFT',
         currency: input.currency,
         fiscal: input.fiscal,
+        applyItbis: input.applyItbis,
         customerId: input.customerId,
+      },
+      include: invoiceDetailInclude,
+    });
+  }
+
+  duplicateAsQuoteDraft(source: InvoiceRecord): Promise<InvoiceRecord> {
+    return this.database.invoice.create({
+      data: {
+        status: 'QUOTE_DRAFT',
+        currency: source.currency,
+        fiscal: source.fiscal,
+        applyItbis: source.applyItbis,
+        customerId: source.customerId,
+        lines: {
+          create: source.lines.map((line) => ({
+            type: line.type,
+            description: line.description,
+            notes: line.notes,
+            quantity: line.quantity,
+            unitPrice: line.unitPrice,
+            acquisitionCostDop: line.acquisitionCostDop,
+            costProvenance: line.costProvenance,
+            serviceId: line.serviceId,
+          })),
+        },
       },
       include: invoiceDetailInclude,
     });
@@ -165,13 +201,18 @@ export class SalesRepository {
   }> {
     const balances = receivableBalances(query);
     const offset = (query.page - 1) * query.pageSize;
-    const [pageRows, customerRows] = await Promise.all([
+    const [pageRows, countRows, customerRows] = await Promise.all([
       this.database.$queryRaw<ReceivablePageRow[]>`
         ${balances}
         SELECT "id"
         FROM "receivableBalances"
         ORDER BY "dueDate" ASC, "confirmedAt" ASC, "id" ASC
         LIMIT ${query.pageSize} OFFSET ${offset}
+      `,
+      this.database.$queryRaw<ReceivableCountRow[]>`
+        ${balances}
+        SELECT COUNT(*) AS "count"
+        FROM "receivableBalances"
       `,
       this.database.$queryRaw<ReceivableCustomerRow[]>`
         ${balances}
@@ -184,6 +225,7 @@ export class SalesRepository {
           SUM("paid")::decimal AS "paid",
           SUM("balance")::decimal AS "balance"
         FROM "receivableBalances"
+        WHERE "balance" > 0
         GROUP BY "customerId", "customerName", "currency"
         ORDER BY "customerName" ASC, "currency" ASC
       `,
@@ -202,8 +244,42 @@ export class SalesRepository {
         ...row,
         invoiceCount: Number(row.invoiceCount),
       })),
-      total: customerRows.reduce((sum, row) => sum + Number(row.invoiceCount), 0),
+      total: Number(countRows[0]?.count ?? 0),
     };
+  }
+
+  async listOpenDopInvoicesByCustomer(customerId: string) {
+    const balances = receivableBalances({ customerId, page: 1, pageSize: 1 });
+    const openRows = await this.database.$queryRaw<ReceivablePageRow[]>`
+      ${balances}
+      SELECT "id"
+      FROM "receivableBalances"
+      WHERE "currency" = 'DOP' AND "balance" > 0
+      ORDER BY "dueDate" ASC, "confirmedAt" ASC, "id" ASC
+    `;
+    const invoices = await this.database.invoice.findMany({
+      where: { id: { in: openRows.map((row) => row.id) } },
+      select: {
+        id: true,
+        number: true,
+        confirmedAt: true,
+        dueDate: true,
+        status: true,
+        gross: true,
+        payments: {
+          orderBy: [
+            { effectiveDate: 'asc' },
+            { createdAt: 'asc' },
+            { id: 'asc' },
+          ],
+        },
+      },
+    });
+    const invoicesById = new Map(invoices.map((invoice) => [invoice.id, invoice]));
+    return openRows.flatMap((row) => {
+      const invoice = invoicesById.get(row.id);
+      return invoice ? [invoice] : [];
+    });
   }
 
   updateDraft(id: string, input: UpdateDraftInvoiceRecord): Promise<InvoiceRecord> {
@@ -212,6 +288,7 @@ export class SalesRepository {
       data: {
         ...(input.currency !== undefined ? { currency: input.currency } : {}),
         ...(input.fiscal !== undefined ? { fiscal: input.fiscal } : {}),
+        ...(input.applyItbis !== undefined ? { applyItbis: input.applyItbis } : {}),
         ...(input.customerId !== undefined ? { customerId: input.customerId } : {}),
       },
       include: invoiceDetailInclude,
@@ -318,6 +395,41 @@ export class SalesRepository {
     return number;
   }
 
+  async allocateNextQuoteNumber(): Promise<string> {
+    const sequence = await this.lockSequenceForUpdate(QUOTE_SEQUENCE_NAME);
+    const number = formatQuoteNumber(sequence.nextValue);
+    await this.database.invoiceSequence.update({
+      where: { name: QUOTE_SEQUENCE_NAME },
+      data: { nextValue: sequence.nextValue + 1 },
+    });
+    return number;
+  }
+
+  issueQuote(input: IssueQuoteRecord): Promise<InvoiceRecord> {
+    return this.database.invoice.update({
+      where: { id: input.id },
+      data: {
+        status: 'QUOTE_ISSUED',
+        quoteNumber: input.quoteNumber,
+        quoteIssuedAt: input.quoteIssuedAt,
+        quoteExpiresAt: input.quoteExpiresAt,
+        customerName: input.customerName,
+        customerRnc: input.customerRnc,
+        customerPhone: input.customerPhone,
+        gross: input.gross,
+        base: input.base,
+        itbis: input.itbis,
+        lines: {
+          update: input.lines.map((line) => ({
+            where: { id: line.id },
+            data: { gross: line.gross, base: line.base, itbis: line.itbis },
+          })),
+        },
+      },
+      include: invoiceDetailInclude,
+    });
+  }
+
   completeInvoice(input: CompleteInvoiceRecord): Promise<InvoiceRecord> {
     return this.database.invoice.update({
       where: { id: input.id },
@@ -329,6 +441,8 @@ export class SalesRepository {
         customerName: input.customerName,
         customerRnc: input.customerRnc,
         customerPhone: input.customerPhone,
+        snapshotCustomerType: input.snapshotCustomerType,
+        snapshotCreditTermDays: input.snapshotCreditTermDays,
         confirmedByUserId: input.confirmedByUserId,
         confirmedByName: input.confirmedByName,
         gross: input.gross,

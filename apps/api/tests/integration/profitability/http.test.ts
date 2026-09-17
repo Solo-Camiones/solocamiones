@@ -15,7 +15,7 @@ import { UserRepository } from '../../../src/features/users/repository.js';
 import { disconnectPrisma, prisma } from '../../../src/infrastructure/database/index.js';
 import { createTestApp } from '../../helpers/app.js';
 import { clearTestHistory } from '../../helpers/history.js';
-import { assignNamedCustomerForCredit } from '../../helpers/sales.js';
+import { assignNamedCustomerForCredit, cashSaleFullPayment, seedKnownLineCost } from '../../helpers/sales.js';
 
 const app = createTestApp();
 const users = new UserRepository();
@@ -42,6 +42,7 @@ async function fixture(role: Role = 'ADMINISTRATOR') {
 async function cleanup() {
   await resetLoginRateLimit();
   await clearTestHistory();
+  await prisma.invoicePayment.deleteMany();
   await prisma.invoice.deleteMany();
   await prisma.invoiceSequence.update({
     where: { name: 'FAC' },
@@ -67,7 +68,6 @@ describe('M14 COST-005 judged gross profit', () => {
           type: 'GENERIC',
           description: 'Sin costo',
           unitPrice: '100.00',
-          costProvenance: 'UNKNOWN',
         })
       ).status,
     ).toBe(201);
@@ -104,8 +104,8 @@ describe('M14 COST-005 judged gross profit', () => {
       profitDop: null,
       margin: null,
     });
-    expect(recorded.body.lines[0].acquisitionCostDop).toBeNull();
-    expect(recorded.body.lines[0].costProvenance).toBe('UNKNOWN');
+    expect(recorded.body.lines[0]).not.toHaveProperty('acquisitionCostDop');
+    expect(recorded.body.lines[0]).not.toHaveProperty('costProvenance');
     expect(recorded.body.status).toBe('COMPLETED');
     expect(recorded.body.number).toBe(invoice.number);
 
@@ -145,7 +145,7 @@ describe('M14 COST-005 judged gross profit', () => {
     const sellerView = await seller.agent.get(`${SALES}/${invoice.id}`);
     expect(sellerView.status).toBe(200);
     expect(sellerView.body.profitability).toBeUndefined();
-    expect(sellerView.body.lines[0].costProvenance).toBe('UNKNOWN');
+    expect(sellerView.body.lines[0]).not.toHaveProperty('costProvenance');
   });
 
   it('rejects estimated profit, pending FX, drafts, Seller, and Mechanic', async () => {
@@ -154,17 +154,16 @@ describe('M14 COST-005 judged gross profit', () => {
     const mechanic = await fixture('MECHANIC');
 
     const estimatedDraft = await admin.agent.post(SALES).set(CSRF).send({});
-    expect(
-      (
-        await admin.agent.post(`${SALES}/${estimatedDraft.body.id}/lines`).set(CSRF).send({
-          type: 'GENERIC',
-          description: 'Filtro',
-          unitPrice: '18000.00',
-          costProvenance: 'ESTIMATED',
-          acquisitionCostDop: '12300.00',
-        })
-      ).status,
-    ).toBe(201);
+    const estimatedLine = await admin.agent
+      .post(`${SALES}/${estimatedDraft.body.id}/lines`)
+      .set(CSRF)
+      .send({
+        type: 'GENERIC',
+        description: 'Filtro',
+        unitPrice: '18000.00',
+      });
+    expect(estimatedLine.status).toBe(201);
+    await seedKnownLineCost(estimatedLine.body.lines[0].id, 'ESTIMATED', '12300.00');
     await assignNamedCustomerForCredit(admin.agent, estimatedDraft.body.id);
     const estimated = await admin.agent
       .post(`${SALES}/${estimatedDraft.body.id}/confirm`)
@@ -185,12 +184,14 @@ describe('M14 COST-005 judged gross profit', () => {
           type: 'GENERIC',
           description: 'Filtro',
           unitPrice: '118.00',
-          costProvenance: 'UNKNOWN',
         })
       ).status,
     ).toBe(201);
     await assignNamedCustomerForCredit(admin.agent, usdDraft.body.id);
-    const usd = await admin.agent.post(`${SALES}/${usdDraft.body.id}/confirm`).set(CSRF).send({});
+    const usd = await admin.agent
+      .post(`${SALES}/${usdDraft.body.id}/confirm`)
+      .set(CSRF)
+      .send(cashSaleFullPayment('118.00'));
     const usdDenied = await admin.agent
       .post(`${PROFIT}/${usd.body.id}/manual-gross-profit`)
       .set(CSRF)

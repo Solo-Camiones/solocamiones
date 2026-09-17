@@ -16,8 +16,6 @@ export const LINE_NOT_FOUND_MESSAGE = 'Invoice line not found';
 export const FIXED_LINE_QUANTITY_MESSAGE = 'This line type has a fixed quantity of 1';
 export const LINE_DESCRIPTION_NOT_EDITABLE_MESSAGE =
   'This line type does not allow editing the description';
-export const LINE_COST_NOT_EDITABLE_MESSAGE =
-  'This line type does not allow editing the acquisition cost';
 export const LINE_NOTE_MAX_LENGTH = 100;
 export const UNKNOWN_COST_AMOUNT_MESSAGE = 'UNKNOWN cost must not include an amount';
 export const COST_AMOUNT_REQUIRED_MESSAGE =
@@ -26,20 +24,35 @@ export const COST_PROVENANCE_REQUIRED_MESSAGE =
   'Cost provenance is required when acquisition cost is updated';
 export const EMPTY_DRAFT_CONFIRM_MESSAGE = 'Agregue al menos una línea';
 export const DRAFT_ONLY_CONFIRM_MESSAGE = 'Solo se puede confirmar un borrador';
+export const QUOTE_DRAFT_ONLY_ISSUE_MESSAGE = 'Solo se puede emitir una cotización en borrador';
+export const QUOTE_ISSUED_ONLY_DUPLICATE_MESSAGE = 'Solo se puede duplicar una cotización emitida';
+export const QUOTE_ISSUED_ONLY_CONVERT_MESSAGE = 'Solo se puede convertir una cotización emitida';
+export const EXPIRED_QUOTE_CONVERT_MESSAGE = 'La cotización está vencida y no puede convertirse';
 export const PAYMENT_COMPLETED_ONLY_MESSAGE =
   'Solo se pueden registrar pagos en facturas completadas';
 export const PAYMENT_DATE_RANGE_MESSAGE =
   'La fecha del pago debe estar entre la confirmación y hoy';
 export const PAYMENT_EXCEEDS_BALANCE_MESSAGE = 'El pago no puede superar el saldo pendiente';
 export const CASH_CUSTOMER_CREDIT_FORBIDDEN_MESSAGE =
-  'A Cliente contado no se le puede vender a crédito';
+  'Las ventas de contado deben pagarse por completo al confirmar';
+export const USD_INVOICE_MUST_BE_PAID_IN_FULL_MESSAGE =
+  'Las facturas en USD deben pagarse por completo al confirmar';
+export const SELLER_CREDIT_CONFIRM_PAYMENT_FORBIDDEN_MESSAGE =
+  'El Vendedor no puede registrar un pago al confirmar una venta a crédito';
+export const CREDIT_LIMIT_EXCEEDED_MESSAGE =
+  'El límite de crédito del cliente sería excedido';
 export const PAYMENT_IDEMPOTENCY_MISMATCH_MESSAGE =
   'La clave de idempotencia ya fue usada con datos de pago diferentes';
 export const CANCELLATION_COMPLETED_ONLY_MESSAGE = 'Solo se pueden cancelar facturas completadas';
 export const CANCELLATION_REASON_REQUIRED_MESSAGE = 'La cancelación requiere un motivo';
 export const INVOICE_NUMBER_PREFIX = 'FAC-';
+export const QUOTE_NUMBER_PREFIX = 'COT-';
 export const INVOICE_NUMBER_PAD_WIDTH = 6;
 
 export function formatInvoiceNumber(sequenceValue: number): string {
   return `${INVOICE_NUMBER_PREFIX}${String(sequenceValue).padStart(INVOICE_NUMBER_PAD_WIDTH, '0')}`;
+}
+
+export function formatQuoteNumber(sequenceValue: number): string {
+  return `${QUOTE_NUMBER_PREFIX}${String(sequenceValue).padStart(INVOICE_NUMBER_PAD_WIDTH, '0')}`;
 }

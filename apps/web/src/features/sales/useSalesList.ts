@@ -1,11 +1,20 @@
 import { useCallback, useEffect, useState } from 'react';
 
 import { toListPage, type ListPage } from '../../api/contracts/pagination';
-import type { SalesListRow, SalesListTab } from '../../api/contracts/sales';
+import type { SalesListFilters, SalesListRow, SalesListTab } from '../../api/contracts/sales';
+import type { PaymentState } from '../../api/contracts/entities';
 import type { AppError, Result } from '../../shared/auth/types';
 import { salesRepository } from '../../api/repositories';
+import { beginQueryReload } from '../../shared/query/begin-query-reload';
 
-export const SALES_LIST_TABS: SalesListTab[] = ['ALL', 'DRAFT', 'COMPLETED', 'CANCELLED'];
+export const SALES_LIST_TABS: SalesListTab[] = [
+  'ALL',
+  'DRAFT',
+  'QUOTE_DRAFT',
+  'QUOTE_ISSUED',
+  'COMPLETED',
+  'CANCELLED',
+];
 
 /** Matches dashboard invoicesToday (`DEMO_NOW_ISO` in the demo clock). */
 const DEMO_TODAY = '2026-08-25';
@@ -21,6 +30,18 @@ const DEFAULT_SALES_URL_FILTERS: SalesUrlFilters = {
   outstanding: false,
   payments: false,
 };
+
+/** Dashboard Cobros: paid or partial, including late / overdue variants. */
+const COLLECTED_PAYMENT_STATES = new Set<PaymentState>([
+  'PAID',
+  'PAID_LATE',
+  'PARTIALLY_PAID',
+  'PARTIALLY_PAID_OVERDUE',
+]);
+
+function isCollectedPayment(paymentState: SalesListRow['paymentState']): boolean {
+  return paymentState != null && COLLECTED_PAYMENT_STATES.has(paymentState);
+}
 
 /**
  * Calendar day of an ISO timestamp — same rule as invoice-money `utcCalendarDate`.
@@ -76,11 +97,11 @@ export function applySalesUrlFilters(
       }
     }
 
-    if (filters.outstanding && !(row.status === 'COMPLETED' && row.balance > 0)) {
+    if (filters.outstanding && !(row.status === 'COMPLETED' && (row.balance ?? 0) > 0)) {
       return false;
     }
 
-    if (filters.payments && row.paymentState !== 'PAID' && row.paymentState !== 'PARTIALLY_PAID') {
+    if (filters.payments && !isCollectedPayment(row.paymentState)) {
       return false;
     }
 
@@ -93,9 +114,10 @@ async function listSales(
   page: number,
   q: string,
   filters: SalesUrlFilters,
+  listFilters: SalesListFilters,
 ): Promise<Result<ListPage<SalesListRow>>> {
   if (!salesUrlFiltersActive(filters)) {
-    return salesRepository.listInvoices(tab, page, q);
+    return salesRepository.listInvoices(tab, page, q, listFilters);
   }
 
   const rows: SalesListRow[] = [];
@@ -103,7 +125,7 @@ async function listSales(
   let total = 0;
   let pageSize = 10;
   do {
-    const response = await salesRepository.listInvoices(tab, currentPage, q);
+    const response = await salesRepository.listInvoices(tab, currentPage, q, listFilters);
     if (!response.ok) return response;
     rows.push(...response.value.items);
     total = response.value.total;
@@ -117,22 +139,38 @@ async function listSales(
 type SalesQuery =
   | { status: 'loading' }
   | { status: 'error'; error: AppError }
-  | { status: 'ready'; rows: SalesListRow[]; total: number; page: number; pageSize: number };
+  | {
+      status: 'ready';
+      rows: SalesListRow[];
+      total: number;
+      page: number;
+      pageSize: number;
+      isRefreshing: boolean;
+    };
 
 export function useSalesList(
   tab: SalesListTab,
   page: number,
   q = '',
   filters: SalesUrlFilters = DEFAULT_SALES_URL_FILTERS,
+  listFilters: SalesListFilters = {},
 ) {
   const [reloadToken, setReloadToken] = useState(0);
   const [result, setResult] = useState<SalesQuery>({ status: 'loading' });
+  const { today, outstanding, payments } = filters;
+  const { dateFrom, dateTo } = listFilters;
 
   useEffect(() => {
     let cancelled = false;
-    setResult({ status: 'loading' });
+    setResult(beginQueryReload);
 
-    listSales(tab, page, q, filters).then((response) => {
+    listSales(
+      tab,
+      page,
+      q,
+      { today, outstanding, payments },
+      { dateFrom, dateTo },
+    ).then((response) => {
       if (cancelled) {
         return;
       }
@@ -148,13 +186,24 @@ export function useSalesList(
         total: response.value.total,
         page: response.value.page,
         pageSize: response.value.pageSize,
+        isRefreshing: false,
       });
     });
 
     return () => {
       cancelled = true;
     };
-  }, [tab, page, q, filters.today, filters.outstanding, filters.payments, reloadToken]);
+  }, [
+    tab,
+    page,
+    q,
+    today,
+    outstanding,
+    payments,
+    dateFrom,
+    dateTo,
+    reloadToken,
+  ]);
 
   const reload = useCallback(() => {
     setReloadToken((token) => token + 1);

@@ -1,4 +1,5 @@
-export const PDF_COMPLETED_ONLY_MESSAGE = 'Solo las facturas confirmadas tienen PDF';
+export const PDF_COMPLETED_ONLY_MESSAGE =
+  'Solo las facturas confirmadas y las cotizaciones emitidas tienen PDF';
 export const PDF_NOT_READY_MESSAGE = 'El PDF de la factura no está disponible';
 export const PDF_FAILED_MESSAGE = 'La generación del PDF falló';
 export const PDF_REGENERATE_FAILED_ONLY_MESSAGE =

@@ -1,16 +1,11 @@
 import { Prisma } from '@prisma/client';
 import { z } from 'zod';
 
-import {
-  COST_AMOUNT_REQUIRED_MESSAGE,
-  COST_PROVENANCE_REQUIRED_MESSAGE,
-  DRAFT_META_REQUIRED_MESSAGE,
-  LINE_NOTE_MAX_LENGTH,
-  UNKNOWN_COST_AMOUNT_MESSAGE,
-} from './constants.js';
-import { COST_PROVENANCES, INVOICE_LINE_TYPES } from './money/types.js';
+import { DRAFT_META_REQUIRED_MESSAGE, LINE_NOTE_MAX_LENGTH } from './constants.js';
+import { INVOICE_LINE_TYPES } from './money/types.js';
 
 export const invoiceIdSchema = z.strictObject({ id: z.uuid() });
+export const statementCustomerIdSchema = z.strictObject({ customerId: z.uuid() });
 
 export const paginationSchema = z.strictObject({
   page: z.coerce.number().int().min(1).max(1000000).default(1),
@@ -18,29 +13,51 @@ export const paginationSchema = z.strictObject({
 });
 
 export const invoiceCurrencySchema = z.enum(['DOP', 'USD']);
-export const invoiceStatusSchema = z.enum(['DRAFT', 'COMPLETED', 'CANCELLED']);
+export const invoiceStatusSchema = z.enum([
+  'DRAFT',
+  'QUOTE_DRAFT',
+  'QUOTE_ISSUED',
+  'COMPLETED',
+  'CANCELLED',
+]);
 
 export const createDraftSchema = z.strictObject({
   customerId: z.uuid().optional(),
   currency: invoiceCurrencySchema.optional(),
   fiscal: z.boolean().optional(),
+  applyItbis: z.boolean().optional(),
 });
+
+export const emptyCommandSchema = z.strictObject({});
 
 export const updateDraftMetaSchema = createDraftSchema.refine(
   (value) => Object.keys(value).length > 0,
   DRAFT_META_REQUIRED_MESSAGE,
 );
 
-export const listInvoicesSchema = paginationSchema.extend({
-  status: invoiceStatusSchema.optional(),
-  q: z.string().trim().optional(),
-});
+export const listInvoicesSchema = paginationSchema
+  .extend({
+    status: invoiceStatusSchema.optional(),
+    q: z.string().trim().optional(),
+    dateFrom: z.iso.date().optional(),
+    dateTo: z.iso.date().optional(),
+  })
+  .refine((value) => !value.dateFrom || !value.dateTo || value.dateFrom <= value.dateTo, {
+    message: 'dateFrom must be on or before dateTo',
+    path: ['dateTo'],
+  });
 
-export const listReceivablesSchema = paginationSchema.extend({
-  customerId: z.uuid().optional(),
-  currency: invoiceCurrencySchema.optional(),
-  paymentState: z.enum(['PENDING', 'OVERDUE']).optional(),
-});
+export const listReceivablesSchema = paginationSchema
+  .extend({
+    customerId: z.uuid().optional(),
+    invoice: z
+      .string()
+      .trim()
+      .regex(/^FAC-\d{6}$/i, 'Must be a FAC- number')
+      .transform((value) => value.toUpperCase())
+      .optional(),
+  })
+  .strict();
 
 export const invoiceLineIdSchema = z.strictObject({
   id: z.uuid(),
@@ -48,7 +65,6 @@ export const invoiceLineIdSchema = z.strictObject({
 });
 
 export const invoiceLineTypeSchema = z.enum(INVOICE_LINE_TYPES);
-export const costProvenanceSchema = z.enum(COST_PROVENANCES);
 const moneyStringSchema = z.string();
 const DECIMAL_12_2_MAX = new Prisma.Decimal('9999999999.99');
 const DECIMAL_12_2_PATTERN = /^\d+(?:\.\d{1,2})?$/;
@@ -97,41 +113,17 @@ export const addInvoiceLineSchema = z.strictObject({
   notes: lineNotesSchema,
   quantity: moneyStringSchema.optional(),
   unitPrice: moneyStringSchema.optional(),
-  costProvenance: costProvenanceSchema.optional(),
-  acquisitionCostDop: moneyStringSchema.nullable().optional(),
   serviceId: z.uuid().optional(),
 });
 
 function merchandiseDraftLineSchema<T extends 'GENERIC' | 'EXTERNAL'>(type: T) {
-  return z
-    .strictObject({
-      type: z.literal(type),
-      description: z.string().trim().min(1),
-      notes: lineNotesSchema,
-      quantity: positiveDecimal12x2StringSchema.optional(),
-      unitPrice: decimal12x2StringSchema,
-      costProvenance: costProvenanceSchema,
-      acquisitionCostDop: decimal12x2StringSchema.nullable().optional(),
-    })
-    .superRefine((value, context) => {
-      if (value.costProvenance === 'UNKNOWN') {
-        if (value.acquisitionCostDop != null) {
-          context.addIssue({
-            code: 'custom',
-            message: UNKNOWN_COST_AMOUNT_MESSAGE,
-            path: ['acquisitionCostDop'],
-          });
-        }
-        return;
-      }
-      if (value.acquisitionCostDop == null) {
-        context.addIssue({
-          code: 'custom',
-          message: COST_AMOUNT_REQUIRED_MESSAGE,
-          path: ['acquisitionCostDop'],
-        });
-      }
-    });
+  return z.strictObject({
+    type: z.literal(type),
+    description: z.string().trim().min(1),
+    notes: lineNotesSchema,
+    quantity: positiveDecimal12x2StringSchema.optional(),
+    unitPrice: decimal12x2StringSchema,
+  });
 }
 
 export const genericDraftLineSchema = merchandiseDraftLineSchema('GENERIC');
@@ -158,48 +150,13 @@ export const setLinePriceSchema = z
     quantity: positiveDecimal12x2StringSchema.optional(),
     description: z.string().trim().min(1).optional(),
     notes: lineNotesSchema,
-    acquisitionCostDop: decimal12x2StringSchema.nullable().optional(),
-    costProvenance: costProvenanceSchema.optional(),
-  })
-  .superRefine((value, context) => {
-    const updatesCost =
-      value.acquisitionCostDop !== undefined || value.costProvenance !== undefined;
-    if (!updatesCost) return;
-
-    if (value.costProvenance === undefined) {
-      context.addIssue({
-        code: 'custom',
-        message: COST_PROVENANCE_REQUIRED_MESSAGE,
-        path: ['costProvenance'],
-      });
-      return;
-    }
-    if (value.costProvenance === 'UNKNOWN') {
-      if (value.acquisitionCostDop !== null) {
-        context.addIssue({
-          code: 'custom',
-          message: UNKNOWN_COST_AMOUNT_MESSAGE,
-          path: ['acquisitionCostDop'],
-        });
-      }
-      return;
-    }
-    if (value.acquisitionCostDop == null) {
-      context.addIssue({
-        code: 'custom',
-        message: COST_AMOUNT_REQUIRED_MESSAGE,
-        path: ['acquisitionCostDop'],
-      });
-    }
   })
   .refine(
     (value) =>
       value.unitPrice !== undefined ||
       value.quantity !== undefined ||
       value.description !== undefined ||
-      value.notes !== undefined ||
-      value.acquisitionCostDop !== undefined ||
-      value.costProvenance !== undefined,
+      value.notes !== undefined,
     DRAFT_META_REQUIRED_MESSAGE,
   );
 

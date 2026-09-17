@@ -2,8 +2,10 @@ import { useEffect, useId, useRef, useState } from 'react';
 
 import type { PaymentMethod } from '../../api/contracts/entities';
 import type { ConfirmInvoicePayment, PosDraftView } from '../../api/contracts/sales';
+import { useAuth } from '../auth/useAuth';
 import { useAppCapabilities } from '../../shared/config/CapabilitiesProvider';
 import { UX_TERMS } from '../../shared/copy/glossary';
+import { formatFiscalId } from '../../shared/domain/fiscal-id';
 import {
   Button,
   Field,
@@ -19,8 +21,11 @@ import {
 import { LINE_TYPE_LABELS, PAYMENT_METHOD_LABELS } from './labels';
 
 const METHODS: PaymentMethod[] = ['CASH', 'TRANSFER', 'CHECK'];
-const CASH_CUSTOMER_CREDIT_FORBIDDEN_MESSAGE =
-  'A Cliente contado no se le puede vender a crédito';
+const FULL_PAYMENT_REQUIRED_MESSAGE =
+  'Los clientes de contado y las facturas en USD deben pagarse completos al confirmar. No se vende a crédito.';
+const INITIAL_PAYMENT_REQUIRED_MESSAGE = 'El pago inicial debe ser mayor que cero y no superar el total.';
+const SELLER_CREDIT_COLLECTION_MESSAGE =
+  'Esta venta a crédito queda pendiente de cobro. El Administrador registra el pago.';
 
 type ConfirmSaleModalProps = {
   open: boolean;
@@ -39,6 +44,14 @@ function amountMatchesGross(amount: string, gross: number): boolean {
   return Math.round(parsed * 100) === Math.round(gross * 100);
 }
 
+function amountIsWithinGross(amount: number, gross: number): boolean {
+  return amount > 0 && Math.round(amount * 100) <= Math.round(gross * 100);
+}
+
+export function saleRequiresFullPayment(draft: PosDraftView): boolean {
+  return draft.customerType === 'CASH' || draft.currency === 'USD' || draft.customerIsDefault;
+}
+
 export function ConfirmSaleModal({
   open,
   draft,
@@ -47,11 +60,19 @@ export function ConfirmSaleModal({
   onClose,
   onConfirm,
 }: ConfirmSaleModalProps) {
+  const { user } = useAuth();
   const capabilities = useAppCapabilities();
   const amountId = useId();
   const includeId = useId();
   const installed = draft.lines.filter((line) => line.installed);
-  const cashCustomerRequiresFullPayment = draft.customerIsDefault;
+  const requiresFullPayment = saleRequiresFullPayment(draft);
+  const isQuoteConversion = draft.status === 'QUOTE_ISSUED';
+  const isAdministrator = user?.role === 'ADMINISTRATOR';
+  const isSellerCreditDop =
+    user?.role === 'SELLER' &&
+    draft.customerType === 'CREDIT' &&
+    draft.currency === 'DOP' &&
+    !draft.customerIsDefault;
   const [includeInitialPayment, setIncludeInitialPayment] = useState(false);
   const [amount, setAmount] = useState('');
   const [method, setMethod] = useState<PaymentMethod>('CASH');
@@ -63,7 +84,6 @@ export function ConfirmSaleModal({
 
   useEffect(() => {
     if (open) {
-      const requiresFullPayment = draft.customerIsDefault;
       const next = {
         includeInitialPayment: requiresFullPayment,
         amount: requiresFullPayment ? draft.totals.gross.toFixed(2) : '',
@@ -78,7 +98,7 @@ export function ConfirmSaleModal({
       setLocalError(null);
       submitLock.current = false;
     }
-  }, [open, draft.customerIsDefault, draft.totals.gross]);
+  }, [open, requiresFullPayment, draft.totals.gross]);
 
   useEffect(() => {
     if (!isConfirming) {
@@ -92,10 +112,15 @@ export function ConfirmSaleModal({
     }
     submitLock.current = true;
 
-    if (cashCustomerRequiresFullPayment) {
+    if (isSellerCreditDop) {
+      onConfirm();
+      return;
+    }
+
+    if (requiresFullPayment) {
       const trimmed = amount.trim() || draft.totals.gross.toFixed(2);
       if (!amountMatchesGross(trimmed, draft.totals.gross)) {
-        setLocalError(CASH_CUSTOMER_CREDIT_FORBIDDEN_MESSAGE);
+        setLocalError(FULL_PAYMENT_REQUIRED_MESSAGE);
         submitLock.current = false;
         return;
       }
@@ -107,26 +132,35 @@ export function ConfirmSaleModal({
       return;
     }
 
+    const mayIncludePayment = isAdministrator && capabilities.payments;
     const trimmed = amount.trim();
-    if (!capabilities.payments || !includeInitialPayment || trimmed === '') {
+    if (!mayIncludePayment || !includeInitialPayment || trimmed === '') {
       onConfirm();
       return;
     }
 
+    const parsed = Number(trimmed);
+    if (!Number.isFinite(parsed) || !amountIsWithinGross(parsed, draft.totals.gross)) {
+      setLocalError(INITIAL_PAYMENT_REQUIRED_MESSAGE);
+      submitLock.current = false;
+      return;
+    }
+
     onConfirm({
-      amount: Number(trimmed),
+      amount: parsed,
       method,
       reference: reference.trim() || undefined,
     });
   }
 
   const displayedError = localError ?? error;
-  const showPaymentFields = capabilities.payments || cashCustomerRequiresFullPayment;
+  const showPaymentFields =
+    !isSellerCreditDop && (requiresFullPayment || (isAdministrator && capabilities.payments));
 
   return (
     <GuardedModal
       open={open}
-      title="Confirmar venta"
+      title={isQuoteConversion ? 'Convertir a factura' : 'Confirmar venta'}
       onClose={onClose}
       hasUnsavedChanges={isFormDirty(fields, baseline)}
       isBusy={isConfirming}
@@ -134,17 +168,23 @@ export function ConfirmSaleModal({
       {({ requestClose }) => (
       <div className="flex flex-col gap-4 text-sm text-navy">
         {displayedError && (
-          <Info tone="error" title="No se pudo confirmar">
+          <Info tone="error" title={isQuoteConversion ? 'No se pudo convertir' : 'No se pudo confirmar'}>
             {displayedError}
           </Info>
         )}
-        <p className="font-medium">Revisa los datos antes de emitir la factura.</p>
+        <p className="font-medium">
+          {isQuoteConversion
+            ? `Revisa los datos antes de convertir ${draft.quoteNumber ?? 'la cotización'} en factura.`
+            : 'Revisa los datos antes de emitir la factura.'}
+        </p>
         <ReviewSummary
           rows={[
             { label: 'Cliente', value: draft.customerName },
-            { label: 'Identificación fiscal / cédula', value: draft.customerRnc ?? '' },
+            { label: 'Identificación fiscal / cédula', value: formatFiscalId(draft.customerRnc) },
             { label: 'Moneda', value: currencyLabel(draft.currency) },
             { label: 'Comprobante fiscal', value: draft.fiscal ? 'Sí' : 'No' },
+            { label: 'Aplicar ITBIS', value: draft.applyItbis ? 'Sí' : 'No' },
+            ...(draft.quoteNumber ? [{ label: 'Cotización', value: draft.quoteNumber }] : []),
             { label: 'Total', value: money(draft.totals.gross, draft.currency) },
             { label: 'ITBIS', value: money(draft.totals.itbis, draft.currency) },
           ]}
@@ -179,24 +219,30 @@ export function ConfirmSaleModal({
           </ul>
         )}
 
+        {isSellerCreditDop && (
+          <p className="rounded-lg border border-navy-100 bg-navy-50 px-3 py-2 text-navy">
+            {SELLER_CREDIT_COLLECTION_MESSAGE}
+          </p>
+        )}
+
         {showPaymentFields && (
           <>
             <label htmlFor={includeId} className="flex items-center gap-2 font-medium">
               <input
                 id={includeId}
                 type="checkbox"
-                checked={cashCustomerRequiresFullPayment || includeInitialPayment}
+                checked={requiresFullPayment || includeInitialPayment}
                 onChange={(event) => setIncludeInitialPayment(event.target.checked)}
-                disabled={isConfirming || cashCustomerRequiresFullPayment}
+                disabled={isConfirming || requiresFullPayment}
               />
               Pago inicial
             </label>
             <p className="text-xs text-navy-400">
-              {cashCustomerRequiresFullPayment
-                ? 'Cliente contado debe pagarse completo al confirmar. No se vende a crédito.'
-                : 'Sin marcar o sin monto, la venta queda a crédito (sin pago).'}
+              {requiresFullPayment
+                ? 'Los clientes de contado y las facturas en USD deben pagarse completos al confirmar. No se vende a crédito.'
+                : 'Sin marcar, la venta queda a crédito (sin pago). Un pago inicial puede ser parcial o total, nunca cero.'}
             </p>
-            {(cashCustomerRequiresFullPayment || includeInitialPayment) && (
+            {(requiresFullPayment || includeInitialPayment) && (
               <div className="space-y-3">
                 <Field
                   label="Monto"
@@ -209,11 +255,12 @@ export function ConfirmSaleModal({
                     step="0.01"
                     min="0.01"
                     value={amount}
+                    disabled={isConfirming || requiresFullPayment}
                     onChange={(event) => {
                       setAmount(event.target.value);
                       setLocalError(null);
                     }}
-                    autoFocus
+                    autoFocus={!requiresFullPayment}
                   />
                 </Field>
                 <Field label="Método" htmlFor="confirm-pay-method">
@@ -244,14 +291,14 @@ export function ConfirmSaleModal({
         {showPaymentFields && (
           <ReviewSummary
             rows={
-              cashCustomerRequiresFullPayment || includeInitialPayment
+              requiresFullPayment || includeInitialPayment
                 ? [
                     {
                       label: 'Pago',
                       value:
                         amount.trim() && Number.isFinite(Number(amount))
                           ? money(Number(amount), draft.currency)
-                          : cashCustomerRequiresFullPayment
+                          : requiresFullPayment
                             ? money(draft.totals.gross, draft.currency)
                             : '',
                     },
@@ -272,7 +319,13 @@ export function ConfirmSaleModal({
             disabled={isConfirming || draft.blockers.length > 0}
             busy={isConfirming}
           >
-            {isConfirming ? 'Confirmando…' : 'Confirmar venta'}
+            {isConfirming
+              ? isQuoteConversion
+                ? 'Convirtiendo…'
+                : 'Confirmando…'
+              : isQuoteConversion
+                ? 'Convertir a factura'
+                : 'Confirmar venta'}
           </Button>
         </div>
       </div>

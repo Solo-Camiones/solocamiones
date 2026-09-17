@@ -9,6 +9,16 @@ function formatDueDate(value?: string): string {
   return `${day}/${month}/${year}`;
 }
 
+function formatIssuedDate(value?: string): string {
+  if (!value) return '—';
+  return new Intl.DateTimeFormat('es-DO', {
+    timeZone: 'America/Santo_Domingo',
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  }).format(new Date(value));
+}
+
 export function CustomerOutstandingTable({
   rows,
   hasQuery = false,
@@ -22,7 +32,7 @@ export function CustomerOutstandingTable({
         title={hasQuery ? 'Sin resultados' : 'No hay saldos abiertos'}
         description={
           hasQuery
-            ? 'Pruebe otro nombre de cliente.'
+            ? 'Pruebe otro cliente o número de factura.'
             : 'Las facturas completadas con saldo pendiente aparecerán agrupadas por cliente y moneda.'
         }
       />
@@ -70,7 +80,7 @@ export function OpenReceivablesTable({
         title={hasQuery ? 'Sin resultados' : 'No hay facturas abiertas'}
         description={
           hasQuery
-            ? 'Pruebe otro nombre de cliente.'
+            ? 'Pruebe otro cliente o número de factura.'
             : 'Las facturas completadas con saldo pendiente aparecerán aquí.'
         }
       />
@@ -84,6 +94,7 @@ export function OpenReceivablesTable({
           <th className="px-4 py-3 font-medium">Factura</th>
           <th className="px-4 py-3 font-medium">Cliente</th>
           <th className="px-4 py-3 font-medium">Estado</th>
+          <th className="px-4 py-3 font-medium">Fecha emitida</th>
           <th className="px-4 py-3 font-medium">Vence</th>
           <th className="px-4 py-3 font-medium text-right">Total</th>
           <th className="px-4 py-3 font-medium text-right">Saldo</th>
@@ -99,11 +110,14 @@ export function OpenReceivablesTable({
             </td>
             <td className="px-4 py-3">{row.customerName}</td>
             <td className="px-4 py-3">
-              <PaymentChip state={row.paymentState} />
+              {row.paymentState ? <PaymentChip state={row.paymentState} /> : '—'}
             </td>
+            <td className="px-4 py-3">{formatIssuedDate(row.confirmedAt)}</td>
             <td className="px-4 py-3">{formatDueDate(row.dueDate)}</td>
             <td className="px-4 py-3 text-right font-mono">{money(row.total, row.currency)}</td>
-            <td className="px-4 py-3 text-right font-mono">{money(row.balance, row.currency)}</td>
+            <td className="px-4 py-3 text-right font-mono">
+              {money(row.balance ?? 0, row.currency)}
+            </td>
           </HoverRow>
         ))}
       </tbody>

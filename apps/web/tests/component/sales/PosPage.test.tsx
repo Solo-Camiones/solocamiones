@@ -9,8 +9,8 @@ import { PosPage } from '../../../src/features/sales/PosPage';
 import { CAPABILITY_PRESETS, type AppCapabilities } from '../../../src/shared/config/capabilities';
 import { mockCustomerRepository } from '../../../src/mocks/repositories/MockCustomerRepository';
 import { mockSalesRepository } from '../../../src/mocks/repositories/MockSalesRepository';
-import { reloadMockStateFromStorage, resetMockState } from '../../../src/mocks/state';
-import { renderWithProviders } from '../../support/render';
+import { getMockState, reloadMockStateFromStorage, resetMockState } from '../../../src/mocks/state';
+import { createAuthValue, renderWithProviders } from '../../support/render';
 import { chooseSelectOption } from '../../support/select-menu';
 import { signInAs } from '../../support/session';
 import '../../support/dom';
@@ -21,6 +21,16 @@ function renderPos(draftId = 'INV-DRAFT-01', capabilities?: AppCapabilities) {
       <Route path="/sales/draft/:id" element={<PosPage />} />
     </Routes>,
     { route: `/sales/draft/${draftId}`, capabilities },
+  );
+}
+
+function renderQuote(quoteId: string, capabilities?: AppCapabilities) {
+  return renderWithProviders(
+    <Routes>
+      <Route path="/sales/quote/:id" element={<PosPage />} />
+      <Route path="/sales/:id" element={<p>Detalle de factura</p>} />
+    </Routes>,
+    { route: `/sales/quote/${quoteId}`, capabilities },
   );
 }
 
@@ -150,34 +160,44 @@ describe('PosPage', () => {
     expect(screen.queryByText(/orden de desmonte pendiente/i)).not.toBeInTheDocument();
   });
 
-  it('recalculates included ITBIS when fiscal mode is enabled', async () => {
+  it('does not add ITBIS when only fiscal mode is enabled', async () => {
     const user = userEvent.setup();
     renderPos();
     await screen.findByText('Alternador 24V');
 
     await user.click(screen.getByLabelText(/Factura con comprobante fiscal/));
 
+    expect(await screen.findByTestId('pos-itbis')).toHaveTextContent('RD$0.00');
+  });
+
+  it('adds tax-exclusive ITBIS when Aplicar ITBIS is enabled', async () => {
+    const user = userEvent.setup();
+    renderPos();
+    await screen.findByText('Alternador 24V');
+
+    await user.click(screen.getByLabelText(/Aplicar ITBIS/));
+
     expect(await screen.findByTestId('pos-itbis')).not.toHaveTextContent('RD$0.00');
   });
 
-  it('shows line base, included ITBIS, and gross from the entered sale price', async () => {
+  it('shows line subtotal, ITBIS, and gross from the entered sale price', async () => {
     const user = userEvent.setup();
     renderPos('INV-DRAFT-01', CAPABILITY_PRESETS['release-2']);
     await screen.findByText('Alternador 24V');
 
-    await user.click(screen.getByLabelText(/Factura con comprobante fiscal/));
+    await user.click(screen.getByLabelText(/Aplicar ITBIS/));
     await user.click(screen.getByRole('button', { name: 'Agregar línea' }));
-    await user.type(screen.getByLabelText('Descripción'), 'Filtro fiscal');
+    await user.type(screen.getByLabelText('Descripción'), 'Filtro gravado');
     await user.clear(screen.getByLabelText('Cantidad'));
-    await user.type(screen.getByLabelText('Cantidad'), '2');
+    await user.type(screen.getByLabelText('Cantidad'), '1');
     await user.clear(screen.getByLabelText('Precio'));
     await user.type(screen.getByLabelText('Precio'), '118');
     await user.click(screen.getByRole('button', { name: 'Agregar' }));
 
-    expect(await screen.findByText('Filtro fiscal')).toBeVisible();
-    expect(screen.getByText('RD$200.00')).toBeVisible();
-    expect(screen.getByText('RD$36.00')).toBeVisible();
-    expect(screen.getByText('RD$236.00')).toBeVisible();
+    expect(await screen.findByText('Filtro gravado')).toBeVisible();
+    expect(screen.getByText('RD$118.00')).toBeVisible();
+    expect(screen.getByText('RD$21.24')).toBeVisible();
+    expect(screen.getByText('RD$139.24')).toBeVisible();
   });
 
   it('confirms the seed draft and shows the assigned FAC number', async () => {
@@ -215,15 +235,35 @@ describe('PosPage', () => {
 
     await user.click(screen.getByRole('button', { name: 'Confirmar venta' }));
     const dialog = await screen.findByRole('dialog', { name: 'Confirmar venta' });
-    expect(screen.getByText(/No se vende a crédito/)).toBeVisible();
+    expect(screen.getByText(/Los clientes de contado y las facturas en USD/)).toBeVisible();
     const amount = screen.getByLabelText('Monto');
-    await user.clear(amount);
-    await user.type(amount, '40');
+    expect(amount).toBeDisabled();
+    expect(amount).toHaveValue(100);
     await user.click(within(dialog).getByRole('button', { name: 'Confirmar venta' }));
 
-    expect(
-      await screen.findByText('A Cliente contado no se le puede vender a crédito'),
-    ).toBeVisible();
+    expect(await screen.findByText('Venta confirmada')).toBeVisible();
+  });
+
+  it('lets a seller confirm a CREDIT DOP draft without payment fields', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(
+      <Routes>
+        <Route path="/sales/draft/:id" element={<PosPage />} />
+      </Routes>,
+      {
+        route: '/sales/draft/INV-DRAFT-01',
+        auth: createAuthValue('SELLER'),
+      },
+    );
+    await screen.findByText('Alternador 24V');
+
+    await user.click(screen.getByRole('button', { name: 'Confirmar venta' }));
+    expect(screen.getByText(/El Administrador registra el pago/)).toBeVisible();
+    expect(screen.queryByLabelText('Pago inicial')).not.toBeInTheDocument();
+    const confirmButtons = screen.getAllByRole('button', { name: 'Confirmar venta' });
+    await user.click(confirmButtons[confirmButtons.length - 1]);
+
+    expect(await screen.findByText('Venta confirmada')).toBeVisible();
   });
 
   it('lists a newly created customer in the selector', async () => {
@@ -466,43 +506,38 @@ describe('PosPage', () => {
     expect(screen.queryByRole('dialog', { name: 'Editar línea' })).not.toBeInTheDocument();
   });
 
-  it('allows an estimated acquisition cost when adding a free-form line', async () => {
+  it('toggles Aplicar ITBIS without collecting acquisition cost', async () => {
     const created = await mockSalesRepository.createDraft();
     expect(created.ok).toBe(true);
     if (!created.ok) return;
 
+    const setDraftMeta = vi.spyOn(mockSalesRepository, 'setDraftMeta');
     const addLine = vi.spyOn(mockSalesRepository, 'addLine');
-    const setLinePrice = vi.spyOn(mockSalesRepository, 'setLinePrice');
     const user = userEvent.setup();
     renderPos(created.value.draftId);
     await screen.findByRole('button', { name: 'Agregar línea' });
 
+    expect(screen.getByLabelText(/Aplicar ITBIS/)).not.toBeChecked();
+    await user.click(screen.getByLabelText(/Aplicar ITBIS/));
+    expect(setDraftMeta).toHaveBeenCalledWith(expect.objectContaining({ applyItbis: true }));
+
     await user.click(screen.getByRole('button', { name: 'Agregar línea' }));
     await chooseSelectOption(user, 'Tipo de línea', 'GENERIC');
-    await user.type(screen.getByLabelText('Descripción'), 'Pieza de procedencia estimada');
-    await chooseSelectOption(user, 'Origen del costo', 'ESTIMATED');
-    await user.type(screen.getByLabelText('Costo de adquisición en pesos (opcional)'), '25');
+    await user.type(screen.getByLabelText('Descripción'), 'Pieza genérica');
+    expect(screen.queryByLabelText('Origen del costo')).not.toBeInTheDocument();
     await user.clear(screen.getByLabelText('Precio'));
     await user.type(screen.getByLabelText('Precio'), '50');
     await user.click(screen.getByRole('button', { name: 'Agregar' }));
 
     expect(addLine).toHaveBeenCalledWith(
       expect.objectContaining({
-        acquisitionCostDop: 25,
-        costProvenance: 'ESTIMATED',
+        type: 'GENERIC',
+        description: 'Pieza genérica',
+        unitPrice: 50,
       }),
     );
-
-    expect(await screen.findByText('Pieza de procedencia estimada')).toBeVisible();
-    await user.click(screen.getByRole('button', { name: 'Editar Pieza de procedencia estimada' }));
-    expect(screen.getByLabelText('Origen del costo')).toHaveAttribute('data-value', 'ESTIMATED');
-    await user.click(screen.getByRole('button', { name: 'Guardar' }));
-    expect(setLinePrice).toHaveBeenCalledWith(
-      expect.objectContaining({
-        acquisitionCostDop: 25,
-        costProvenance: 'ESTIMATED',
-      }),
-    );
+    expect(addLine.mock.calls[0]?.[0]).not.toHaveProperty('acquisitionCostDop');
+    expect(addLine.mock.calls[0]?.[0]).not.toHaveProperty('costProvenance');
   });
 
   it('renders line cards below the lg breakpoint', async () => {
@@ -514,5 +549,159 @@ describe('PosPage', () => {
     expect(screen.getByText('Pieza · ALT-004')).toBeVisible();
     expect(screen.getAllByText('Cantidad')).toHaveLength(2);
     expect(screen.getAllByRole('button', { name: /^Quitar / })).toHaveLength(2);
+  });
+
+  it('issues a quote draft from the quote editor', async () => {
+    const created = await mockSalesRepository.createQuote();
+    expect(created.ok).toBe(true);
+    if (!created.ok) return;
+    const quoteId = created.value.draftId;
+    expect((await mockSalesRepository.setDraftMeta({ draftId: quoteId, customerId: 'C1' })).ok).toBe(true);
+    expect(
+      (
+        await mockSalesRepository.addLine({
+          draftId: quoteId,
+          type: 'GENERIC',
+          description: 'Filtro cotizado',
+          unitPrice: 100,
+        })
+      ).ok,
+    ).toBe(true);
+
+    renderQuote(quoteId);
+    expect(await screen.findByRole('heading', { name: 'Cotización' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Emitir cotización' })).toBeVisible();
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: 'Emitir cotización' }));
+
+    expect(await screen.findAllByText(/COT-000001/)).not.toHaveLength(0);
+    expect(screen.getByRole('button', { name: 'Convertir a factura' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Duplicar cotización' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Ver/Descargar PDF' })).toBeVisible();
+  });
+
+  it('does not show the PDF action on a quote draft', async () => {
+    const created = await mockSalesRepository.createQuote();
+    expect(created.ok).toBe(true);
+    if (!created.ok) return;
+    const quoteId = created.value.draftId;
+    expect((await mockSalesRepository.setDraftMeta({ draftId: quoteId, customerId: 'C1' })).ok).toBe(true);
+    expect(
+      (
+        await mockSalesRepository.addLine({
+          draftId: quoteId,
+          type: 'GENERIC',
+          description: 'Filtro cotizado',
+          unitPrice: 100,
+        })
+      ).ok,
+    ).toBe(true);
+
+    renderQuote(quoteId);
+    expect(await screen.findByRole('heading', { name: 'Cotización' })).toBeVisible();
+    expect(screen.queryByRole('button', { name: 'Ver/Descargar PDF' })).not.toBeInTheDocument();
+  });
+
+  it('opens the quote PDF preview, downloads COT- filename, and revokes the object URL', async () => {
+    const created = await mockSalesRepository.createQuote();
+    expect(created.ok).toBe(true);
+    if (!created.ok) return;
+    const quoteId = created.value.draftId;
+    expect((await mockSalesRepository.setDraftMeta({ draftId: quoteId, customerId: 'C1' })).ok).toBe(true);
+    expect(
+      (
+        await mockSalesRepository.addLine({
+          draftId: quoteId,
+          type: 'GENERIC',
+          description: 'Filtro cotizado',
+          unitPrice: 100,
+        })
+      ).ok,
+    ).toBe(true);
+    expect((await mockSalesRepository.issueQuote(quoteId)).ok).toBe(true);
+
+    const createObjectURL = vi.fn(() => 'blob:http://localhost/COT-000001');
+    const revokeObjectURL = vi.fn();
+    class TestUrl extends URL {}
+    TestUrl.createObjectURL = createObjectURL;
+    TestUrl.revokeObjectURL = revokeObjectURL;
+    vi.stubGlobal('URL', TestUrl);
+
+    const user = userEvent.setup();
+    renderQuote(quoteId);
+    expect(await screen.findByRole('button', { name: 'Ver/Descargar PDF' })).toBeVisible();
+    await user.click(screen.getByRole('button', { name: 'Ver/Descargar PDF' }));
+
+    const dialog = await screen.findByRole('dialog', { name: 'Vista previa de cotización' });
+    expect(within(dialog).getByTitle('COT-000001.pdf')).toHaveAttribute(
+      'src',
+      'blob:http://localhost/COT-000001',
+    );
+    await user.click(within(dialog).getByRole('button', { name: 'Descargar' }));
+    await user.click(within(dialog).getByText('Cerrar'));
+    expect(revokeObjectURL).toHaveBeenCalledWith('blob:http://localhost/COT-000001');
+    expect(screen.getByRole('button', { name: 'Duplicar cotización' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Convertir a factura' })).toBeEnabled();
+  });
+
+  it('keeps quote actions when PDF download fails', async () => {
+    const created = await mockSalesRepository.createQuote();
+    expect(created.ok).toBe(true);
+    if (!created.ok) return;
+    const quoteId = created.value.draftId;
+    expect((await mockSalesRepository.setDraftMeta({ draftId: quoteId, customerId: 'C1' })).ok).toBe(true);
+    expect(
+      (
+        await mockSalesRepository.addLine({
+          draftId: quoteId,
+          type: 'GENERIC',
+          description: 'Filtro cotizado',
+          unitPrice: 100,
+        })
+      ).ok,
+    ).toBe(true);
+    expect((await mockSalesRepository.issueQuote(quoteId)).ok).toBe(true);
+    vi.spyOn(mockSalesRepository, 'getQuotePdf').mockResolvedValue({
+      ok: false,
+      error: { code: 'INTERNAL', message: 'No se pudo generar el PDF' },
+    });
+
+    const user = userEvent.setup();
+    renderQuote(quoteId);
+    await user.click(await screen.findByRole('button', { name: 'Ver/Descargar PDF' }));
+
+    expect(await screen.findByText('No se pudo generar el PDF')).toBeVisible();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Duplicar cotización' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Convertir a factura' })).toBeEnabled();
+  });
+
+  it('shows the PDF action on an expired issued quote without enabling convert', async () => {
+    const created = await mockSalesRepository.createQuote();
+    expect(created.ok).toBe(true);
+    if (!created.ok) return;
+    const quoteId = created.value.draftId;
+    expect((await mockSalesRepository.setDraftMeta({ draftId: quoteId, customerId: 'C1' })).ok).toBe(true);
+    expect(
+      (
+        await mockSalesRepository.addLine({
+          draftId: quoteId,
+          type: 'GENERIC',
+          description: 'Filtro cotizado',
+          unitPrice: 100,
+        })
+      ).ok,
+    ).toBe(true);
+    expect((await mockSalesRepository.issueQuote(quoteId)).ok).toBe(true);
+    const issued = getMockState().invoices.find((invoice) => invoice.id === quoteId);
+    expect(issued).toBeDefined();
+    if (!issued) return;
+    issued.quoteIssuedAt = '2026-01-01T04:00:00.000Z';
+    issued.quoteExpiresAt = '2026-01-31T03:59:59.000Z';
+
+    renderQuote(quoteId);
+    expect(await screen.findByRole('button', { name: 'Ver/Descargar PDF' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Convertir a factura' })).toBeDisabled();
   });
 });

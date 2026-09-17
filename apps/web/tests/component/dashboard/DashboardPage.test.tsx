@@ -71,7 +71,9 @@ describe('DashboardPage', () => {
 
     expect(await screen.findByText('Borradores')).toBeVisible();
     expect(screen.getByRole('heading', { name: 'Operación de hoy' })).toBeVisible();
-    expect(screen.getByRole('heading', { name: 'Finanzas' })).toBeVisible();
+    expect(screen.queryByRole('heading', { name: 'Finanzas' })).not.toBeInTheDocument();
+    expect(screen.queryByText('Cobros')).not.toBeInTheDocument();
+    expect(screen.queryByText('Saldo pendiente')).not.toBeInTheDocument();
     expect(screen.queryByText('Ganancia bruta en pesos')).not.toBeInTheDocument();
     expect(screen.queryByText('Tasas de cambio pendientes')).not.toBeInTheDocument();
     expect(screen.queryByText('Tasa de cambio pendiente')).not.toBeInTheDocument();
