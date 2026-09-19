@@ -3,6 +3,11 @@ import { Prisma, type InvoiceCurrency } from '@prisma/client';
 
 
 import {
+  formatBusinessDate,
+  formatMoney,
+} from '../../infrastructure/document-pdf/formatters.js';
+
+import {
 
   pdfkitSellerSalesRenderer,
 
@@ -41,38 +46,6 @@ const DOCUMENT_TYPE_LABEL = {
 } as const;
 
 
-
-function formatDocumentDate(value: Date): string {
-
-  return new Intl.DateTimeFormat('es-DO', {
-
-    timeZone: 'America/Santo_Domingo',
-
-    day: '2-digit',
-
-    month: '2-digit',
-
-    year: 'numeric',
-
-  }).format(value);
-
-}
-
-
-
-function formatMoney(amount: string, currency: InvoiceCurrency): string {
-
-  const symbol = currency === 'DOP' ? 'RD$' : 'US$';
-
-  return `${symbol}${Number(amount).toLocaleString('en-US', {
-
-    minimumFractionDigits: 2,
-
-    maximumFractionDigits: 2,
-
-  })}`;
-
-}
 
 
 
@@ -284,7 +257,7 @@ export class SellerSalesReportService {
 
         number: row.number,
 
-        documentDateLabel: formatDocumentDate(row.documentDate),
+        documentDateLabel: formatBusinessDate(row.documentDate),
 
         sellerName: row.sellerName,
 

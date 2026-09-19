@@ -2,11 +2,11 @@ import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 
 import { useAuth } from '../auth/useAuth';
-import { InvoiceStatusChip, PaymentChip } from '../../shared/domain';
+import { FiscalChip, InvoiceStatusChip, PaymentChip } from '../../shared/domain';
 import { formatFiscalId } from '../../shared/domain/fiscal-id';
 import { can } from '../../shared/auth/policies';
 import { useAppCapabilities } from '../../shared/config/CapabilitiesProvider';
-import { Button, Card, Chip, Info, money, Mono } from '../../shared/ui';
+import { Button, Card, Chip, Info, money, Mono, useObjectUrlState } from '../../shared/ui';
 import { PageHeader } from '../../shared/layout/PageHeader';
 import { BackToSalesLink } from './BackToSalesLink';
 import { CancelInvoiceModal } from './CancelInvoiceModal';
@@ -84,15 +84,12 @@ export function InvoiceDetailPage() {
   const [cancelOpen, setCancelOpen] = useState(false);
   const [currencyOpen, setCurrencyOpen] = useState(false);
   const [pdfOpen, setPdfOpen] = useState(false);
-  const [pdfFile, setPdfFile] = useState<{ url: string; filename: string } | null>(null);
+  const {
+    value: pdfFile,
+    setValue: setPdfFile,
+    revoke: revokePdfFile,
+  } = useObjectUrlState<{ url: string; filename: string }>();
   const [actionError, setActionError] = useState<string | null>(null);
-
-  function revokePdfFile() {
-    setPdfFile((current) => {
-      if (current) URL.revokeObjectURL(current.url);
-      return null;
-    });
-  }
 
   if (result.status === 'error') {
     return (
@@ -211,7 +208,7 @@ export function InvoiceDetailPage() {
           detail.status === 'COMPLETED' &&
           capabilities.payments &&
           detail.paymentState && <PaymentChip state={detail.paymentState} />}
-        {detail.fiscal ? <Chip tone="brand">Fiscal</Chip> : <Chip>Sin comprobante fiscal</Chip>}
+        <FiscalChip fiscal={detail.fiscal} />
         {detail.quoteNumber ? <Chip>Origen {detail.quoteNumber}</Chip> : null}
         <Chip>{detail.currency}</Chip>
       </div>

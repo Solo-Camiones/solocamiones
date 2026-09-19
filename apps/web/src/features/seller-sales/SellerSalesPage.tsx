@@ -7,10 +7,12 @@ import type {
   SellerSalesReportFilters,
 } from '../../api/contracts/sales';
 import { parseListPage, setListPageParam } from '../../api/contracts/pagination';
+import { fetchAllPages } from '../../api/client/paginate-all';
 import { salesRepository, userRepository } from '../../api/repositories';
 import { PageHeader } from '../../shared/layout/PageHeader';
 import {
   Button,
+  downloadBlob,
   Empty,
   Field,
   HoverRow,
@@ -19,6 +21,7 @@ import {
   LoadingOverlay,
   money,
   Mono,
+  numericDate,
   PaginationBar,
   Select,
   Skeleton,
@@ -33,40 +36,31 @@ const DOCUMENT_TYPE_LABEL = {
 
 const SELLER_PICKER_ROLES = new Set(['SELLER', 'ADMINISTRATOR']);
 
-function formatDocumentDate(value: string): string {
-  return new Intl.DateTimeFormat('es-DO', {
-    timeZone: 'America/Santo_Domingo',
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-  }).format(new Date(value));
-}
-
 /** Walk every users page, then keep Seller + Administrator for the report filter. */
 async function loadSellerPickerOptions(): Promise<
   { ok: true; value: ManagedUser[] } | { ok: false; message: string }
 > {
-  const users: ManagedUser[] = [];
-  let page = 1;
-  let total = 0;
+  try {
+    const users = await fetchAllPages(async (page) => {
+      const response = await userRepository.list(page);
+      if (!response.ok) {
+        throw new Error(response.error.message);
+      }
+      return response.value;
+    });
 
-  do {
-    const response = await userRepository.list(page);
-    if (!response.ok) {
-      return { ok: false, message: response.error.message };
-    }
-    users.push(...response.value.items);
-    total = response.value.total;
-    if (response.value.items.length === 0) break;
-    page += 1;
-  } while (users.length < total);
-
-  return {
-    ok: true,
-    value: users
-      .filter((user) => SELLER_PICKER_ROLES.has(user.role))
-      .sort((left, right) => left.name.localeCompare(right.name, 'es')),
-  };
+    return {
+      ok: true,
+      value: users
+        .filter((user) => SELLER_PICKER_ROLES.has(user.role))
+        .sort((left, right) => left.name.localeCompare(right.name, 'es')),
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      message: error instanceof Error ? error.message : 'No se pudieron cargar los vendedores.',
+    };
+  }
 }
 
 function buildFilters(
@@ -211,12 +205,7 @@ export function SellerSalesPage() {
       setDownloadError(response.error.message);
       return;
     }
-    const url = URL.createObjectURL(response.value.blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = response.value.filename;
-    link.click();
-    URL.revokeObjectURL(url);
+    downloadBlob(response.value.blob, response.value.filename);
   }
 
   function goToPage(nextPage: number) {
@@ -350,7 +339,7 @@ export function SellerSalesPage() {
                   <td className="px-4 py-3 text-sm">
                     <Mono>{row.number}</Mono>
                   </td>
-                  <td className="px-4 py-3 text-sm text-navy">{formatDocumentDate(row.documentDate)}</td>
+                  <td className="px-4 py-3 text-sm text-navy">{numericDate(row.documentDate)}</td>
                   <td className="px-4 py-3 text-sm text-navy">{row.sellerName}</td>
                   <td className="px-4 py-3 text-sm text-navy">{row.customerName}</td>
                   <td className="px-4 py-3 text-sm text-navy">{row.currency}</td>

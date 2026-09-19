@@ -36,3 +36,15 @@ export function currencyLabel(currency: MoneyCurrency): string {
 export function shortDate(isoString: string): string {
   return DATE_FORMATTER.format(new Date(isoString));
 }
+
+const NUMERIC_DATE_FORMATTER = new Intl.DateTimeFormat('es-DO', {
+  timeZone: 'America/Santo_Domingo',
+  day: '2-digit',
+  month: '2-digit',
+  year: 'numeric',
+});
+
+/** Numeric calendar date in the business timezone (e.g. "18/09/2026"). */
+export function numericDate(iso: string): string {
+  return NUMERIC_DATE_FORMATTER.format(new Date(iso));
+}

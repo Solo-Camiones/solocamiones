@@ -1,14 +1,20 @@
-import PDFDocument from 'pdfkit';
-import { fileURLToPath } from 'node:url';
 import { Prisma } from '@prisma/client';
 
 import { CORPORATE_PROFILE } from '../document-profile/index.js';
+import { BORDER, BRAND_BLUE, BRAND_NAVY, LIGHT_BLUE, LOGO_PATH, MUTED } from './brand-tokens.js';
 import {
   COMMERCIAL_DOCUMENT_TERMS,
   COMMERCIAL_DOCUMENT_TERMS_TITLE,
 } from './constants.js';
+import {
+  formatBusinessDate,
+  formatBusinessDateTime,
+  formatCalendarDate,
+  formatMoney,
+} from './formatters.js';
+import { renderPdfBuffer, type PdfDocument } from './render-pdf-buffer.js';
 
-export type PdfDocument = InstanceType<typeof PDFDocument>;
+export type { PdfDocument };
 
 type Currency = 'DOP' | 'USD';
 
@@ -73,11 +79,6 @@ export const COMMERCIAL_DOCUMENT_CONTACT_LAYOUT = {
   quote: { gap: 12, leftWidth: 123, rowHeight: 16 },
 } as const;
 
-const BRAND_BLUE = '#0e8fd1';
-const BRAND_NAVY = '#0c1e3a';
-const LIGHT_BLUE = '#eaf6fc';
-const MUTED = '#526173';
-const BORDER = '#d6e0e8';
 const FOOTER_RESERVE = 138;
 const TOTALS_AND_SIGNATURES_HEIGHT = 230;
 const TOTALS_BOX_WIDTH = 225;
@@ -94,9 +95,7 @@ const HEADER_CONTENT_PADDING = 14;
 const CONTACT_ICON_VIEWBOX = 16;
 const CONTACT_ICON_SIZE = 14;
 const CUSTOMER_META_BOX_HEIGHT = 108;
-const LOGO_PATH = fileURLToPath(
-  new URL('../../../../web/src/shared/assets/brand/SoloCamionesLogo.png', import.meta.url),
-);
+const PAGE_MARGIN = 44;
 
 type IconFillRule = 'even-odd' | 'nonzero';
 
@@ -113,49 +112,6 @@ const CONTACT_ICON_PATHS = {
   tiktok:
     'M9 0h1.98c.144.715.54 1.617 1.235 2.512C12.895 3.389 13.797 4 15 4v2c-1.753 0-3.07-.814-4-1.829V11a5 5 0 1 1-5-5v2a3 3 0 1 0 3 3z',
 } as const;
-
-/** Real timestamps (issue, quote expiry end-of-day) in the business timezone. */
-function formatDate(value: Date): string {
-  return new Intl.DateTimeFormat('es-DO', {
-    timeZone: 'America/Santo_Domingo',
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-  }).format(value);
-}
-
-/**
- * Date-only DB values (`@db.Date` / `databaseDate`) are UTC midnight of that calendar day.
- * Format in UTC so "2026-09-18" does not print as 17/09 in America/Santo_Domingo (UTC-4).
- */
-function formatCalendarDate(value: Date): string {
-  return new Intl.DateTimeFormat('es-DO', {
-    timeZone: 'UTC',
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-  }).format(value);
-}
-
-function formatDateTime(value: Date): string {
-  return new Intl.DateTimeFormat('es-DO', {
-    timeZone: 'America/Santo_Domingo',
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-    hour12: true,
-  }).format(value);
-}
-
-function money(amount: string, currency: Currency): string {
-  const symbol = currency === 'DOP' ? 'RD$' : 'US$';
-  return `${symbol}${Number(amount).toLocaleString('en-US', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })}`;
-}
 
 /** Strip trailing zeros so PDF shows Descuento(10%) / Descuento(10.5%), not Descuento(10.00%). */
 function formatDiscountPercentLabel(percent: string): string {
@@ -448,9 +404,9 @@ function drawCustomerAndMetadata(
     .stroke();
   const secondaryDate = options.secondaryDateAsCalendarDate
     ? formatCalendarDate(facts.secondaryDate)
-    : formatDate(facts.secondaryDate);
+    : formatBusinessDate(facts.secondaryDate);
   const metadata: Array<[string, string]> = [
-    ['Emitida', formatDateTime(facts.issuedAt)],
+    ['Emitida', formatBusinessDateTime(facts.issuedAt)],
     [options.secondaryDateLabel, secondaryDate],
     ['Moneda', facts.currency],
   ];
@@ -507,9 +463,9 @@ function drawLines(document: PdfDocument, facts: CommercialDocumentFacts, y: num
       line.description,
       line.quantity,
       // The price column is the already-rounded line base, not a tax-inclusive unit price.
-      money(line.base, facts.currency),
-      money(line.itbis, facts.currency),
-      money(line.gross, facts.currency),
+      formatMoney(line.base, facts.currency),
+      formatMoney(line.itbis, facts.currency),
+      formatMoney(line.gross, facts.currency),
     ];
     let columnX = left;
     values.forEach((value, column) => {
@@ -555,11 +511,11 @@ function drawTotalsAndSignatures(
   const subtotalAmount = addMoneyStrings(facts.totals.base, facts.totals.discount);
   const discountLabel = `Descuento(${formatDiscountPercentLabel(facts.totals.discountPercent)}%)`;
   const totals: Array<[string, string, boolean]> = [
-    ['Subtotal', money(subtotalAmount, facts.currency), false],
+    ['Subtotal', formatMoney(subtotalAmount, facts.currency), false],
     // Helvetica (WinAnsi) has no Unicode minus − (U+2212); it renders as garbage (").
-    [discountLabel, `-${money(facts.totals.discount, facts.currency)}`, false],
-    ['ITBIS', money(facts.totals.itbis, facts.currency), false],
-    ['TOTAL', money(facts.totals.gross, facts.currency), true],
+    [discountLabel, `-${formatMoney(facts.totals.discount, facts.currency)}`, false],
+    ['ITBIS', formatMoney(facts.totals.itbis, facts.currency), false],
+    ['TOTAL', formatMoney(facts.totals.gross, facts.currency), true],
   ];
   const totalsBoxHeight = TOTALS_BOX_PADDING_Y * 2 + totals.length * TOTALS_ROW_HEIGHT - 8;
   document
@@ -583,7 +539,7 @@ function drawTotalsAndSignatures(
       .font('Helvetica-Bold')
       .fontSize(8)
       .text(
-        `Cancelada: ${facts.cancellation.cancelledAt ? formatDateTime(facts.cancellation.cancelledAt) : ''} | Administrador: ${facts.cancellation.cancelledByName ?? ''}`,
+        `Cancelada: ${facts.cancellation.cancelledAt ? formatBusinessDateTime(facts.cancellation.cancelledAt) : ''} | Administrador: ${facts.cancellation.cancelledByName ?? ''}`,
         left,
         currentY + 8,
         { width: 280 },
@@ -653,20 +609,10 @@ export function renderCommercialDocument(
   facts: CommercialDocumentFacts,
   options: CommercialDocumentOptions,
 ): Promise<Buffer> {
-  return new Promise((resolve, reject) => {
-    const document = new PDFDocument({
-      compress: false,
-      size: 'LETTER',
-      margin: 44,
-      bufferPages: true,
-    });
-    document.info.Title = facts.number;
-    document.info.Subject = options.subject;
-    const chunks: Buffer[] = [];
-    document.on('data', (chunk: Buffer) => chunks.push(chunk));
-    document.on('end', () => resolve(Buffer.concat(chunks)));
-    document.on('error', reject);
-    writeDocument(document, facts, options);
-    document.end();
+  return renderPdfBuffer({
+    margin: PAGE_MARGIN,
+    title: facts.number,
+    subject: options.subject,
+    write: (document) => writeDocument(document, facts, options),
   });
 }

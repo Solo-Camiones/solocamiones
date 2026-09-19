@@ -37,18 +37,6 @@ function lastDayOfMonth(month: string): string {
   return shiftDay(`${next}-01`, -1);
 }
 
-export function inclusiveDayCount(from: string, to: string): number {
-  const start = Date.parse(`${from}T00:00:00.000Z`);
-  const end = Date.parse(`${to}T00:00:00.000Z`);
-  return Math.floor((end - start) / 86_400_000) + 1;
-}
-
-export function previousRange(range: DateRange): DateRange {
-  const days = Math.max(1, inclusiveDayCount(range.from, range.to));
-  const to = shiftDay(range.from, -1);
-  return { from: shiftDay(to, -(days - 1)), to };
-}
-
 export function resolvePeriodRange(input: {
   preset: PeriodPreset;
   today: string;
@@ -84,24 +72,6 @@ export function evolutionChartRange(range: DateRange, preset: PeriodPreset, toda
     return range;
   }
   return { from: range.from, to: shiftDay(range.to, EVOLUTION_CHART_FORWARD_DAYS) };
-}
-
-export function percentChange(current: number, previous: number): number | null {
-  if (previous === 0) {
-    return current === 0 ? 0 : null;
-  }
-  return Math.round((((current - previous) / Math.abs(previous)) * 100 + Number.EPSILON) * 10) / 10;
-}
-
-export function trendFromChange(change: number | null): { label: string; tone: 'up' | 'down' | 'neutral' } | undefined {
-  if (change == null) {
-    return undefined;
-  }
-  const sign = change > 0 ? '+' : '';
-  return {
-    label: `${sign}${change.toFixed(1)}% vs período anterior`,
-    tone: change > 0 ? 'up' : change < 0 ? 'down' : 'neutral',
-  };
 }
 
 /**

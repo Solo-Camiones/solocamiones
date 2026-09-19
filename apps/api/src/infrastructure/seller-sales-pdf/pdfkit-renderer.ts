@@ -1,24 +1,14 @@
-import PDFDocument from 'pdfkit';
-import { fileURLToPath } from 'node:url';
-
 import { CORPORATE_PROFILE } from '../document-profile/index.js';
+import { BORDER, BRAND_BLUE, BRAND_NAVY, LIGHT_BLUE, LOGO_PATH, MUTED } from '../document-pdf/brand-tokens.js';
+import { formatBusinessDateTime, formatCalendarDate } from '../document-pdf/formatters.js';
+import { renderPdfBuffer, type PdfDocument } from '../document-pdf/render-pdf-buffer.js';
 import { SELLER_SALES_PDF_EMPTY_MESSAGE } from './constants.js';
 import type { SellerSalesPdfFacts, SellerSalesPdfRenderer } from './types.js';
 
-type PdfDocument = InstanceType<typeof PDFDocument>;
-
-const BRAND_BLUE = '#0e8fd1';
-const BRAND_NAVY = '#0c1e3a';
-const LIGHT_BLUE = '#eaf6fc';
-const MUTED = '#526173';
-const BORDER = '#d6e0e8';
 const PAGE_MARGIN = 36;
 const FOOTER_RESERVE = 56;
 const ROW_HEIGHT = 22;
 const HEADER_ROW_HEIGHT = 22;
-const LOGO_PATH = fileURLToPath(
-  new URL('../../../../web/src/shared/assets/brand/SoloCamionesLogo.png', import.meta.url),
-);
 
 /** Column widths for LETTER portrait (content ≈ 540pt with 36pt margins). */
 const COLUMN_WIDTHS = [52, 72, 58, 88, 110, 40, 80] as const;
@@ -32,25 +22,9 @@ const COLUMN_LABELS = [
   'MONTO',
 ] as const;
 
+/** Report filter bounds are ISO calendar dates (`YYYY-MM-DD`), not instants. */
 function formatIsoDate(value: string): string {
-  return new Intl.DateTimeFormat('es-DO', {
-    timeZone: 'UTC',
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-  }).format(new Date(`${value}T00:00:00.000Z`));
-}
-
-function formatDateTime(value: Date): string {
-  return new Intl.DateTimeFormat('es-DO', {
-    timeZone: 'America/Santo_Domingo',
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-    hour12: true,
-  }).format(value);
+  return formatCalendarDate(new Date(`${value}T00:00:00.000Z`));
 }
 
 function contentBottom(document: PdfDocument): number {
@@ -114,7 +88,7 @@ function drawMeta(document: PdfDocument, facts: SellerSalesPdfFacts, y: number):
       left + 12,
       y + 10,
     );
-  document.text(`Generado: ${formatDateTime(facts.generatedAt)}`, 340, y + 10, {
+  document.text(`Generado: ${formatBusinessDateTime(facts.generatedAt)}`, 340, y + 10, {
     width: right - 352,
     align: 'right',
   });
@@ -179,7 +153,7 @@ function drawFooter(document: PdfDocument, generatedAt: Date): void {
       .fillColor(MUTED)
       .font('Helvetica')
       .fontSize(7)
-      .text(`Generado: ${formatDateTime(generatedAt)}`, left, footerTop + 10, {
+      .text(`Generado: ${formatBusinessDateTime(generatedAt)}`, left, footerTop + 10, {
         width: 280,
       });
     document.text(`Página ${page + 1} de ${range.count}`, left + 280, footerTop + 10, {
@@ -297,20 +271,10 @@ function writeReport(facts: SellerSalesPdfFacts, document: PdfDocument): void {
 
 export const pdfkitSellerSalesRenderer: SellerSalesPdfRenderer = {
   render(facts) {
-    return new Promise((resolve, reject) => {
-      const document = new PDFDocument({
-        compress: false,
-        size: 'LETTER',
-        margin: PAGE_MARGIN,
-        bufferPages: true,
-      });
-      document.info.Title = `Ventas por vendedor ${facts.dateFrom} – ${facts.dateTo}`;
-      const chunks: Buffer[] = [];
-      document.on('data', (chunk: Buffer) => chunks.push(chunk));
-      document.on('end', () => resolve(Buffer.concat(chunks)));
-      document.on('error', reject);
-      writeReport(facts, document);
-      document.end();
+    return renderPdfBuffer({
+      margin: PAGE_MARGIN,
+      title: `Ventas por vendedor ${facts.dateFrom} – ${facts.dateTo}`,
+      write: (document) => writeReport(facts, document),
     });
   },
 };

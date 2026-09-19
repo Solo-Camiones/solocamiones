@@ -36,6 +36,16 @@ import { ProfitabilityPeriodControls } from './ProfitabilityPeriodControls';
 import { RecordGrossProfitModal } from './RecordGrossProfitModal';
 import { useProfitability } from './useProfitability';
 
+function shareOfTotal(
+  amount: number,
+  total: number,
+  suffix: string,
+  whenEmpty = '—',
+): string {
+  if (total <= 0) return whenEmpty;
+  return `${((amount / total) * 100).toFixed(1)} % ${suffix}`;
+}
+
 function IconFrame({ className, children }: { className: string; children: ReactNode }) {
   return (
     <span className={`flex h-8 w-8 items-center justify-center rounded-lg ${className}`} aria-hidden>
@@ -298,66 +308,64 @@ export function ProfitabilityPage() {
               size="sm"
             />
             {/* Desglose: el hint indica qué fracción representa cada modalidad */}
-            {(() => {
-              const total = view.periodInvoicedTotal;
-              const pct = (amount: number) =>
-                total > 0 ? `${((amount / total) * 100).toFixed(1)} % del total` : '—';
-              return (
-                <>
-                  <KpiCard
-                    label="Facturado al contado"
-                    value={money(view.periodInvoicedCash, 'DOP')}
-                    hint={pct(view.periodInvoicedCash)}
-                    tone="default"
-                    size="sm"
-                  />
-                  <KpiCard
-                    label="Facturado a crédito"
-                    value={money(view.periodInvoicedCredit, 'DOP')}
-                    hint={pct(view.periodInvoicedCredit)}
-                    tone="default"
-                    size="sm"
-                  />
-                </>
-              );
-            })()}
+            <KpiCard
+              label="Facturado al contado"
+              value={money(view.periodInvoicedCash, 'DOP')}
+              hint={shareOfTotal(view.periodInvoicedCash, view.periodInvoicedTotal, 'del total')}
+              tone="default"
+              size="sm"
+            />
+            <KpiCard
+              label="Facturado a crédito"
+              value={money(view.periodInvoicedCredit, 'DOP')}
+              hint={shareOfTotal(view.periodInvoicedCredit, view.periodInvoicedTotal, 'del total')}
+              tone="default"
+              size="sm"
+            />
           </div>
         </section>
 
         {/* Cards secundarias: desglose por método de cobro */}
         <section className="min-w-0">
           <SectionTitle title="Desglose de cobrado neto por método" />
-          {(() => {
-            // Porcentaje seguro: si el total es 0 todos quedan en 0 %
-            const total = view.periodCollected;
-            const pct = (amount: number) =>
-              total > 0 ? `${((amount / total) * 100).toFixed(1)} % del cobrado neto` : '0.0 % del cobrado neto';
-            return (
-              <div className="grid min-w-0 gap-3 grid-cols-1 sm:grid-cols-3">
-                <KpiCard
-                  label="Cobrado efectivo"
-                  value={money(view.periodCollectedByMethod.CASH, 'DOP')}
-                  hint={pct(view.periodCollectedByMethod.CASH)}
-                  tone="default"
-                  size="sm"
-                />
-                <KpiCard
-                  label="Cobrado transferencia"
-                  value={money(view.periodCollectedByMethod.TRANSFER, 'DOP')}
-                  hint={pct(view.periodCollectedByMethod.TRANSFER)}
-                  tone="default"
-                  size="sm"
-                />
-                <KpiCard
-                  label="Cobrado cheque"
-                  value={money(view.periodCollectedByMethod.CHECK, 'DOP')}
-                  hint={pct(view.periodCollectedByMethod.CHECK)}
-                  tone="default"
-                  size="sm"
-                />
-              </div>
-            );
-          })()}
+          <div className="grid min-w-0 gap-3 grid-cols-1 sm:grid-cols-3">
+            <KpiCard
+              label="Cobrado efectivo"
+              value={money(view.periodCollectedByMethod.CASH, 'DOP')}
+              hint={shareOfTotal(
+                view.periodCollectedByMethod.CASH,
+                view.periodCollected,
+                'del cobrado neto',
+                '0.0 % del cobrado neto',
+              )}
+              tone="default"
+              size="sm"
+            />
+            <KpiCard
+              label="Cobrado transferencia"
+              value={money(view.periodCollectedByMethod.TRANSFER, 'DOP')}
+              hint={shareOfTotal(
+                view.periodCollectedByMethod.TRANSFER,
+                view.periodCollected,
+                'del cobrado neto',
+                '0.0 % del cobrado neto',
+              )}
+              tone="default"
+              size="sm"
+            />
+            <KpiCard
+              label="Cobrado cheque"
+              value={money(view.periodCollectedByMethod.CHECK, 'DOP')}
+              hint={shareOfTotal(
+                view.periodCollectedByMethod.CHECK,
+                view.periodCollected,
+                'del cobrado neto',
+                '0.0 % del cobrado neto',
+              )}
+              tone="default"
+              size="sm"
+            />
+          </div>
         </section>
 
         {SHOW_PROFIT_DETAIL_AND_CHARTS && snapshot.invoicesMissingProfitCount > 0 ? (

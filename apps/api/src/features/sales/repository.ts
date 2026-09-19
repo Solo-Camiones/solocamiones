@@ -1,6 +1,7 @@
 import { Prisma, type Invoice, type InvoiceSequence } from '@prisma/client';
 
 import { prisma } from '../../infrastructure/database/index.js';
+import { businessDayRange } from '../payments/dates.js';
 import { formatInvoiceNumber, formatQuoteNumber } from './constants.js';
 import type {
   CompleteInvoiceRecord,
@@ -63,10 +64,7 @@ function listInvoiceWhere(query: ListInvoicesQuery): Prisma.InvoiceWhereInput {
   }
 
   if (query.dateFrom || query.dateTo) {
-    const range = {
-      ...(query.dateFrom ? { gte: new Date(`${query.dateFrom}T00:00:00-04:00`) } : {}),
-      ...(query.dateTo ? { lte: new Date(`${query.dateTo}T23:59:59.999-04:00`) } : {}),
-    };
+    const range = businessDayRange(query.dateFrom, query.dateTo);
 
     // Each document stage has its own business date. This keeps a mixed "Todas"
     // list useful without treating a draft creation date as an invoice issue date.

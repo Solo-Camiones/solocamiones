@@ -264,6 +264,10 @@ export function InvoiceStatusChip({ status }: { status: InvoiceStatus }) {
   return <Chip tone="success">Completada</Chip>;
 }
 
+export function FiscalChip({ fiscal }: { fiscal: boolean }) {
+  return fiscal ? <Chip tone="brand">Fiscal</Chip> : <Chip>Sin comprobante fiscal</Chip>;
+}
+
 export function PaymentChip({ state }: { state: PaymentState }) {
   if (state === 'CANCELLED') return <Chip tone="neutral">Cancelada</Chip>;
   if (state === 'OVERDUE') return <Chip tone="danger">Vencida</Chip>;

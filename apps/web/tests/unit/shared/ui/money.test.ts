@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { money, shortDate } from '../../../../src/shared/ui/money';
+import { money, numericDate, shortDate } from '../../../../src/shared/ui/money';
 
 describe('money', () => {
   it('formats DOP with two decimals by default', () => {
@@ -24,6 +24,14 @@ describe('shortDate', () => {
     const formattedDayUtc = shortDate('2026-09-18T16:00:00.000Z');
     expect(formattedDayUtc).toContain('18');
     expect(formattedDayUtc).toContain('2026');
+  });
+});
+
+describe('numericDate', () => {
+  it('formats a numeric calendar date in the business timezone', () => {
+    // Same UTC instant as shortDate night case → calendar day 17 in Santo Domingo.
+    expect(numericDate('2026-09-18T01:30:00.000Z')).toBe('17/09/2026');
+    expect(numericDate('2026-09-18T16:00:00.000Z')).toBe('18/09/2026');
   });
 });
 

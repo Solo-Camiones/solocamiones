@@ -1,6 +1,7 @@
 import { Prisma, type InvoiceCurrency, type InvoiceStatus } from '@prisma/client';
 
 import { prisma } from '../../infrastructure/database/index.js';
+import { businessDayRange } from '../payments/dates.js';
 import type { SellerSalesReportFilters, SellerSalesReportRow } from './types.js';
 
 type SellerSalesDatabase = Pick<Prisma.TransactionClient, 'invoice'>;
@@ -20,14 +21,6 @@ type SellerSalesInvoiceRecord = {
   gross: Prisma.Decimal | null;
   customer: { name: string };
 };
-
-/** Same calendar-day bounds as invoice list filters (AST, America/Santo_Domingo). */
-function businessDayRange(dateFrom: string, dateTo: string) {
-  return {
-    gte: new Date(`${dateFrom}T00:00:00-04:00`),
-    lte: new Date(`${dateTo}T23:59:59.999-04:00`),
-  };
-}
 
 function sellerSalesWhere(query: SellerSalesReportFilters): Prisma.InvoiceWhereInput {
   const range = businessDayRange(query.dateFrom, query.dateTo);

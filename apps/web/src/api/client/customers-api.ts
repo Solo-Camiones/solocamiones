@@ -1,11 +1,12 @@
 import type { CustomerListRow, SaveCustomerContactInput, SaveCustomerInput } from '../contracts/customers';
 import type { CreditTermDays, Customer, CustomerContact, CustomerType } from '../contracts/entities';
 import { LIST_PAGE_SIZE, type ListPage } from '../contracts/pagination';
-import { err, ok, type Result } from '../../shared/auth/types';
-import { httpClient, toAppError } from './http-client';
+import type { Result } from '../../shared/auth/types';
+import { httpClient } from './http-client';
+import { CSRF_HEADERS, request, type Page } from './http-result';
+import { fetchAllPages } from './paginate-all';
 
 const CUSTOMERS_PATH = '/api/customers';
-const CSRF_HEADERS = { 'X-Requested-With': 'XMLHttpRequest' };
 
 type ApiCustomerContact = {
   id: string;
@@ -28,16 +29,6 @@ type ApiCustomer = {
   isDefault: boolean;
   contacts: ApiCustomerContact[];
 };
-
-type Page<T> = { items: T[]; total: number; page: number; pageSize: number };
-
-async function request<T>(operation: () => Promise<T>): Promise<Result<T>> {
-  try {
-    return ok(await operation());
-  } catch (error) {
-    return err(toAppError(error));
-  }
-}
 
 function optionalText(value: string | null | undefined): string | undefined {
   return value ?? undefined;
@@ -86,19 +77,13 @@ function customersCollectionPath(
 
 /** Concatenate pages for POS lookups that still need the full directory. */
 async function loadAllPages(query?: string): Promise<CustomerListRow[]> {
-  const items: CustomerListRow[] = [];
-  let page = 1;
-  let total = 0;
-
-  do {
+  return fetchAllPages(async (page) => {
     const response = await httpClient<Page<ApiCustomer>>(customersCollectionPath(query, page));
-    items.push(...response.items.map(toCustomer));
-    total = response.total;
-    if (response.items.length === 0) break;
-    page += 1;
-  } while (items.length < total);
-
-  return items;
+    return {
+      items: response.items.map(toCustomer),
+      total: response.total,
+    };
+  });
 }
 
 function toContactBody(contact: SaveCustomerContactInput) {

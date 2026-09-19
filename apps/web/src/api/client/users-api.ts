@@ -7,30 +7,21 @@ import type {
   SaveUserResult,
 } from '../contracts/users';
 import { LIST_PAGE_SIZE, type ListPage } from '../contracts/pagination';
-import { err, ok, type Result } from '../../shared/auth/types';
-import { httpClient, toAppError } from './http-client';
+import type { Result } from '../../shared/auth/types';
+import { httpClient } from './http-client';
+import { CSRF_HEADERS, request, type Page } from './http-result';
+import { fetchAllPages } from './paginate-all';
 
 const USERS_PATH = '/api/admin/users';
-const CSRF_HEADERS = { 'X-Requested-With': 'XMLHttpRequest' };
 
 type ApiUser = Omit<ManagedUser, 'phone' | 'email'> & {
   phone: string | null;
   email: string | null;
 };
 
-type Page<T> = { items: T[]; total: number; page: number; pageSize: number };
-
 type ApiRecoveryRequest = Omit<PasswordRecoveryRequest, 'user'> & {
   user: PasswordRecoveryRequest['user'] & { passwordHash?: string };
 };
-
-async function request<T>(operation: () => Promise<T>): Promise<Result<T>> {
-  try {
-    return ok(await operation());
-  } catch (error) {
-    return err(toAppError(error));
-  }
-}
 
 function toManagedUser(user: ApiUser): ManagedUser {
   return {
@@ -66,19 +57,9 @@ function toRecoveryRequest(request: ApiRecoveryRequest): PasswordRecoveryRequest
 
 /** Preserve the existing complete-list/search UI while respecting the paginated API. */
 async function loadAllPages<T>(path: string): Promise<T[]> {
-  const items: T[] = [];
-  let page = 1;
-  let total = 0;
-
-  do {
-    const response = await httpClient<Page<T>>(`${path}?page=${page}&pageSize=${LIST_PAGE_SIZE}`);
-    items.push(...response.items);
-    total = response.total;
-    if (response.items.length === 0) break;
-    page += 1;
-  } while (items.length < total);
-
-  return items;
+  return fetchAllPages(async (page) =>
+    httpClient<Page<T>>(`${path}?page=${page}&pageSize=${LIST_PAGE_SIZE}`),
+  );
 }
 
 export function listUsersWithHttp(page = 1): Promise<Result<ListPage<ManagedUser>>> {

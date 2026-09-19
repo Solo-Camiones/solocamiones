@@ -1,4 +1,5 @@
 import type { AppState, Currency, Customer, WorkOrder } from '../../api/contracts/entities';
+import { businessDateString } from '../../shared/domain/business-date';
 import { collectSubtree } from './inventory-helpers';
 
 export const CASH_CUSTOMER_ID = 'C0';
@@ -12,19 +13,6 @@ export const CREDIT_LIMIT_EXCEEDED_MESSAGE =
   'El límite de crédito del cliente sería excedido';
 
 const ACTIVE_WORK_STATUSES = new Set(['PENDING', 'IN_PROGRESS']);
-const BUSINESS_DATE_PARTS = new Intl.DateTimeFormat('en-CA', {
-  timeZone: 'America/Santo_Domingo',
-  year: 'numeric',
-  month: '2-digit',
-  day: '2-digit',
-});
-
-function businessDateString(value: Date): string {
-  const parts = BUSINESS_DATE_PARTS.formatToParts(value);
-  const part = (type: Intl.DateTimeFormatPartTypes) =>
-    parts.find((entry) => entry.type === type)?.value;
-  return `${part('year')}-${part('month')}-${part('day')}`;
-}
 
 /** SALE-008: pending/in-progress work on the subtree or an installation into it. */
 export function activeWorkAffectingAssembly(

@@ -33,11 +33,11 @@ import { err, ok, type Result } from '../../shared/auth/types';
 import { listCustomersWithHttp } from './customers-api';
 import { listServicesWithHttp } from './catalogs-api';
 import { httpClient, httpClientBlob, toAppError } from './http-client';
+import { CSRF_HEADERS, moneyString, request, type Page } from './http-result';
 import { httpNotImplemented } from './http-not-implemented';
 import { toInvoiceProfitabilityView, type ApiProfitability } from './map-invoice-profitability';
 
 const SALES_PATH = '/api/sales';
-const CSRF_HEADERS = { 'X-Requested-With': 'XMLHttpRequest' };
 const DEFAULT_DELIVERY_DESCRIPTION = 'Entrega';
 
 type ApiCustomerView = {
@@ -124,22 +124,8 @@ type ApiInvoice = {
 
 type ApiInvoiceListItem = Omit<ApiInvoice, 'lines'>;
 
-type Page<T> = { items: T[]; total: number; page: number; pageSize: number };
-
-async function request<T>(operation: () => Promise<T>): Promise<Result<T>> {
-  try {
-    return ok(await operation());
-  } catch (error) {
-    return err(toAppError(error));
-  }
-}
-
 function moneyNumber(value: string): number {
   return Number(value);
-}
-
-function moneyString(value: number): string {
-  return value.toFixed(2);
 }
 
 function optionalText(value: string | null | undefined): string | undefined {

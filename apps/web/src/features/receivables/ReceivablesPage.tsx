@@ -5,6 +5,7 @@ import type { CustomerOutstandingRow, ReceivablesFilters } from '../../api/contr
 import { parseListPage, setListPageParam } from '../../api/contracts/pagination';
 import {
   Button,
+  downloadBlob,
   Field,
   Info,
   Input,
@@ -141,12 +142,7 @@ export function ReceivablesPage() {
       setStatementError(response.error.message);
       return;
     }
-    const url = URL.createObjectURL(response.value.blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = response.value.filename;
-    link.click();
-    URL.revokeObjectURL(url);
+    downloadBlob(response.value.blob, response.value.filename);
   }
 
   return (

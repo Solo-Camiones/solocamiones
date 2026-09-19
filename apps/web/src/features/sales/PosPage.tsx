@@ -5,10 +5,11 @@ import type { PosDraftView, PosLineView } from '../../api/contracts/sales';
 import { PageHeader } from '../../shared/layout/PageHeader';
 import { BackToSalesLink } from './BackToSalesLink';
 import { useMediaQuery } from '../../shared/layout/useMediaQuery';
-import { AssemblyKindChip, RelationChip } from '../../shared/domain';
+import { AssemblyKindChip, FiscalChip, RelationChip } from '../../shared/domain';
+import { BUSINESS_TIME_ZONE } from '../../shared/domain/business-date';
 import { useAppCapabilities } from '../../shared/config/CapabilitiesProvider';
 import { UNDO_TOAST_DURATION_MS, UX_TERMS } from '../../shared/copy/glossary';
-import { Button, Card, Chip, ConfirmActionModal, Info, money, useToast } from '../../shared/ui';
+import { Button, Card, Chip, ConfirmActionModal, Info, money, useObjectUrlState, useToast } from '../../shared/ui';
 import { AddLineModal } from './AddLineModal';
 import { AssemblyTree } from './AssemblyTree';
 import { ConfirmSaleModal } from './ConfirmSaleModal';
@@ -42,7 +43,6 @@ import { restoreDiscardedDraft, snapshotPosDraft, snapshotPosLine, usePos } from
 
 /** Tailwind `lg` — table on desktop, cards on tablet/mobile. */
 const POS_LINES_TABLE_MIN_WIDTH_PX = 1024;
-const BUSINESS_TIME_ZONE = 'America/Santo_Domingo';
 
 export function PosPage() {
   const { id } = useParams();
@@ -65,14 +65,11 @@ export function PosPage() {
   const [discardError, setDiscardError] = useState<string | null>(null);
   const [operationError, setOperationError] = useState<string | null>(null);
   const [pdfOpen, setPdfOpen] = useState(false);
-  const [pdfFile, setPdfFile] = useState<{ url: string; filename: string } | null>(null);
-
-  function revokePdfFile() {
-    setPdfFile((current) => {
-      if (current) URL.revokeObjectURL(current.url);
-      return null;
-    });
-  }
+  const {
+    value: pdfFile,
+    setValue: setPdfFile,
+    revoke: revokePdfFile,
+  } = useObjectUrlState<{ url: string; filename: string }>();
 
   async function handleViewQuotePdf() {
     setOperationError(null);
@@ -328,11 +325,7 @@ export function PosPage() {
                   draft.quoteNumber ??
                   (isQuoteDraft ? 'Cotización borrador' : readOnly ? 'Factura' : 'Borrador')}
               </Chip>
-              {draft.fiscal ? (
-                <Chip tone="brand">Fiscal</Chip>
-              ) : (
-                <Chip>Sin comprobante fiscal</Chip>
-              )}
+              <FiscalChip fiscal={draft.fiscal} />
             </div>
             {draft.lines.length === 0 ? (
               <p className="text-sm text-navy-400">{posEmptyLinesMessage(capabilities)}</p>

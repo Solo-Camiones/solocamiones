@@ -5,9 +5,11 @@ import type {
 } from '../../api/contracts/profitability';
 import type { AppState, Invoice, Payment, User } from '../../api/contracts/entities';
 import {
-  buildProfitabilitySeries,
+  assembleProfitabilitySnapshot,
+  toCollectionMethod,
+} from '../../api/client/assemble-profitability-snapshot';
+import {
   businessDateFromTimestamp,
-  type PaymentCollectionMethod,
   type ProfitabilitySeriesInvoice,
   type ProfitabilitySeriesReceipt,
 } from '../../api/client/profitability-series';
@@ -16,9 +18,12 @@ import { invoiceBalance, invoiceTotal, roundMoney } from './invoice-money';
 import { canRecordManualGrossProfit, profitabilityForInvoice } from './profitability-view';
 
 /** Same open-balance rule as the dashboard CxC KPI (per currency, never converted). */
-function outstandingByCurrency(state: AppState): { dop: number; usd: number } {
-  let dop = 0;
-  let usd = 0;
+function outstandingByCurrency(state: AppState): {
+  outstandingDop: number;
+  outstandingUsd: number;
+} {
+  let outstandingDop = 0;
+  let outstandingUsd = 0;
 
   for (const invoice of state.invoices) {
     const balance = invoiceBalance(invoice);
@@ -26,13 +31,13 @@ function outstandingByCurrency(state: AppState): { dop: number; usd: number } {
       continue;
     }
     if (invoice.currency === 'USD') {
-      usd += balance;
+      outstandingUsd += balance;
     } else {
-      dop += balance;
+      outstandingDop += balance;
     }
   }
 
-  return { dop, usd };
+  return { outstandingDop, outstandingUsd };
 }
 
 const CONFIRMATION_PAYMENT_WINDOW_MS = 5_000;
@@ -70,11 +75,6 @@ function toRow(state: AppState, invoice: Invoice, actor: User): ProfitabilityInv
     href: `/sales/${invoice.id}`,
     confirmedAt: invoice.confirmedAt ?? null,
   };
-}
-
-function toCollectionMethod(method: Payment['method']): PaymentCollectionMethod | null {
-  if (method === 'CASH' || method === 'TRANSFER' || method === 'CHECK') return method;
-  return null;
 }
 
 function toReceipt(payment: Payment): ProfitabilitySeriesReceipt | null {
@@ -153,31 +153,15 @@ export function buildProfitabilitySnapshot(
     return undefined;
   }
 
-  const invoices = [...state.invoices]
+  const invoices = state.invoices
     .map((invoice) => toRow(state, invoice, actor))
-    .filter((row): row is ProfitabilityInvoiceRow => row != null)
-    .sort((left, right) => left.number.localeCompare(right.number, 'es'));
+    .filter((row): row is ProfitabilityInvoiceRow => row != null);
 
-  const series = buildProfitabilitySeries(
-    state.invoices.map((invoice) => toSeriesInvoice(state, invoice, actor)),
-  );
-  const outstanding = outstandingByCurrency(state);
-
-  return {
+  return assembleProfitabilitySnapshot({
+    invoices,
+    seriesInputs: state.invoices.map((invoice) => toSeriesInvoice(state, invoice, actor)),
+    outstanding: outstandingByCurrency(state),
     fxAvailable: state.fxAvailable,
     fxRateDopPerUsd: state.fxRateDopPerUsd,
-    profitDop: roundMoney(
-      invoices
-        .filter((row) => row.profit != null && !row.pendingFx)
-        .reduce((sum, row) => sum + (row.profit ?? 0), 0),
-    ),
-    collectedDop: series.collectedDop,
-    outstandingDop: outstanding.dop,
-    outstandingUsd: outstanding.usd,
-    pendingFxCount: invoices.filter((row) => row.pendingFx).length,
-    invoicesMissingProfitCount: series.invoicesMissingProfitCount,
-    omittedUsdReceiptCount: series.omittedUsdReceiptCount,
-    charts: series.charts,
-    invoices,
-  };
+  });
 }

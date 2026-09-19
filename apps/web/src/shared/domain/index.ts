@@ -3,6 +3,7 @@ export {
   AssemblyKindChip,
   CommercialChip,
   CompleteChip,
+  FiscalChip,
   InventoryStatusCluster,
   InvoiceStatusChip,
   NoDesarmarChip,
