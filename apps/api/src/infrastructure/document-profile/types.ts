@@ -22,6 +22,8 @@ export type CorporateProfile = {
   address: string;
   whatsApp: string;
   email: string;
+  /** Short business line used in commercial PDF footers (not social networks). */
+  tagline: string;
   social: CorporateSocialNetworks;
   payment: CorporatePaymentInstructions;
 };

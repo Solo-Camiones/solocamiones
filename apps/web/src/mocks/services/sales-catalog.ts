@@ -225,9 +225,11 @@ export function buildInvoiceDetail(
     customerId: invoice.customerId,
     customerName: invoice.customerSnapshot?.name ?? customer?.name ?? invoice.customerId,
     customerRnc: invoice.customerSnapshot?.rnc ?? customer?.rnc,
+    customerType: customer?.customerType === 'CREDIT' ? 'CREDIT' : 'CASH',
     currency: invoice.currency,
     fiscal: invoice.fiscal,
     applyItbis: invoice.applyItbis === true,
+    discountPercent: invoice.discountPercent ?? 0,
     lines: invoice.lines.map((line) => toLineView(line, invoice.applyItbis === true)),
     payments:
       actor.role === 'ADMINISTRATOR'

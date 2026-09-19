@@ -3,6 +3,7 @@ import type {
   ProfitabilitySnapshot,
   RecordManualGrossProfitInput,
   RetryUsdProfitabilityInput,
+  SaleCondition,
 } from '../contracts/profitability';
 import { err, ok, type Result } from '../../shared/auth/types';
 import { httpClient, toAppError } from './http-client';
@@ -13,6 +14,7 @@ import {
 } from './map-invoice-profitability';
 import {
   buildProfitabilitySeries,
+  type PaymentCollectionMethod,
   type ProfitabilitySeriesInvoice,
   type ProfitabilitySeriesReceipt,
 } from './profitability-series';
@@ -43,6 +45,7 @@ type ApiSalesListItem = {
   currency: 'DOP' | 'USD';
   customer: ApiCustomerView;
   confirmedAt: string | null;
+  saleCondition?: SaleCondition;
   totals: { gross: string; base: string; itbis: string };
   payments?: ApiListPayment[];
   profitability?: ApiProfitability;
@@ -74,12 +77,24 @@ function rateFromItem(item: ApiSalesListItem): number | null {
   return Number.isFinite(rate) ? rate : null;
 }
 
+function toCollectionMethod(method: string): PaymentCollectionMethod | null {
+  if (method === 'CASH' || method === 'TRANSFER' || method === 'CHECK') return method;
+  return null;
+}
+
 function toReceipts(item: ApiSalesListItem): ProfitabilitySeriesReceipt[] {
-  return (item.payments ?? []).map((payment) => ({
-    kind: payment.kind,
-    amount: Number(payment.amount),
-    effectiveDate: payment.effectiveDate,
-  }));
+  const receipts: ProfitabilitySeriesReceipt[] = [];
+  for (const payment of item.payments ?? []) {
+    const method = toCollectionMethod(payment.method);
+    if (method == null) continue;
+    receipts.push({
+      kind: payment.kind,
+      amount: Number(payment.amount),
+      method,
+      effectiveDate: payment.effectiveDate,
+    });
+  }
+  return receipts;
 }
 
 function toRow(item: ApiSalesListItem): ProfitabilityInvoiceRow | null {
@@ -111,6 +126,8 @@ function toSeriesInvoice(item: ApiSalesListItem): ProfitabilitySeriesInvoice {
     status: item.status,
     currency: item.currency,
     confirmedAt: item.confirmedAt,
+    saleCondition: item.saleCondition ?? null,
+    gross: Number(item.totals.gross),
     profit: item.status === 'COMPLETED' ? (view?.profit ?? null) : null,
     pendingFx: view?.pendingFx === true,
     rateDopPerUsd: view?.rateDopPerUsd ?? rateFromItem(item),
@@ -118,7 +135,31 @@ function toSeriesInvoice(item: ApiSalesListItem): ProfitabilitySeriesInvoice {
   };
 }
 
-function toSnapshot(items: ApiSalesListItem[]): ProfitabilitySnapshot {
+type ApiReceivablesCustomers = {
+  customers: Array<{ currency: 'DOP' | 'USD'; balance: string }>;
+};
+
+function outstandingFromCustomers(
+  customers: ApiReceivablesCustomers['customers'],
+): Pick<ProfitabilitySnapshot, 'outstandingDop' | 'outstandingUsd'> {
+  let outstandingDop = 0;
+  let outstandingUsd = 0;
+  for (const row of customers) {
+    const balance = Number(row.balance);
+    if (!Number.isFinite(balance) || balance <= 0) continue;
+    if (row.currency === 'USD') {
+      outstandingUsd = roundMoney(outstandingUsd + balance);
+    } else {
+      outstandingDop = roundMoney(outstandingDop + balance);
+    }
+  }
+  return { outstandingDop, outstandingUsd };
+}
+
+function toSnapshot(
+  items: ApiSalesListItem[],
+  outstanding: Pick<ProfitabilitySnapshot, 'outstandingDop' | 'outstandingUsd'>,
+): ProfitabilitySnapshot {
   const invoices = items
     .map(toRow)
     .filter((row): row is ProfitabilityInvoiceRow => row != null)
@@ -133,6 +174,8 @@ function toSnapshot(items: ApiSalesListItem[]): ProfitabilitySnapshot {
         .reduce((sum, row) => sum + (row.profit ?? 0), 0),
     ),
     collectedDop: series.collectedDop,
+    outstandingDop: outstanding.outstandingDop,
+    outstandingUsd: outstanding.outstandingUsd,
     pendingFxCount: invoices.filter((row) => row.pendingFx).length,
     invoicesMissingProfitCount: series.invoicesMissingProfitCount,
     omittedUsdReceiptCount: series.omittedUsdReceiptCount,
@@ -172,8 +215,27 @@ async function loadSnapshotItems(): Promise<ApiSalesListItem[]> {
   return [...completed, ...cancelled];
 }
 
+/** Customer outstanding summary is unpaginated; page params only size the invoice list. */
+async function loadOutstanding(): Promise<
+  Pick<ProfitabilitySnapshot, 'outstandingDop' | 'outstandingUsd'>
+> {
+  const params = new URLSearchParams({
+    page: '1',
+    pageSize: String(PAGE_SIZE),
+  });
+  const response = await httpClient<ApiReceivablesCustomers>(
+    `${SALES_PATH}/receivables?${params.toString()}`,
+  );
+  return outstandingFromCustomers(response.customers);
+}
+
+async function buildSnapshot(): Promise<ProfitabilitySnapshot> {
+  const [items, outstanding] = await Promise.all([loadSnapshotItems(), loadOutstanding()]);
+  return toSnapshot(items, outstanding);
+}
+
 export function getProfitabilitySnapshotWithHttp(): Promise<Result<ProfitabilitySnapshot>> {
-  return request(async () => toSnapshot(await loadSnapshotItems()));
+  return request(buildSnapshot);
 }
 
 export function retryUsdProfitabilityWithHttp(
@@ -185,7 +247,7 @@ export function retryUsdProfitabilityWithHttp(
       headers: CSRF_HEADERS,
       body: JSON.stringify({}),
     });
-    return toSnapshot(await loadSnapshotItems());
+    return buildSnapshot();
   });
 }
 
@@ -198,6 +260,6 @@ export function recordManualGrossProfitWithHttp(
       headers: CSRF_HEADERS,
       body: JSON.stringify({ profitDop: moneyString(input.profitDop) }),
     });
-    return toSnapshot(await loadSnapshotItems());
+    return buildSnapshot();
   });
 }

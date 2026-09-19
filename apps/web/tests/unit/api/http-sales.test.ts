@@ -32,6 +32,7 @@ const emptyInvoice = {
   currency: 'DOP',
   fiscal: false,
   applyItbis: false,
+  discountPercent: '0.00',
   customer: cashCustomer,
   customerSnapshot: null,
   confirmedAt: null,
@@ -46,14 +47,14 @@ const emptyInvoice = {
   refunded: '0.00',
   balance: '0.00',
   lines: [],
-  totals: { gross: '0.00', base: '0.00', itbis: '0.00' },
+  totals: { gross: '0.00', base: '0.00', itbis: '0.00', discount: '0.00' },
   createdAt: '2026-09-09T12:00:00.000Z',
   updatedAt: '2026-09-09T12:00:00.000Z',
 };
 
 const invoiceWithTotal = {
   ...emptyInvoice,
-  totals: { gross: '118.00', base: '100.00', itbis: '18.00' },
+  totals: { gross: '118.00', base: '100.00', itbis: '18.00', discount: '0.00' },
 };
 
 const completedInvoice = {
@@ -794,7 +795,7 @@ describe('HTTP sales draft contract', () => {
         number: 'FAC-000001',
         customerName: 'Nombre al confirmar',
         currency: 'DOP',
-        totals: { gross: 118, itbis: 18, taxableBase: 100 },
+        totals: { gross: 118, itbis: 18, taxableBase: 100, discount: 0 },
       },
     });
     const confirmInit = fetchMock.mock.calls[0]?.[1] as RequestInit;

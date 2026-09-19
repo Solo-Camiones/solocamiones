@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { money } from '../../../../src/shared/ui/money';
+import { money, shortDate } from '../../../../src/shared/ui/money';
 
 describe('money', () => {
   it('formats DOP with two decimals by default', () => {
@@ -12,3 +12,18 @@ describe('money', () => {
     expect(money(19.5, 'USD')).toBe('$19.50');
   });
 });
+
+describe('shortDate', () => {
+  it('formats date using business timezone (America/Santo_Domingo)', () => {
+    // 2026-09-18T01:30:00.000Z is 2026-09-17 21:30 in UTC-4 (America/Santo_Domingo)
+    const formattedNightUtc = shortDate('2026-09-18T01:30:00.000Z');
+    expect(formattedNightUtc).toContain('17');
+    expect(formattedNightUtc).toContain('2026');
+
+    // 2026-09-18T16:00:00.000Z is 2026-09-18 12:00 in UTC-4
+    const formattedDayUtc = shortDate('2026-09-18T16:00:00.000Z');
+    expect(formattedDayUtc).toContain('18');
+    expect(formattedDayUtc).toContain('2026');
+  });
+});
+

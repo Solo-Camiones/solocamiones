@@ -140,6 +140,7 @@ describe('SalesPage', () => {
     renderWithProviders(<SalesPage />, { route: '/sales', auth: createAuthValue('SELLER') });
     await screen.findByText('FAC-000098');
 
+    await user.click(screen.getByRole('button', { name: /Filtros avanzados/i }));
     await user.type(screen.getByLabelText('Fecha desde'), '2026-08-25');
     await user.type(screen.getByLabelText('Fecha hasta'), '2026-08-25');
     await user.click(screen.getByRole('button', { name: 'Filtrar' }));
@@ -157,6 +158,7 @@ describe('SalesPage', () => {
     renderWithProviders(<SalesPage />, { route: '/sales', auth: createAuthValue('SELLER') });
     await screen.findByText('FAC-000098');
 
+    await user.click(screen.getByRole('button', { name: /Filtros avanzados/i }));
     await user.type(screen.getByLabelText('Fecha desde'), '2026-09-30');
     await user.type(screen.getByLabelText('Fecha hasta'), '2026-09-01');
     await user.click(screen.getByRole('button', { name: 'Filtrar' }));

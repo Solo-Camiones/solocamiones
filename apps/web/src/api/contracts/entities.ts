@@ -209,6 +209,8 @@ export type Invoice = {
   currency: Currency;
   fiscal: boolean;
   applyItbis?: boolean;
+  /** Invoice-level commercial discount percent (0–100). Defaults to 0. */
+  discountPercent?: number;
   lines: InvoiceLine[];
   payments: Payment[];
   paymentState: PaymentState;

@@ -39,6 +39,22 @@ export function CustomerOutstandingTable({
     );
   }
 
+  // Totals grouped by currency — mixing currencies would produce meaningless sums.
+  const totalsByCurrency = rows.reduce<
+    Map<CustomerOutstandingRow['currency'], { invoiced: number; paid: number; balance: number; invoiceCount: number }>
+  >((acc, row) => {
+    const entry = acc.get(row.currency) ?? { invoiced: 0, paid: 0, balance: 0, invoiceCount: 0 };
+    entry.invoiced += row.invoiced;
+    entry.paid += row.paid;
+    entry.balance += row.balance;
+    entry.invoiceCount += row.invoiceCount;
+    acc.set(row.currency, entry);
+    return acc;
+  }, new Map());
+
+  // A single row is already its own total — no footer needed.
+  const showTotals = rows.length > 1;
+
   return (
     <TableShell>
       <thead className="border-b border-navy-100 bg-navy-50 text-navy-400">
@@ -63,6 +79,20 @@ export function CustomerOutstandingTable({
           </tr>
         ))}
       </tbody>
+      {showTotals && (
+        <tfoot className="border-t-2 border-navy-200 bg-navy-50 text-sm font-semibold text-navy">
+          {[...totalsByCurrency.entries()].map(([currency, totals]) => (
+            <tr key={`total:${currency}`}>
+              <td className="px-4 py-3">Total</td>
+              <td className="px-4 py-3">{currency}</td>
+              <td className="px-4 py-3 text-right font-mono">{totals.invoiceCount}</td>
+              <td className="px-4 py-3 text-right font-mono">{money(totals.invoiced, currency)}</td>
+              <td className="px-4 py-3 text-right font-mono">{money(totals.paid, currency)}</td>
+              <td className="px-4 py-3 text-right font-mono">{money(totals.balance, currency)}</td>
+            </tr>
+          ))}
+        </tfoot>
+      )}
     </TableShell>
   );
 }

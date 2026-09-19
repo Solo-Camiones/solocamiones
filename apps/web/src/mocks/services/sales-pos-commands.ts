@@ -227,6 +227,7 @@ function createEmptyInvoice(state: AppState, status: 'DRAFT' | 'QUOTE_DRAFT'): I
     currency: 'DOP',
     fiscal: false,
     applyItbis: false,
+    discountPercent: 0,
     lines: [],
     payments: [],
     paymentState: 'UNPAID',
@@ -250,6 +251,8 @@ export function createQuote(state: AppState, actor: User): Result<CreateDraftRes
   return ok({ draftId: quote.id });
 }
 
+const QUOTE_VALIDITY_DAYS = 15;
+
 function quoteExpiresAtIso(issuedAtIso: string): string {
   const issuedAt = new Date(issuedAtIso);
   const parts = new Intl.DateTimeFormat('en-CA', {
@@ -261,7 +264,7 @@ function quoteExpiresAtIso(issuedAtIso: string): string {
   const year = Number(parts.find((part) => part.type === 'year')?.value);
   const month = Number(parts.find((part) => part.type === 'month')?.value);
   const day = Number(parts.find((part) => part.type === 'day')?.value);
-  const expiryDay = new Date(Date.UTC(year, month - 1, day + 30));
+  const expiryDay = new Date(Date.UTC(year, month - 1, day + QUOTE_VALIDITY_DAYS));
   return new Date(`${expiryDay.toISOString().slice(0, 10)}T23:59:59.999-04:00`).toISOString();
 }
 
@@ -319,6 +322,7 @@ export function duplicateQuote(
   duplicate.currency = found.value.currency;
   duplicate.fiscal = found.value.fiscal;
   duplicate.applyItbis = found.value.applyItbis;
+  duplicate.discountPercent = found.value.discountPercent ?? 0;
   duplicate.lines = found.value.lines.map((line, index) => ({
     ...line,
     id: `LIN-${duplicate.id}-${String(index + 1).padStart(2, '0')}`,
@@ -805,6 +809,20 @@ export function setDraftMeta(
 
   if (input.applyItbis != null) {
     draft.applyItbis = input.applyItbis;
+  }
+
+  if (input.discountPercent != null) {
+    if (
+      !Number.isFinite(input.discountPercent) ||
+      input.discountPercent < 0 ||
+      input.discountPercent > 100
+    ) {
+      return err({
+        code: 'VALIDATION',
+        message: 'El descuento debe estar entre 0 y 100',
+      });
+    }
+    draft.discountPercent = roundMoney(input.discountPercent);
   }
 
   return ok(draft);

@@ -21,11 +21,35 @@ export const invoiceStatusSchema = z.enum([
   'CANCELLED',
 ]);
 
+const DECIMAL_5_2_PERCENT_PATTERN = /^\d+(?:\.\d{1,2})?$/;
+const DECIMAL_PERCENT_MAX = new Prisma.Decimal(100);
+
+const discountPercentSchema = z
+  .string()
+  .trim()
+  .superRefine((value, context) => {
+    if (!DECIMAL_5_2_PERCENT_PATTERN.test(value)) {
+      context.addIssue({
+        code: 'custom',
+        message: 'Must be a non-negative decimal with at most 2 decimal places',
+      });
+      return;
+    }
+    const parsed = new Prisma.Decimal(value);
+    if (parsed.greaterThan(DECIMAL_PERCENT_MAX)) {
+      context.addIssue({
+        code: 'custom',
+        message: 'Must not exceed 100',
+      });
+    }
+  });
+
 export const createDraftSchema = z.strictObject({
   customerId: z.uuid().optional(),
   currency: invoiceCurrencySchema.optional(),
   fiscal: z.boolean().optional(),
   applyItbis: z.boolean().optional(),
+  discountPercent: discountPercentSchema.optional(),
 });
 
 export const emptyCommandSchema = z.strictObject({});
@@ -58,6 +82,32 @@ export const listReceivablesSchema = paginationSchema
       .optional(),
   })
   .strict();
+
+const sellerSalesReportDateFiltersSchema = z
+  .strictObject({
+    dateFrom: z.iso.date(),
+    dateTo: z.iso.date(),
+    sellerUserId: z.uuid().optional(),
+  })
+  .refine((value) => value.dateFrom <= value.dateTo, {
+    message: 'dateFrom must be on or before dateTo',
+    path: ['dateTo'],
+  });
+
+/** JSON list: same date filters as PDF, plus shared list pagination. */
+export const sellerSalesReportQuerySchema = paginationSchema
+  .extend({
+    dateFrom: z.iso.date(),
+    dateTo: z.iso.date(),
+    sellerUserId: z.uuid().optional(),
+  })
+  .refine((value) => value.dateFrom <= value.dateTo, {
+    message: 'dateFrom must be on or before dateTo',
+    path: ['dateTo'],
+  });
+
+/** PDF download: full filtered range (no page slice). */
+export const sellerSalesReportPdfQuerySchema = sellerSalesReportDateFiltersSchema;
 
 export const invoiceLineIdSchema = z.strictObject({
   id: z.uuid(),

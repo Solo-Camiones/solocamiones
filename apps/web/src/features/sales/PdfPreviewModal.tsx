@@ -61,7 +61,7 @@ export function PdfPreviewModal({
           <header className="flex items-start justify-between gap-4 border-b border-navy-100 pb-4">
             <div>
               <p className="text-lg font-bold tracking-[0.16em] text-navy">{APP_NAME}</p>
-              <p className="text-xs text-navy-400">Documento interno · no es un comprobante fiscal DGII</p>
+              <p className="text-xs text-navy-400">Importadora de repuestos nuevos y usados</p>
             </div>
             {detail?.number || detail?.quoteNumber ? (
               <div className="text-right">
@@ -84,7 +84,7 @@ export function PdfPreviewModal({
           <header className="flex items-start justify-between gap-4 border-b border-navy-100 pb-4">
             <div>
               <p className="text-lg font-bold tracking-[0.16em] text-navy">{APP_NAME}</p>
-              <p className="text-xs text-navy-400">Documento interno · no es un comprobante fiscal DGII</p>
+              <p className="text-xs text-navy-400">Importadora de repuestos nuevos y usados</p>
             </div>
             <div className="text-right">
               <Mono className="text-base font-semibold">{detail.number}</Mono>

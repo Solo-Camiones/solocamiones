@@ -84,9 +84,10 @@ describe('M7 draft HTTP shell (SALE-001 draft)', () => {
       currency: 'DOP',
       fiscal: false,
       applyItbis: false,
+      discountPercent: '0.00',
       customer: { id: generic!.id, isDefault: true },
       lines: [],
-      totals: { gross: '0.00', base: '0.00', itbis: '0.00' },
+      totals: { gross: '0.00', base: '0.00', itbis: '0.00', discount: '0.00' },
     });
     expect(await prisma.historyEvent.findMany({ where: { subjectId: created.body.id } })).toEqual([
       expect.objectContaining({
@@ -95,6 +96,60 @@ describe('M7 draft HTTP shell (SALE-001 draft)', () => {
         subjectType: 'INVOICE',
       }),
     ]);
+  });
+
+  it('persists discountPercent and recalculates header totals without rewriting lines', async () => {
+    const seller = await fixture('SELLER');
+    const created = await seller.agent.post(ROOT).set(CSRF).send({});
+    expect(created.status).toBe(201);
+
+    const withLine = await seller.agent
+      .post(`${ROOT}/${created.body.id}/lines`)
+      .set(CSRF)
+      .send({ type: 'GENERIC', description: 'Filtro', unitPrice: '100.00' });
+    expect(withLine.status).toBe(201);
+    expect(withLine.body.lines[0]).toMatchObject({
+      base: '100.00',
+      itbis: '0.00',
+      gross: '100.00',
+    });
+
+    const withItbis = await seller.agent
+      .patch(`${ROOT}/${created.body.id}`)
+      .set(CSRF)
+      .send({ applyItbis: true });
+    expect(withItbis.status).toBe(200);
+
+    const discounted = await seller.agent
+      .patch(`${ROOT}/${created.body.id}`)
+      .set(CSRF)
+      .send({ discountPercent: '10' });
+    expect(discounted.status).toBe(200);
+    expect(discounted.body).toMatchObject({
+      discountPercent: '10.00',
+      lines: [expect.objectContaining({ base: '100.00', itbis: '18.00', gross: '118.00' })],
+      totals: { discount: '10.00', base: '90.00', itbis: '18.00', gross: '108.00' },
+    });
+
+    const confirmed = await seller.agent
+      .post(`${ROOT}/${created.body.id}/confirm`)
+      .set(CSRF)
+      .send(cashSaleFullPayment('108.00'));
+    expect(confirmed.status).toBe(200);
+    expect(confirmed.body).toMatchObject({
+      status: 'COMPLETED',
+      discountPercent: '10.00',
+      lines: [expect.objectContaining({ base: '100.00', itbis: '18.00', gross: '118.00' })],
+      totals: { discount: '10.00', base: '90.00', itbis: '18.00', gross: '108.00' },
+    });
+
+    const listed = await seller.agent.get(`${ROOT}?status=COMPLETED`);
+    expect(listed.status).toBe(200);
+    expect(listed.body.items[0]).toMatchObject({
+      id: created.body.id,
+      saleCondition: 'CASH',
+      totals: { gross: '108.00' },
+    });
   });
 
   it('lets Seller change currency and assign a fiscal customer', async () => {
@@ -201,6 +256,7 @@ describe('M7 draft HTTP shell (SALE-001 draft)', () => {
       gross: '118.00',
       base: '118.00',
       itbis: '0.00',
+      discount: '0.00',
     });
   });
 
@@ -327,7 +383,12 @@ describe('M8 draft GENERIC lines (LINE-003)', () => {
     });
     expect(added.body.lines[0]).not.toHaveProperty('acquisitionCostDop');
     expect(added.body.lines[0]).not.toHaveProperty('costProvenance');
-    expect(added.body.totals).toEqual({ gross: '278.48', base: '236.00', itbis: '42.48' });
+    expect(added.body.totals).toEqual({
+      gross: '278.48',
+      base: '236.00',
+      itbis: '42.48',
+      discount: '0.00',
+    });
     expect(
       await prisma.historyEvent.count({
         where: { subjectId: draft.body.id, eventType: 'INVOICE_LINE_ADDED' },
@@ -345,7 +406,12 @@ describe('M8 draft GENERIC lines (LINE-003)', () => {
       base: '118.00',
       itbis: '21.24',
     });
-    expect(priced.body.totals).toEqual({ gross: '139.24', base: '118.00', itbis: '21.24' });
+    expect(priced.body.totals).toEqual({
+      gross: '139.24',
+      base: '118.00',
+      itbis: '21.24',
+      discount: '0.00',
+    });
     expect(
       await prisma.historyEvent.count({
         where: { subjectId: draft.body.id, eventType: 'INVOICE_LINE_UPDATED' },
@@ -364,7 +430,12 @@ describe('M8 draft GENERIC lines (LINE-003)', () => {
       base: '177.00',
       itbis: '31.86',
     });
-    expect(counted.body.totals).toEqual({ gross: '208.86', base: '177.00', itbis: '31.86' });
+    expect(counted.body.totals).toEqual({
+      gross: '208.86',
+      base: '177.00',
+      itbis: '31.86',
+      discount: '0.00',
+    });
 
     const renamed = await seller.agent
       .patch(`${ROOT}/${draft.body.id}/lines/${added.body.lines[0].id}`)
@@ -382,7 +453,12 @@ describe('M8 draft GENERIC lines (LINE-003)', () => {
       .set(CSRF);
     expect(removed.status).toBe(200);
     expect(removed.body.lines).toEqual([]);
-    expect(removed.body.totals).toEqual({ gross: '0.00', base: '0.00', itbis: '0.00' });
+    expect(removed.body.totals).toEqual({
+      gross: '0.00',
+      base: '0.00',
+      itbis: '0.00',
+      discount: '0.00',
+    });
     expect(await prisma.invoiceLine.count({ where: { invoiceId: draft.body.id } })).toBe(0);
   });
 
@@ -600,7 +676,12 @@ describe('M9 draft SERVICE lines (LINE-004)', () => {
       itbis: '0.00',
       serviceId: catalog.body.id,
     });
-    expect(copiedName.body.totals).toEqual({ gross: '618.00', base: '618.00', itbis: '0.00' });
+    expect(copiedName.body.totals).toEqual({
+      gross: '618.00',
+      base: '618.00',
+      itbis: '0.00',
+      discount: '0.00',
+    });
     expect(copiedName.body.lines[1].serviceId).toBe(catalog.body.id);
 
     const overridden = await seller.agent.post(`${ROOT}/${draft.body.id}/lines`).set(CSRF).send({
@@ -618,7 +699,12 @@ describe('M9 draft SERVICE lines (LINE-004)', () => {
       gross: '0.00',
       serviceId: catalog.body.id,
     });
-    expect(overridden.body.totals).toEqual({ gross: '618.00', base: '618.00', itbis: '0.00' });
+    expect(overridden.body.totals).toEqual({
+      gross: '618.00',
+      base: '618.00',
+      itbis: '0.00',
+      discount: '0.00',
+    });
 
     const priced = await seller.agent
       .patch(`${ROOT}/${draft.body.id}/lines/${copiedName.body.lines[1].id}`)
@@ -630,7 +716,12 @@ describe('M9 draft SERVICE lines (LINE-004)', () => {
       itbis: '0.00',
       gross: '250.00',
     });
-    expect(priced.body.totals).toEqual({ gross: '368.00', base: '368.00', itbis: '0.00' });
+    expect(priced.body.totals).toEqual({
+      gross: '368.00',
+      base: '368.00',
+      itbis: '0.00',
+      discount: '0.00',
+    });
 
     const quantityBlocked = await seller.agent
       .patch(`${ROOT}/${draft.body.id}/lines/${copiedName.body.lines[1].id}`)
@@ -706,7 +797,12 @@ describe('M10 draft DELIVERY lines (LINE-006)', () => {
       .send({ customerId: identified.id, fiscal: true });
     expect(draft.status).toBe(201);
     expect(draft.body.lines).toEqual([]);
-    expect(draft.body.totals).toEqual({ gross: '0.00', base: '0.00', itbis: '0.00' });
+    expect(draft.body.totals).toEqual({
+      gross: '0.00',
+      base: '0.00',
+      itbis: '0.00',
+      discount: '0.00',
+    });
 
     const generic = await seller.agent.post(`${ROOT}/${draft.body.id}/lines`).set(CSRF).send({
       type: 'GENERIC',
@@ -714,7 +810,12 @@ describe('M10 draft DELIVERY lines (LINE-006)', () => {
       unitPrice: '118.00',
     });
     expect(generic.status).toBe(201);
-    expect(generic.body.totals).toEqual({ gross: '118.00', base: '118.00', itbis: '0.00' });
+    expect(generic.body.totals).toEqual({
+      gross: '118.00',
+      base: '118.00',
+      itbis: '0.00',
+      discount: '0.00',
+    });
 
     const free = await seller.agent
       .post(`${ROOT}/${draft.body.id}/lines`)
@@ -733,7 +834,12 @@ describe('M10 draft DELIVERY lines (LINE-006)', () => {
       itbis: '0.00',
       serviceId: null,
     });
-    expect(free.body.totals).toEqual({ gross: '118.00', base: '118.00', itbis: '0.00' });
+    expect(free.body.totals).toEqual({
+      gross: '118.00',
+      base: '118.00',
+      itbis: '0.00',
+      discount: '0.00',
+    });
 
     const duplicate = await seller.agent
       .post(`${ROOT}/${draft.body.id}/lines`)
@@ -754,14 +860,24 @@ describe('M10 draft DELIVERY lines (LINE-006)', () => {
       itbis: '0.00',
       gross: '200.00',
     });
-    expect(charged.body.totals).toEqual({ gross: '318.00', base: '318.00', itbis: '0.00' });
+    expect(charged.body.totals).toEqual({
+      gross: '318.00',
+      base: '318.00',
+      itbis: '0.00',
+      discount: '0.00',
+    });
 
     const removed = await seller.agent
       .delete(`${ROOT}/${draft.body.id}/lines/${free.body.lines[1].id}`)
       .set(CSRF);
     expect(removed.status).toBe(200);
     expect(removed.body.lines).toHaveLength(1);
-    expect(removed.body.totals).toEqual({ gross: '118.00', base: '118.00', itbis: '0.00' });
+    expect(removed.body.totals).toEqual({
+      gross: '118.00',
+      base: '118.00',
+      itbis: '0.00',
+      discount: '0.00',
+    });
 
     const restored = await seller.agent
       .post(`${ROOT}/${draft.body.id}/lines`)
@@ -775,7 +891,12 @@ describe('M10 draft DELIVERY lines (LINE-006)', () => {
       itbis: '0.00',
       gross: '150.00',
     });
-    expect(restored.body.totals).toEqual({ gross: '268.00', base: '268.00', itbis: '0.00' });
+    expect(restored.body.totals).toEqual({
+      gross: '268.00',
+      base: '268.00',
+      itbis: '0.00',
+      discount: '0.00',
+    });
     expect(
       await prisma.historyEvent.count({
         where: { subjectId: draft.body.id, eventType: 'INVOICE_LINE_ADDED' },
@@ -862,7 +983,12 @@ describe('M11 draft EXTERNAL lines (LINE-005)', () => {
       serviceId: null,
     });
     expect(first.body.lines[0]).not.toHaveProperty('acquisitionCostDop');
-    expect(first.body.totals).toEqual({ gross: '278.48', base: '236.00', itbis: '42.48' });
+    expect(first.body.totals).toEqual({
+      gross: '278.48',
+      base: '236.00',
+      itbis: '42.48',
+      discount: '0.00',
+    });
 
     const second = await seller.agent.post(`${ROOT}/${draft.body.id}/lines`).set(CSRF).send({
       type: 'EXTERNAL',
@@ -878,7 +1004,12 @@ describe('M11 draft EXTERNAL lines (LINE-005)', () => {
       base: '118.00',
       itbis: '21.24',
     });
-    expect(second.body.totals).toEqual({ gross: '417.72', base: '354.00', itbis: '63.72' });
+    expect(second.body.totals).toEqual({
+      gross: '417.72',
+      base: '354.00',
+      itbis: '63.72',
+      discount: '0.00',
+    });
 
     const third = await seller.agent.post(`${ROOT}/${draft.body.id}/lines`).set(CSRF).send({
       type: 'EXTERNAL',
@@ -1340,6 +1471,7 @@ describe('M13 DOP profitability Administrator boundary (COST-001..004)', () => {
     const listed = await admin.agent.get(`${ROOT}?status=COMPLETED`);
     expect(listed.status).toBe(200);
     expect(listed.body.items[0].profitability).toEqual(confirmed.body.profitability);
+    expect(listed.body.items[0].saleCondition).toBe('CREDIT');
 
     const sellerView = await seller.agent.get(`${ROOT}/${draft.body.id}`);
     expect(sellerView.status).toBe(200);
@@ -1356,6 +1488,7 @@ describe('M13 DOP profitability Administrator boundary (COST-001..004)', () => {
     expect(sellerList.status).toBe(200);
     expect(sellerList.body.items[0].profitability).toBeUndefined();
     expect(sellerList.body.items[0].exchangeRateDopPerUsd).toBeUndefined();
+    expect(sellerList.body.items[0].saleCondition).toBe('CREDIT');
     expect(listed.body.items[0].payments).toEqual([]);
 
     const mechanic = await fixture('MECHANIC');

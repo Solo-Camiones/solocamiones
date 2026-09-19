@@ -132,6 +132,20 @@ export class MockSalesRepository implements SalesRepository {
     });
   }
 
+  async listSellerSalesReport() {
+    return err({
+      code: 'INTERNAL',
+      message: 'El reporte de ventas por vendedor no está disponible en el prototipo mock.',
+    });
+  }
+
+  async getSellerSalesReportPdf() {
+    return err({
+      code: 'INTERNAL',
+      message: 'El reporte de ventas por vendedor no está disponible en el prototipo mock.',
+    });
+  }
+
   async regenerateInvoicePdf() {
     return err({
       code: 'INTERNAL',

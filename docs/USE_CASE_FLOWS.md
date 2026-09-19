@@ -715,7 +715,7 @@ For quantity stock, `availableToReserve = physical/on-hand quantity - currently 
 **Main Flow:**
 
 1. Actor prepares a `QUOTE_DRAFT` with the same customer, currency, fiscal flags, ITBIS flag, and lines that the future invoice will use.
-2. Issue assigns unique `COT-` and freezes the quote through end of day 30 in `America/Santo_Domingo`.
+2. Issue assigns unique `COT-` and freezes the quote through end of day 15 in `America/Santo_Domingo`.
 3. Convert runs confirmation on the same aggregate, assigns `FAC-`, preserves origin `COT-`, and applies cash/credit rules.
 4. If expired, convert is rejected; duplicate creates a new editable quote.
 

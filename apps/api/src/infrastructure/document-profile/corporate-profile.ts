@@ -6,6 +6,7 @@ export const CORPORATE_PROFILE: CorporateProfile = {
   address: 'Av. Pdte. Antonio Guzmán Fernández #68, próximo al Aerop. El Higüero',
   whatsApp: '809-875-3161 / 829-627-3168',
   email: 'solocamionessrl@gmail.com',
+  tagline: 'Importadora de repuestos nuevos y usados',
   social: {
     instagram: '@solocamionessrl',
     facebook: 'Solo Camiones SRL',

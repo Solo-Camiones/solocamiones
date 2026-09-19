@@ -32,6 +32,7 @@ model User {
   historyEvents      HistoryEvent[]
   confirmedInvoices  Invoice[]                 @relation("InvoiceConfirmedBy")
   cancelledInvoices  Invoice[]                 @relation("InvoiceCancelledBy")
+  issuedQuotes       Invoice[]                 @relation("InvoiceQuoteIssuedBy")
   invoicePayments    InvoicePayment[]
 }
 
@@ -191,11 +192,14 @@ model Invoice {
   currency     InvoiceCurrency
   fiscal       Boolean
   applyItbis   Boolean         @default(false)
+  discountPercent Decimal      @default(0) @db.Decimal(5, 2)
   customerId   String          @db.Uuid
   number       String?         @unique
   quoteNumber  String?         @unique
   quoteIssuedAt DateTime?      @db.Timestamptz(3)
   quoteExpiresAt DateTime?     @db.Timestamptz(3)
+  quoteIssuedByUserId String?  @db.Uuid
+  quoteIssuedByName   String?
   confirmedAt  DateTime?       @db.Timestamptz(3)
   dueDate      DateTime?       @db.Date
   customerName String?
@@ -226,6 +230,7 @@ model Invoice {
   createdAt    DateTime        @default(now()) @db.Timestamptz(3)
   updatedAt    DateTime        @updatedAt @db.Timestamptz(3)
   customer     Customer        @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  quoteIssuedBy User?          @relation("InvoiceQuoteIssuedBy", fields: [quoteIssuedByUserId], references: [id], onDelete: Restrict)
   confirmedBy  User?           @relation("InvoiceConfirmedBy", fields: [confirmedByUserId], references: [id], onDelete: Restrict)
   cancelledBy  User?           @relation("InvoiceCancelledBy", fields: [cancelledByUserId], references: [id], onDelete: Restrict)
   lines        InvoiceLine[]
@@ -233,6 +238,7 @@ model Invoice {
 
   @@index([customerId])
   @@index([customerId, status, currency])
+  @@index([quoteIssuedByUserId])
   @@index([confirmedByUserId])
   @@index([cancelledByUserId])
   @@index([dueDate])

@@ -62,6 +62,9 @@ import type {
   SalesListRow,
   SalesListFilters,
   SalesListTab,
+  SellerSalesReport,
+  SellerSalesReportFilters,
+  SellerSalesReportPdfDownload,
   SetDraftLinePriceInput,
   SetDraftLineQuantityInput,
   SetDraftMetaInput,
@@ -153,6 +156,10 @@ export type SalesRepository = {
   getInvoicePdf(id: string): Promise<Result<InvoicePdfDownload>>;
   getQuotePdf(id: string): Promise<Result<QuotePdfDownload>>;
   getAccountStatementPdf(customerId: string): Promise<Result<AccountStatementPdfDownload>>;
+  listSellerSalesReport(filters: SellerSalesReportFilters): Promise<Result<SellerSalesReport>>;
+  getSellerSalesReportPdf(
+    filters: SellerSalesReportFilters,
+  ): Promise<Result<SellerSalesReportPdfDownload>>;
   regenerateInvoicePdf(id: string): Promise<Result<InvoiceDetailView>>;
   addPayment(input: AddPaymentInput): Promise<Result<InvoiceDetailView>>;
   cancelInvoice(input: CancelInvoiceInput): Promise<Result<InvoiceDetailView>>;

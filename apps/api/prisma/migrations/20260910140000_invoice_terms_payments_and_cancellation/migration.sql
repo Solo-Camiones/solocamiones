@@ -13,11 +13,6 @@ ADD COLUMN "cancelReason" TEXT,
 ADD COLUMN "cancelledByUserId" UUID,
 ADD COLUMN "cancelledByName" TEXT;
 
--- Historical seller/phone snapshots cannot be reconstructed reliably. Due dates can.
-UPDATE "Invoice"
-SET "dueDate" = (("confirmedAt" AT TIME ZONE 'America/Santo_Domingo')::date + 30)
-WHERE "confirmedAt" IS NOT NULL;
-
 CREATE TABLE "InvoicePayment" (
     "id" UUID NOT NULL DEFAULT gen_random_uuid(),
     "invoiceId" UUID NOT NULL,

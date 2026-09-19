@@ -21,12 +21,26 @@ export type KpiCardProps = {
   to?: string;
   /** Replaces the default chevron when the card is a link. */
   actionLabel?: string;
+  /**
+   * Visual density of the card.
+   * - `'md'` (default): standard padding and value size — for primary KPIs.
+   * - `'sm'`: compact padding and smaller value — for secondary/breakdown KPIs.
+   */
+  size?: 'sm' | 'md';
 };
 
 const toneBorder: Record<KpiTone, string> = {
   default: 'border-navy-100',
   amber: 'border-amber-200',
   brand: 'border-brand/30',
+};
+
+/** Fondo sutil por tono — refuerza la jerarquía visual sin romper el estilo base.
+ *  Se usa `!` (important) para ganar precedencia sobre el bg-white que Card aplica internamente. */
+const toneBg: Record<KpiTone, string> = {
+  default: '',
+  amber: '',
+  brand: '!bg-brand/5',
 };
 
 /**
@@ -39,7 +53,10 @@ const trendClass: Record<KpiTrend['tone'], string> = {
   neutral: 'text-navy-400',
 };
 
-export function KpiCard({ label, value, hint, tone = 'default', icon, trend, to, actionLabel }: KpiCardProps) {
+export function KpiCard({ label, value, hint, tone = 'default', icon, trend, to, actionLabel, size = 'md' }: KpiCardProps) {
+  const footerAction = to && actionLabel ? actionLabel : null;
+  const hasFooter = Boolean(trend || hint || footerAction);
+
   const content = (
     <>
       <div className="flex items-start justify-between gap-3">
@@ -53,16 +70,24 @@ export function KpiCard({ label, value, hint, tone = 'default', icon, trend, to,
           ) : null}
         </div>
       </div>
-      <p className="mt-2 truncate font-mono text-2xl font-semibold tabular-nums tracking-tight text-navy sm:text-[1.75rem]">
+      <p
+        className={
+          size === 'sm'
+            ? 'mt-1.5 truncate font-mono text-xl font-semibold tabular-nums tracking-tight text-navy'
+            : 'mt-2 truncate font-mono text-2xl font-semibold tabular-nums tracking-tight text-navy sm:text-[1.75rem]'
+        }
+      >
         {value}
       </p>
-      <div className="mt-1 flex min-h-[1rem] flex-wrap items-center gap-x-2 gap-y-0.5">
-        {trend ? <p className={`text-xs font-medium ${trendClass[trend.tone]}`}>{trend.label}</p> : null}
-        {hint ? <p className="text-xs text-navy-400">{hint}</p> : null}
-        {to && actionLabel ? (
-          <p className="text-xs font-medium text-brand-dark">{actionLabel}</p>
-        ) : null}
-      </div>
+      {hasFooter ? (
+        <div className="mt-1 flex min-h-[1rem] flex-wrap items-center gap-x-2 gap-y-0.5">
+          {trend ? <p className={`text-xs font-medium ${trendClass[trend.tone]}`}>{trend.label}</p> : null}
+          {hint ? <p className="text-xs text-navy-400">{hint}</p> : null}
+          {footerAction ? (
+            <p className="text-xs font-medium text-brand-dark">{footerAction}</p>
+          ) : null}
+        </div>
+      ) : null}
     </>
   );
 
@@ -73,8 +98,8 @@ export function KpiCard({ label, value, hint, tone = 'default', icon, trend, to,
         className="group block min-w-0 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-light/50"
       >
         <Card
-          className={`h-full transition-all duration-150 hover:bg-navy-50/50 hover:shadow-md hover:-translate-y-0.5 ${toneBorder[tone]}`}
-          padding="md"
+          className={`h-full transition-all duration-150 hover:bg-navy-50/50 hover:shadow-md hover:-translate-y-0.5 ${toneBorder[tone]} ${toneBg[tone]}`}
+          padding={size === 'sm' ? 'sm' : 'md'}
         >
           {content}
         </Card>
@@ -83,7 +108,7 @@ export function KpiCard({ label, value, hint, tone = 'default', icon, trend, to,
   }
 
   return (
-    <Card className={`${toneBorder[tone]}`} padding="md">
+    <Card className={`${toneBorder[tone]} ${toneBg[tone]}`} padding={size === 'sm' ? 'sm' : 'md'}>
       {content}
     </Card>
   );

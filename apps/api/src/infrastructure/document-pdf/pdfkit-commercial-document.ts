@@ -1,7 +1,12 @@
 import PDFDocument from 'pdfkit';
 import { fileURLToPath } from 'node:url';
+import { Prisma } from '@prisma/client';
 
 import { CORPORATE_PROFILE } from '../document-profile/index.js';
+import {
+  COMMERCIAL_DOCUMENT_TERMS,
+  COMMERCIAL_DOCUMENT_TERMS_TITLE,
+} from './constants.js';
 
 export type PdfDocument = InstanceType<typeof PDFDocument>;
 
@@ -25,8 +30,17 @@ export type CommercialDocumentFacts = {
   sellerName: string | null;
   issuedAt: Date;
   secondaryDate: Date;
+  /** Invoice-only: "Al contado" / "A crédito". Quotes omit this. */
+  saleCondition?: string;
   lines: readonly CommercialLineFacts[];
-  totals: { base: string; itbis: string; gross: string };
+  totals: {
+    base: string;
+    itbis: string;
+    gross: string;
+    discount: string;
+    /** Applied commercial percent (0–100), shown in the Descuento label. */
+    discountPercent: string;
+  };
   originQuoteNumber?: string | null;
   cancellation?: {
     cancelledAt: Date | null;
@@ -40,8 +54,12 @@ export type CommercialDocumentOptions = {
   subject: string;
   customerLabel: string;
   secondaryDateLabel: string;
+  /**
+   * Invoice dueDate is `@db.Date` (UTC midnight). Formatting it in America/Santo_Domingo
+   * shifts the calendar day back by one. Quote expiry is a real local instant — leave false.
+   */
+  secondaryDateAsCalendarDate?: boolean;
   thankYou: string;
-  internalNotice: string;
   ncfField?: string;
   contactLayout: {
     gap: number;
@@ -51,8 +69,8 @@ export type CommercialDocumentOptions = {
 };
 
 export const COMMERCIAL_DOCUMENT_CONTACT_LAYOUT = {
-  invoice: { gap: 10, leftWidth: 148, rowHeight: 18 },
-  quote: { gap: 12, leftWidth: 123, rowHeight: 15 },
+  invoice: { gap: 10, leftWidth: 148, rowHeight: 16 },
+  quote: { gap: 12, leftWidth: 123, rowHeight: 16 },
 } as const;
 
 const BRAND_BLUE = '#0e8fd1';
@@ -60,15 +78,22 @@ const BRAND_NAVY = '#0c1e3a';
 const LIGHT_BLUE = '#eaf6fc';
 const MUTED = '#526173';
 const BORDER = '#d6e0e8';
-const FOOTER_RESERVE = 126;
-const TOTALS_AND_SIGNATURES_HEIGHT = 210;
+const FOOTER_RESERVE = 138;
+const TOTALS_AND_SIGNATURES_HEIGHT = 230;
+const TOTALS_BOX_WIDTH = 225;
+const TOTALS_ROW_HEIGHT = 22;
+const TOTALS_BOX_PADDING_Y = 13;
 const TABLE_WIDTHS = [230, 55, 85, 70, 84] as const;
 const HEADER_CONTACT_X = 132;
 const HEADER_CONTACT_WIDTH = 258;
-const HEADER_ADDRESS_Y = 70;
-const HEADER_CONTACT_GRID_Y = 86;
+const HEADER_NAME_Y = 36;
+const HEADER_TAGLINE_Y = 51;
+const HEADER_RNC_Y = 65;
+const HEADER_ADDRESS_Y = 78;
+const HEADER_CONTENT_PADDING = 14;
 const CONTACT_ICON_VIEWBOX = 16;
 const CONTACT_ICON_SIZE = 14;
+const CUSTOMER_META_BOX_HEIGHT = 108;
 const LOGO_PATH = fileURLToPath(
   new URL('../../../../web/src/shared/assets/brand/SoloCamionesLogo.png', import.meta.url),
 );
@@ -89,9 +114,23 @@ const CONTACT_ICON_PATHS = {
     'M9 0h1.98c.144.715.54 1.617 1.235 2.512C12.895 3.389 13.797 4 15 4v2c-1.753 0-3.07-.814-4-1.829V11a5 5 0 1 1-5-5v2a3 3 0 1 0 3 3z',
 } as const;
 
+/** Real timestamps (issue, quote expiry end-of-day) in the business timezone. */
 function formatDate(value: Date): string {
   return new Intl.DateTimeFormat('es-DO', {
     timeZone: 'America/Santo_Domingo',
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  }).format(value);
+}
+
+/**
+ * Date-only DB values (`@db.Date` / `databaseDate`) are UTC midnight of that calendar day.
+ * Format in UTC so "2026-09-18" does not print as 17/09 in America/Santo_Domingo (UTC-4).
+ */
+function formatCalendarDate(value: Date): string {
+  return new Intl.DateTimeFormat('es-DO', {
+    timeZone: 'UTC',
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',
@@ -116,6 +155,17 @@ function money(amount: string, currency: Currency): string {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   })}`;
+}
+
+/** Strip trailing zeros so PDF shows Descuento(10%) / Descuento(10.5%), not Descuento(10.00%). */
+function formatDiscountPercentLabel(percent: string): string {
+  const parsed = Number(percent);
+  const normalized = Number.isFinite(parsed) ? parsed : 0;
+  return String(parseFloat(normalized.toFixed(2)));
+}
+
+function addMoneyStrings(left: string, right: string): string {
+  return new Prisma.Decimal(left).plus(right).toFixed(2);
 }
 
 function contentBottom(document: PdfDocument): number {
@@ -164,25 +214,33 @@ function drawHeader(
     HEADER_CONTACT_WIDTH - options.contactLayout.leftWidth - options.contactLayout.gap;
   const rightColumnX =
     HEADER_CONTACT_X + options.contactLayout.leftWidth + options.contactLayout.gap;
-  const rowY = (row: number) => HEADER_CONTACT_GRID_Y + row * options.contactLayout.rowHeight;
+  // Address + WhatsApp/mail/instagram share one vertical rhythm so spacing looks even.
+  const rowY = (row: number) => HEADER_ADDRESS_Y + row * options.contactLayout.rowHeight;
 
   document.image(LOGO_PATH, left, 36, { fit: [78, 78], align: 'center', valign: 'center' });
   document
     .fillColor(BRAND_NAVY)
     .font('Helvetica-Bold')
     .fontSize(15)
-    .text(CORPORATE_PROFILE.legalName, HEADER_CONTACT_X, 39);
+    .text(CORPORATE_PROFILE.legalName, HEADER_CONTACT_X, HEADER_NAME_Y);
   document
     .fillColor(MUTED)
+    .font('Helvetica-Oblique')
+    .fontSize(8)
+    .text(CORPORATE_PROFILE.tagline, HEADER_CONTACT_X, HEADER_TAGLINE_Y, {
+      width: HEADER_CONTACT_WIDTH,
+      lineBreak: false,
+    });
+  document
     .font('Helvetica')
     .fontSize(8)
-    .text(`RNC: ${CORPORATE_PROFILE.rnc}`, HEADER_CONTACT_X, 58);
+    .text(`RNC: ${CORPORATE_PROFILE.rnc}`, HEADER_CONTACT_X, HEADER_RNC_Y);
   contactRow(
     document,
     CONTACT_ICON_PATHS.location,
     CORPORATE_PROFILE.address,
     HEADER_CONTACT_X,
-    HEADER_ADDRESS_Y,
+    rowY(0),
     HEADER_CONTACT_WIDTH,
   );
   contactRow(
@@ -190,7 +248,7 @@ function drawHeader(
     CONTACT_ICON_PATHS.whatsapp,
     CORPORATE_PROFILE.whatsApp,
     HEADER_CONTACT_X,
-    rowY(0),
+    rowY(1),
     options.contactLayout.leftWidth,
   );
   contactRow(
@@ -198,7 +256,7 @@ function drawHeader(
     CONTACT_ICON_PATHS.mail,
     CORPORATE_PROFILE.email,
     HEADER_CONTACT_X,
-    rowY(1),
+    rowY(2),
     options.contactLayout.leftWidth,
     'nonzero',
   );
@@ -207,7 +265,7 @@ function drawHeader(
     CONTACT_ICON_PATHS.instagram,
     CORPORATE_PROFILE.social.instagram,
     HEADER_CONTACT_X,
-    rowY(2),
+    rowY(3),
     options.contactLayout.leftWidth,
   );
   contactRow(
@@ -215,7 +273,7 @@ function drawHeader(
     CONTACT_ICON_PATHS.facebook,
     CORPORATE_PROFILE.social.facebook,
     rightColumnX,
-    rowY(0),
+    rowY(1),
     rightColumnWidth,
   );
   contactRow(
@@ -223,7 +281,7 @@ function drawHeader(
     CONTACT_ICON_PATHS.tiktok,
     CORPORATE_PROFILE.social.tiktok,
     rightColumnX,
-    rowY(1),
+    rowY(2),
     rightColumnWidth,
     'nonzero',
   );
@@ -255,8 +313,14 @@ function drawHeader(
       .fontSize(8)
       .text('CANCELADA', 405, 123, { width: right - 405, align: 'center' });
   }
-  document.moveTo(left, 154).lineTo(right, 154).lineWidth(2).strokeColor(BRAND_BLUE).stroke();
-  return 168;
+  const separatorY = rowY(4) + 6;
+  document
+    .moveTo(left, separatorY)
+    .lineTo(right, separatorY)
+    .lineWidth(2)
+    .strokeColor(BRAND_BLUE)
+    .stroke();
+  return separatorY + HEADER_CONTENT_PADDING;
 }
 
 function drawTableHeader(document: PdfDocument, y: number): number {
@@ -287,7 +351,6 @@ function drawTableHeader(document: PdfDocument, y: number): number {
 
 function drawFooter(
   document: PdfDocument,
-  options: CommercialDocumentOptions,
   page: number,
   pageCount: number,
 ): void {
@@ -295,31 +358,19 @@ function drawFooter(
   const right = document.page.width - document.page.margins.right;
   const footerTop = contentBottom(document);
   const transfer = CORPORATE_PROFILE.payment.transfer;
-  const profileLine = [
-    CORPORATE_PROFILE.legalName,
-    `RNC: ${CORPORATE_PROFILE.rnc}`,
-    CORPORATE_PROFILE.whatsApp,
-    CORPORATE_PROFILE.email,
-    CORPORATE_PROFILE.social.instagram,
-    CORPORATE_PROFILE.social.facebook,
-    CORPORATE_PROFILE.social.tiktok,
-  ].join('  ·  ');
+  const rightColumnWidth = right - left - 300;
   document
     .moveTo(left, footerTop)
     .lineTo(right, footerTop)
     .strokeColor(BORDER)
     .lineWidth(0.5)
     .stroke();
-  document
-    .fillColor(MUTED)
-    .font('Helvetica')
-    .fontSize(6.2)
-    .text(profileLine, left, footerTop + 6, { width: right - left });
+  // No identity / social / contact strip in the footer — only payment instructions and terms.
   document
     .fillColor(BRAND_NAVY)
     .font('Helvetica-Bold')
     .fontSize(6.8)
-    .text('Pagos por transferencia:', left, footerTop + 22);
+    .text('Pagos por transferencia:', left, footerTop + 8);
   document
     .fillColor(MUTED)
     .font('Helvetica')
@@ -332,7 +383,7 @@ function drawFooter(
         `A nombre de: ${transfer.accountHolder}`,
       ].join('\n'),
       left,
-      footerTop + 32,
+      footerTop + 18,
       { width: 280, lineGap: 1 },
     );
   document
@@ -342,16 +393,28 @@ function drawFooter(
     .text(
       `Pagos con cheques a nombre de: ${CORPORATE_PROFILE.payment.chequePayee}`,
       left + 300,
-      footerTop + 22,
-      { width: right - left - 300 },
+      footerTop + 8,
+      { width: rightColumnWidth },
     );
+  document
+    .fillColor(BRAND_NAVY)
+    .font('Helvetica-Bold')
+    .fontSize(6.5)
+    .text(COMMERCIAL_DOCUMENT_TERMS_TITLE, left + 300, footerTop + 26, {
+      width: rightColumnWidth,
+    });
   document
     .fillColor(MUTED)
     .font('Helvetica')
-    .fontSize(6.5)
-    .text(options.internalNotice, left + 300, footerTop + 46, { width: right - left - 300 });
-  document.text(`Página ${page} de ${pageCount}`, left + 300, footerTop + 72, {
-    width: right - left - 300,
+    .fontSize(6)
+    .text(
+      COMMERCIAL_DOCUMENT_TERMS.map((term) => `• ${term}`).join('\n'),
+      left + 300,
+      footerTop + 36,
+      { width: rightColumnWidth, lineGap: 1 },
+    );
+  document.text(`Página ${page} de ${pageCount}`, left + 300, footerTop + 84, {
+    width: rightColumnWidth,
     align: 'right',
     lineBreak: false,
   });
@@ -365,7 +428,7 @@ function drawCustomerAndMetadata(
 ): number {
   const left = document.page.margins.left;
   const right = document.page.width - document.page.margins.right;
-  document.roundedRect(left, y, 322, 92, 6).fillAndStroke(LIGHT_BLUE, BORDER);
+  document.roundedRect(left, y, 322, CUSTOMER_META_BOX_HEIGHT, 6).fillAndStroke(LIGHT_BLUE, BORDER);
   document
     .fillColor(BRAND_NAVY)
     .font('Helvetica-Bold')
@@ -380,29 +443,36 @@ function drawCustomerAndMetadata(
   document.text(`Teléfono: ${facts.customerPhone ?? ''}`, left + 12, y + 65);
   const metaX = left + 338;
   document
-    .roundedRect(metaX, y, right - metaX, 92, 6)
+    .roundedRect(metaX, y, right - metaX, CUSTOMER_META_BOX_HEIGHT, 6)
     .strokeColor(BORDER)
     .stroke();
-  const metadata = [
+  const secondaryDate = options.secondaryDateAsCalendarDate
+    ? formatCalendarDate(facts.secondaryDate)
+    : formatDate(facts.secondaryDate);
+  const metadata: Array<[string, string]> = [
     ['Emitida', formatDateTime(facts.issuedAt)],
-    [options.secondaryDateLabel, formatDate(facts.secondaryDate)],
+    [options.secondaryDateLabel, secondaryDate],
     ['Moneda', facts.currency],
-    ['Vendedor', facts.sellerName ?? ''],
   ];
+  if (facts.saleCondition) {
+    metadata.push(['Condición', facts.saleCondition]);
+  }
+  metadata.push(['Vendedor', facts.sellerName ?? '']);
+  const rowGap = facts.saleCondition ? 17 : 19;
   metadata.forEach(([label, value], index) => {
-    const lineY = y + 10 + index * 19;
+    const lineY = y + 10 + index * rowGap;
     document
       .fillColor(MUTED)
       .font('Helvetica')
       .fontSize(8.5)
-      .text(label!, metaX + 10, lineY);
+      .text(label, metaX + 10, lineY);
     document
       .fillColor(BRAND_NAVY)
       .font('Helvetica-Bold')
       .fontSize(9)
-      .text(value!, metaX + 78, lineY, { width: right - metaX - 88, align: 'right' });
+      .text(value, metaX + 78, lineY, { width: right - metaX - 88, align: 'right' });
   });
-  return y + 108;
+  return y + CUSTOMER_META_BOX_HEIGHT + 16;
 }
 
 function drawLines(document: PdfDocument, facts: CommercialDocumentFacts, y: number): number {
@@ -480,24 +550,32 @@ function drawTotalsAndSignatures(
     document.addPage();
     currentY = 55;
   } else currentY += 14;
-  const totalsX = right - 225;
-  document.roundedRect(totalsX, currentY, 225, 82, 6).fillAndStroke(LIGHT_BLUE, BORDER);
-  const totals = [
-    ['Subtotal', money(facts.totals.base, facts.currency)],
-    ['ITBIS', money(facts.totals.itbis, facts.currency)],
-    ['TOTAL', money(facts.totals.gross, facts.currency)],
+  const totalsX = right - TOTALS_BOX_WIDTH;
+  // Match POS: Subtotal is pre-discount bases; Descuento is always printed (including 0%).
+  const subtotalAmount = addMoneyStrings(facts.totals.base, facts.totals.discount);
+  const discountLabel = `Descuento(${formatDiscountPercentLabel(facts.totals.discountPercent)}%)`;
+  const totals: Array<[string, string, boolean]> = [
+    ['Subtotal', money(subtotalAmount, facts.currency), false],
+    // Helvetica (WinAnsi) has no Unicode minus − (U+2212); it renders as garbage (").
+    [discountLabel, `-${money(facts.totals.discount, facts.currency)}`, false],
+    ['ITBIS', money(facts.totals.itbis, facts.currency), false],
+    ['TOTAL', money(facts.totals.gross, facts.currency), true],
   ];
-  totals.forEach(([label, value], index) => {
-    const totalY = currentY + 13 + index * 22;
+  const totalsBoxHeight = TOTALS_BOX_PADDING_Y * 2 + totals.length * TOTALS_ROW_HEIGHT - 8;
+  document
+    .roundedRect(totalsX, currentY, TOTALS_BOX_WIDTH, totalsBoxHeight, 6)
+    .fillAndStroke(LIGHT_BLUE, BORDER);
+  totals.forEach(([label, value, emphasize], index) => {
+    const totalY = currentY + TOTALS_BOX_PADDING_Y + index * TOTALS_ROW_HEIGHT;
     document
-      .fillColor(index === 2 ? BRAND_NAVY : MUTED)
-      .font(index === 2 ? 'Helvetica-Bold' : 'Helvetica')
-      .fontSize(index === 2 ? 9 : 8)
-      .text(label!, totalsX + 12, totalY);
+      .fillColor(emphasize ? BRAND_NAVY : MUTED)
+      .font(emphasize ? 'Helvetica-Bold' : 'Helvetica')
+      .fontSize(emphasize ? 9 : 8)
+      .text(label, totalsX + 12, totalY);
     document
       .fillColor(BRAND_NAVY)
       .font('Helvetica-Bold')
-      .text(value!, totalsX + 105, totalY, { width: 108, align: 'right' });
+      .text(value, totalsX + 105, totalY, { width: 108, align: 'right' });
   });
   if (facts.cancellation) {
     document
@@ -567,7 +645,7 @@ function writeDocument(
   const range = document.bufferedPageRange();
   for (let page = range.start; page < range.start + range.count; page += 1) {
     document.switchToPage(page);
-    drawFooter(document, options, page + 1, range.count);
+    drawFooter(document, page + 1, range.count);
   }
 }
 

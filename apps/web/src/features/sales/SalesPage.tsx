@@ -29,8 +29,8 @@ import {
 const TABS: { id: SalesListTab; label: string }[] = [
   { id: 'ALL', label: 'Todas' },
   { id: 'DRAFT', label: 'Borrador' },
-  { id: 'QUOTE_DRAFT', label: 'Cotizaciones en borrador' },
-  { id: 'QUOTE_ISSUED', label: 'Cotizaciones emitidas' },
+  { id: 'QUOTE_DRAFT', label: 'Cot. Borrador' },
+  { id: 'QUOTE_ISSUED', label: 'Cot. Emitida' },
   { id: 'COMPLETED', label: 'Completada' },
   { id: 'CANCELLED', label: 'Cancelada' },
 ];
@@ -52,6 +52,7 @@ function kpiFilterLabels(filters: ReturnType<typeof parseSalesUrlFilters>): stri
 export function SalesPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [query, setQuery] = useState('');
+  const [showDateFilters, setShowDateFilters] = useState(false);
   const { user } = useAuth();
   const tab = parseSalesListTab(searchParams.get('tab')) ?? 'ALL';
   const page = parseListPage(searchParams.get('page'));
@@ -154,76 +155,104 @@ export function SalesPage() {
             <Button variant="secondary" onClick={() => navigate('/sales/quote/new')}>
               Nueva cotización
             </Button>
-            <Button aria-label="Nuevo borrador" onClick={() => navigate('/sales/draft/new')}>
-              Nueva venta
+            <Button onClick={() => navigate('/sales/draft/new')}>
+              Nuevo borrador
             </Button>
           </div>
         }
       />
 
-      <div className="mb-6 grid gap-4 rounded-xl border border-navy-100 bg-white p-4 lg:grid-cols-[minmax(16rem,1fr)_auto]">
-        <SearchInput
-          id="sales-search"
-          label="Buscar por número o cliente"
-          placeholder="FAC-000098, COT-000123, cliente…"
-          value={query}
-          onChange={(event) => {
-            setQuery(event.target.value);
-            setSearchParams(
-              (prev) => {
-                const nextParams = new URLSearchParams(prev);
-                setListPageParam(nextParams, 1);
-                return nextParams;
-              },
-              { replace: true },
-            );
-          }}
-        />
-        <form className="flex flex-wrap items-end gap-3" onSubmit={submitDateRange}>
-          <Field label="Fecha desde" htmlFor="sales-date-from">
-            <Input
-              id="sales-date-from"
-              type="date"
-              value={dateFrom}
-              onChange={(event) => setDateFrom(event.target.value)}
-            />
-          </Field>
-          <Field label="Fecha hasta" htmlFor="sales-date-to" error={dateError || undefined}>
-            <Input
-              id="sales-date-to"
-              type="date"
-              value={dateTo}
-              onChange={(event) => setDateTo(event.target.value)}
-              aria-invalid={dateError ? true : undefined}
-            />
-          </Field>
-          <Button type="submit" variant="secondary">
-            Filtrar
-          </Button>
-          {listFilters.dateFrom || listFilters.dateTo ? (
-            <Button
-              type="button"
-              variant="ghost"
-              onClick={() => {
-                setDateFrom('');
-                setDateTo('');
-                setDateError('');
+      <div className="mb-6 rounded-xl border border-navy-100 bg-white p-4">
+        {/* Fila principal: búsqueda + toggle de filtros avanzados */}
+        <div className="flex flex-wrap items-end gap-3">
+          <div className="min-w-[16rem] flex-1">
+            <SearchInput
+              id="sales-search"
+              label="Buscar por número o cliente"
+              placeholder="FAC-000098, COT-000123, cliente…"
+              value={query}
+              onChange={(event) => {
+                setQuery(event.target.value);
                 setSearchParams(
                   (prev) => {
-                    const next = new URLSearchParams(prev);
-                    next.delete('dateFrom');
-                    next.delete('dateTo');
-                    setListPageParam(next, 1);
-                    return next;
+                    const nextParams = new URLSearchParams(prev);
+                    setListPageParam(nextParams, 1);
+                    return nextParams;
                   },
                   { replace: true },
                 );
               }}
-            >
-              Limpiar fechas
+            />
+          </div>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => setShowDateFilters((prev) => !prev)}
+            aria-expanded={showDateFilters}
+            aria-controls="sales-date-filters"
+          >
+            {/* Indica si hay fechas activas para que el usuario sepa que hay un filtro aplicado */}
+            {listFilters.dateFrom || listFilters.dateTo
+              ? 'Fechas activas ✕'
+              : showDateFilters
+                ? 'Ocultar filtros ↑'
+                : 'Filtros avanzados ↓'}
+          </Button>
+        </div>
+
+        {/* Panel colapsable de filtro por fechas */}
+        {showDateFilters && (
+          <form
+            id="sales-date-filters"
+            className="mt-4 flex flex-wrap items-end gap-3 border-t border-navy-100 pt-4"
+            onSubmit={submitDateRange}
+          >
+            <Field label="Fecha desde" htmlFor="sales-date-from">
+              <Input
+                id="sales-date-from"
+                type="date"
+                value={dateFrom}
+                onChange={(event) => setDateFrom(event.target.value)}
+              />
+            </Field>
+            <Field label="Fecha hasta" htmlFor="sales-date-to" error={dateError || undefined}>
+              <Input
+                id="sales-date-to"
+                type="date"
+                value={dateTo}
+                onChange={(event) => setDateTo(event.target.value)}
+                aria-invalid={dateError ? true : undefined}
+              />
+            </Field>
+            <Button type="submit" variant="secondary">
+              Filtrar
             </Button>
-          ) : null}
-        </form>
+            {listFilters.dateFrom || listFilters.dateTo ? (
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => {
+                  setDateFrom('');
+                  setDateTo('');
+                  setDateError('');
+                  setSearchParams(
+                    (prev) => {
+                      const next = new URLSearchParams(prev);
+                      next.delete('dateFrom');
+                      next.delete('dateTo');
+                      setListPageParam(next, 1);
+                      return next;
+                    },
+                    { replace: true },
+                  );
+                }}
+              >
+                Limpiar fechas
+              </Button>
+            ) : null}
+          </form>
+        )}
       </div>
 
       {hasKpiFilter && (
@@ -242,7 +271,7 @@ export function SalesPage() {
       <TabBar tabs={TABS} value={tab} onChange={handleTabChange} aria-label="Estado de factura" />
 
       {result.status === 'loading' ? (
-        <Skeleton label="Cargando facturas" />
+        <Skeleton label="Cargando facturas" variant="table" filterBar={false} lines={8} />
       ) : (
         <LoadingOverlay active={result.isRefreshing} label="Actualizando facturas">
           <SalesTable

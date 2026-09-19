@@ -21,6 +21,9 @@ import type {
   SalesListFilters,
   SalesListRow,
   SalesListTab,
+  SellerSalesReport,
+  SellerSalesReportFilters,
+  SellerSalesReportPdfDownload,
   SetDraftLinePriceInput,
   SetDraftLineQuantityInput,
   SetDraftMetaInput,
@@ -91,6 +94,7 @@ type ApiInvoice = {
   currency: 'DOP' | 'USD';
   fiscal: boolean;
   applyItbis: boolean;
+  discountPercent?: string;
   customer: ApiCustomerView;
   createdAt: string;
   confirmedAt: string | null;
@@ -112,7 +116,7 @@ type ApiInvoice = {
   refunded?: string;
   balance?: string;
   lines: ApiInvoiceLine[];
-  totals: { gross: string; base: string; itbis: string };
+  totals: { gross: string; base: string; itbis: string; discount?: string };
   profitability?: ApiProfitability;
   document?: ApiInvoiceDocument;
   history?: ApiHistoryEntry[];
@@ -184,12 +188,14 @@ function toPosDraft(
     currency: invoice.currency,
     fiscal: invoice.fiscal,
     applyItbis: invoice.applyItbis,
+    discountPercent: moneyNumber(invoice.discountPercent ?? '0'),
     lines: invoice.lines.map(toPosLine),
     totals: {
       lineCount: invoice.lines.length,
       gross: moneyNumber(invoice.totals.gross),
       itbis: moneyNumber(invoice.totals.itbis),
-      taxableBase: moneyNumber(invoice.totals.base),
+      taxableBase: invoice.lines.reduce((sum, line) => sum + moneyNumber(line.base), 0),
+      discount: moneyNumber(invoice.totals.discount ?? '0'),
     },
     customers,
     services,
@@ -295,9 +301,11 @@ function toInvoiceDetail(invoice: ApiInvoice): InvoiceDetailView {
     customerId: invoice.customer.id,
     customerName: invoice.customer.name,
     customerRnc: optionalText(invoice.customer.rnc),
+    customerType: toCustomerType(invoice.customer.customerType),
     currency: invoice.currency,
     fiscal: invoice.fiscal,
     applyItbis: invoice.applyItbis,
+    discountPercent: moneyNumber(invoice.discountPercent ?? '0'),
     lines: invoice.lines.map((line) => ({
       id: line.id,
       type: line.type,
@@ -557,6 +565,32 @@ export function getAccountStatementPdfWithHttp(
   );
 }
 
+function sellerSalesReportQuery(filters: SellerSalesReportFilters): string {
+  const params = new URLSearchParams({
+    dateFrom: filters.dateFrom,
+    dateTo: filters.dateTo,
+  });
+  if (filters.sellerUserId) params.set('sellerUserId', filters.sellerUserId);
+  if (filters.page != null && filters.page > 1) params.set('page', String(filters.page));
+  return params.toString();
+}
+
+export function listSellerSalesReportWithHttp(
+  filters: SellerSalesReportFilters,
+): Promise<Result<SellerSalesReport>> {
+  return request(() =>
+    httpClient<SellerSalesReport>(`${SALES_PATH}/reports/seller-sales?${sellerSalesReportQuery(filters)}`),
+  );
+}
+
+export function getSellerSalesReportPdfWithHttp(
+  filters: SellerSalesReportFilters,
+): Promise<Result<SellerSalesReportPdfDownload>> {
+  return request(() =>
+    httpClientBlob(`${SALES_PATH}/reports/seller-sales.pdf?${sellerSalesReportQuery(filters)}`),
+  );
+}
+
 export function regenerateInvoicePdfWithHttp(id: string): Promise<Result<InvoiceDetailView>> {
   return request(async () => {
     const invoice = await httpClient<ApiInvoice>(`${SALES_PATH}/${id}/pdf/regenerate`, {
@@ -702,6 +736,9 @@ export function setDraftMetaWithHttp(input: SetDraftMetaInput): Promise<Result<P
   if (input.currency !== undefined) body.currency = input.currency;
   if (input.fiscal !== undefined) body.fiscal = input.fiscal;
   if (input.applyItbis !== undefined) body.applyItbis = input.applyItbis;
+  if (input.discountPercent !== undefined) {
+    body.discountPercent = moneyString(input.discountPercent);
+  }
 
   return mutateDraft(() =>
     httpClient<ApiInvoice>(`${SALES_PATH}/${input.draftId}`, {

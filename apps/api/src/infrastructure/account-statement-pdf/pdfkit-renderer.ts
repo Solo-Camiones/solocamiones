@@ -36,6 +36,16 @@ function formatDate(value: Date): string {
   }).format(value);
 }
 
+/** `@db.Date` values are UTC midnight; UTC formatting keeps the stored calendar day. */
+function formatCalendarDate(value: Date): string {
+  return new Intl.DateTimeFormat('es-DO', {
+    timeZone: 'UTC',
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  }).format(value);
+}
+
 function formatDateTime(value: Date): string {
   return new Intl.DateTimeFormat('es-DO', {
     timeZone: 'America/Santo_Domingo',
@@ -59,18 +69,6 @@ function contentBottom(document: PdfDocument): number {
   return document.page.height - FOOTER_RESERVE;
 }
 
-function corporateProfileLine(): string {
-  return [
-    CORPORATE_PROFILE.legalName,
-    `RNC: ${CORPORATE_PROFILE.rnc}`,
-    CORPORATE_PROFILE.whatsApp,
-    CORPORATE_PROFILE.email,
-    CORPORATE_PROFILE.social.instagram,
-    CORPORATE_PROFILE.social.facebook,
-    CORPORATE_PROFILE.social.tiktok,
-  ].join('  ·  ');
-}
-
 function drawHeader(document: PdfDocument, continued: boolean): number {
   const left = document.page.margins.left;
   const right = document.page.width - document.page.margins.right;
@@ -80,10 +78,15 @@ function drawHeader(document: PdfDocument, continued: boolean): number {
     .font('Helvetica-Bold')
     .fontSize(14)
     .text(CORPORATE_PROFILE.legalName, 122, 38);
-  document.fillColor(MUTED).font('Helvetica').fontSize(7.5);
-  document.text(`RNC: ${CORPORATE_PROFILE.rnc}`, 122, 57);
-  document.text(CORPORATE_PROFILE.address, 122, 70, { width: 270 });
-  document.text(`${CORPORATE_PROFILE.whatsApp} | ${CORPORATE_PROFILE.email}`, 122, 84, {
+  document
+    .fillColor(MUTED)
+    .font('Helvetica-Oblique')
+    .fontSize(7.5)
+    .text(CORPORATE_PROFILE.tagline, 122, 54, { width: 270 });
+  document.font('Helvetica').fontSize(7.5);
+  document.text(`RNC: ${CORPORATE_PROFILE.rnc}`, 122, 68);
+  document.text(CORPORATE_PROFILE.address, 122, 80, { width: 270 });
+  document.text(`${CORPORATE_PROFILE.whatsApp} | ${CORPORATE_PROFILE.email}`, 122, 94, {
     width: 240,
   });
   document.text(
@@ -93,7 +96,7 @@ function drawHeader(document: PdfDocument, continued: boolean): number {
       CORPORATE_PROFILE.social.tiktok,
     ].join('  ·  '),
     122,
-    96,
+    106,
     { width: 240 },
   );
   document
@@ -114,8 +117,8 @@ function drawHeader(document: PdfDocument, continued: boolean): number {
         align: 'right',
       });
   }
-  document.moveTo(left, 118).lineTo(right, 118).lineWidth(2).strokeColor(BRAND_BLUE).stroke();
-  return 134;
+  document.moveTo(left, 126).lineTo(right, 126).lineWidth(2).strokeColor(BRAND_BLUE).stroke();
+  return 142;
 }
 
 function drawCustomer(document: PdfDocument, facts: AccountStatementPdfFacts, y: number): number {
@@ -195,17 +198,10 @@ function drawFooter(document: PdfDocument, generatedAt: Date): void {
       .lineWidth(0.5)
       .stroke();
     document
-      .fillColor(MUTED)
-      .font('Helvetica')
-      .fontSize(6.2)
-      .text(corporateProfileLine(), left, footerTop + 6, {
-        width: right - left,
-      });
-    document
       .fillColor(BRAND_NAVY)
       .font('Helvetica-Bold')
       .fontSize(6.8)
-      .text('Pagos por transferencia:', left, footerTop + 22);
+      .text('Pagos por transferencia:', left, footerTop + 8);
     document
       .fillColor(MUTED)
       .font('Helvetica')
@@ -218,7 +214,7 @@ function drawFooter(document: PdfDocument, generatedAt: Date): void {
           `A nombre de: ${transfer.accountHolder}`,
         ].join('\n'),
         left,
-        footerTop + 32,
+        footerTop + 18,
         { width: 280, lineGap: 1 },
       );
     document
@@ -228,20 +224,20 @@ function drawFooter(document: PdfDocument, generatedAt: Date): void {
       .text(
         `Pagos con cheques a nombre de: ${CORPORATE_PROFILE.payment.chequePayee}`,
         left + 300,
-        footerTop + 22,
+        footerTop + 8,
         { width: rightColumnWidth },
       );
     document
       .fillColor(MUTED)
       .font('Helvetica')
       .fontSize(6.5)
-      .text(`Saldo actualizado al ${formatDateTime(generatedAt)}`, left + 300, footerTop + 46, {
+      .text(`Saldo actualizado al ${formatDateTime(generatedAt)}`, left + 300, footerTop + 32, {
         width: rightColumnWidth,
       });
-    document.text(INVOICE_PDF_INTERNAL_NOTICE, left + 300, footerTop + 60, {
+    document.text(INVOICE_PDF_INTERNAL_NOTICE, left + 300, footerTop + 46, {
       width: rightColumnWidth,
     });
-    document.text(`Página ${page + 1} de ${range.count}`, left + 300, footerTop + 86, {
+    document.text(`Página ${page + 1} de ${range.count}`, left + 300, footerTop + 72, {
       width: rightColumnWidth,
       align: 'right',
       lineBreak: false,
@@ -270,7 +266,7 @@ function writeStatement(facts: AccountStatementPdfFacts, document: PdfDocument):
     const values = [
       row.number,
       formatDate(row.issuedAt),
-      formatDate(row.dueDate),
+      formatCalendarDate(row.dueDate),
       PAYMENT_STATE_LABEL[row.paymentState],
       money(row.invoiced),
       money(row.paid),

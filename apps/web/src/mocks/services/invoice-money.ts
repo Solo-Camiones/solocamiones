@@ -28,9 +28,7 @@ export function lineGross(line: InvoiceLine, applyItbis: boolean): number {
 }
 
 export function invoiceTotal(invoice: Invoice): number {
-  return roundMoney(
-    invoice.lines.reduce((sum, line) => sum + lineGross(line, invoice.applyItbis === true), 0),
-  );
+  return applyInvoiceDiscount(invoice).gross;
 }
 
 export function isRefund(payment: Payment): boolean {
@@ -54,13 +52,50 @@ export function invoiceRefunded(invoice: Invoice): number {
 }
 
 export function invoiceItbis(invoice: Invoice): number {
+  return applyInvoiceDiscount(invoice).itbis;
+}
+
+export function invoiceTaxableBase(invoice: Invoice): number {
+  return roundMoney(invoice.lines.reduce((sum, line) => sum + lineBase(line), 0));
+}
+
+function sumLineGross(invoice: Invoice): number {
+  return roundMoney(
+    invoice.lines.reduce((sum, line) => sum + lineGross(line, invoice.applyItbis === true), 0),
+  );
+}
+
+function sumLineItbis(invoice: Invoice): number {
   return roundMoney(
     invoice.lines.reduce((sum, line) => sum + lineItbis(line, invoice.applyItbis === true), 0),
   );
 }
 
-export function invoiceTaxableBase(invoice: Invoice): number {
-  return roundMoney(invoice.lines.reduce((sum, line) => sum + lineBase(line), 0));
+/**
+ * Invoice-level discount on all line bases. Mirrors the API money helper.
+ * ITBIS stays the pre-discount sum of line ITBIS (SALE-010).
+ */
+export function applyInvoiceDiscount(
+  invoice: Invoice,
+  discountPercent = invoice.discountPercent ?? 0,
+): { discount: number; base: number; itbis: number; gross: number } {
+  const allBase = invoiceTaxableBase(invoice);
+  const percent = Math.min(100, Math.max(0, discountPercent));
+  const discount = roundMoney((allBase * percent) / 100);
+  const itbis = sumLineItbis(invoice);
+
+  if (discount === 0) {
+    return {
+      discount: 0,
+      base: allBase,
+      itbis,
+      gross: sumLineGross(invoice),
+    };
+  }
+
+  const base = roundMoney(allBase - discount);
+  const gross = roundMoney(base + itbis);
+  return { discount, base, itbis, gross };
 }
 
 /**

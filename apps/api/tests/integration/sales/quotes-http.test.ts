@@ -110,6 +110,7 @@ describe('convertible quotes HTTP (QUOTE-001/002)', () => {
       status: 'QUOTE_ISSUED',
       number: null,
       quoteNumber: 'COT-000001',
+      sellerName: 'Fixture',
       customerSnapshot: { name: 'Cliente cotizado', rnc: '00112345678', phone: '809-555-0101' },
       totals: { base: '100.00', itbis: '18.00', gross: '118.00' },
     });
@@ -118,6 +119,13 @@ describe('convertible quotes HTTP (QUOTE-001/002)', () => {
     expect(issued.body).not.toHaveProperty('profitability');
     expect(issued.body).not.toHaveProperty('document');
 
+    const pdf = await agent.get(`${ROOT}/${draft.id}/pdf`).buffer(true);
+    expect(pdf.status).toBe(200);
+    expect(pdf.headers['content-disposition']).toMatch(/filename="COT-000001\.pdf"/);
+    const pdfHex = concatenatedPdfHexOperands(pdf.body as Buffer);
+    expect(pdfHex).toContain(Buffer.from('Fixture').toString('hex'));
+    expect(pdfHex).toContain(Buffer.from('Vendedor').toString('hex'));
+    expect(pdfHex).toContain(Buffer.from('Cliente cotizado').toString('hex'));
     const retry = await agent
       .post(`${ROOT}/${draft.id}/issue-quote`)
       .set(TEST_CSRF_HEADERS)

@@ -37,6 +37,7 @@ export type CreateDraftInvoiceRecord = {
   currency: InvoiceCurrency;
   fiscal: boolean;
   applyItbis: boolean;
+  discountPercent?: Prisma.Decimal | string;
 };
 
 export type IssueQuoteRecord = {
@@ -47,6 +48,8 @@ export type IssueQuoteRecord = {
   customerName: string;
   customerRnc: string | null;
   customerPhone: string | null;
+  quoteIssuedByUserId: string;
+  quoteIssuedByName: string;
   gross: Prisma.Decimal | string;
   base: Prisma.Decimal | string;
   itbis: Prisma.Decimal | string;
@@ -58,6 +61,7 @@ export type UpdateDraftInvoiceRecord = {
   currency?: InvoiceCurrency;
   fiscal?: boolean;
   applyItbis?: boolean;
+  discountPercent?: Prisma.Decimal | string;
 };
 
 export type ListInvoicesQuery = {
@@ -72,6 +76,60 @@ export type ListInvoicesQuery = {
 export type ListReceivablesQuery = {
   customerId?: string;
   invoice?: string;
+  page: number;
+  pageSize: number;
+};
+
+/** Administrator seller-sales report: COMPLETED invoices + outstanding QUOTE_ISSUED quotes. */
+export type SellerSalesDocumentType = 'INVOICE' | 'QUOTE';
+
+export type SellerSalesReportFilters = {
+  dateFrom: string;
+  dateTo: string;
+  sellerUserId?: string;
+};
+
+export type SellerSalesReportQuery = SellerSalesReportFilters & {
+  page: number;
+  pageSize: number;
+};
+
+export type SellerSalesReportRow = {
+  documentType: SellerSalesDocumentType;
+  number: string;
+  documentDate: Date;
+  sellerUserId: string;
+  sellerName: string;
+  customerName: string;
+  currency: InvoiceCurrency;
+  gross: Prisma.Decimal;
+};
+
+export type PublicSellerSalesReportRow = {
+  documentType: SellerSalesDocumentType;
+  number: string;
+  documentDate: string;
+  sellerUserId: string;
+  sellerName: string;
+  customerName: string;
+  currency: InvoiceCurrency;
+  gross: string;
+};
+
+export type PublicSellerSalesReportTotal = {
+  sellerUserId: string;
+  sellerName: string;
+  currency: InvoiceCurrency;
+  gross: string;
+};
+
+export type PublicSellerSalesReport = {
+  dateFrom: string;
+  dateTo: string;
+  sellerUserId: string | null;
+  rows: PublicSellerSalesReportRow[];
+  totals: PublicSellerSalesReportTotal[];
+  total: number;
   page: number;
   pageSize: number;
 };
@@ -266,6 +324,7 @@ export type PublicInvoice = {
   currency: InvoiceCurrency;
   fiscal: boolean;
   applyItbis: boolean;
+  discountPercent: string;
   customer: InvoiceCustomerView;
   customerSnapshot: InvoiceCustomerSnapshot | null;
   confirmedAt: string | null;
@@ -280,7 +339,7 @@ export type PublicInvoice = {
   refunded?: string;
   balance?: string;
   lines: PublicInvoiceLine[];
-  totals: { gross: string; base: string; itbis: string };
+  totals: { gross: string; base: string; itbis: string; discount: string };
   profitability?: PublicProfitability;
   document?: PublicInvoiceDocument;
   history: PublicInvoiceHistoryEntry[];
@@ -295,6 +354,9 @@ export type PublicInvoiceListPayment = {
   effectiveDate: string;
 };
 
+/** Commercial condition at confirmation: full initial settlement → CASH, else CREDIT. */
+export type SaleCondition = 'CASH' | 'CREDIT';
+
 export type PublicInvoiceListItem = {
   id: string;
   status: InvoiceStatus;
@@ -306,14 +368,17 @@ export type PublicInvoiceListItem = {
   currency: InvoiceCurrency;
   fiscal: boolean;
   applyItbis: boolean;
+  discountPercent: string;
   customer: InvoiceCustomerView;
   customerSnapshot: InvoiceCustomerSnapshot | null;
   confirmedAt: string | null;
   dueDate: string | null;
+  /** Present on confirmed invoices (COMPLETED / CANCELLED). Follows settlement, not customer type. */
+  saleCondition?: SaleCondition;
   paymentState?: PublicPaymentState;
   payments?: PublicInvoiceListPayment[];
   balance?: string;
-  totals: { gross: string; base: string; itbis: string };
+  totals: { gross: string; base: string; itbis: string; discount: string };
   profitability?: PublicProfitability;
   /** Stored profitability FX rate. Administrator-only; used to report USD receipts in DOP. */
   exchangeRateDopPerUsd?: string;
@@ -336,7 +401,7 @@ export type InvoiceConfirmedHistorySnapshot = {
   fiscal: boolean;
   customerId: string;
   customerSnapshot: InvoiceCustomerSnapshot;
-  totals: { gross: string; base: string; itbis: string };
+  totals: { gross: string; base: string; itbis: string; discount: string };
   confirmedAt: string;
   dueDate: string;
   confirmedByUserId: string;

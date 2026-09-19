@@ -136,6 +136,9 @@ export class SalesRepository {
         currency: input.currency,
         fiscal: input.fiscal,
         applyItbis: input.applyItbis,
+        ...(input.discountPercent !== undefined
+          ? { discountPercent: input.discountPercent }
+          : {}),
         customerId: input.customerId,
       },
       include: invoiceDetailInclude,
@@ -149,6 +152,7 @@ export class SalesRepository {
         currency: source.currency,
         fiscal: source.fiscal,
         applyItbis: source.applyItbis,
+        discountPercent: source.discountPercent,
         customerId: source.customerId,
         lines: {
           create: source.lines.map((line) => ({
@@ -289,6 +293,9 @@ export class SalesRepository {
         ...(input.currency !== undefined ? { currency: input.currency } : {}),
         ...(input.fiscal !== undefined ? { fiscal: input.fiscal } : {}),
         ...(input.applyItbis !== undefined ? { applyItbis: input.applyItbis } : {}),
+        ...(input.discountPercent !== undefined
+          ? { discountPercent: input.discountPercent }
+          : {}),
         ...(input.customerId !== undefined ? { customerId: input.customerId } : {}),
       },
       include: invoiceDetailInclude,
@@ -416,6 +423,8 @@ export class SalesRepository {
         customerName: input.customerName,
         customerRnc: input.customerRnc,
         customerPhone: input.customerPhone,
+        quoteIssuedByUserId: input.quoteIssuedByUserId,
+        quoteIssuedByName: input.quoteIssuedByName,
         gross: input.gross,
         base: input.base,
         itbis: input.itbis,

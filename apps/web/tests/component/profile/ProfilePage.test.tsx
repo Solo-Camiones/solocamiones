@@ -67,4 +67,29 @@ describe('ProfilePage', () => {
       screen.getByText(/Esta cuenta usa una contraseña inicial o temporal/),
     ).toBeVisible();
   });
+
+  it('toggles visibility independently on each password field', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<ProfilePage />, { route: '/profile', auth: sellerAuth() });
+
+    const currentPassword = screen.getByLabelText('Contraseña actual');
+    const newPassword = screen.getByLabelText('Nueva contraseña');
+    const confirmPassword = screen.getByLabelText('Confirmar nueva contraseña');
+    const toggles = screen.getAllByRole('button', { name: 'Mostrar contraseña' });
+
+    expect(toggles).toHaveLength(3);
+    expect(currentPassword).toHaveAttribute('type', 'password');
+    expect(newPassword).toHaveAttribute('type', 'password');
+    expect(confirmPassword).toHaveAttribute('type', 'password');
+
+    await user.click(toggles[0]!);
+    expect(currentPassword).toHaveAttribute('type', 'text');
+    expect(newPassword).toHaveAttribute('type', 'password');
+    expect(confirmPassword).toHaveAttribute('type', 'password');
+
+    await user.click(toggles[1]!);
+    expect(currentPassword).toHaveAttribute('type', 'text');
+    expect(newPassword).toHaveAttribute('type', 'text');
+    expect(confirmPassword).toHaveAttribute('type', 'password');
+  });
 });

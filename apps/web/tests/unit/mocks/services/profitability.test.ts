@@ -42,6 +42,8 @@ describe('USD profitability', () => {
     const profitDop = usdProfitToDop(profitUsd, 61.5);
     expect(profitabilityForInvoice(state, invoice, admin)?.profit).toBe(profitDop);
     expect(snapshot?.profitDop).toBe(roundMoney(8_900 + profitDop));
+    expect(snapshot?.outstandingDop).toBe(23_100);
+    expect(snapshot?.outstandingUsd).toBe(0);
     expect(snapshot).not.toHaveProperty('profitUsd');
   });
 

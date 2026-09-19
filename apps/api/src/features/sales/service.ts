@@ -40,11 +40,12 @@ import {
   QUOTE_ISSUED_ONLY_DUPLICATE_MESSAGE,
 } from './constants.js';
 import { DEFAULT_LINE_QUANTITY } from './money/constants.js';
-import { calculateLineMoney, parsePositiveDecimal, sumInvoiceMoney } from './money/index.js';
+import { calculateLineMoney, parsePositiveDecimal, applyInvoiceDiscount, isTaxableLineType } from './money/index.js';
 import {
   assertCreditExposureWithinLimit,
   assertInitialPaymentPolicy,
   confirmationDueTermDays,
+  confirmationPaymentIdempotencyKey,
   invoiceNewBalance,
 } from './credit-confirmation.js';
 import {
@@ -185,6 +186,7 @@ export class SalesService {
       const currency = profile.currency ?? DEFAULT_DRAFT_CURRENCY;
       const fiscal = profile.fiscal ?? false;
       const applyItbis = profile.applyItbis ?? false;
+      const discountPercent = profile.discountPercent ?? '0';
       assertFiscalCustomer(customer, fiscal);
 
       const invoice = await sales.createDraft({
@@ -192,6 +194,7 @@ export class SalesService {
         currency,
         fiscal,
         applyItbis,
+        discountPercent,
       });
       await history.append({
         actor: { actorType: 'USER', actorUserId: actorId },
@@ -221,6 +224,7 @@ export class SalesService {
         currency: profile.currency ?? DEFAULT_DRAFT_CURRENCY,
         fiscal,
         applyItbis: profile.applyItbis ?? false,
+        discountPercent: profile.discountPercent ?? '0',
       });
       await history.append({
         actor: { actorType: 'USER', actorUserId: actorId },
@@ -308,6 +312,7 @@ export class SalesService {
         currency: patch.currency,
         fiscal: patch.fiscal,
         applyItbis: patch.applyItbis,
+        discountPercent: patch.discountPercent,
       });
       return toPublicInvoice(updated, actor);
     });
@@ -451,7 +456,14 @@ export class SalesService {
           applyItbis: existing.applyItbis,
         }),
       }));
-      const totals = sumInvoiceMoney(lineMoney.map(({ money }) => money));
+      const totals = applyInvoiceDiscount({
+        lines: lineMoney.map(({ line, money }) => ({
+          ...money,
+          taxable: isTaxableLineType(line.type),
+        })),
+        discountPercent: existing.discountPercent,
+        applyItbis: existing.applyItbis,
+      });
       const issuedAt = new Date();
       const issued = await sales.issueQuote({
         id,
@@ -461,6 +473,9 @@ export class SalesService {
         customerName: customer.name,
         customerRnc: customer.rnc,
         customerPhone: customer.contacts.find((contact) => contact.isPrimary)?.phone ?? null,
+        // Freeze issuer like confirmedBy on invoices so COT- PDFs stay deterministic.
+        quoteIssuedByUserId: actorId,
+        quoteIssuedByName: actor.name,
         gross: totals.gross,
         base: totals.base,
         itbis: totals.itbis,
@@ -481,9 +496,10 @@ export class SalesService {
             phone: issued.customerPhone,
           },
           totals: {
-            gross: issued.gross!.toFixed(2),
-            base: issued.base!.toFixed(2),
-            itbis: issued.itbis!.toFixed(2),
+            gross: totals.gross.toFixed(2),
+            base: totals.base.toFixed(2),
+            itbis: totals.itbis.toFixed(2),
+            discount: totals.discount.toFixed(2),
           },
         },
       });
@@ -599,7 +615,14 @@ export class SalesService {
                   applyItbis: existing.applyItbis,
                 }),
         }));
-        const totals = sumInvoiceMoney(lineMoney.map((entry) => entry.money));
+        const totals = applyInvoiceDiscount({
+          lines: lineMoney.map(({ line, money }) => ({
+            ...money,
+            taxable: isTaxableLineType(line.type),
+          })),
+          discountPercent: existing.discountPercent,
+          applyItbis: existing.applyItbis,
+        });
         const initialPaymentAmount = profile.payment
           ? new Prisma.Decimal(profile.payment.amount)
           : null;
@@ -684,7 +707,8 @@ export class SalesService {
             effectiveDate: todayBusinessDate(confirmedAt),
             reference: profile.payment.reference ?? null,
             actorUserId: actorId,
-            idempotencyKey: profile.payment.idempotencyKey ?? `confirm:${id}`,
+            // Always confirm:{id} so saleCondition reconstruction ignores nearby CxC payments.
+            idempotencyKey: confirmationPaymentIdempotencyKey(id),
           });
           await history.append({
             actor: { actorType: 'USER', actorUserId: actorId },

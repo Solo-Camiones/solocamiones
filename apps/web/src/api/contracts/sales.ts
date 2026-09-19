@@ -129,6 +129,45 @@ export type SalesDocumentPdfDownload = {
 export type InvoicePdfDownload = SalesDocumentPdfDownload;
 export type QuotePdfDownload = SalesDocumentPdfDownload;
 export type AccountStatementPdfDownload = SalesDocumentPdfDownload;
+export type SellerSalesReportPdfDownload = SalesDocumentPdfDownload;
+
+export type SellerSalesDocumentType = 'INVOICE' | 'QUOTE';
+
+export type SellerSalesReportFilters = {
+  dateFrom: string;
+  dateTo: string;
+  sellerUserId?: string;
+  page?: number;
+};
+
+export type SellerSalesReportRow = {
+  documentType: SellerSalesDocumentType;
+  number: string;
+  documentDate: string;
+  sellerUserId: string;
+  sellerName: string;
+  customerName: string;
+  currency: Currency;
+  gross: string;
+};
+
+export type SellerSalesReportTotal = {
+  sellerUserId: string;
+  sellerName: string;
+  currency: Currency;
+  gross: string;
+};
+
+export type SellerSalesReport = {
+  dateFrom: string;
+  dateTo: string;
+  sellerUserId: string | null;
+  rows: SellerSalesReportRow[];
+  totals: SellerSalesReportTotal[];
+  total: number;
+  page: number;
+  pageSize: number;
+};
 
 export type InvoiceDetailActions = {
   canPay: boolean;
@@ -147,9 +186,11 @@ export type InvoiceDetailView = {
   customerId: string;
   customerName: string;
   customerRnc?: string;
+  customerType: 'CASH' | 'CREDIT';
   currency: Currency;
   fiscal: boolean;
   applyItbis: boolean;
+  discountPercent: number;
   lines: InvoiceLineView[];
   payments: PaymentView[];
   total: number;
@@ -211,7 +252,9 @@ export type PosDraftTotals = {
   lineCount: number;
   gross: number;
   itbis: number;
+  /** Sum of all line bases (pre-discount), shown as Subtotal. */
   taxableBase: number;
+  discount: number;
 };
 
 export type CostProvenance = 'ACTUAL' | 'ESTIMATED' | 'UNKNOWN';
@@ -254,6 +297,7 @@ export type PosDraftView = {
   currency: Currency;
   fiscal: boolean;
   applyItbis: boolean;
+  discountPercent: number;
   lines: PosLineView[];
   totals: PosDraftTotals;
   customers: Array<{ id: string; name: string; rnc?: string; isDefault?: boolean }>;
@@ -307,4 +351,5 @@ export type SetDraftMetaInput = {
   currency?: Currency;
   fiscal?: boolean;
   applyItbis?: boolean;
+  discountPercent?: number;
 };

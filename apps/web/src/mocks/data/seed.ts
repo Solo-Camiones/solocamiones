@@ -520,6 +520,7 @@ export function createInitialState(): AppState {
           invoiceId: 'INV-099',
           amount: 3_600,
           method: 'CASH' as const,
+          effectiveDate: '2026-08-25',
           createdAt: ISO('2026-08-25T11:00:00.000Z'),
           actorId: 'U-LAURA',
         },
@@ -552,6 +553,9 @@ export function createInitialState(): AppState {
           invoiceId: 'INV-097',
           amount: 5_500,
           method: 'CASH' as const,
+          // Matches API confirm settlement key so saleCondition stays CASH.
+          idempotencyKey: 'confirm:INV-097',
+          effectiveDate: '2026-08-22',
           createdAt: ISO('2026-08-22T16:00:00.000Z'),
           actorId: 'U-LAURA',
         },

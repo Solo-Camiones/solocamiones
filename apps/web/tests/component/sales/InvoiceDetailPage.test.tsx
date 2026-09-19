@@ -47,7 +47,7 @@ describe('InvoiceDetailPage', () => {
     expect(screen.queryByText('Pagado')).not.toBeInTheDocument();
     expect(screen.queryByText('Sin pagar')).not.toBeInTheDocument();
     expect(screen.queryByText('Pago parcial')).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Registrar pago' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Confirmar pago' })).not.toBeInTheDocument();
     expect(screen.queryByText('Pagos y reembolsos')).not.toBeInTheDocument();
     expect(screen.queryByText('Sin movimientos registrados')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Cancelar factura' })).not.toBeInTheDocument();
@@ -75,9 +75,10 @@ describe('InvoiceDetailPage', () => {
     });
 
     expect(await screen.findByRole('heading', { name: 'FAC-000098' })).toBeVisible();
-    await user.click(screen.getByRole('button', { name: 'Registrar pago' }));
-    await user.type(screen.getByLabelText('Monto'), '5000');
     await user.click(screen.getByRole('button', { name: 'Confirmar pago' }));
+    const payDialog = await screen.findByRole('dialog', { name: 'Registrar pago' });
+    await user.type(within(payDialog).getByLabelText('Monto'), '5000');
+    await user.click(within(payDialog).getByRole('button', { name: 'Confirmar pago' }));
 
     expect(await screen.findByText('Abonado')).toBeVisible();
     expect(screen.getAllByText(/por Administrador Demo/).length).toBeGreaterThan(0);
@@ -106,7 +107,7 @@ describe('InvoiceDetailPage', () => {
     expect(await screen.findByRole('heading', { name: 'FAC-000099' })).toBeVisible();
     expect(screen.queryByText('Precio final')).not.toBeInTheDocument();
     expect(screen.getAllByText('RD$0.00').length).toBeGreaterThan(0);
-    await user.click(screen.getByRole('button', { name: 'Vista previa del documento' }));
+    await user.click(screen.getByRole('button', { name: 'Ver factura' }));
 
     const dialog = await screen.findByRole('dialog');
     expect(within(dialog).getByText('NCF: ______________________')).toBeVisible();
@@ -141,7 +142,7 @@ describe('InvoiceDetailPage', () => {
     });
 
     expect(await screen.findByRole('heading', { name: 'FAC-000099' })).toBeVisible();
-    await user.click(screen.getByRole('button', { name: 'Vista previa del documento' }));
+    await user.click(screen.getByRole('button', { name: 'Ver factura' }));
     const dialog = await screen.findByRole('dialog', { name: 'Vista previa de factura' });
     expect(within(dialog).getByTitle('FAC-000099.pdf')).toHaveAttribute(
       'src',

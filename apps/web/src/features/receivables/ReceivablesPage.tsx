@@ -10,6 +10,7 @@ import {
   Input,
   LoadingOverlay,
   PaginationBar,
+  SectionTitle,
   Select,
   Skeleton,
   toPageLoadMessage,
@@ -119,7 +120,7 @@ export function ReceivablesPage() {
   }
 
   if (result.status === 'loading') {
-    return <Skeleton label="Cargando cuentas por cobrar" variant="cards" lines={4} />;
+    return <Skeleton label="Cargando cuentas por cobrar" variant="table" lines={6} />;
   }
 
   const customerOptions = uniqueCustomerOptions(
@@ -201,6 +202,13 @@ export function ReceivablesPage() {
           <Button
             type="button"
             disabled={!customerId || !selectedCustomerHasDopBalance || isGeneratingStatement}
+            title={
+              !customerId
+                ? 'Seleccione un cliente para generar el estado de cuenta'
+                : !selectedCustomerHasDopBalance
+                  ? 'El cliente seleccionado no tiene saldo en DOP'
+                  : undefined
+            }
             onClick={generateStatement}
           >
             {isGeneratingStatement ? 'Generando…' : 'Generar estado de cuenta'}
@@ -215,13 +223,13 @@ export function ReceivablesPage() {
         </div>
       ) : null}
       <LoadingOverlay active={result.isRefreshing} label="Actualizando cuentas por cobrar">
-        <section className="mb-8">
-          <h2 className="mb-3 text-sm font-semibold text-navy">Resumen de saldos abiertos</h2>
+        <section className="mb-12">
+          <SectionTitle title="Resumen de saldos abiertos" />
           <CustomerOutstandingTable rows={result.snapshot.customers} hasQuery={hasAppliedFilters} />
         </section>
         {showInvoices && (
           <section>
-            <h2 className="mb-3 text-sm font-semibold text-navy">Facturas</h2>
+            <SectionTitle title="Facturas" />
             <OpenReceivablesTable rows={result.snapshot.invoices} hasQuery={hasAppliedFilters} />
             <PaginationBar
               page={result.snapshot.page}

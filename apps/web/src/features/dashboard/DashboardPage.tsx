@@ -244,7 +244,7 @@ export function DashboardPage() {
   const { user } = useAuth();
 
   if (query.status === 'loading') {
-    return <Skeleton label="Cargando inicio" variant="cards" lines={8} />;
+    return <Skeleton label="Cargando inicio" variant="kpi-grid" lines={8} cols={4} />;
   }
 
   if (query.status === 'error') {

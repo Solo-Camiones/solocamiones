@@ -14,6 +14,8 @@ export type InvoicePdfFacts = {
   originQuoteNumber: string | null;
   currency: 'DOP' | 'USD';
   fiscal: boolean;
+  /** From confirmation settlement: full initial payment = CASH, otherwise CREDIT. */
+  saleCondition: 'CASH' | 'CREDIT';
   customerName: string;
   customerRnc: string | null;
   customerPhone: string | null;
@@ -24,7 +26,13 @@ export type InvoicePdfFacts = {
   cancelReason: string | null;
   cancelledByName: string | null;
   lines: InvoicePdfLineFacts[];
-  totals: { gross: string; base: string; itbis: string };
+  totals: {
+    gross: string;
+    base: string;
+    itbis: string;
+    discount: string;
+    discountPercent: string;
+  };
   templateVersion: string;
 };
 

@@ -62,7 +62,10 @@ describe('CustomersPage', () => {
     const row = customer.closest('tr');
     expect(row).not.toBeNull();
 
+    expect(screen.getByRole('columnheader', { name: 'Contacto' })).toBeVisible();
+    expect(within(row!).getByText('María Reyes')).toBeVisible();
     expect(within(row!).getByText('809-555-0200')).toBeVisible();
+    expect(within(row!).getByText('compras@tdc.example')).toBeVisible();
     expect(screen.queryByText('Carlos Peña')).not.toBeInTheDocument();
     expect(
       screen.queryByRole('button', { name: 'Ver 2 contactos' }),
@@ -75,10 +78,11 @@ describe('CustomersPage', () => {
     expect(screen.getByText('Carlos Peña')).toBeVisible();
     expect(screen.getByText('809-555-0201')).toBeVisible();
     expect(screen.getByText('operaciones@tdc.example')).toBeVisible();
-    expect(screen.getByText('María Reyes')).toBeVisible();
+    expect(within(row!).getAllByText('María Reyes').length).toBeGreaterThan(0);
 
     await user.click(screen.getByRole('button', { name: 'Ocultar contactos' }));
     expect(screen.queryByText('Carlos Peña')).not.toBeInTheDocument();
+    expect(within(row!).getByText('María Reyes')).toBeVisible();
   });
 
   it('shows type chips and filters by customer type', async () => {

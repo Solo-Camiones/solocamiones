@@ -79,6 +79,7 @@ type ApiInvoice = {
   currency: 'DOP' | 'USD';
   fiscal: boolean;
   applyItbis: boolean;
+  discountPercent?: string;
   customer: { id: string; name: string; rnc: string | null; isDefault: boolean; customerType?: 'CASH' | 'CREDIT' };
   customerSnapshot: { name: string; rnc: string | null; phone: string | null } | null;
   confirmedAt: string | null;
@@ -93,7 +94,7 @@ type ApiInvoice = {
   refunded: string;
   balance: string;
   lines: ApiLine[];
-  totals: { gross: string; base: string; itbis: string };
+  totals: { gross: string; base: string; itbis: string; discount?: string };
   createdAt: string;
   updatedAt: string;
   document?: { status: 'READY' } | { status: 'FAILED'; errorId: string };
@@ -130,6 +131,7 @@ function emptyInvoice(id = draftId): ApiInvoice {
     currency: 'DOP',
     fiscal: false,
     applyItbis: false,
+    discountPercent: '0.00',
     customer: {
       id: cashCustomer.id,
       name: cashCustomer.name,
@@ -150,7 +152,7 @@ function emptyInvoice(id = draftId): ApiInvoice {
     refunded: '0.00',
     balance: '0.00',
     lines: [],
-    totals: { gross: '0.00', base: '0.00', itbis: '0.00' },
+    totals: { gross: '0.00', base: '0.00', itbis: '0.00', discount: '0.00' },
     createdAt: '2026-09-09T12:00:00.000Z',
     updatedAt: '2026-09-09T12:00:00.000Z',
   };
@@ -581,7 +583,7 @@ describe('M22 HTTP confirmation UI', () => {
     expect(await screen.findByRole('heading', { name: 'FAC-000001' })).toBeVisible();
     expect(screen.getByText(/Flota Este/)).toBeVisible();
     expect(screen.getByText('Filtro de aceite')).toBeVisible();
-    await user.click(screen.getByRole('button', { name: 'Vista previa del documento' }));
+    await user.click(screen.getByRole('button', { name: 'Ver factura' }));
     const dialog = await screen.findByRole('dialog');
     expect(within(dialog).getByText('NCF: ______________________')).toBeVisible();
     expect(within(dialog).getByTitle('FAC-000001.pdf')).toBeVisible();
@@ -636,7 +638,7 @@ describe('M22 HTTP confirmation UI', () => {
     expect(await screen.findByRole('heading', { name: 'FAC-000009' })).toBeVisible();
     expect(screen.getByText(/Referencia: pdf-err-9/)).toBeVisible();
     expect(
-      screen.queryByRole('button', { name: 'Vista previa del documento' }),
+      screen.queryByRole('button', { name: 'Ver factura' }),
     ).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Regenerar documento' })).not.toBeInTheDocument();
     expect(screen.queryByText('Rentabilidad')).not.toBeInTheDocument();
@@ -662,7 +664,7 @@ describe('M22 HTTP confirmation UI', () => {
     expect(screen.getByText(/Referencia: pdf-err-9/)).toBeVisible();
     await user.click(screen.getByRole('button', { name: 'Regenerar documento' }));
 
-    expect(await screen.findByRole('button', { name: 'Vista previa del documento' })).toBeVisible();
+    expect(await screen.findByRole('button', { name: 'Ver factura' })).toBeVisible();
     expect(screen.queryByText(/Referencia: pdf-err-9/)).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Regenerar documento' })).not.toBeInTheDocument();
     expect(

@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { AppError } from '../../../src/infrastructure/errors/app-error.js';
 import {
   ITBIS_RATE,
+  applyInvoiceDiscount,
   calculateLineMoney,
   calculateLineProfitDop,
   calculateLineProfitUsdReportingDop,
@@ -188,6 +189,121 @@ describe('sumInvoiceMoney', () => {
     const combinedBaseItbis = roundMoney(money('20.03').times('0.18'));
     expect(combinedBaseItbis.toFixed(2)).toBe('3.61');
     expect(totals.itbis.equals(combinedBaseItbis)).toBe(false);
+  });
+});
+
+describe('applyInvoiceDiscount', () => {
+  it('keeps SALE-010 per-line totals when the discount amount is zero', () => {
+    const merchandise = calculateLineMoney({
+      type: 'GENERIC',
+      unitPrice: '100',
+      applyItbis: true,
+    });
+    const service = calculateLineMoney({ type: 'SERVICE', unitPrice: '50', applyItbis: true });
+    const totals = applyInvoiceDiscount({
+      lines: [merchandise, service],
+      discountPercent: '0',
+      applyItbis: true,
+    });
+
+    expectMoney(totals.discount, '0.00');
+    expectMoney(totals.taxableBase, '100.00');
+    expectMoney(totals.exemptBase, '50.00');
+    expectMoney(totals.base, '150.00');
+    expectMoney(totals.itbis, '18.00');
+    expectMoney(totals.gross, '168.00');
+  });
+
+  it('discounts all line bases and keeps pre-discount ITBIS', () => {
+    const merchandise = calculateLineMoney({
+      type: 'GENERIC',
+      unitPrice: '100',
+      applyItbis: true,
+    });
+    const service = calculateLineMoney({ type: 'SERVICE', unitPrice: '50', applyItbis: true });
+    const totals = applyInvoiceDiscount({
+      lines: [merchandise, service],
+      discountPercent: '10',
+      applyItbis: true,
+    });
+
+    // discount = 10% of 150; ITBIS stays 18% of taxable 100
+    expectMoney(totals.discount, '15.00');
+    expectMoney(totals.taxableBase, '100.00');
+    expectMoney(totals.exemptBase, '50.00');
+    expectMoney(totals.base, '135.00');
+    expectMoney(totals.itbis, '18.00');
+    expectMoney(totals.gross, '153.00');
+  });
+
+  it('applies discount without ITBIS when applyItbis is off', () => {
+    const merchandise = calculateLineMoney({
+      type: 'GENERIC',
+      unitPrice: '100',
+      applyItbis: false,
+    });
+    const totals = applyInvoiceDiscount({
+      lines: [merchandise],
+      discountPercent: '25',
+      applyItbis: false,
+    });
+
+    expectMoney(totals.discount, '25.00');
+    expectMoney(totals.itbis, '0.00');
+    expectMoney(totals.base, '75.00');
+    expectMoney(totals.gross, '75.00');
+  });
+
+  it('keeps pre-discount ITBIS when discount is 100% of all bases', () => {
+    const merchandise = calculateLineMoney({
+      type: 'GENERIC',
+      unitPrice: '80',
+      applyItbis: true,
+    });
+    const delivery = calculateLineMoney({ type: 'DELIVERY', unitPrice: '20', applyItbis: true });
+    const totals = applyInvoiceDiscount({
+      lines: [merchandise, delivery],
+      discountPercent: '100',
+      applyItbis: true,
+    });
+
+    expectMoney(totals.discount, '100.00');
+    expectMoney(totals.itbis, '14.40');
+    expectMoney(totals.base, '0.00');
+    expectMoney(totals.gross, '14.40');
+  });
+
+  it('rounds the discount amount with HALF_UP and keeps per-line ITBIS', () => {
+    const merchandise = calculateLineMoney({
+      type: 'GENERIC',
+      unitPrice: '10.00',
+      applyItbis: true,
+    });
+    const totals = applyInvoiceDiscount({
+      lines: [merchandise],
+      discountPercent: '33.33',
+      applyItbis: true,
+    });
+
+    expectMoney(totals.discount, '3.33');
+    expectMoney(totals.base, '6.67');
+    expectMoney(totals.itbis, '1.80');
+    expectMoney(totals.gross, '8.47');
+  });
+
+  it('rejects a discount percent above 100', () => {
+    const merchandise = calculateLineMoney({
+      type: 'GENERIC',
+      unitPrice: '10',
+      applyItbis: false,
+    });
+    expect(() =>
+      applyInvoiceDiscount({
+        lines: [merchandise],
+        discountPercent: '100.01',
+        applyItbis: false,
+      }),
+    ).toThrow(AppError);
   });
 });
 

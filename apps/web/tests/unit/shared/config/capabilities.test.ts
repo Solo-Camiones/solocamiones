@@ -157,7 +157,7 @@ describe('capability presets follow the Development Plan', () => {
   it('keeps the prototype preset complete, including mechanic work orders', () => {
     const capabilities = CAPABILITY_PRESETS.prototype;
 
-    expect(navItemsForRole('ADMINISTRATOR', capabilities)).toHaveLength(10);
+    expect(navItemsForRole('ADMINISTRATOR', capabilities)).toHaveLength(11);
     expect(isMechanicPathAllowed('/mechanic/pending', capabilities)).toBe(true);
     expect(defaultPathForRole('MECHANIC', capabilities)).toBe('/mechanic');
   });

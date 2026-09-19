@@ -1,3 +1,5 @@
+import { randomUUID } from 'node:crypto';
+
 import { InvoiceCurrency, InvoiceLineType, CostProvenance } from '@prisma/client';
 import { afterAll, afterEach, describe, expect, it } from 'vitest';
 
@@ -16,6 +18,7 @@ async function cleanupSales() {
   await prisma.invoicePayment.deleteMany();
   await prisma.invoice.deleteMany();
   await prisma.mechanicalService.deleteMany();
+  await prisma.user.deleteMany({ where: { username: { startsWith: 'repo-quote-' } } });
   await prisma.invoiceSequence.update({
     where: { name: 'FAC' },
     data: { nextValue: 1 },
@@ -389,6 +392,14 @@ describe('SalesRepository (PostgreSQL)', () => {
       where: { id: quote.id },
       data: { createdAt: START_OF_FILTER_DAY },
     });
+    const issuer = await prisma.user.create({
+      data: {
+        name: 'Quote Issuer',
+        username: `repo-quote-${randomUUID()}`,
+        role: 'SELLER',
+        passwordHash: 'unused',
+      },
+    });
     await sales.issueQuote({
       id: quote.id,
       quoteNumber: 'COT-000001',
@@ -397,6 +408,8 @@ describe('SalesRepository (PostgreSQL)', () => {
       customerName: customer!.name,
       customerRnc: null,
       customerPhone: null,
+      quoteIssuedByUserId: issuer.id,
+      quoteIssuedByName: issuer.name,
       gross: '0.00',
       base: '0.00',
       itbis: '0.00',

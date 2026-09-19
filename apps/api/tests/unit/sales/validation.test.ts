@@ -14,6 +14,8 @@ import {
   lineNotesSchema,
   listInvoicesSchema,
   listReceivablesSchema,
+  sellerSalesReportQuerySchema,
+  sellerSalesReportPdfQuerySchema,
   setLinePriceSchema,
   updateDraftMetaSchema,
 } from '../../../src/features/sales/validation.js';
@@ -26,12 +28,14 @@ describe('draft HTTP validation', () => {
         currency: 'USD',
         fiscal: false,
         applyItbis: true,
+        discountPercent: '10.5',
         customerId: '11111111-1111-4111-8111-111111111111',
       }),
     ).toEqual({
       currency: 'USD',
       fiscal: false,
       applyItbis: true,
+      discountPercent: '10.5',
       customerId: '11111111-1111-4111-8111-111111111111',
     });
   });
@@ -40,6 +44,8 @@ describe('draft HTTP validation', () => {
     expect(updateDraftMetaSchema.safeParse({}).success).toBe(false);
     expect(createDraftSchema.safeParse({ currency: 'EUR' }).success).toBe(false);
     expect(createDraftSchema.safeParse({ extra: true }).success).toBe(false);
+    expect(createDraftSchema.safeParse({ discountPercent: '100.01' }).success).toBe(false);
+    expect(createDraftSchema.safeParse({ discountPercent: '-1' }).success).toBe(false);
   });
 
   it('accepts an optional trimmed list search query', () => {
@@ -75,6 +81,43 @@ describe('draft HTTP validation', () => {
       page: 1,
       pageSize: 10,
     });
+  });
+
+  it('paginates seller-sales JSON like other lists; PDF query omits page', () => {
+    expect(
+      sellerSalesReportQuerySchema.parse({
+        dateFrom: '2026-09-01',
+        dateTo: '2026-09-30',
+        page: '2',
+        pageSize: '25',
+      }),
+    ).toEqual({
+      dateFrom: '2026-09-01',
+      dateTo: '2026-09-30',
+      page: 2,
+      pageSize: 25,
+    });
+    expect(
+      sellerSalesReportQuerySchema.parse({ dateFrom: '2026-09-01', dateTo: '2026-09-30' }),
+    ).toEqual({
+      dateFrom: '2026-09-01',
+      dateTo: '2026-09-30',
+      page: 1,
+      pageSize: 10,
+    });
+    expect(
+      sellerSalesReportPdfQuerySchema.parse({ dateFrom: '2026-09-01', dateTo: '2026-09-30' }),
+    ).toEqual({
+      dateFrom: '2026-09-01',
+      dateTo: '2026-09-30',
+    });
+    expect(
+      sellerSalesReportPdfQuerySchema.safeParse({
+        dateFrom: '2026-09-01',
+        dateTo: '2026-09-30',
+        page: '1',
+      }).success,
+    ).toBe(false);
   });
 
   it('rejects an invalid invoice filter', () => {

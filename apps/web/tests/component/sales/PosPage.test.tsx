@@ -180,6 +180,35 @@ describe('PosPage', () => {
     expect(await screen.findByTestId('pos-itbis')).not.toHaveTextContent('RD$0.00');
   });
 
+  it('applies a discount percent under Subtotal and updates the total', async () => {
+    const user = userEvent.setup();
+    const created = await mockSalesRepository.createDraft();
+    expect(created.ok).toBe(true);
+    if (!created.ok) return;
+
+    renderPos(created.value.draftId, CAPABILITY_PRESETS['release-2']);
+    await screen.findByRole('heading', { name: /Totales/i });
+
+    await user.click(screen.getByLabelText(/Aplicar ITBIS/));
+    await user.click(screen.getByRole('button', { name: 'Agregar línea' }));
+    await user.type(screen.getByLabelText('Descripción'), 'Filtro gravado');
+    await user.clear(screen.getByLabelText('Cantidad'));
+    await user.type(screen.getByLabelText('Cantidad'), '1');
+    await user.clear(screen.getByLabelText('Precio'));
+    await user.type(screen.getByLabelText('Precio'), '100');
+    await user.click(screen.getByRole('button', { name: 'Agregar' }));
+    expect(await screen.findByText('Filtro gravado')).toBeVisible();
+
+    const discountInput = screen.getByTestId('pos-discount-percent');
+    await user.clear(discountInput);
+    await user.type(discountInput, '10');
+    await user.tab();
+
+    expect(await screen.findByTestId('pos-discount-amount')).toHaveTextContent('−RD$10.00');
+    expect(screen.getByTestId('pos-itbis')).toHaveTextContent('RD$18.00');
+    expect(screen.getByTestId('pos-total')).toHaveTextContent('RD$108.00');
+  });
+
   it('shows line subtotal, ITBIS, and gross from the entered sale price', async () => {
     const user = userEvent.setup();
     renderPos('INV-DRAFT-01', CAPABILITY_PRESETS['release-2']);
@@ -578,7 +607,7 @@ describe('PosPage', () => {
     expect(await screen.findAllByText(/COT-000001/)).not.toHaveLength(0);
     expect(screen.getByRole('button', { name: 'Convertir a factura' })).toBeEnabled();
     expect(screen.getByRole('button', { name: 'Duplicar cotización' })).toBeVisible();
-    expect(screen.getByRole('button', { name: 'Ver/Descargar PDF' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Descargar cotización' })).toBeVisible();
   });
 
   it('does not show the PDF action on a quote draft', async () => {
@@ -600,7 +629,7 @@ describe('PosPage', () => {
 
     renderQuote(quoteId);
     expect(await screen.findByRole('heading', { name: 'Cotización' })).toBeVisible();
-    expect(screen.queryByRole('button', { name: 'Ver/Descargar PDF' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Descargar cotización' })).not.toBeInTheDocument();
   });
 
   it('opens the quote PDF preview, downloads COT- filename, and revokes the object URL', async () => {
@@ -630,8 +659,8 @@ describe('PosPage', () => {
 
     const user = userEvent.setup();
     renderQuote(quoteId);
-    expect(await screen.findByRole('button', { name: 'Ver/Descargar PDF' })).toBeVisible();
-    await user.click(screen.getByRole('button', { name: 'Ver/Descargar PDF' }));
+    expect(await screen.findByRole('button', { name: 'Descargar cotización' })).toBeVisible();
+    await user.click(screen.getByRole('button', { name: 'Descargar cotización' }));
 
     const dialog = await screen.findByRole('dialog', { name: 'Vista previa de cotización' });
     expect(within(dialog).getByTitle('COT-000001.pdf')).toHaveAttribute(
@@ -669,7 +698,7 @@ describe('PosPage', () => {
 
     const user = userEvent.setup();
     renderQuote(quoteId);
-    await user.click(await screen.findByRole('button', { name: 'Ver/Descargar PDF' }));
+    await user.click(await screen.findByRole('button', { name: 'Descargar cotización' }));
 
     expect(await screen.findByText('No se pudo generar el PDF')).toBeVisible();
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
@@ -701,7 +730,7 @@ describe('PosPage', () => {
     issued.quoteExpiresAt = '2026-01-31T03:59:59.000Z';
 
     renderQuote(quoteId);
-    expect(await screen.findByRole('button', { name: 'Ver/Descargar PDF' })).toBeVisible();
+    expect(await screen.findByRole('button', { name: 'Descargar cotización' })).toBeVisible();
     expect(screen.getByRole('button', { name: 'Convertir a factura' })).toBeDisabled();
   });
 });

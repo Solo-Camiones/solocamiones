@@ -103,3 +103,53 @@ export function trendFromChange(change: number | null): { label: string; tone: '
     tone: change > 0 ? 'up' : change < 0 ? 'down' : 'neutral',
   };
 }
+
+/**
+ * Converts an ISO date string (YYYY-MM-DD) to a UTC-based Date for formatting,
+ * avoiding timezone shifts that would display the wrong calendar day.
+ */
+function isoToUtcDate(iso: string): Date {
+  const [year, month, day] = iso.split('-').map(Number);
+  return new Date(Date.UTC(year, month - 1, day));
+}
+
+const DATE_RANGE_FORMATTER = new Intl.DateTimeFormat('es-DO', {
+  day: 'numeric',
+  month: 'short',
+  year: 'numeric',
+  timeZone: 'UTC',
+});
+
+const DATE_RANGE_FORMATTER_NO_YEAR = new Intl.DateTimeFormat('es-DO', {
+  day: 'numeric',
+  month: 'short',
+  timeZone: 'UTC',
+});
+
+/**
+ * Formats a date range as a human-readable string in Spanish.
+ * When from === to, returns a single date. When both dates share the same year,
+ * the year is omitted from `from` to reduce visual noise.
+ *
+ * Examples:
+ *   "1 sep — 18 sep 2026"  (same year, different days)
+ *   "18 sep 2026"           (same day)
+ *   "28 dic 2025 — 3 ene 2026" (different years)
+ */
+export function formatDateRange(from: string, to: string): string {
+  const fromDate = isoToUtcDate(from);
+  const toDate = isoToUtcDate(to);
+
+  const toFormatted = DATE_RANGE_FORMATTER.format(toDate);
+
+  if (from === to) {
+    return toFormatted;
+  }
+
+  const sameYear = from.slice(0, 4) === to.slice(0, 4);
+  const fromFormatted = sameYear
+    ? DATE_RANGE_FORMATTER_NO_YEAR.format(fromDate)
+    : DATE_RANGE_FORMATTER.format(fromDate);
+
+  return `${fromFormatted} — ${toFormatted}`;
+}

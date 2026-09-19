@@ -2,8 +2,6 @@
 -- sales aggregate, applyItbis flag, and confirmation snapshots.
 --
 -- Depends on InvoiceStatus values QUOTE_DRAFT and QUOTE_ISSUED already committed.
--- Does not recalculate stored money. COMPLETED/CANCELLED gross, base, and itbis
--- stay exactly as persisted.
 --
 -- Operational rollback: restore a database backup taken before this change set.
 -- Prisma does not ship a down migration. Reverse DDL, if needed on an empty
@@ -16,13 +14,6 @@ ALTER TABLE "Customer"
 ADD COLUMN "customerType" "CustomerType" NOT NULL DEFAULT 'CASH',
 ADD COLUMN "creditLimitDop" DECIMAL(12, 2),
 ADD COLUMN "creditTermDays" INTEGER;
-
--- Existing named customers and Cliente contado become CASH. Names are untouched.
-UPDATE "Customer"
-SET
-    "customerType" = 'CASH',
-    "creditLimitDop" = NULL,
-    "creditTermDays" = NULL;
 
 ALTER TABLE "Customer" ADD CONSTRAINT "Customer_credit_terms_check" CHECK (
     (
@@ -49,17 +40,6 @@ ADD COLUMN "quoteIssuedAt" TIMESTAMPTZ(3),
 ADD COLUMN "quoteExpiresAt" TIMESTAMPTZ(3),
 ADD COLUMN "snapshotCustomerType" "CustomerType",
 ADD COLUMN "snapshotCreditTermDays" INTEGER;
-
--- Historical documents: ITBIS was not a separate flag. Owner chose false for
--- current test data. Credit snapshots match the CASH customer backfill.
-UPDATE "Invoice"
-SET "applyItbis" = false;
-
-UPDATE "Invoice"
-SET
-    "snapshotCustomerType" = 'CASH',
-    "snapshotCreditTermDays" = NULL
-WHERE "status" IN ('COMPLETED', 'CANCELLED');
 
 ALTER TABLE "Invoice" DROP CONSTRAINT "Invoice_number_status_check";
 ALTER TABLE "Invoice" ADD CONSTRAINT "Invoice_number_status_check" CHECK (

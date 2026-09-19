@@ -285,7 +285,7 @@ export function PosPage() {
                   void handleViewQuotePdf();
                 }}
               >
-                Ver/Descargar PDF
+                Descargar cotización
               </Button>
             </div>
           </Info>
@@ -424,7 +424,25 @@ export function PosPage() {
                 </Info>
               </div>
             )}
-            <TotalsPanel totals={draft.totals} currency={draft.currency} />
+            <TotalsPanel
+              totals={draft.totals}
+              currency={draft.currency}
+              discountPercent={draft.discountPercent}
+              readOnly={readOnly}
+              disabled={pos.isMutating}
+              onDiscountPercentChange={
+                readOnly
+                  ? undefined
+                  : (discountPercent) => {
+                      setMetaError(null);
+                      void pos.setMeta({ discountPercent }).then((response) => {
+                        if (!response.ok) {
+                          setMetaError(toPosUserMessage(response.error));
+                        }
+                      });
+                    }
+              }
+            />
           </Card>
           {!readOnly && (
             <PosCheckoutActions
@@ -544,16 +562,15 @@ export function PosPage() {
             setConfirmError(null);
           }
         }}
-        onConfirm={(payment) => {
+        onConfirm={async (payment) => {
           const operation = isIssuedQuote ? pos.convertQuote(payment) : pos.confirm(payment);
-          void operation.then((response) => {
-            if (!response.ok) {
-              setConfirmError(toPosUserMessage(response.error));
-              return;
-            }
-            setConfirmOpen(false);
-            pushToast(isIssuedQuote ? 'Cotización convertida' : 'Venta confirmada', 'success');
-          });
+          const response = await operation;
+          if (!response.ok) {
+            setConfirmError(toPosUserMessage(response.error));
+            return;
+          }
+          setConfirmOpen(false);
+          pushToast(isIssuedQuote ? 'Cotización convertida' : 'Venta confirmada', 'success');
         }}
       />
 

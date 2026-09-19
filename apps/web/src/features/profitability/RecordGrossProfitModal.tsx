@@ -76,7 +76,7 @@ export function RecordGrossProfitModal({
             Cerrar
           </Button>
           <Button type="submit" disabled={isSaving}>
-            {isSaving ? 'Guardando…' : 'Guardar ganancia'}
+            {isSaving ? 'Guardando…' : 'Registrar ganancia'}
           </Button>
         </div>
       </form>

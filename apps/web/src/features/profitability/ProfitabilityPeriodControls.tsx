@@ -1,10 +1,11 @@
 import { Input, Select } from '../../shared/ui';
-import { PERIOD_PRESETS, type PeriodPreset } from './period';
+import { formatDateRange, PERIOD_PRESETS, type DateRange, type PeriodPreset } from './period';
 
 type ProfitabilityPeriodControlsProps = {
   preset: PeriodPreset;
   customFrom: string;
   customTo: string;
+  resolvedRange: DateRange;
   onPresetChange: (preset: PeriodPreset) => void;
   onCustomFromChange: (value: string) => void;
   onCustomToChange: (value: string) => void;
@@ -14,6 +15,7 @@ export function ProfitabilityPeriodControls({
   preset,
   customFrom,
   customTo,
+  resolvedRange,
   onPresetChange,
   onCustomFromChange,
   onCustomToChange,
@@ -37,6 +39,11 @@ export function ProfitabilityPeriodControls({
           ))}
         </Select>
       </div>
+      {preset !== 'custom' ? (
+        <span className="text-right text-xs text-navy-400" aria-label="Rango de fechas del período seleccionado">
+          {formatDateRange(resolvedRange.from, resolvedRange.to)}
+        </span>
+      ) : null}
       {preset === 'custom' ? (
         <div className="grid grid-cols-2 gap-2 sm:w-[17.5rem]">
           <div className="min-w-0">

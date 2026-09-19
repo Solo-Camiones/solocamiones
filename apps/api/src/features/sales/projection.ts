@@ -2,17 +2,21 @@ import { Prisma, type InvoiceLine } from '@prisma/client';
 
 import { MONEY_DECIMAL_PLACES } from './money/constants.js';
 import {
+  applyInvoiceDiscount,
   calculateLineMoney,
   calculateLineProfitDop,
   calculateLineProfitUsdReportingDop,
   calculatedCompletedProfitability,
   isTaxableLineType,
   reportedInvoiceProfitability,
-  sumInvoiceMoney,
 } from './money/index.js';
 import { PROFITABILITY_REASONS, type Profitability } from './money/types.js';
 import { databaseDateString } from '../payments/dates.js';
 import { summarizePayments } from '../payments/summary.js';
+import {
+  confirmationInitialPaymentAmount,
+  saleConditionFromInitialSettlement,
+} from './credit-confirmation.js';
 import { isQuoteExpired } from './quote-dates.js';
 import type { InvoiceHistoryEntryView } from '../history/invoice-timeline.js';
 import type {
@@ -35,6 +39,7 @@ import type {
   PublicProfitability,
   PublicReceivableInvoice,
   PublicReceivables,
+  SaleCondition,
 } from './types.js';
 import {
   moneyString as decimalMoneyString,
@@ -297,28 +302,47 @@ function toPublicLine(
   };
 }
 
-function invoiceTotals(invoice: InvoiceRecord | InvoiceListRecord) {
-  if (invoice.gross != null && invoice.base != null && invoice.itbis != null) {
-    return {
-      gross: moneyString(invoice.gross),
-      base: moneyString(invoice.base),
-      itbis: moneyString(invoice.itbis),
-    };
-  }
-  const totals = sumInvoiceMoney(
-    invoice.lines.map((line) =>
+function invoiceLineMoney(invoice: InvoiceRecord | InvoiceListRecord) {
+  return invoice.lines.map((line) => {
+    const money =
+      persistedLineMoney(line) ??
       calculateLineMoney({
         type: line.type,
         unitPrice: line.unitPrice,
         quantity: line.quantity,
         applyItbis: invoice.applyItbis,
-      }),
-    ),
-  );
+      });
+    return {
+      ...money,
+      taxable: isTaxableLineType(line.type),
+    };
+  });
+}
+
+function invoiceTotals(invoice: InvoiceRecord | InvoiceListRecord) {
+  const lineMoney = invoiceLineMoney(invoice);
+  const derived = applyInvoiceDiscount({
+    lines: lineMoney,
+    discountPercent: invoice.discountPercent,
+    applyItbis: invoice.applyItbis,
+  });
+
+  // Completed/issued documents keep frozen header money; discount amount is
+  // still derived from the stored percent and pre-discount line bases.
+  if (invoice.gross != null && invoice.base != null && invoice.itbis != null) {
+    return {
+      gross: moneyString(invoice.gross),
+      base: moneyString(invoice.base),
+      itbis: moneyString(invoice.itbis),
+      discount: moneyString(derived.discount),
+    };
+  }
+
   return {
-    gross: moneyString(totals.gross),
-    base: moneyString(totals.base),
-    itbis: moneyString(totals.itbis),
+    gross: moneyString(derived.gross),
+    base: moneyString(derived.base),
+    itbis: moneyString(derived.itbis),
+    discount: moneyString(derived.discount),
   };
 }
 
@@ -342,11 +366,14 @@ export function toPublicInvoice(
     currency: invoice.currency,
     fiscal: invoice.fiscal,
     applyItbis: invoice.applyItbis,
+    discountPercent: moneyString(invoice.discountPercent),
     customer: toCustomerView(invoice),
     customerSnapshot: customerSnapshotOf(invoice),
     confirmedAt: invoice.confirmedAt?.toISOString() ?? null,
     dueDate: invoice.dueDate ? databaseDateString(invoice.dueDate) : null,
-    sellerName: invoice.confirmedByName,
+    // Quotes freeze the issuer; invoices freeze the confirmer. Same public field.
+    sellerName:
+      invoice.status === 'QUOTE_ISSUED' ? invoice.quoteIssuedByName : invoice.confirmedByName,
     cancelledAt: invoice.cancelledAt?.toISOString() ?? null,
     cancelReason: invoice.cancelReason,
     cancelledByName: invoice.cancelledByName,
@@ -389,6 +416,16 @@ function toPublicListPayments(invoice: InvoiceListRecord): PublicInvoiceListPaym
   }));
 }
 
+/** Same DOC-001 rule as PDF: full confirm settlement → CASH, remaining balance → CREDIT. */
+function listSaleCondition(invoice: InvoiceListRecord): SaleCondition | undefined {
+  if (invoice.status !== 'COMPLETED' && invoice.status !== 'CANCELLED') return undefined;
+  const totals = invoiceTotals(invoice);
+  return saleConditionFromInitialSettlement(
+    new Prisma.Decimal(totals.gross),
+    confirmationInitialPaymentAmount(invoice),
+  );
+}
+
 export function toPublicInvoiceListItem(
   invoice: InvoiceListRecord,
   viewer: InvoiceViewer,
@@ -397,6 +434,7 @@ export function toPublicInvoiceListItem(
   const profitability = administratorProfitability(invoice, viewer);
   const completed = invoice.status === 'COMPLETED' || invoice.status === 'CANCELLED';
   const payment = completed ? summarizePayments(invoice, now) : null;
+  const saleCondition = listSaleCondition(invoice);
   const storedRate =
     viewer.role === 'ADMINISTRATOR' && invoice.exchangeRateDopPerUsd != null
       ? invoice.exchangeRateDopPerUsd.toString()
@@ -412,10 +450,12 @@ export function toPublicInvoiceListItem(
     currency: invoice.currency,
     fiscal: invoice.fiscal,
     applyItbis: invoice.applyItbis,
+    discountPercent: moneyString(invoice.discountPercent),
     customer: toCustomerView(invoice),
     customerSnapshot: customerSnapshotOf(invoice),
     confirmedAt: invoice.confirmedAt?.toISOString() ?? null,
     dueDate: invoice.dueDate ? databaseDateString(invoice.dueDate) : null,
+    ...(saleCondition ? { saleCondition } : {}),
     ...(payment
       ? administratorLedger(viewer, {
           paymentState: payment.state,

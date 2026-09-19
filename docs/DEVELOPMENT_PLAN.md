@@ -71,6 +71,7 @@ Owner pulled **Release 3 financial work** into the local codebase before Release
 - **Cancellation:** financial/non-inventory API+HTTP done; inventory restoration and Work-Order branches are mock-only until Releases 5/7.
 - **History:** envelope + user/customer/catalog/invoice confirmation/payment/PDF/cancellation events in the writing transaction; invoice detail GET + HTTP UI project that timeline (profit/FX and payment events Administrator-only). Draft meta and line add/update/remove are not appended and are hidden if already stored. No standalone history API; no per-item/order projections; ADMIN-002 mostly open.
 - **CxC:** ledger, derived `ABONADO` states, issued date, server-side customer/invoice filters, and the Administrator-only account-statement PDF (`STMT-001`) are done. The invoice list and customer summary remain limited to open balances; payment-state, issued-date, and currency filters are intentionally unavailable by owner decision. Paso 5 made later `POST /payments` and `GET /receivables` Administrator-only (Seller 403; nav/deep links denied). Seller invoice list/detail omit payment state, paid, refunds, and balance.
+- **Seller-sales report:** Administrator-only volume report under Finanzas (`/seller-sales`, `GET /api/sales/reports/seller-sales[.pdf]`) is done locally (2026-09-18). Rows are `COMPLETED` invoices and outstanding `QUOTE_ISSUED` quotes by seller attribution date; no commission math and no Seller access. Generic expanded reporting remains Future.
 
 ---
 

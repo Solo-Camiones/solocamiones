@@ -22,36 +22,29 @@ describe('ProfitabilityPage', () => {
     resetMockState();
   });
 
-  it('keeps FAC-000096 pending until FX is enabled and retried', async () => {
+  it('shows period KPIs without charts or invoice profit detail until acquisition cost exists', async () => {
     const user = userEvent.setup();
     renderWithProviders(<ProfitabilityPage />, { route: '/profitability' });
     await screen.findByLabelText('Período');
     await chooseSelectOption(user, 'Período', '30 días');
 
-    expect(await screen.findByText('FAC-000096')).toBeVisible();
-    expect(screen.getAllByText('Ganancia bruta').length).toBeGreaterThan(0);
+    expect(screen.getByRole('heading', { name: 'Rentabilidad' })).toBeVisible();
+    expect(screen.getByText('Facturado, cobrado neto y cuentas por cobrar en pesos.')).toBeVisible();
     expect(screen.getAllByText('Cobrado neto').length).toBeGreaterThan(0);
-    expect(screen.getByRole('img', { name: 'Evolución financiera' })).toBeVisible();
-    expect(screen.getByRole('img', { name: 'Ganancia por mes' })).toBeVisible();
-    expect(screen.getByRole('img', { name: 'Cobrado neto por mes' })).toBeVisible();
-    expect(screen.getByText('Evolución financiera', { selector: 'caption' }).closest('.sr-only')).not.toBeNull();
-    expect(screen.queryByText('Ganancia bruta en dólares')).not.toBeInTheDocument();
-    expect(screen.getAllByText('Pendiente de tasa de cambio').length).toBeGreaterThan(0);
-    expect(screen.getByText('Ver facturas →')).toBeVisible();
-    expect(screen.getAllByText('Automática').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Cuentas por cobrar').length).toBeGreaterThan(0);
+    expect(screen.getByText('Ver cuentas por cobrar')).toBeVisible();
+    expect(screen.getByRole('link', { name: /Ver cuentas por cobrar/ })).toHaveAttribute(
+      'href',
+      '/receivables',
+    );
 
-    await user.click(screen.getByRole('button', { name: 'Activar tasa de cambio (demo)' }));
-    expect(await screen.findByText('Tasa de cambio activada. Reintente las facturas pendientes.')).toBeVisible();
-
-    const retryButtons = screen.getAllByRole('button', { name: 'Reintentar' });
-    await user.click(retryButtons[0]);
-    expect(await screen.findByText('Cálculo de rentabilidad reintentado')).toBeVisible();
-    expect(screen.queryByText('Pendiente de tasa de cambio')).not.toBeInTheDocument();
-
-    const profitUsd = Math.round((1_200 - 42_000 / 61.5 + Number.EPSILON) * 100) / 100;
-    const profitDop = Math.round((profitUsd * 61.5 + Number.EPSILON) * 100) / 100;
-    expect(screen.getAllByText(money(profitDop, 'DOP')).length).toBeGreaterThan(0);
-    expect(screen.getAllByText(money(8_900 + profitDop, 'DOP')).length).toBeGreaterThan(0);
+    expect(screen.queryByRole('img', { name: 'Evolución financiera' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('img', { name: 'Ganancia por mes' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('img', { name: 'Cobrado neto por mes' })).not.toBeInTheDocument();
+    expect(screen.queryByText('Detalle de rentabilidad por factura')).not.toBeInTheDocument();
+    expect(screen.queryByText('FAC-000096')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Reintentar' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Registrar ganancia' })).not.toBeInTheDocument();
   });
 
   it('lets the administrator change the period from the styled selector', async () => {
@@ -65,23 +58,24 @@ describe('ProfitabilityPage', () => {
     expect(screen.getByLabelText('Período')).toHaveTextContent('30 días');
   });
 
-  it('lets an administrator record gross profit when the invoice shows unavailable', async () => {
+  it('shows invoiced and collected-by-method KPIs for the selected period', async () => {
     const user = userEvent.setup();
     renderWithProviders(<ProfitabilityPage />, { route: '/profitability' });
     await screen.findByLabelText('Período');
     await chooseSelectOption(user, 'Período', '30 días');
 
-    expect(await screen.findByText('FAC-000097')).toBeVisible();
-    expect(screen.getByText('No disponible')).toBeVisible();
+    expect(await screen.findByText('Facturado al contado')).toBeVisible();
+    expect(screen.getByText('Facturado a crédito')).toBeVisible();
+    expect(screen.getByText('Total facturado')).toBeVisible();
+    expect(screen.getByText('Cobrado efectivo')).toBeVisible();
+    expect(screen.getByText('Cobrado transferencia')).toBeVisible();
+    expect(screen.getByText('Cobrado cheque')).toBeVisible();
 
-    await user.click(screen.getByRole('button', { name: 'Registrar ganancia' }));
-    await user.type(screen.getByLabelText('Ganancia bruta en pesos'), '1800');
-    await user.click(screen.getByRole('button', { name: 'Guardar ganancia' }));
-
-    expect(await screen.findByText('Ganancia bruta registrada')).toBeVisible();
-    expect(screen.getAllByText(money(1_800, 'DOP')).length).toBeGreaterThan(0);
-    expect(screen.getAllByText(money(8_900 + 1_800, 'DOP')).length).toBeGreaterThan(0);
-    expect(screen.getByText('Registrada por administrador')).toBeVisible();
-    expect(screen.queryByText('No disponible')).not.toBeInTheDocument();
+    // Contado: FAC-000097 (DOP 5,500). FAC-000096 USD without rate is omitted.
+    // Crédito: FAC-000098 (19,500) + FAC-000099 (7,200). Cobrado efectivo: 5,500 + 3,600.
+    expect(screen.getAllByText(money(5_500, 'DOP')).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(money(19_500 + 7_200, 'DOP')).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(money(5_500 + 19_500 + 7_200, 'DOP')).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(money(5_500 + 3_600, 'DOP')).length).toBeGreaterThan(0);
   });
 });

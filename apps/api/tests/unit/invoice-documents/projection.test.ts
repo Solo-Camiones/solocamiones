@@ -5,6 +5,7 @@ import { toInvoicePdfFacts, toQuotePdfFacts } from '../../../src/features/invoic
 import type { InvoiceRecord } from '../../../src/features/sales/types.js';
 
 function invoice(overrides: Record<string, unknown> = {}): InvoiceRecord {
+  const confirmedAt = new Date('2026-09-08T18:00:00.000Z');
   return {
     id: 'inv-1',
     status: 'COMPLETED',
@@ -12,11 +13,14 @@ function invoice(overrides: Record<string, unknown> = {}): InvoiceRecord {
     quoteNumber: null,
     currency: 'DOP',
     fiscal: false,
+    applyItbis: false,
+    discountPercent: new Prisma.Decimal('0'),
     customerName: 'Cliente contado',
     customerRnc: '00100000001',
     customerPhone: '809-555-0000',
+    snapshotCustomerType: 'CASH',
     confirmedByName: 'María Pérez',
-    confirmedAt: new Date('2026-09-08T18:00:00.000Z'),
+    confirmedAt,
     dueDate: new Date('2026-10-08T00:00:00.000Z'),
     cancelledAt: null,
     cancelReason: null,
@@ -25,15 +29,19 @@ function invoice(overrides: Record<string, unknown> = {}): InvoiceRecord {
     base: new Prisma.Decimal('118.00'),
     itbis: new Prisma.Decimal('0.00'),
     pdfTemplateVersion: 'internal-v4',
+    customer: { customerType: 'CASH' },
     payments: [
       {
         id: 'pay-1',
-        amount: new Prisma.Decimal('40.00'),
+        amount: new Prisma.Decimal('118.00'),
         kind: 'PAYMENT',
+        idempotencyKey: 'confirm:inv-1',
+        createdAt: confirmedAt,
       },
     ],
     lines: [
       {
+        type: 'GENERIC',
         description: 'Filtro',
         notes: 'Instalado',
         quantity: new Prisma.Decimal('1.00'),
@@ -58,11 +66,12 @@ describe('toInvoicePdfFacts', () => {
       number: 'FAC-000001',
       originQuoteNumber: 'COT-000012',
       currency: 'DOP',
+      saleCondition: 'CASH',
       customerName: 'Cliente contado',
       customerRnc: '001-0000000-1',
       customerPhone: null,
       sellerName: null,
-      totals: { gross: '118.00', base: '118.00', itbis: '0.00' },
+      totals: { gross: '118.00', base: '118.00', itbis: '0.00', discount: '0.00', discountPercent: '0.00' },
       lines: [
         {
           description: 'Filtro',
@@ -92,9 +101,18 @@ describe('toInvoicePdfFacts', () => {
         gross: new Prisma.Decimal('236.00'),
         base: new Prisma.Decimal('200.00'),
         itbis: new Prisma.Decimal('36.00'),
-        payments: [{ id: 'pay-1', amount: new Prisma.Decimal('236.00'), kind: 'PAYMENT' }],
+        payments: [
+          {
+            id: 'pay-1',
+            amount: new Prisma.Decimal('236.00'),
+            kind: 'PAYMENT',
+            idempotencyKey: 'confirm:inv-1',
+            createdAt: new Date('2026-09-08T18:00:00.000Z'),
+          },
+        ],
         lines: [
           {
+            type: 'GENERIC',
             description: 'Filtro',
             notes: null,
             quantity: new Prisma.Decimal('2.00'),
@@ -107,7 +125,45 @@ describe('toInvoicePdfFacts', () => {
       }),
     );
 
-    expect(facts?.totals).toEqual({ gross: '236.00', base: '200.00', itbis: '36.00' });
+    expect(facts?.totals).toEqual({
+      gross: '236.00',
+      base: '200.00',
+      itbis: '36.00',
+      discount: '0.00',
+      discountPercent: '0.00',
+    });
+  });
+
+  it('derives discount for the PDF while keeping frozen header money', () => {
+    const facts = toInvoicePdfFacts(
+      invoice({
+        applyItbis: true,
+        discountPercent: new Prisma.Decimal('10'),
+        gross: new Prisma.Decimal('108.00'),
+        base: new Prisma.Decimal('90.00'),
+        itbis: new Prisma.Decimal('18.00'),
+        lines: [
+          {
+            type: 'GENERIC',
+            description: 'Filtro',
+            notes: null,
+            quantity: new Prisma.Decimal('1.00'),
+            unitPrice: new Prisma.Decimal('100.00'),
+            gross: new Prisma.Decimal('118.00'),
+            base: new Prisma.Decimal('100.00'),
+            itbis: new Prisma.Decimal('18.00'),
+          },
+        ],
+      }),
+    );
+
+    expect(facts?.totals).toEqual({
+      gross: '108.00',
+      base: '90.00',
+      itbis: '18.00',
+      discount: '10.00',
+      discountPercent: '10.00',
+    });
   });
 
   it('formats a Dominican phone with country prefix without truncating it', () => {
@@ -116,12 +172,69 @@ describe('toInvoicePdfFacts', () => {
     expect(facts?.customerPhone).toBe('809-555-0100');
   });
 
+  it('labels Al contado from full confirmation payment even for CREDIT customers', () => {
+    expect(
+      toInvoicePdfFacts(
+        invoice({
+          snapshotCustomerType: 'CREDIT',
+          customer: { customerType: 'CREDIT' },
+          payments: [
+            {
+              id: 'pay-1',
+              amount: new Prisma.Decimal('118.00'),
+              kind: 'PAYMENT',
+              idempotencyKey: 'confirm:inv-1',
+              createdAt: new Date('2026-09-08T18:00:00.000Z'),
+            },
+          ],
+        }),
+      )?.saleCondition,
+    ).toBe('CASH');
+  });
+
+  it('labels A crédito when confirmation left a remaining balance', () => {
+    expect(
+      toInvoicePdfFacts(
+        invoice({
+          snapshotCustomerType: 'CREDIT',
+          customer: { customerType: 'CREDIT' },
+          payments: [],
+        }),
+      )?.saleCondition,
+    ).toBe('CREDIT');
+    expect(
+      toInvoicePdfFacts(
+        invoice({
+          snapshotCustomerType: 'CREDIT',
+          customer: { customerType: 'CREDIT' },
+          payments: [
+            {
+              id: 'pay-partial',
+              amount: new Prisma.Decimal('40.00'),
+              kind: 'PAYMENT',
+              idempotencyKey: 'confirm:inv-1',
+              createdAt: new Date('2026-09-08T18:00:00.000Z'),
+            },
+            {
+              id: 'pay-later',
+              amount: new Prisma.Decimal('78.00'),
+              kind: 'PAYMENT',
+              idempotencyKey: 'later-pay',
+              createdAt: new Date('2026-09-20T18:00:00.000Z'),
+            },
+          ],
+        }),
+      )?.saleCondition,
+    ).toBe('CREDIT');
+  });
+
   it('returns null when a completed invoice is missing persisted line money', () => {
     expect(
       toInvoicePdfFacts(
         invoice({
           lines: [
             {
+              type: 'GENERIC',
               description: 'Filtro',
               notes: null,
               quantity: new Prisma.Decimal('1.00'),
@@ -152,6 +265,7 @@ function issuedQuote(overrides: Record<string, unknown> = {}): InvoiceRecord {
     confirmedAt: null,
     dueDate: null,
     confirmedByName: null,
+    quoteIssuedByName: 'María Pérez',
     customer: { id: 'cust-live', name: 'Cliente actualizado' },
     ...overrides,
   });
@@ -168,7 +282,7 @@ describe('toQuotePdfFacts', () => {
       customerName: 'Cliente contado',
       customerRnc: '001-0000000-1',
       customerPhone: '809-555-0000',
-      sellerName: null,
+      sellerName: 'María Pérez',
       quoteIssuedAt: new Date('2026-09-15T18:00:00.000Z'),
       quoteExpiresAt: new Date('2026-10-15T04:00:00.000Z'),
       lines: [
@@ -182,11 +296,22 @@ describe('toQuotePdfFacts', () => {
           itbis: '0.00',
         },
       ],
-      totals: { gross: '118.00', base: '118.00', itbis: '0.00' },
+      totals: {
+        gross: '118.00',
+        base: '118.00',
+        itbis: '0.00',
+        discount: '0.00',
+        discountPercent: '0.00',
+      },
     });
     expect(facts).not.toHaveProperty('paymentState');
     expect(facts).not.toHaveProperty('balance');
     expect(facts).not.toHaveProperty('payments');
+  });
+
+  it('leaves seller blank when the issuer snapshot was never stored', () => {
+    const facts = toQuotePdfFacts(issuedQuote({ quoteIssuedByName: null }));
+    expect(facts?.sellerName).toBeNull();
   });
 
   it('keeps frozen totals instead of live customer data or payments', () => {
@@ -199,7 +324,13 @@ describe('toQuotePdfFacts', () => {
     );
 
     expect(facts?.customerName).toBe('Snapshot emitido');
-    expect(facts?.totals).toEqual({ gross: '118.00', base: '118.00', itbis: '0.00' });
+    expect(facts?.totals).toEqual({
+      gross: '118.00',
+      base: '118.00',
+      itbis: '0.00',
+      discount: '0.00',
+      discountPercent: '0.00',
+    });
   });
 
   it('returns null when issued facts are incomplete', () => {
