@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { money, numericDate, shortDate } from '../../../../src/shared/ui/money';
+import { currencyLabel, money, numericDate, shortDate } from '../../../../src/shared/ui/money';
 
 describe('money', () => {
   it('formats DOP with two decimals by default', () => {
@@ -10,6 +10,11 @@ describe('money', () => {
 
   it('formats USD independently from DOP', () => {
     expect(money(19.5, 'USD')).toBe('$19.50');
+  });
+
+  it('labels currencies for selects and summaries', () => {
+    expect(currencyLabel('DOP')).toBe('Pesos (DOP)');
+    expect(currencyLabel('USD')).toBe('Dólares (USD)');
   });
 });
 

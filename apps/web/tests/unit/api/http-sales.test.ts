@@ -239,6 +239,71 @@ describe('HTTP sales draft contract', () => {
     );
   });
 
+  it('lists the seller sales report with optional seller and page query params', async () => {
+    const report = {
+      dateFrom: '2026-09-01',
+      dateTo: '2026-09-18',
+      sellerUserId: '11111111-1111-4111-8111-111111111111',
+      rows: [],
+      totals: [],
+      total: 0,
+      page: 2,
+      pageSize: 10,
+    };
+    const fetchMock = vi.fn(async (_path: string) => json(report));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const withSeller = await repository.listSellerSalesReport({
+      dateFrom: '2026-09-01',
+      dateTo: '2026-09-18',
+      sellerUserId: '11111111-1111-4111-8111-111111111111',
+      page: 2,
+    });
+    expect(withSeller).toEqual({ ok: true, value: report });
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      '/api/sales/reports/seller-sales?dateFrom=2026-09-01&dateTo=2026-09-18&sellerUserId=11111111-1111-4111-8111-111111111111&page=2',
+    );
+
+    fetchMock.mockClear();
+    const allSellers = await repository.listSellerSalesReport({
+      dateFrom: '2026-09-01',
+      dateTo: '2026-09-18',
+      page: 1,
+    });
+    expect(allSellers).toEqual({ ok: true, value: report });
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      '/api/sales/reports/seller-sales?dateFrom=2026-09-01&dateTo=2026-09-18',
+    );
+  });
+
+  it('downloads the seller sales report PDF from the dedicated endpoint', async () => {
+    const bytes = new Uint8Array([37, 80, 68, 70]);
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(bytes, {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/pdf',
+          'Content-Disposition': 'attachment; filename="ventas-por-vendedor.pdf"',
+        },
+      }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await repository.getSellerSalesReportPdf({
+      dateFrom: '2026-09-01',
+      dateTo: '2026-09-18',
+      sellerUserId: '11111111-1111-4111-8111-111111111111',
+    });
+
+    expect(result).toMatchObject({
+      ok: true,
+      value: { filename: 'ventas-por-vendedor.pdf' },
+    });
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      '/api/sales/reports/seller-sales.pdf?dateFrom=2026-09-01&dateTo=2026-09-18&sellerUserId=11111111-1111-4111-8111-111111111111',
+    );
+  });
+
   it('creates a draft with CSRF and loads lookups on getDraft', async () => {
     const fetchMock = vi.fn(async (path: string, init?: RequestInit) => {
       const url = String(path);

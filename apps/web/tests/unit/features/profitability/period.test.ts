@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   evolutionChartRange,
+  formatDateRange,
   resolvePeriodRange,
 } from '../../../../src/features/profitability/period';
 
@@ -59,5 +60,17 @@ describe('profitability period', () => {
         customTo: '2026-09-10',
       }),
     ).toEqual({ from: '2026-09-10', to: '2026-09-20' });
+  });
+
+  it('formats a single day without a range separator', () => {
+    expect(formatDateRange('2026-09-18', '2026-09-18')).toBe('18 sept de 2026');
+  });
+
+  it('omits the year from the start date when both ends share the year', () => {
+    expect(formatDateRange('2026-09-01', '2026-09-18')).toBe('1 sept — 18 sept de 2026');
+  });
+
+  it('keeps both years when the range crosses a year boundary', () => {
+    expect(formatDateRange('2025-12-28', '2026-01-03')).toBe('28 dic de 2025 — 3 ene de 2026');
   });
 });
