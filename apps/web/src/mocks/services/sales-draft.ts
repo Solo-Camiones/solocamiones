@@ -9,9 +9,8 @@ import {
 } from './inventory-helpers';
 import { activeWorkAffectingAssembly, customerQualifiesForFiscal } from './sales-helpers';
 import {
-  invoiceItbis,
+  applyInvoiceDiscount,
   invoiceTaxableBase,
-  invoiceTotal,
   lineBase,
   lineGross,
   lineItbis,
@@ -126,13 +125,18 @@ export function buildPosDraftView(state: AppState, invoice: Invoice): PosDraftVi
     currency: invoice.currency,
     fiscal: invoice.fiscal,
     applyItbis: invoice.applyItbis === true,
+    discountPercent: invoice.discountPercent ?? 0,
     lines,
-    totals: {
-      lineCount: invoice.lines.length,
-      gross: invoiceTotal(invoice),
-      itbis: invoiceItbis(invoice),
-      taxableBase: invoiceTaxableBase(invoice),
-    },
+    totals: (() => {
+      const discounted = applyInvoiceDiscount(invoice);
+      return {
+        lineCount: invoice.lines.length,
+        gross: discounted.gross,
+        itbis: discounted.itbis,
+        taxableBase: invoiceTaxableBase(invoice),
+        discount: discounted.discount,
+      };
+    })(),
     customers: state.customers.map((entry) => ({
       id: entry.id,
       name: entry.name,

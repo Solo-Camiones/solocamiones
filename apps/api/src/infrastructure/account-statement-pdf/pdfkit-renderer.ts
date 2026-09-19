@@ -1,7 +1,12 @@
-import PDFDocument from 'pdfkit';
-import { fileURLToPath } from 'node:url';
-
 import { CORPORATE_PROFILE } from '../document-profile/index.js';
+import { BORDER, BRAND_BLUE, BRAND_NAVY, LIGHT_BLUE, LOGO_PATH, MUTED } from '../document-pdf/brand-tokens.js';
+import {
+  formatBusinessDate,
+  formatBusinessDateTime,
+  formatCalendarDate,
+  formatMoney,
+} from '../document-pdf/formatters.js';
+import { renderPdfBuffer, type PdfDocument } from '../document-pdf/render-pdf-buffer.js';
 import { INVOICE_PDF_INTERNAL_NOTICE } from '../invoice-pdf/constants.js';
 import type { AccountStatementPdfFacts, AccountStatementPdfRenderer } from './types.js';
 
@@ -12,63 +17,13 @@ const PAYMENT_STATE_LABEL = {
   PARTIALLY_PAID_OVERDUE: 'ABONADA VENCIDA',
 } as const;
 
-type PdfDocument = InstanceType<typeof PDFDocument>;
-
-const BRAND_BLUE = '#0e8fd1';
-const BRAND_NAVY = '#0c1e3a';
-const LIGHT_BLUE = '#eaf6fc';
-const MUTED = '#526173';
-const BORDER = '#d6e0e8';
 const PAGE_MARGIN = 44;
 const FOOTER_RESERVE = 140;
 const ROW_HEIGHT = 28;
 const TOTALS_BOX_HEIGHT = 92;
-const LOGO_PATH = fileURLToPath(
-  new URL('../../../../web/src/shared/assets/brand/SoloCamionesLogo.png', import.meta.url),
-);
-
-function formatDate(value: Date): string {
-  return new Intl.DateTimeFormat('es-DO', {
-    timeZone: 'America/Santo_Domingo',
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-  }).format(value);
-}
-
-function formatDateTime(value: Date): string {
-  return new Intl.DateTimeFormat('es-DO', {
-    timeZone: 'America/Santo_Domingo',
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-    hour12: true,
-  }).format(value);
-}
-
-function money(value: string): string {
-  return `RD$${Number(value).toLocaleString('en-US', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })}`;
-}
 
 function contentBottom(document: PdfDocument): number {
   return document.page.height - FOOTER_RESERVE;
-}
-
-function corporateProfileLine(): string {
-  return [
-    CORPORATE_PROFILE.legalName,
-    `RNC: ${CORPORATE_PROFILE.rnc}`,
-    CORPORATE_PROFILE.whatsApp,
-    CORPORATE_PROFILE.email,
-    CORPORATE_PROFILE.social.instagram,
-    CORPORATE_PROFILE.social.facebook,
-    CORPORATE_PROFILE.social.tiktok,
-  ].join('  ·  ');
 }
 
 function drawHeader(document: PdfDocument, continued: boolean): number {
@@ -80,10 +35,15 @@ function drawHeader(document: PdfDocument, continued: boolean): number {
     .font('Helvetica-Bold')
     .fontSize(14)
     .text(CORPORATE_PROFILE.legalName, 122, 38);
-  document.fillColor(MUTED).font('Helvetica').fontSize(7.5);
-  document.text(`RNC: ${CORPORATE_PROFILE.rnc}`, 122, 57);
-  document.text(CORPORATE_PROFILE.address, 122, 70, { width: 270 });
-  document.text(`${CORPORATE_PROFILE.whatsApp} | ${CORPORATE_PROFILE.email}`, 122, 84, {
+  document
+    .fillColor(MUTED)
+    .font('Helvetica-Oblique')
+    .fontSize(7.5)
+    .text(CORPORATE_PROFILE.tagline, 122, 54, { width: 270 });
+  document.font('Helvetica').fontSize(7.5);
+  document.text(`RNC: ${CORPORATE_PROFILE.rnc}`, 122, 68);
+  document.text(CORPORATE_PROFILE.address, 122, 80, { width: 270 });
+  document.text(`${CORPORATE_PROFILE.whatsApp} | ${CORPORATE_PROFILE.email}`, 122, 94, {
     width: 240,
   });
   document.text(
@@ -93,7 +53,7 @@ function drawHeader(document: PdfDocument, continued: boolean): number {
       CORPORATE_PROFILE.social.tiktok,
     ].join('  ·  '),
     122,
-    96,
+    106,
     { width: 240 },
   );
   document
@@ -114,8 +74,8 @@ function drawHeader(document: PdfDocument, continued: boolean): number {
         align: 'right',
       });
   }
-  document.moveTo(left, 118).lineTo(right, 118).lineWidth(2).strokeColor(BRAND_BLUE).stroke();
-  return 134;
+  document.moveTo(left, 126).lineTo(right, 126).lineWidth(2).strokeColor(BRAND_BLUE).stroke();
+  return 142;
 }
 
 function drawCustomer(document: PdfDocument, facts: AccountStatementPdfFacts, y: number): number {
@@ -137,7 +97,7 @@ function drawCustomer(document: PdfDocument, facts: AccountStatementPdfFacts, y:
     .font('Helvetica')
     .fontSize(8)
     .text(`RNC / Cédula: ${facts.customerRnc ?? '—'}`, left + 12, y + 44);
-  document.text(`Generado: ${formatDateTime(facts.generatedAt)}`, 350, y + 18, {
+  document.text(`Generado: ${formatBusinessDateTime(facts.generatedAt)}`, 350, y + 18, {
     width: right - 362,
     align: 'right',
   });
@@ -195,17 +155,10 @@ function drawFooter(document: PdfDocument, generatedAt: Date): void {
       .lineWidth(0.5)
       .stroke();
     document
-      .fillColor(MUTED)
-      .font('Helvetica')
-      .fontSize(6.2)
-      .text(corporateProfileLine(), left, footerTop + 6, {
-        width: right - left,
-      });
-    document
       .fillColor(BRAND_NAVY)
       .font('Helvetica-Bold')
       .fontSize(6.8)
-      .text('Pagos por transferencia:', left, footerTop + 22);
+      .text('Pagos por transferencia:', left, footerTop + 8);
     document
       .fillColor(MUTED)
       .font('Helvetica')
@@ -218,7 +171,7 @@ function drawFooter(document: PdfDocument, generatedAt: Date): void {
           `A nombre de: ${transfer.accountHolder}`,
         ].join('\n'),
         left,
-        footerTop + 32,
+        footerTop + 18,
         { width: 280, lineGap: 1 },
       );
     document
@@ -228,20 +181,20 @@ function drawFooter(document: PdfDocument, generatedAt: Date): void {
       .text(
         `Pagos con cheques a nombre de: ${CORPORATE_PROFILE.payment.chequePayee}`,
         left + 300,
-        footerTop + 22,
+        footerTop + 8,
         { width: rightColumnWidth },
       );
     document
       .fillColor(MUTED)
       .font('Helvetica')
       .fontSize(6.5)
-      .text(`Saldo actualizado al ${formatDateTime(generatedAt)}`, left + 300, footerTop + 46, {
+      .text(`Saldo actualizado al ${formatBusinessDateTime(generatedAt)}`, left + 300, footerTop + 32, {
         width: rightColumnWidth,
       });
-    document.text(INVOICE_PDF_INTERNAL_NOTICE, left + 300, footerTop + 60, {
+    document.text(INVOICE_PDF_INTERNAL_NOTICE, left + 300, footerTop + 46, {
       width: rightColumnWidth,
     });
-    document.text(`Página ${page + 1} de ${range.count}`, left + 300, footerTop + 86, {
+    document.text(`Página ${page + 1} de ${range.count}`, left + 300, footerTop + 72, {
       width: rightColumnWidth,
       align: 'right',
       lineBreak: false,
@@ -269,12 +222,12 @@ function writeStatement(facts: AccountStatementPdfFacts, document: PdfDocument):
       .stroke();
     const values = [
       row.number,
-      formatDate(row.issuedAt),
-      formatDate(row.dueDate),
+      formatBusinessDate(row.issuedAt),
+      formatCalendarDate(row.dueDate),
       PAYMENT_STATE_LABEL[row.paymentState],
-      money(row.invoiced),
-      money(row.paid),
-      money(row.balance),
+      formatMoney(row.invoiced, 'DOP'),
+      formatMoney(row.paid, 'DOP'),
+      formatMoney(row.balance, 'DOP'),
     ];
     let x = left;
     values.forEach((value, column) => {
@@ -301,9 +254,9 @@ function writeStatement(facts: AccountStatementPdfFacts, document: PdfDocument):
   const totalsX = right - 280;
   document.roundedRect(totalsX, y, 280, 78, 6).fillAndStroke(LIGHT_BLUE, BORDER);
   const totals = [
-    ['TOTAL FACTURADO', money(facts.totals.invoiced)],
-    ['TOTAL ABONADO', money(facts.totals.paid)],
-    ['SALDO PENDIENTE', money(facts.totals.balance)],
+    ['TOTAL FACTURADO', formatMoney(facts.totals.invoiced, 'DOP')],
+    ['TOTAL ABONADO', formatMoney(facts.totals.paid, 'DOP')],
+    ['SALDO PENDIENTE', formatMoney(facts.totals.balance, 'DOP')],
   ];
   totals.forEach(([label, value], index) => {
     const lineY = y + 12 + index * 22;
@@ -323,20 +276,10 @@ function writeStatement(facts: AccountStatementPdfFacts, document: PdfDocument):
 
 export const pdfkitAccountStatementRenderer: AccountStatementPdfRenderer = {
   render(facts) {
-    return new Promise((resolve, reject) => {
-      const document = new PDFDocument({
-        compress: false,
-        size: 'LETTER',
-        margin: PAGE_MARGIN,
-        bufferPages: true,
-      });
-      document.info.Title = `Estado de cuenta - ${facts.customerName}`;
-      const chunks: Buffer[] = [];
-      document.on('data', (chunk: Buffer) => chunks.push(chunk));
-      document.on('end', () => resolve(Buffer.concat(chunks)));
-      document.on('error', reject);
-      writeStatement(facts, document);
-      document.end();
+    return renderPdfBuffer({
+      margin: PAGE_MARGIN,
+      title: `Estado de cuenta - ${facts.customerName}`,
+      write: (document) => writeStatement(facts, document),
     });
   },
 };

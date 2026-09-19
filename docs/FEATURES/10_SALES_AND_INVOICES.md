@@ -14,11 +14,13 @@ The old consolidated requirements/validation files are intentionally no longer r
 
 **Implementation (2026-09-10):** Release 2 non-inventory lines, confirm/`FAC-`, PDF generate/regenerate, and HTTP POS/detail/PDF are done. Invoice detail HTTP shows **document activity** from history (confirm, payment, PDF, cancel; not draft/line churn — Feature 14). Confirm may record a **pulled-forward** initial payment and `dueDate` (Feature 12). Release 5/7 checklist `[x]` items are **prototype mock**; HTTP API still rejects ITEM/QTY with 409.
 
-**Pre-production change set (2026-09-15):** Tax-exclusive ITBIS (`SALE-009`/`SALE-010`) is **implemented locally** (Paso 4). Cash/credit confirmation against customer type (`SALE-005` amended) is **implemented locally** (Paso 5, 2026-09-16): named `CASH` is not credit-eligible; `CREDIT` is DOP-only with limit and term snapshot. Convertible quotes (`QUOTE-001`/`QUOTE-002`) are **implemented locally** (Paso 6, 2026-09-16): `QUOTE_DRAFT`/`QUOTE_ISSUED`/`COMPLETED` on the same aggregate, `COT-` sequence, 30-day expiry, duplicate, and convert. Corporate-vs-historical PDF presentation (`DOC-001`) is **implemented, verificada y aprobada localmente** (Paso 9, 2026-09-17).
+**Pre-production change set (2026-09-15):** Tax-exclusive ITBIS (`SALE-009`/`SALE-010`) is **implemented locally** (Paso 4). Cash/credit confirmation against customer type (`SALE-005` amended) is **implemented locally** (Paso 5, 2026-09-16): named `CASH` is not credit-eligible; `CREDIT` is DOP-only with limit and term snapshot. Convertible quotes (`QUOTE-001`/`QUOTE-002`) are **implemented locally** (Paso 6, 2026-09-16): `QUOTE_DRAFT`/`QUOTE_ISSUED`/`COMPLETED` on the same aggregate, `COT-` sequence, 15-day expiry, duplicate, and convert. Corporate-vs-historical PDF presentation (`DOC-001`) is **implemented, verificada y aprobada localmente** (Paso 9, 2026-09-17).
+
+**Administrator seller-sales report (2026-09-18, local pull-forward):** Finanzas y control exposes `/seller-sales` for Administrator only. `GET /api/sales/reports/seller-sales` paginates like other sales lists (`page` / `pageSize`, default 10/max 100) and `.pdf` returns the full filtered range. Both list `COMPLETED` invoices (`confirmedAt` / `confirmedBy*`) and outstanding `QUOTE_ISSUED` quotes (`quoteIssuedAt` / `quoteIssuedBy*`) in `America/Santo_Domingo` date bounds, with optional `sellerUserId`. Cancelled and drafts are excluded; converting COT→FAC does not double-count. PDF is data-only (no commission formula). This is outside the generic reporting items in `FUTURE_ROADMAP.md`.
 
 ## What this feature does
 
-Provide Draft/Completed/Cancelled internal invoices, optional quote stages on the same aggregate, a shared `FAC-` sequence and independent `COT-` sequence, DOP/USD single-currency behavior, validated line types, optional base + 18% ITBIS separate from fiscal emission, printable PDF output, and atomic confirmation semantics.
+Provide Draft/Completed/Cancelled internal invoices, optional quote stages on the same aggregate, a shared `FAC-` sequence and independent `COT-` sequence, DOP/USD single-currency behavior, validated line types, optional base + 18% ITBIS separate from fiscal emission, printable PDF output, atomic confirmation semantics, and an Administrator-only seller-sales volume report (JSON + PDF) pulled forward from future reporting.
 
 ## Architecture ownership
 
@@ -74,7 +76,7 @@ Invoice PDF rendering is secondary to sale validity. Preserve all invoice facts 
 - Fiscal emission remains independent of `Aplicar ITBIS` and still requires qualifying customer identity.
 - Service and delivery remain non-taxable.
 - Cash customers settle in full at confirmation; credit is DOP-only for `CREDIT` customers and cannot exceed the limit.
-- Issued quotes receive unique `COT-` numbers, expire at end of day 30 in `America/Santo_Domingo`, and convert on the same aggregate to `FAC-`.
+- Issued quotes receive unique `COT-` numbers, expire at end of day 15 in `America/Santo_Domingo`, and convert on the same aggregate to `FAC-`.
 - Re-downloaded historical PDFs keep stored money and apply current corporate presentation.
 - Generic line never silently creates/changes inventory.
 - PDF failure does not roll back or duplicate a valid sale; Administrator can regenerate it.
@@ -129,6 +131,7 @@ Invoice PDF rendering is secondary to sale validity. Preserve all invoice facts 
 - [x] Confirm cash vs credit against customer type, DOP-only credit, term snapshot, and credit limit inside the confirmation transaction (SALE-005, CUST-005). _(API + HTTP local Paso 5, 2026-09-16)_
 - [x] Quote stages on the same aggregate, `COT-` sequence, expiry, duplicate, convert (QUOTE-001, QUOTE-002). _(API + HTTP + mock local Paso 6, 2026-09-16. Quote PDF template is Paso 9 / DOC-001.)_
 - [x] PDF `internal-v4` / quote template with DOC-001 immutable facts vs current corporate profile. _(API + HTTP UI, verificación técnica y muestras aprobadas localmente; Paso 9 cerrado 2026-09-17.)_
+- [x] Administrator-only seller-sales report (JSON + PDF) under Finanzas y control. _(Local pull-forward 2026-09-18: date range + optional seller; JSON `page`/`pageSize`; COMPLETED + outstanding QUOTE_ISSUED; no commission formula.)_
 
 ## Canonical validated requirements
 
@@ -392,11 +395,11 @@ gross = base
 ```
 
 **Business Reason:** The owner replaced tax-inclusive entry so the typed price is the base.  
-**Main Flow:** Each line is calculated and rounded to two decimals, then invoice totals sum those already-rounded lines. Do not compute 18% on the combined invoice subtotal.  
+**Main Flow:** Each line is calculated and rounded to two decimals under the formulas above. Invoice header totals then apply an optional commercial `discountPercent` (0–100, default 0) to the **sum of all line bases** (taxable merchandise plus service/delivery). POS Subtotal continues to show that same pre-discount sum; the discount amount is `round2(allLineBases * discountPercent / 100)`. ITBIS on the invoice header is always the SALE-010 sum of already-rounded per-line ITBIS (taxable bases **before** discount); the discount does not reduce ITBIS. When the discount amount is greater than zero, header `base` is `allLineBases − discount` and `gross` is `base + ITBIS`. When the discount amount is zero, header totals remain the SALE-010 sum of already-rounded per-line money (do not replace that with 18% of the combined base). Line rows keep pre-discount money; only invoice header `base` / `itbis` / `gross` reflect the discount. The percent is editable on draft/quote-draft via the same meta path as `applyItbis` and is snapshotted through issue/confirm.  
 **Business Rules:** Taxable merchandise includes tracked parts, quantity products, externally sourced resale parts, and generic merchandise. The 18% rate is not Administrator-configurable. Use decimal-safe money (`Prisma.Decimal` or equivalent); do not use binary floating point in the API. Completed (`COMPLETED`) invoices keep stored `base`, `itbis`, and `gross`; they are never recalculated on read or PDF regenerate. Open drafts (and quote drafts) are recalculated under this formula when the change is activated.  
-**Important Exceptions/Edge Cases:** Historical completed invoices that were stored under the previous tax-inclusive formula remain those stored amounts.  
+**Important Exceptions/Edge Cases:** Historical completed invoices that were stored under the previous tax-inclusive formula remain those stored amounts. When `discountPercent > 0`, the sum of line money may differ from invoice header totals by design. A 100% discount can leave a remaining total equal to pre-discount ITBIS.  
 **Dependencies:** SALE-003, SALE-009, COST-002, LINE-001 through LINE-006.  
-**Acceptance Notes:** Taxable unit price `118.00` quantity `1` with ITBIS on yields base `118.00`, ITBIS `21.24`, gross `139.24`. Several taxable lines round individually; the invoice ITBIS equals the sum of line ITBIS, not `round2(sum(base) * 0.18)`. Service `118.00` yields ITBIS `0.00`. The same `118.00` with ITBIS off yields total `118.00`. A completed historical invoice whose stored gross was `118.00` still reads `118.00` after migration. POS, API, preview, and PDF show identical base, ITBIS, and total.
+**Acceptance Notes:** Taxable unit price `118.00` quantity `1` with ITBIS on yields base `118.00`, ITBIS `21.24`, gross `139.24`. Several taxable lines with zero discount round individually; the invoice ITBIS equals the sum of line ITBIS, not `round2(sum(base) * 0.18)`. Merchandise `100.00` plus service `50.00`, ITBIS on, discount `10%` yields discount `15.00`, header base `135.00`, ITBIS `18.00`, gross `153.00`; line rows stay pre-discount. Service `118.00` yields ITBIS `0.00` and is included in the discount base. The same `118.00` with ITBIS off yields total `118.00`. A completed historical invoice whose stored gross was `118.00` still reads `118.00` after migration. POS, API, preview, and PDF show identical header base, ITBIS, and total.
 
 ---
 
@@ -417,16 +420,16 @@ gross = base
 
 ### QUOTE-002 — Quote Validity, Duplicate, and Expiry
 
-**Name:** Thirty-day quote validity and duplicate-as-new  
+**Name:** Fifteen-day quote validity and duplicate-as-new  
 **Status:** CONFIRMED  
 **Actors:** Seller, Administrator  
-**Requirement:** An issued quote is valid through the end of calendar day 30 in `America/Santo_Domingo` after issue. It cannot be edited, reactivated, or converted after expiry. It may be duplicated into a new `QUOTE_DRAFT` that copies customer, currency, fiscal flags, `applyItbis`, lines, quantities, prices, and notes, and receives a new `COT-` only when that new quote is issued.  
+**Requirement:** An issued quote is valid through the end of calendar day 15 in `America/Santo_Domingo` after issue. It cannot be edited, reactivated, or converted after expiry. It may be duplicated into a new `QUOTE_DRAFT` that copies customer, currency, fiscal flags, `applyItbis`, lines, quantities, prices, and notes, and receives a new `COT-` only when that new quote is issued.  
 **Business Reason:** Quotes must expire predictably in business local time without silently mutating the issued document.  
 **Main Flow:** User issues a quote; after expiry, convert is rejected; duplicate creates a new editable quote.  
 **Business Rules:** The quote PDF title is `COTIZACIÓN` and must not add the phrase `NO ES FACTURA`. Money on the quote PDF uses SALE-010. Users never type `COT-` numbers.  
 **Important Exceptions/Edge Cases:** Duplicate does not alter the original issued quote. Expired quotes remain readable.  
 **Dependencies:** QUOTE-001, SALE-010, DOC-001.  
-**Acceptance Notes:** A quote issued 2026-09-15 is convertible through 2026-10-15 23:59:59 in `America/Santo_Domingo` and not after. Duplicate of `COT-000001` creates a draft with no number; issuing it yields `COT-000002`. Convert on an expired quote is rejected.
+**Acceptance Notes:** A quote issued 2026-09-15 is convertible through 2026-09-30 23:59:59 in `America/Santo_Domingo` and not after. Duplicate of `COT-000001` creates a draft with no number; issuing it yields `COT-000002`. Convert on an expired quote is rejected.
 
 ---
 
@@ -437,8 +440,8 @@ gross = base
 **Actors:** Seller and Administrator (download); corporate profile is maintained in code configuration
 **Requirement:** Re-downloading a historical invoice or quote PDF must keep stored commercial and monetary facts and apply the **current** corporate presentation profile.  
 **Business Reason:** Contact data and payment instructions change; issued prices, taxes, parties, and lines must not.  
-**Immutable facts:** customer snapshot, lines, quantities, prices, stored base/ITBIS/gross, currency, `FAC-` and origin `COT-`, business dates (`confirmedAt` / issue / due), and cancellation mark/reason/date.
-**Current presentation:** one corporate profile centralized in code (no database table, API, or maintenance UI): name `SOLO CAMIONES`; RNC `1-33-13562-2`; address `Av. Pdte. Antonio Guzmán Fernández #68, próximo al Aerop. El Higüero`; WhatsApp `809-875-3161 / 829-627-3168`; email `solocamionessrl@gmail.com`; Instagram `@solocamionessrl`; Facebook `Solo Camiones SRL`; and TikTok `solo.camiones.srl`. The footer of invoice, quote, and account-statement PDFs shows the confirmed payment instructions: Banco Popular Dominicano, Cuenta Corriente DOP, account number `857578579`, account holder `Solo Camiones SRL`, and cheques payable to `Solo Camiones SRL`.
+**Immutable facts:** customer snapshot (including cash/credit type), lines, quantities, prices, stored base/ITBIS/gross, currency, `FAC-` and origin `COT-`, business dates (`confirmedAt` / issue / due), confirmation seller (invoices) or quote issuer (issued quotes), and cancellation mark/reason/date.
+**Current presentation:** one corporate profile centralized in code (no database table, API, or maintenance UI): name `SOLO CAMIONES`; tagline `Importadora de repuestos nuevos y usados` printed directly under the name; RNC `1-33-13562-2`; address `Av. Pdte. Antonio Guzmán Fernández #68, próximo al Aerop. El Higüero`; WhatsApp `809-875-3161 / 829-627-3168`; email `solocamionessrl@gmail.com`; Instagram `@solocamionessrl`; Facebook `Solo Camiones SRL`; and TikTok `solo.camiones.srl`. Social networks print in the PDF header only. Invoice and quote PDF footers show payment instructions (Banco Popular Dominicano, Cuenta Corriente DOP, account number `857578579`, account holder `Solo Camiones SRL`, cheques payable to `Solo Camiones SRL`) and terms and conditions (no returns of electrical or installed parts; claims require the original invoice; prices subject to change), without a contact/social identity strip. Invoice PDFs also show sale condition `Al contado` or `A crédito` from whether confirmation settled 100% of the gross (a CREDIT customer paying in full at confirm prints Al contado). The account-statement PDF keeps its own footer layout with payment instructions.
 **Business Rules:** Keep only the invoice template `internal-v4` and a separate quote template. The project has no real production data, so legacy `internal-v1`, `internal-v2`, and `internal-v3` support is removed and local test data may be cleaned/recreated; do not add a permanent migration that relabels legacy documents as `internal-v4`. Share one corporate profile rather than duplicating issuer or payment data per template. Invoice PDFs must not print payment state, outstanding balance, balance-calculation timestamp, or private payment movements, and must not claim the system processes the payment. The Administrator-only account statement continues to show its approved payment states, cumulative paid amounts, balances, and totals.
 **Important Exceptions/Edge Cases:** Non-reconstructable historical seller/phone snapshots stay blank. Payment instructions are fixed code configuration until the owner explicitly changes them.
 **Dependencies:** SALE-004, SALE-010, QUOTE-001, PAY-006.  

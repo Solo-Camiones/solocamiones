@@ -4,7 +4,7 @@ import type { UpdateOwnProfileInput } from '../../api/contracts/profile';
 import type { AuthUser } from '../auth/auth-context';
 import { roleLabel } from '../../shared/auth/policies';
 import { formatDominicanPhone } from '../../shared/domain/phone';
-import { Button, Card, Field, Info, Input } from '../../shared/ui';
+import { Button, Card, Field, Info, Input, PasswordInput } from '../../shared/ui';
 
 type ProfileFormProps = {
   user: AuthUser;
@@ -121,9 +121,8 @@ export function ProfileForm({ user, isSaving, error, onSubmit }: ProfileFormProp
           </p>
           <div className="space-y-4">
             <Field label="Contraseña actual" htmlFor="profile-current-password">
-              <Input
+              <PasswordInput
                 id="profile-current-password"
-                type="password"
                 value={fields.currentPassword}
                 onChange={(event) =>
                   setFields((current) => ({ ...current, currentPassword: event.target.value }))
@@ -132,9 +131,8 @@ export function ProfileForm({ user, isSaving, error, onSubmit }: ProfileFormProp
               />
             </Field>
             <Field label="Nueva contraseña" htmlFor="profile-new-password">
-              <Input
+              <PasswordInput
                 id="profile-new-password"
-                type="password"
                 value={fields.newPassword}
                 onChange={(event) =>
                   setFields((current) => ({ ...current, newPassword: event.target.value }))
@@ -143,9 +141,8 @@ export function ProfileForm({ user, isSaving, error, onSubmit }: ProfileFormProp
               />
             </Field>
             <Field label="Confirmar nueva contraseña" htmlFor="profile-confirm-password">
-              <Input
+              <PasswordInput
                 id="profile-confirm-password"
-                type="password"
                 value={fields.confirmPassword}
                 onChange={(event) =>
                   setFields((current) => ({ ...current, confirmPassword: event.target.value }))

@@ -191,7 +191,7 @@ Renderizan React en jsdom con Testing Library y validan comportamiento visible. 
 
 ### Pruebas unitarias
 
-Validan salud, errores, configuración de pruebas, credenciales, sesiones, autorización, proyecciones, PDF, FX, rentabilidad, pagos y reglas de usuarios, clientes, catálogo y ventas con dependencias aisladas. Hay **393 pruebas en 46 archivos** (ejecución 2026-09-17).
+Validan salud, errores, configuración de pruebas, credenciales, sesiones, autorización, proyecciones, PDF, FX, rentabilidad, pagos y reglas de usuarios, clientes, catálogo y ventas con dependencias aisladas. Hay **396 pruebas en 47 archivos** (inventario actualizado 2026-09-18 con seller-sales PDF).
 
 | Archivo                                        | Cantidad | Pruebas realizadas                                                                                                                                                     | Resultado esperado                                                                                                                                        |
 | ---------------------------------------------- | -------: | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -205,6 +205,7 @@ Validan salud, errores, configuración de pruebas, credenciales, sesiones, autor
 | `unit/infrastructure/invoice-pdf.test.ts`      |        9 | PDF `internal-v4`, notas, base/ITBIS/total, cancelación, `COT-` opcional, perfil/pagos corporativos y paginación; rechazo de versiones retiradas; ausencia de estado, saldo y movimientos de cobro. | Solo `internal-v4` renderiza; conserva hechos comerciales y excluye datos privados de cobro. |
 | `unit/infrastructure/quote-pdf.test.ts`        |        6 | Filename `COT-`, hechos congelados, título y totales, exclusión de etiquetas de factura/cobro, perfil corporativo, notas/paginación y estado permitido. | Solo `QUOTE_ISSUED` renderiza una cotización independiente y legible con el pie compartido. |
 | `unit/infrastructure/account-statement-pdf.test.ts` |   2 | Estados, abonado y saldo; perfil corporativo, medios de pago y paginación. | El estado de cuenta conserva la información financiera agregada sin movimientos individuales. |
+| `unit/infrastructure/seller-sales-pdf.test.ts` |   3 | Título y filas FAC/COT; mensaje de rango vacío; paginación con continuación. | El PDF de ventas por vendedor es solo datos, con identidad corporativa y sin fórmula de comisión. |
 | `unit/infrastructure/corporate-profile.test.ts` |       1 | Identidad, contactos, redes y medios de pago aprobados. | Los valores corporativos exactos permanecen centralizados. |
 | `unit/infrastructure/document-profile.test.ts` |        1 | Contrato compartido del perfil documental. | Factura, cotización y estado de cuenta consumen una sola fuente de verdad. |
 | `unit/infrastructure/document-visual-review.test.ts` |  9 | Extracción textual y rasterizado de facturas con/sin ITBIS, desde cotización, cancelada, muchas líneas y notas; cotizaciones vigente/vencida; estado de cuenta multipágina. | Todas las páginas se generan y permiten validar contenido, pies, firmas y saltos sin solapamientos. |
@@ -241,7 +242,7 @@ Validan salud, errores, configuración de pruebas, credenciales, sesiones, autor
 
 ### Pruebas de integración
 
-Ejercitan persistencia y transacciones contra PostgreSQL y rutas HTTP con Supertest. Hay **238 pruebas en 27 archivos**, aprobadas el 17-sep contra `DATABASE_URL_TEST` aislada. `vitest.config.ts` declara `fileParallelism: false` porque los archivos comparten esa base.
+Ejercitan persistencia y transacciones contra PostgreSQL y rutas HTTP con Supertest. Hay **243 pruebas en 28 archivos** (inventario actualizado 2026-09-18 con seller-sales HTTP; última corrida completa citada: 17-sep). `vitest.config.ts` declara `fileParallelism: false` porque los archivos comparten esa base.
 
 | Archivo                                         | Cantidad | Pruebas realizadas                                                                                                                                                                                                                                    | Resultado esperado                                                                                                                                                                                                                                                                     |
 | ----------------------------------------------- | -------: | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -268,6 +269,7 @@ Ejercitan persistencia y transacciones contra PostgreSQL y rutas HTTP con Supert
 | `integration/profitability/fx-retry-http.test.ts` |      3 | Retry histórico exitoso o no disponible; rechazo de DOP, draft, Seller y Mechanic. | El retry Administrator no reejecuta ni muta la venta y registra el resultado con historial. |
 | `integration/sales/payments-cancellation-http.test.ts` | 8 | Pago inicial atómico; rechazo C0 a crédito; dueDate + pago parcial idempotente; paid-late; cancelación Admin + reembolso; PDF unset; listado CxC; paginación CxC. | Confirmación puede cobrar; C0 exige total; cancelar no-inventario es Administrator; CxC oculta saldadas. |
 | `integration/sales/cost-provenance-http.test.ts` | 1 | Provenance ACTUAL/ESTIMATED/UNKNOWN en ediciones de línea no relacionadas. | Un PATCH ajeno no pisa el costo; UNKNOWN no se persiste como cero. |
+| `integration/sales/seller-sales-http.test.ts` | 6 | Auth Admin-only; fechas inválidas; COMPLETED/QUOTE_ISSUED vs cancelada/borrador; sin doble conteo al convertir; filtro por vendedor; paginación JSON; descarga PDF. | El reporte de volumen atribuye factura y cotización emitida sin comisión ni acceso Seller. |
 
 ### Cobertura añadida en Milestone 9
 
@@ -344,7 +346,7 @@ Los archivos y conteos completos de M13–M16 también están registrados en las
 El contraste entre las pruebas escritas y este inventario detectó cobertura del Paso 9 que no estaba documentada o todavía describía plantillas retiradas. Queda registrada así:
 
 - **Unitarias API (39 casos):** perfil corporativo compartido (2), factura `internal-v4` (9), cotización (6), estado de cuenta (2), proyecciones documentales (9), filenames (2) y revisión textual/visual rasterizada (9).
-- **Integración API:** `integration/sales/quotes-http.test.ts` cubre descarga Seller/Administrator, rechazo Mechanic y `QUOTE_DRAFT`, cotización vencida, invariantes sin pagos/eventos/cambio de estado, conversión posterior y `COT-` de origen; `integration/sales/pdf-http.test.ts` conserva generación/regeneración de factura, autorización, cancelación y versión persistida; `integration/sales/account-statement-http.test.ts` conserva la descarga Administrator-only con saldos.
+- **Integración API:** `integration/sales/quotes-http.test.ts` cubre descarga Seller/Administrator, rechazo Mechanic y `QUOTE_DRAFT`, cotización vencida, invariantes sin pagos/eventos/cambio de estado, conversión posterior y `COT-` de origen; `integration/sales/pdf-http.test.ts` conserva generación/regeneración de factura, autorización, cancelación y versión persistida; `integration/sales/account-statement-http.test.ts` conserva la descarga Administrator-only con saldos; `integration/sales/seller-sales-http.test.ts` cubre el reporte Admin de ventas por vendedor (JSON + PDF).
 - **Web:** `unit/api/http-sales.test.ts` cubre blob/`Content-Disposition` para `FAC-` y `COT-`; `component/sales/PdfPreviewModal.test.tsx` distingue factura/cotización y descarga el filename recibido; `component/sales/PosPage.test.tsx` cubre visibilidad por estado, preview, error sin perder acciones, cotización vencida y revocación de `ObjectURL`.
 - **Muestras verificadas:** `invoice-short-no-itbis`, `invoice-with-itbis`, `invoice-from-quote`, `invoice-cancelled`, `invoice-many-lines`, `invoice-multiline-notes`, `quote-current`, `quote-expired` y `statement-multipage`, con PDF y todas sus páginas PNG bajo `tmp/pdf-visual-review/`.
 
@@ -366,7 +368,7 @@ El contraste archivo por archivo también encontró **13 suites (50 casos)** exi
 
 | Archivo | Casos | Cobertura |
 | --- | ---: | --- |
-| `unit/sales/quote-dates.test.ts` | 1 | Vencimiento al final del día calendario 30 en Santo Domingo. |
+| `unit/sales/quote-dates.test.ts` | 1 | Vencimiento al final del día calendario 15 en Santo Domingo. |
 | `unit/sales/credit-confirmation.test.ts` | 8 | Confirmación CASH/CREDIT por rol, moneda, pago, plazo, exposición y límite. |
 | `unit/shared/domain/phone.test.ts` | 2 | Formato y máscara progresiva de teléfonos dominicanos. |
 | `unit/shared/domain/fiscal-id.test.ts` | 3 | Formato y máscara parcial de RNC y cédula. |

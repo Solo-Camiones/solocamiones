@@ -12,6 +12,8 @@ import { InvoiceDocumentService } from './features/invoice-documents/service.js'
 import { salesRouter } from './features/sales/routes.js';
 import { AccountStatementService } from './features/payments/account-statement-service.js';
 import { SalesService } from './features/sales/service.js';
+import { SellerSalesReportService } from './features/sales/seller-sales-report-service.js';
+import { SellerSalesReportRepository } from './features/sales/seller-sales-report-repository.js';
 import { SalesRepository } from './features/sales/repository.js';
 import { salesTransaction } from './features/sales/transaction.js';
 import { healthRouter } from './features/health/routes.js';
@@ -36,6 +38,10 @@ import {
   pdfkitAccountStatementRenderer,
   type AccountStatementPdfRenderer,
 } from './infrastructure/account-statement-pdf/index.js';
+import {
+  pdfkitSellerSalesRenderer,
+  type SellerSalesPdfRenderer,
+} from './infrastructure/seller-sales-pdf/index.js';
 
 export type CreateAppOptions = {
   /** Test-only routers, mounted after feature routes and before the 404 handler. */
@@ -53,6 +59,8 @@ export type CreateAppOptions = {
   quotePdfRenderer?: QuotePdfRenderer;
   /** Test double for STMT-001. Production uses its dedicated pdfkit renderer. */
   accountStatementPdfRenderer?: AccountStatementPdfRenderer;
+  /** Test double for seller-sales PDF. Production uses its dedicated pdfkit renderer. */
+  sellerSalesPdfRenderer?: SellerSalesPdfRenderer;
   /** Override for tests. Production defaults to 100 requests per 15-minute window. */
   apiRateLimitMaxRequests?: number;
 };
@@ -89,10 +97,16 @@ export function createApp(options: CreateAppOptions = {}): express.Application {
     salesTransaction,
     options.accountStatementPdfRenderer ?? pdfkitAccountStatementRenderer,
   );
+  const sellerSalesReportService = new SellerSalesReportService(
+    salesTransaction,
+    new SellerSalesReportRepository(),
+    options.sellerSalesPdfRenderer ?? pdfkitSellerSalesRenderer,
+  );
   const apiRateLimiter = createApiRateLimiter(options.apiRateLimitMaxRequests);
   app.locals.salesService = salesService;
   app.locals.profitabilityService = profitabilityService;
   app.locals.accountStatementService = accountStatementService;
+  app.locals.sellerSalesReportService = sellerSalesReportService;
 
   // nginx replaces X-Forwarded-For with one client address. Enable only behind that unpublished hop.
   app.set('trust proxy', (address: string, hop: number) =>

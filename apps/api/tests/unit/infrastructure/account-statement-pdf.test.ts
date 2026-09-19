@@ -48,6 +48,7 @@ describe('account statement PDF renderer (STMT-001)', () => {
     expect(hexText).toContain(Buffer.from('829-627-3168').toString('hex'));
     expect(hexText).toContain(Buffer.from('solocamionessrl@gmail.com').toString('hex'));
     expect(hexText).toContain(Buffer.from('Av. Pdte.').toString('hex'));
+    expect(hexText).toContain(Buffer.from('Importadora de repuestos nuevos y usados').toString('hex'));
     expect(hexText).toContain(Buffer.from('@solocamionessrl').toString('hex'));
     expect(hexText).toContain(Buffer.from('Solo Camiones SRL').toString('hex'));
     expect(hexText).toContain(Buffer.from('solo.camiones.srl').toString('hex'));
@@ -60,6 +61,8 @@ describe('account statement PDF renderer (STMT-001)', () => {
     expect(hexText).not.toContain(Buffer.from('Av. Pte.').toString('hex'));
     expect(hexText).not.toContain(Buffer.from('TRANSFER').toString('hex'));
     expect(hexText).not.toContain(Buffer.from('CHECK').toString('hex'));
+    expect(hexText).toContain(Buffer.from('01/10/2026').toString('hex'));
+    expect(hexText).not.toContain(Buffer.from('30/09/2026').toString('hex'));
   });
 
   it('paginates a large statement and keeps every invoice row', async () => {

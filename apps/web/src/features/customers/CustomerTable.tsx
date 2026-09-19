@@ -88,7 +88,7 @@ export function CustomerTable({ rows, canManageCredit, onEdit }: CustomerTablePr
         <tr>
           <th className="px-4 py-3 font-medium">Nombre</th>
           <th className="px-4 py-3 font-medium">Identificación fiscal / cédula</th>
-          <th className="px-4 py-3 font-medium">Teléfono</th>
+          <th className="px-4 py-3 font-medium">Contacto</th>
           <th className="px-4 py-3 font-medium">
             <span className="sr-only">Acciones</span>
           </th>
@@ -123,8 +123,21 @@ export function CustomerTable({ rows, canManageCredit, onEdit }: CustomerTablePr
                   </div>
                 </td>
                 <td className="px-4 py-3 text-navy-400">{formatFiscalId(row.rnc) || '—'}</td>
-                <td className="px-4 py-3 text-navy-400">
-                  {formatDominicanPhone(primary?.phone) || '—'}
+                <td className="px-4 py-3 text-sm text-navy-400">
+                  {primary &&
+                  (trimmed(primary.name) || primary.phone || primary.email) ? (
+                    <>
+                      {trimmed(primary.name) && (
+                        <span className="block font-medium text-navy">{trimmed(primary.name)}</span>
+                      )}
+                      {primary.phone && (
+                        <span className="block">{formatDominicanPhone(primary.phone)}</span>
+                      )}
+                      {primary.email && <span className="block">{primary.email}</span>}
+                    </>
+                  ) : (
+                    '—'
+                  )}
                   {hasMultipleContacts && (
                     <button
                       type="button"

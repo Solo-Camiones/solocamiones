@@ -37,18 +37,6 @@ function lastDayOfMonth(month: string): string {
   return shiftDay(`${next}-01`, -1);
 }
 
-export function inclusiveDayCount(from: string, to: string): number {
-  const start = Date.parse(`${from}T00:00:00.000Z`);
-  const end = Date.parse(`${to}T00:00:00.000Z`);
-  return Math.floor((end - start) / 86_400_000) + 1;
-}
-
-export function previousRange(range: DateRange): DateRange {
-  const days = Math.max(1, inclusiveDayCount(range.from, range.to));
-  const to = shiftDay(range.from, -1);
-  return { from: shiftDay(to, -(days - 1)), to };
-}
-
 export function resolvePeriodRange(input: {
   preset: PeriodPreset;
   today: string;
@@ -86,20 +74,52 @@ export function evolutionChartRange(range: DateRange, preset: PeriodPreset, toda
   return { from: range.from, to: shiftDay(range.to, EVOLUTION_CHART_FORWARD_DAYS) };
 }
 
-export function percentChange(current: number, previous: number): number | null {
-  if (previous === 0) {
-    return current === 0 ? 0 : null;
-  }
-  return Math.round((((current - previous) / Math.abs(previous)) * 100 + Number.EPSILON) * 10) / 10;
+/**
+ * Converts an ISO date string (YYYY-MM-DD) to a UTC-based Date for formatting,
+ * avoiding timezone shifts that would display the wrong calendar day.
+ */
+function isoToUtcDate(iso: string): Date {
+  const [year, month, day] = iso.split('-').map(Number);
+  return new Date(Date.UTC(year, month - 1, day));
 }
 
-export function trendFromChange(change: number | null): { label: string; tone: 'up' | 'down' | 'neutral' } | undefined {
-  if (change == null) {
-    return undefined;
+const DATE_RANGE_FORMATTER = new Intl.DateTimeFormat('es-DO', {
+  day: 'numeric',
+  month: 'short',
+  year: 'numeric',
+  timeZone: 'UTC',
+});
+
+const DATE_RANGE_FORMATTER_NO_YEAR = new Intl.DateTimeFormat('es-DO', {
+  day: 'numeric',
+  month: 'short',
+  timeZone: 'UTC',
+});
+
+/**
+ * Formats a date range as a human-readable string in Spanish.
+ * When from === to, returns a single date. When both dates share the same year,
+ * the year is omitted from `from` to reduce visual noise.
+ *
+ * Examples:
+ *   "1 sep — 18 sep 2026"  (same year, different days)
+ *   "18 sep 2026"           (same day)
+ *   "28 dic 2025 — 3 ene 2026" (different years)
+ */
+export function formatDateRange(from: string, to: string): string {
+  const fromDate = isoToUtcDate(from);
+  const toDate = isoToUtcDate(to);
+
+  const toFormatted = DATE_RANGE_FORMATTER.format(toDate);
+
+  if (from === to) {
+    return toFormatted;
   }
-  const sign = change > 0 ? '+' : '';
-  return {
-    label: `${sign}${change.toFixed(1)}% vs período anterior`,
-    tone: change > 0 ? 'up' : change < 0 ? 'down' : 'neutral',
-  };
+
+  const sameYear = from.slice(0, 4) === to.slice(0, 4);
+  const fromFormatted = sameYear
+    ? DATE_RANGE_FORMATTER_NO_YEAR.format(fromDate)
+    : DATE_RANGE_FORMATTER.format(fromDate);
+
+  return `${fromFormatted} — ${toFormatted}`;
 }

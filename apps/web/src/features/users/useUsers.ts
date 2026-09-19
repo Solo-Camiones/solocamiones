@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 
 import { toListPage, type ListPage } from '../../api/contracts/pagination';
 import type { ManagedUser, SaveUserInput, SaveUserResult } from '../../api/contracts/users';
+import { fetchAllPages } from '../../api/client/paginate-all';
 import type { AppError, Result } from '../../shared/auth/types';
 import { userRepository } from '../../api/repositories';
 import { beginQueryReload } from '../../shared/query/begin-query-reload';
@@ -24,18 +25,19 @@ async function listUsers(page: number, query: string): Promise<Result<ListPage<M
     return userRepository.list(page);
   }
 
-  const users: ManagedUser[] = [];
-  let currentPage = 1;
-  let total = 0;
+  let listError: AppError | undefined;
   let pageSize = 10;
-  do {
+  const users = await fetchAllPages(async (currentPage) => {
+    if (listError) return { items: [], total: 0 };
     const response = await userRepository.list(currentPage);
-    if (!response.ok) return response;
-    users.push(...response.value.items);
-    total = response.value.total;
+    if (!response.ok) {
+      listError = response.error;
+      return { items: [], total: 0 };
+    }
     pageSize = response.value.pageSize;
-    currentPage += 1;
-  } while (users.length < total);
+    return response.value;
+  });
+  if (listError) return { ok: false, error: listError };
 
   const matches = users.filter(
     (user) =>

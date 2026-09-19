@@ -41,6 +41,8 @@ export const REPOSITORY_ENDPOINT_MAP = {
   SalesRepository: {
     listInvoices: 'GET /api/sales?page=&pageSize=',
     listReceivables: 'GET /api/sales/receivables',
+    listSellerSalesReport: 'GET /api/sales/reports/seller-sales',
+    getSellerSalesReportPdf: 'GET /api/sales/reports/seller-sales.pdf',
     getInvoice: 'GET /api/sales/:id',
     createDraft: 'POST /api/sales',
     getDraft: 'GET /api/sales/:id',

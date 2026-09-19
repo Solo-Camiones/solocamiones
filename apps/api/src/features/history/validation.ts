@@ -44,6 +44,15 @@ const invoiceCustomerSnapshot = z
     phone: z.string().nullable(),
   })
   .strict();
+/** Header money after invoice-level discount (SALE commercial totals). */
+const invoiceMoneyTotalsSnapshot = z
+  .object({
+    gross: z.string(),
+    base: z.string(),
+    itbis: z.string(),
+    discount: z.string(),
+  })
+  .strict();
 const invoiceConfirmedSnapshot = z
   .object({
     status: z.literal('COMPLETED'),
@@ -52,13 +61,7 @@ const invoiceConfirmedSnapshot = z
     fiscal: z.boolean(),
     customerId: z.uuid(),
     customerSnapshot: invoiceCustomerSnapshot,
-    totals: z
-      .object({
-        gross: z.string(),
-        base: z.string(),
-        itbis: z.string(),
-      })
-      .strict(),
+    totals: invoiceMoneyTotalsSnapshot,
     confirmedAt: z.string(),
     dueDate: z.iso.date(),
     confirmedByUserId: z.uuid(),
@@ -273,7 +276,7 @@ export const historyEventSchema = z
             issuedAt: z.iso.datetime(),
             expiresAt: z.iso.datetime(),
             customerSnapshot: invoiceCustomerSnapshot,
-            totals: z.object({ gross: z.string(), base: z.string(), itbis: z.string() }).strict(),
+            totals: invoiceMoneyTotalsSnapshot,
           })
           .strict(),
       })

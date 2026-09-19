@@ -19,7 +19,13 @@ export type QuotePdfFacts = {
   quoteIssuedAt: Date;
   quoteExpiresAt: Date;
   lines: QuotePdfLineFacts[];
-  totals: { gross: string; base: string; itbis: string };
+  totals: {
+    gross: string;
+    base: string;
+    itbis: string;
+    discount: string;
+    discountPercent: string;
+  };
 };
 
 export type QuotePdfRenderer = {

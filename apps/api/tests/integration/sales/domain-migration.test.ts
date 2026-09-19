@@ -8,6 +8,7 @@ import { COMPLETED_CASH_SNAPSHOT } from '../../helpers/sales.js';
 async function cleanup() {
   await prisma.invoicePayment.deleteMany();
   await prisma.invoice.deleteMany();
+  await prisma.user.deleteMany({ where: { username: { startsWith: 'domain-quote-' } } });
   await prisma.customer.deleteMany({ where: { isDefault: false } });
 }
 
@@ -105,6 +106,14 @@ describe('Pre-production domain migration (Paso 2)', () => {
   it('stores an issued quote with frozen totals and COT- without assigning FAC-', async () => {
     const generic = await prisma.customer.findFirst({ where: { isDefault: true } });
     expect(generic).not.toBeNull();
+    const issuer = await prisma.user.create({
+      data: {
+        name: 'Domain Issuer',
+        username: `domain-quote-${randomUUID()}`,
+        role: 'SELLER',
+        passwordHash: 'unused',
+      },
+    });
 
     const issued = await prisma.invoice.create({
       data: {
@@ -116,6 +125,8 @@ describe('Pre-production domain migration (Paso 2)', () => {
         quoteNumber: 'COT-000001',
         quoteIssuedAt: new Date('2026-09-15T12:00:00.000Z'),
         quoteExpiresAt: new Date('2026-10-16T03:59:59.000Z'),
+        quoteIssuedByUserId: issuer.id,
+        quoteIssuedByName: issuer.name,
         customerName: generic!.name,
         gross: '139.24',
         base: '118.00',
@@ -127,6 +138,7 @@ describe('Pre-production domain migration (Paso 2)', () => {
       number: null,
       quoteNumber: 'COT-000001',
       applyItbis: true,
+      quoteIssuedByName: 'Domain Issuer',
     });
     expect(issued.gross?.toFixed(2)).toBe('139.24');
 

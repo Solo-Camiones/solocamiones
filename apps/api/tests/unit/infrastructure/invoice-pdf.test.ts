@@ -11,6 +11,7 @@ const facts = {
   originQuoteNumber: null,
   currency: 'DOP' as const,
   fiscal: false,
+  saleCondition: 'CASH' as const,
   customerName: 'Cliente contado',
   customerRnc: null,
   customerPhone: null,
@@ -31,7 +32,13 @@ const facts = {
       itbis: '0.00',
     },
   ],
-  totals: { gross: '118.00', base: '118.00', itbis: '0.00' },
+  totals: {
+    gross: '118.00',
+    base: '118.00',
+    itbis: '0.00',
+    discount: '0.00',
+    discountPercent: '0.00',
+  },
   templateVersion: 'internal-v4',
 };
 
@@ -69,6 +76,47 @@ describe('invoice PDF renderer (SALE-004)', () => {
     expect(text).toContain('496e7374616c6c6564');
   });
 
+  it('prints Descuento and pre-discount Subtotal when a commercial discount applies', async () => {
+    const pdf = await pdfkitInvoicePdfRenderer.render({
+      ...facts,
+      lines: [
+        {
+          description: 'Filtro',
+          notes: null,
+          quantity: '1.00',
+          unitPrice: '100.00',
+          base: '100.00',
+          gross: '118.00',
+          itbis: '18.00',
+        },
+      ],
+      totals: {
+        gross: '108.00',
+        base: '90.00',
+        itbis: '18.00',
+        discount: '10.00',
+        discountPercent: '10.00',
+      },
+    });
+    const hexText = pdfHexText(pdf);
+    expect(hexText).toContain(Buffer.from('Descuento(10%)').toString('hex'));
+    expect(hexText).toContain(Buffer.from('Subtotal').toString('hex'));
+    // ASCII hyphen-minus: Helvetica cannot render Unicode − (U+2212).
+    expect(hexText).toContain(Buffer.from('-RD$10.00').toString('hex'));
+    // Pre-discount subtotal 100.00 and discount amount 10.00 appear as money text.
+    expect(pdf.toString('latin1')).toContain('3130302e3030');
+    expect(pdf.toString('latin1')).toContain('31302e3030');
+    expect(pdf.toString('latin1')).toContain('3130382e3030');
+  });
+
+  it('prints Descuento even when the discount amount is zero', async () => {
+    const pdf = await pdfkitInvoicePdfRenderer.render(facts);
+    const hexText = pdfHexText(pdf);
+    expect(hexText).toContain(Buffer.from('Descuento(0%)').toString('hex'));
+    // ASCII hyphen-minus: Helvetica cannot render Unicode − (U+2212).
+    expect(hexText).toContain(Buffer.from('-RD$0.00').toString('hex'));
+  });
+
   it('rejects an unsupported persisted template version instead of changing the document', async () => {
     await expect(
       pdfkitInvoicePdfRenderer.render({ ...facts, templateVersion: 'internal-unknown' }),
@@ -96,7 +144,13 @@ describe('invoice PDF renderer (SALE-004)', () => {
           itbis: '36.00',
         },
       ],
-      totals: { gross: '236.00', base: '200.00', itbis: '36.00' },
+      totals: {
+        gross: '236.00',
+        base: '200.00',
+        itbis: '36.00',
+        discount: '0.00',
+        discountPercent: '0.00',
+      },
     });
     const text = pdf.toString('latin1');
     expect(text).toContain('3230302e3030');
@@ -141,7 +195,7 @@ describe('invoice PDF renderer (SALE-004)', () => {
     expect(withoutHex).not.toContain(Buffer.from('COT-').toString('hex'));
   });
 
-  it('prints the approved corporate profile, TikTok, and payment footer without collection data', async () => {
+  it('prints the approved corporate profile, terms, tagline, and payment footer without collection data', async () => {
     const pdf = await pdfkitInvoicePdfRenderer.render(facts);
     const hexText = pdfHexText(pdf);
 
@@ -151,8 +205,12 @@ describe('invoice PDF renderer (SALE-004)', () => {
     expect(hexText).toContain(Buffer.from('829-627-3168').toString('hex'));
     expect(hexText).toContain(Buffer.from('solocamionessrl@gmail.com').toString('hex'));
     expect(hexText).toContain(Buffer.from('Av. Pdte.').toString('hex'));
+    expect(hexText).toContain(Buffer.from('Importadora de repuestos nuevos y usados').toString('hex'));
     expect(hexText).toContain(Buffer.from('@solocamionessrl').toString('hex'));
     expect(hexText).toContain(Buffer.from('solo.camiones.srl').toString('hex'));
+    expect(hexText).toContain(Buffer.from('Términos y condiciones', 'latin1').toString('hex'));
+    expect(hexText).toContain(Buffer.from('Al contado').toString('hex'));
+    expect(hexText).not.toContain(Buffer.from('Documento interno').toString('hex'));
     expect(hexText).toContain(Buffer.from('Pagos por transferencia:').toString('hex'));
     expect(hexText).toContain(Buffer.from('Banco Popular Dominicano').toString('hex'));
     expect(hexText).toContain(Buffer.from('Cuenta Corriente DOP').toString('hex'));
@@ -165,6 +223,27 @@ describe('invoice PDF renderer (SALE-004)', () => {
     expect(hexText).not.toContain(Buffer.from('e-CF').toString('hex'));
     expect(hexText).not.toContain(Buffer.from('SALDO PENDIENTE').toString('hex'));
     expect(hexText).not.toContain(Buffer.from('Saldo actualizado al').toString('hex'));
+  });
+
+  it('prints A crédito when the sale was confirmed with remaining balance', async () => {
+    const pdf = await pdfkitInvoicePdfRenderer.render({
+      ...facts,
+      saleCondition: 'CREDIT',
+    });
+    const hexText = pdfHexText(pdf);
+    expect(hexText).toContain(Buffer.from('A crédito', 'latin1').toString('hex'));
+    expect(hexText).not.toContain(Buffer.from('Al contado').toString('hex'));
+  });
+
+  it('prints cash dueDate as the same calendar day without America/Santo_Domingo shift', async () => {
+    const pdf = await pdfkitInvoicePdfRenderer.render({
+      ...facts,
+      confirmedAt: new Date('2026-09-18T18:00:00.000Z'),
+      dueDate: new Date('2026-09-18T00:00:00.000Z'),
+    });
+    const hexText = pdfHexText(pdf);
+    expect(hexText).toContain(Buffer.from('18/09/2026').toString('hex'));
+    expect(hexText).not.toContain(Buffer.from('17/09/2026').toString('hex'));
   });
 
   it('keeps the payment footer when the invoice paginates', async () => {

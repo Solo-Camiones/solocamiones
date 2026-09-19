@@ -32,6 +32,7 @@ export type PosDraftSnapshot = {
   currency: Currency;
   fiscal: boolean;
   applyItbis: boolean;
+  discountPercent: number;
   lines: PosLineSnapshot[];
 };
 
@@ -55,6 +56,7 @@ export function snapshotPosDraft(draft: PosDraftView): PosDraftSnapshot {
     currency: draft.currency,
     fiscal: draft.fiscal,
     applyItbis: draft.applyItbis,
+    discountPercent: draft.discountPercent,
     lines: draft.lines.map(snapshotPosLine),
   };
 }
@@ -128,6 +130,7 @@ export async function restoreDiscardedDraft(snapshot: PosDraftSnapshot): Promise
     currency: snapshot.currency,
     fiscal: snapshot.fiscal,
     applyItbis: snapshot.applyItbis,
+    discountPercent: snapshot.discountPercent,
   });
   if (!meta.ok) {
     return meta;

@@ -154,7 +154,7 @@ describe('invoice draft history validation', () => {
         fiscal: false,
         customerId: id,
         customerSnapshot: { name: 'Cliente contado', rnc: null, phone: null },
-        totals: { gross: '118.00', base: '118.00', itbis: '0.00' },
+        totals: { gross: '108.00', base: '90.00', itbis: '18.00', discount: '10.00' },
         confirmedAt: '2026-09-08T18:00:00.000Z',
         dueDate: '2026-10-08',
         confirmedByUserId: id,
@@ -162,6 +162,15 @@ describe('invoice draft history validation', () => {
       },
     };
     expect(historyEventSchema.parse(event)).toEqual(event);
+    expect(
+      historyEventSchema.safeParse({
+        ...event,
+        payload: {
+          ...event.payload,
+          totals: { gross: '108.00', base: '90.00', itbis: '18.00' },
+        },
+      }).success,
+    ).toBe(false);
     expect(
       historyEventSchema.safeParse({
         ...event,

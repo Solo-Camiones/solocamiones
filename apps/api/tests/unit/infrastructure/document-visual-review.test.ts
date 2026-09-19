@@ -31,6 +31,7 @@ const APPROVED_PROFILE_STRINGS = [
   '829-627-3168',
   CORPORATE_PROFILE.email,
   'Av. Pdte.',
+  CORPORATE_PROFILE.tagline,
   CORPORATE_PROFILE.social.instagram,
   CORPORATE_PROFILE.social.facebook,
   CORPORATE_PROFILE.social.tiktok,
@@ -38,6 +39,13 @@ const APPROVED_PROFILE_STRINGS = [
   CORPORATE_PROFILE.payment.transfer.accountType,
   CORPORATE_PROFILE.payment.transfer.accountNumber,
   `Pagos con cheques a nombre de: ${CORPORATE_PROFILE.payment.chequePayee}`,
+] as const;
+
+const APPROVED_COMMERCIAL_FOOTER_STRINGS = [
+  'Términos y condiciones',
+  'No se aceptan devoluciones de piezas eléctricas ni instaladas',
+  'Toda reclamación requiere la factura original',
+  'Precios sujetos a cambios sin previo aviso',
 ] as const;
 
 const RETIRED_CONTACT_STRINGS = ['809-212-7751', 'jmvargas24@gmail.com', 'Av. Pte.'] as const;
@@ -48,6 +56,7 @@ const invoiceBase: InvoicePdfFacts = {
   originQuoteNumber: null,
   currency: 'DOP',
   fiscal: false,
+  saleCondition: 'CASH',
   customerName: 'Cliente contado',
   customerRnc: null,
   customerPhone: '809-555-0101',
@@ -68,7 +77,13 @@ const invoiceBase: InvoicePdfFacts = {
       itbis: '0.00',
     },
   ],
-  totals: { gross: '118.00', base: '118.00', itbis: '0.00' },
+  totals: {
+    gross: '118.00',
+    base: '118.00',
+    itbis: '0.00',
+    discount: '0.00',
+    discountPercent: '0.00',
+  },
   templateVersion: INVOICE_PDF_TEMPLATE_V4,
 };
 
@@ -93,7 +108,13 @@ const quoteBase: QuotePdfFacts = {
       itbis: '18.00',
     },
   ],
-  totals: { gross: '118.00', base: '100.00', itbis: '18.00' },
+  totals: {
+    gross: '118.00',
+    base: '100.00',
+    itbis: '18.00',
+    discount: '0.00',
+    discountPercent: '0.00',
+  },
 };
 
 function expectApprovedFooter(text: string): void {
@@ -103,6 +124,14 @@ function expectApprovedFooter(text: string): void {
   for (const value of RETIRED_CONTACT_STRINGS) {
     expect(text).not.toContain(value);
   }
+}
+
+function expectApprovedCommercialFooter(text: string): void {
+  expectApprovedFooter(text);
+  for (const value of APPROVED_COMMERCIAL_FOOTER_STRINGS) {
+    expect(text).toContain(value);
+  }
+  expect(text).not.toContain('Documento interno');
 }
 
 function expectInvoiceOmitsCollectionData(text: string): void {
@@ -138,7 +167,8 @@ describe('document visual review (DOC-001 / Paso 9 fase 14)', () => {
     expect(reviewed.fullText).toContain('Filtro de aceite');
     expect(reviewed.fullText).toContain('0.00');
     expect(reviewed.fullText).not.toContain('COT-');
-    expectApprovedFooter(reviewed.fullText);
+    expectApprovedCommercialFooter(reviewed.fullText);
+    expect(reviewed.fullText).toContain('Al contado');
     expectInvoiceOmitsCollectionData(reviewed.fullText);
     expectSharedLayoutMarkers(reviewed.fullText);
     await expectRasterizedPages(reviewed.imagePaths);
@@ -160,7 +190,13 @@ describe('document visual review (DOC-001 / Paso 9 fase 14)', () => {
           itbis: '36.00',
         },
       ],
-      totals: { gross: '236.00', base: '200.00', itbis: '36.00' },
+      totals: {
+        gross: '236.00',
+        base: '200.00',
+        itbis: '36.00',
+        discount: '0.00',
+        discountPercent: '0.00',
+      },
     });
     const reviewed = await reviewPdfDocument(pdf, path.join(PDF_VISUAL_REVIEW_ROOT, 'invoice-with-itbis'));
 
@@ -221,7 +257,7 @@ describe('document visual review (DOC-001 / Paso 9 fase 14)', () => {
     expect(reviewed.fullText).toContain('continuación');
     expect(reviewed.pages[0]).toContain('Página 1 de');
     expect(reviewed.pages.at(-1)).toContain(`Página ${reviewed.pageCount} de`);
-    expectApprovedFooter(reviewed.fullText);
+    expectApprovedCommercialFooter(reviewed.fullText);
     expectInvoiceOmitsCollectionData(reviewed.fullText);
     await expectRasterizedPages(reviewed.imagePaths);
   });
@@ -248,7 +284,7 @@ describe('document visual review (DOC-001 / Paso 9 fase 14)', () => {
     expect(reviewed.fullText).toContain('Kit de bomba de agua');
     expect(reviewed.fullText).toContain('Instalar junto con el kit de empaques.');
     expect(reviewed.fullText).toContain('Verificar torque del fabricante.');
-    expectApprovedFooter(reviewed.fullText);
+    expectApprovedCommercialFooter(reviewed.fullText);
     await expectRasterizedPages(reviewed.imagePaths);
   });
 
@@ -264,7 +300,7 @@ describe('document visual review (DOC-001 / Paso 9 fase 14)', () => {
     expect(reviewed.fullText).not.toContain('FAC-');
     expect(reviewed.fullText).not.toContain('NCF:');
     expectInvoiceOmitsCollectionData(reviewed.fullText);
-    expectApprovedFooter(reviewed.fullText);
+    expectApprovedCommercialFooter(reviewed.fullText);
     expectSharedLayoutMarkers(reviewed.fullText);
     await expectRasterizedPages(reviewed.imagePaths);
   });

@@ -2,7 +2,7 @@ import {
   COMMERCIAL_DOCUMENT_CONTACT_LAYOUT,
   renderCommercialDocument,
 } from '../document-pdf/pdfkit-commercial-document.js';
-import { QUOTE_PDF_INTERNAL_NOTICE, QUOTE_PDF_THANK_YOU, QUOTE_PDF_TITLE } from './constants.js';
+import { QUOTE_PDF_THANK_YOU, QUOTE_PDF_TITLE } from './constants.js';
 import type { QuotePdfRenderer } from './types.js';
 
 export const pdfkitQuotePdfRenderer: QuotePdfRenderer = {
@@ -29,7 +29,6 @@ export const pdfkitQuotePdfRenderer: QuotePdfRenderer = {
         customerLabel: 'CLIENTE',
         secondaryDateLabel: 'Vigente hasta',
         thankYou: QUOTE_PDF_THANK_YOU,
-        internalNotice: QUOTE_PDF_INTERNAL_NOTICE,
         contactLayout: COMMERCIAL_DOCUMENT_CONTACT_LAYOUT.quote,
       },
     );

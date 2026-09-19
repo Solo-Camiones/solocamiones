@@ -146,7 +146,7 @@ Este es el orden que debe seguirse. Cada paso depende de las garantías establec
 
 - [x] Implementar `QUOTE_DRAFT -> QUOTE_ISSUED -> COMPLETED` sobre el mismo agregado.
 - [x] Asignar `COT-000001` al emitir, sin reutilización.
-- [x] Calcular expiración al final del día 30 en `America/Santo_Domingo`.
+- [x] Calcular expiración al final del día 15 en `America/Santo_Domingo`.
 - [x] Hacer inmutable la cotización emitida y bloquear conversión al vencer.
 - [x] Duplicar cliente, moneda, fiscalidad, ITBIS, líneas, precios y notas hacia una cotización nueva editable.
 - [x] No reservar inventario; validar disponibilidad únicamente al convertir.
@@ -261,10 +261,10 @@ Los hitos de la sección 6 desarrollan este mismo orden con mayor detalle.
 ### Decisiones confirmadas — 2026-09-15
 
 - La cotización se implementa ahora dentro del mismo agregado que luego será factura.
-- Una cotización emitida tiene número `COT-`, PDF titulado `COTIZACIÓN` y vigencia de 30 días.
+- Una cotización emitida tiene número `COT-`, PDF titulado `COTIZACIÓN` y vigencia de 15 días.
 - Después de emitirla es inmutable y no puede reactivarse; puede duplicarse como una cotización nueva con otro número.
 - Convertirla completa inmediatamente la factura, asigna `FAC-` y conserva visible el `COT-` de origen.
-- La numeración usa el formato `COT-000001`; la vigencia termina al finalizar el día 30 en la zona horaria del negocio.
+- La numeración usa el formato `COT-000001`; la vigencia termina al finalizar el día 15 en la zona horaria del negocio.
 - Una cotización vencida no puede convertirse; puede duplicarse copiando sus datos a una nueva cotización editable.
 - La cotización no reserva inventario: la disponibilidad se valida únicamente al convertirla.
 - La conversión usa el flujo normal de borrador a factura, incluyendo el pago completo y método para ventas contado.
@@ -602,7 +602,7 @@ Reglas confirmadas:
 
 - `QUOTE_DRAFT` es editable y todavía no tiene número `COT-`;
 - emitir asigna un número único `COT-` y cambia a `QUOTE_ISSUED`;
-- `QUOTE_ISSUED` es inmutable y tiene una vigencia de 30 días;
+- `QUOTE_ISSUED` es inmutable y tiene una vigencia de 15 días;
 - una cotización emitida no puede editarse ni reactivarse;
 - puede duplicarse copiando cliente, moneda, condición fiscal, líneas, cantidades, precios y notas a una nueva `QUOTE_DRAFT`, que al emitirse recibe el próximo `COT-` disponible;
 - “Convertir a factura” completa inmediatamente la misma operación y asigna `FAC-`, sin crear una etapa/borrador de factura adicional;
@@ -626,7 +626,7 @@ No recomiendo modelar cotización y factura como dos registros independientes en
 
 La cotización tendrá una identidad visible diferente de `FAC-`: la secuencia independiente `COT-000001`, asignada al emitirla. Tendrá PDF propio cuyo encabezado dirá **COTIZACIÓN**; por decisión de la empresa no agregará la frase “NO ES FACTURA”. El documento mostrará base, ITBIS y total con las mismas reglas monetarias aplicables a la factura futura. Al convertirse, conserva la referencia a `COT-` para trazabilidad y recibe `FAC-` al completar inmediatamente la factura.
 
-La vigencia será de 30 días y terminará al final del día calendario número 30 en `America/Santo_Domingo`. Una cotización vencida queda impedida de conversión, edición y reactivación; el camino permitido es duplicarla como una nueva cotización.
+La vigencia será de 15 días y terminará al final del día calendario número 15 en `America/Santo_Domingo`. Una cotización vencida queda impedida de conversión, edición y reactivación; el camino permitido es duplicarla como una nueva cotización.
 
 #### Capas afectadas
 
@@ -858,7 +858,7 @@ Antes de implementar código, las fuentes de verdad ya actualizadas (Paso 1) son
 **Estado:** cerrado 2026-09-16 en código local (Paso 6). El PDF de cotización sigue en Hito 7 / Paso 9.
 
 - Extender el agregado de ventas con la etapa de cotización aprobada.
-- Implementar numeración `COT-`, vigencia de 30 días e inmutabilidad después de emitir.
+- Implementar numeración `COT-`, vigencia de 15 días e inmutabilidad después de emitir.
 - Reutilizar el editor y los mismos datos de la operación.
 - Permitir duplicarla como nueva cotización con nuevo identificador y próximo número al emitir.
 - Convertir directamente a `COMPLETED` mediante el motor del Hito 3, asignando `FAC-` sin duplicar borrador ni líneas.
@@ -946,7 +946,7 @@ Antes de implementar código, las fuentes de verdad ya actualizadas (Paso 1) son
 - Cotización no admite pagos, CxC ni efectos de inventario.
 - Cotización emitida rechaza edición y reactivación.
 - Duplicación crea una nueva cotización y nunca reutiliza `COT-`.
-- Cotización vencida rechaza conversión al finalizar el día 30.
+- Cotización vencida rechaza conversión al finalizar el día 15.
 - Cotización no reserva stock y la conversión falla limpiamente si la disponibilidad cambió.
 - Conversión contado exige pago completo y método antes de asignar `FAC-`.
 - PDF de cotización muestra base, ITBIS y total consistentes con API y editor.
@@ -1029,10 +1029,10 @@ Antes de implementar código, las fuentes de verdad ya actualizadas (Paso 1) son
 3. **Confirmado:** el Vendedor registra el pago completo durante la confirmación contado; una factura contado no puede confirmarse pendiente ni cobrarla posteriormente como excepción.
 4. **Confirmado:** el Vendedor conserva Clientes, pero al crear solo puede registrar clientes `CASH`.
 5. **Confirmado:** la cotización se convierte directamente a `COMPLETED`, sobre la misma operación y asignando `FAC-`, sin crear/copiar otro borrador.
-6. **Confirmado:** tendrá número propio `COT-`, PDF con título `COTIZACIÓN` y vigencia de 30 días.
+6. **Confirmado:** tendrá número propio `COT-`, PDF con título `COTIZACIÓN` y vigencia de 15 días.
 7. **Confirmado:** una vez emitida no puede modificarse ni reactivarse; puede duplicarse como una cotización nueva, que obtiene un nuevo `COT-` al emitirse.
 8. **Confirmado:** la factura conserva y muestra el número `COT-` original.
-9. **Confirmado:** la cotización vence al final del día número 30 en `America/Santo_Domingo`.
+9. **Confirmado:** la cotización vence al final del día número 15 en `America/Santo_Domingo`.
 10. **Confirmado:** una cotización vencida queda bloqueada para convertir a factura.
 11. **Confirmado:** al duplicar se copian cliente, moneda, condición fiscal, líneas, precios y notas a una nueva cotización editable.
 12. **Confirmado:** la cotización no reserva inventario; la disponibilidad se valida únicamente al convertirla.

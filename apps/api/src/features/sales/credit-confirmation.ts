@@ -7,6 +7,9 @@ import {
   SELLER_CREDIT_CONFIRM_PAYMENT_FORBIDDEN_MESSAGE,
   USD_INVOICE_MUST_BE_PAID_IN_FULL_MESSAGE,
 } from './constants.js';
+import type { SaleCondition } from './types.js';
+
+export type { SaleCondition };
 
 export type ConfirmationCustomer = {
   customerType: CustomerType;
@@ -14,6 +17,15 @@ export type ConfirmationCustomer = {
   creditLimitDop: Prisma.Decimal | null;
   creditTermDays: number | null;
 };
+
+/**
+ * Canonical idempotency key for the payment written inside confirm/convert.
+ * Always stored as this value so saleCondition / PDF can reconstruct it without
+ * guessing from timestamps (a nearby CxC payment must not count as initial).
+ */
+export function confirmationPaymentIdempotencyKey(invoiceId: string): string {
+  return `confirm:${invoiceId}`;
+}
 
 function isFullySettled(
   invoiceGross: Prisma.Decimal,
@@ -23,6 +35,40 @@ function isFullySettled(
     return initialPaymentAmount == null || initialPaymentAmount.isZero();
   }
   return initialPaymentAmount != null && initialPaymentAmount.equals(invoiceGross);
+}
+
+/**
+ * PDF / commercial label: Al contado only when confirmation settled 100% of the gross.
+ * A CREDIT customer who pays in full at confirm is still Al contado.
+ */
+export function saleConditionFromInitialSettlement(
+  invoiceGross: Prisma.Decimal,
+  initialPaymentAmount: Prisma.Decimal | null,
+): SaleCondition {
+  return isFullySettled(invoiceGross, initialPaymentAmount) ? 'CASH' : 'CREDIT';
+}
+
+type ConfirmationPaymentSource = {
+  id: string;
+  payments: Array<{
+    kind: string;
+    amount: Prisma.Decimal;
+    idempotencyKey?: string | null;
+  }>;
+};
+
+/**
+ * Reconstruct the confirmation payment by canonical key only (DOC-001).
+ * No time-window fallback: later CxC payments must never alter saleCondition.
+ */
+export function confirmationInitialPaymentAmount(
+  invoice: ConfirmationPaymentSource,
+): Prisma.Decimal | null {
+  const confirmKey = confirmationPaymentIdempotencyKey(invoice.id);
+  const byKey = invoice.payments.find(
+    (payment) => payment.kind === 'PAYMENT' && payment.idempotencyKey === confirmKey,
+  );
+  return byKey?.amount ?? null;
 }
 
 function requiresFullSettlement(customer: ConfirmationCustomer, currency: InvoiceCurrency): boolean {

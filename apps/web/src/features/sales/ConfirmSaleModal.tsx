@@ -33,7 +33,7 @@ type ConfirmSaleModalProps = {
   isConfirming: boolean;
   error: string | null;
   onClose: () => void;
-  onConfirm: (payment?: ConfirmInvoicePayment) => void;
+  onConfirm: (payment?: ConfirmInvoicePayment) => void | Promise<void>;
 };
 
 function amountMatchesGross(amount: string, gross: number): boolean {
@@ -106,51 +106,56 @@ export function ConfirmSaleModal({
     }
   }, [isConfirming]);
 
-  function handleConfirm() {
+  async function handleConfirm() {
     if (isConfirming || submitLock.current || draft.blockers.length > 0) {
       return;
     }
     submitLock.current = true;
+    setLocalError(null);
 
-    if (isSellerCreditDop) {
-      onConfirm();
-      return;
-    }
-
-    if (requiresFullPayment) {
-      const trimmed = amount.trim() || draft.totals.gross.toFixed(2);
-      if (!amountMatchesGross(trimmed, draft.totals.gross)) {
-        setLocalError(FULL_PAYMENT_REQUIRED_MESSAGE);
-        submitLock.current = false;
+    try {
+      if (isSellerCreditDop) {
+        await onConfirm();
         return;
       }
-      onConfirm({
-        amount: Number(trimmed),
+
+      if (requiresFullPayment) {
+        const trimmed = amount.trim() || draft.totals.gross.toFixed(2);
+        if (!amountMatchesGross(trimmed, draft.totals.gross)) {
+          setLocalError(FULL_PAYMENT_REQUIRED_MESSAGE);
+          return;
+        }
+        await onConfirm({
+          amount: Number(trimmed),
+          method,
+          reference: reference.trim() || undefined,
+        });
+        return;
+      }
+
+      const mayIncludePayment = isAdministrator && capabilities.payments;
+      const trimmed = amount.trim();
+      if (!mayIncludePayment || !includeInitialPayment || trimmed === '') {
+        await onConfirm();
+        return;
+      }
+
+      const parsed = Number(trimmed);
+      if (!Number.isFinite(parsed) || !amountIsWithinGross(parsed, draft.totals.gross)) {
+        setLocalError(INITIAL_PAYMENT_REQUIRED_MESSAGE);
+        return;
+      }
+
+      await onConfirm({
+        amount: parsed,
         method,
         reference: reference.trim() || undefined,
       });
-      return;
-    }
-
-    const mayIncludePayment = isAdministrator && capabilities.payments;
-    const trimmed = amount.trim();
-    if (!mayIncludePayment || !includeInitialPayment || trimmed === '') {
-      onConfirm();
-      return;
-    }
-
-    const parsed = Number(trimmed);
-    if (!Number.isFinite(parsed) || !amountIsWithinGross(parsed, draft.totals.gross)) {
-      setLocalError(INITIAL_PAYMENT_REQUIRED_MESSAGE);
+    } finally {
+      // Parent drives isConfirming; unlock here so a failed confirm can be retried
+      // even when React batches away a true→false isConfirming transition.
       submitLock.current = false;
-      return;
     }
-
-    onConfirm({
-      amount: parsed,
-      method,
-      reference: reference.trim() || undefined,
-    });
   }
 
   const displayedError = localError ?? error;
@@ -184,6 +189,13 @@ export function ConfirmSaleModal({
             { label: 'Moneda', value: currencyLabel(draft.currency) },
             { label: 'Comprobante fiscal', value: draft.fiscal ? 'Sí' : 'No' },
             { label: 'Aplicar ITBIS', value: draft.applyItbis ? 'Sí' : 'No' },
+            {
+              label: 'Descuento',
+              value:
+                draft.discountPercent > 0
+                  ? `${draft.discountPercent}% (−${money(draft.totals.discount, draft.currency)})`
+                  : 'Ninguno',
+            },
             ...(draft.quoteNumber ? [{ label: 'Cotización', value: draft.quoteNumber }] : []),
             { label: 'Total', value: money(draft.totals.gross, draft.currency) },
             { label: 'ITBIS', value: money(draft.totals.itbis, draft.currency) },

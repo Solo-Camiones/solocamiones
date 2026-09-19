@@ -19,6 +19,7 @@ const creditDraft: PosDraftView = {
   currency: 'DOP',
   fiscal: false,
   applyItbis: false,
+  discountPercent: 0,
   lines: [
     {
       id: 'L1',
@@ -33,7 +34,7 @@ const creditDraft: PosDraftView = {
       base: 100,
     },
   ],
-  totals: { lineCount: 1, gross: 100, itbis: 0, taxableBase: 100 },
+  totals: { lineCount: 1, gross: 100, itbis: 0, taxableBase: 100, discount: 0 },
   customers: [],
   services: [],
   qtyProducts: [],

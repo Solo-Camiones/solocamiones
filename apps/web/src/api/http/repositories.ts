@@ -47,6 +47,8 @@ import {
   getAccountStatementPdfWithHttp,
   listInvoicesWithHttp,
   listReceivablesWithHttp,
+  listSellerSalesReportWithHttp,
+  getSellerSalesReportPdfWithHttp,
   issueQuoteWithHttp,
   regenerateInvoicePdfWithHttp,
   removeDraftLineWithHttp,
@@ -240,6 +242,14 @@ export class HttpSalesRepository implements SalesRepository {
 
   async getAccountStatementPdf(customerId: string) {
     return getAccountStatementPdfWithHttp(customerId);
+  }
+
+  async listSellerSalesReport(filters: Parameters<SalesRepository['listSellerSalesReport']>[0]) {
+    return listSellerSalesReportWithHttp(filters);
+  }
+
+  async getSellerSalesReportPdf(filters: Parameters<SalesRepository['getSellerSalesReportPdf']>[0]) {
+    return getSellerSalesReportPdfWithHttp(filters);
   }
 
   async regenerateInvoicePdf(id: string) {

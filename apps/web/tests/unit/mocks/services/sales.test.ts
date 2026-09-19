@@ -12,6 +12,7 @@ import {
   setDraftMeta,
 } from '../../../../src/mocks/services/sales-commands';
 import { buildInvoiceDetail, buildSalesList } from '../../../../src/mocks/services/sales-catalog';
+import { buildPosDraftView } from '../../../../src/mocks/services/sales-draft';
 import {
   invoiceBalance,
   invoiceTotal,
@@ -66,6 +67,52 @@ describe('sales catalog seed', () => {
     expect(lineBase(line)).toBe(118);
     expect(lineItbis(line, true)).toBe(21.24);
     expect(lineItbis(line, false)).toBe(0);
+  });
+
+  it('discounts all line bases and keeps pre-discount ITBIS on draft totals', () => {
+    const state = createInitialState();
+    const created = createDraft(state, seller);
+    expect(created.ok).toBe(true);
+    if (!created.ok) return;
+
+    const withLine = addDraftLine(state, seller, {
+      draftId: created.value.draftId,
+      type: 'GENERIC',
+      description: 'Filtro',
+      unitPrice: 100,
+    });
+    expect(withLine.ok).toBe(true);
+
+    const service = state.services.find((entry) => entry.active);
+    expect(service).toBeDefined();
+    const withService = addDraftLine(state, seller, {
+      draftId: created.value.draftId,
+      type: 'SERVICE',
+      serviceId: service!.id,
+      unitPrice: 50,
+    });
+    expect(withService.ok).toBe(true);
+
+    expect(setDraftMeta(state, seller, { draftId: created.value.draftId, applyItbis: true }).ok).toBe(
+      true,
+    );
+    expect(
+      setDraftMeta(state, seller, { draftId: created.value.draftId, discountPercent: 10 }).ok,
+    ).toBe(true);
+
+    const draft = state.invoices.find((entry) => entry.id === created.value.draftId)!;
+    const view = buildPosDraftView(state, draft);
+    expect(view.totals).toMatchObject({
+      taxableBase: 150,
+      discount: 15,
+      itbis: 18,
+      gross: 153,
+    });
+    expect(view.lines.find((line) => line.type === 'GENERIC')).toMatchObject({
+      base: 100,
+      itbis: 18,
+      gross: 118,
+    });
   });
 
   it('omits profitability from seller projections', () => {

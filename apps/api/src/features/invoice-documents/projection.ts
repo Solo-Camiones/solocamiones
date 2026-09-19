@@ -1,4 +1,5 @@
 import type { InvoiceLine } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 
 import {
   INVOICE_PDF_TEMPLATE_VERSION,
@@ -7,7 +8,12 @@ import {
 import type { QuotePdfFacts } from '../../infrastructure/quote-pdf/index.js';
 import { formatFiscalId } from '../customers/fiscal.js';
 import { formatDominicanPhone } from '../customers/phone.js';
+import {
+  confirmationInitialPaymentAmount,
+  saleConditionFromInitialSettlement,
+} from '../sales/credit-confirmation.js';
 import { MONEY_DECIMAL_PLACES } from '../sales/money/constants.js';
+import { applyInvoiceDiscount, isTaxableLineType } from '../sales/money/index.js';
 import type { InvoicePdfHistorySnapshot, InvoiceRecord } from '../sales/types.js';
 
 function moneyString(value: { toFixed(places: number): string }): string {
@@ -17,6 +23,44 @@ function moneyString(value: { toFixed(places: number): string }): string {
 function persistedLineMoney(line: InvoiceLine) {
   if (line.gross == null || line.base == null || line.itbis == null) return null;
   return { gross: line.gross, base: line.base, itbis: line.itbis };
+}
+
+/** Discount is derived from stored percent + line bases; header money stays frozen. */
+function deriveInvoiceDiscount(invoice: InvoiceRecord): string {
+  const lines = invoice.lines.map((line) => {
+    const money = persistedLineMoney(line);
+    if (money == null) {
+      throw new Error('Invoice line is missing frozen money');
+    }
+    return {
+      ...money,
+      taxable: isTaxableLineType(line.type),
+    };
+  });
+  return moneyString(
+    applyInvoiceDiscount({
+      lines,
+      discountPercent: invoice.discountPercent,
+      applyItbis: invoice.applyItbis,
+    }).discount,
+  );
+}
+
+function frozenHeaderTotals(invoice: InvoiceRecord): InvoicePdfFacts['totals'] | null {
+  if (invoice.gross == null || invoice.base == null || invoice.itbis == null) {
+    return null;
+  }
+  try {
+    return {
+      gross: moneyString(invoice.gross),
+      base: moneyString(invoice.base),
+      itbis: moneyString(invoice.itbis),
+      discount: deriveInvoiceDiscount(invoice),
+      discountPercent: moneyString(invoice.discountPercent),
+    };
+  } catch {
+    return null;
+  }
 }
 
 export function toInvoicePdfFacts(invoice: InvoiceRecord): InvoicePdfFacts | null {
@@ -30,13 +74,13 @@ export function toInvoicePdfFacts(invoice: InvoiceRecord): InvoicePdfFacts | nul
     invoice.number == null ||
     invoice.confirmedAt == null ||
     invoice.customerName == null ||
-    invoice.gross == null ||
-    invoice.base == null ||
-    invoice.itbis == null ||
     invoice.dueDate == null
   ) {
     return null;
   }
+
+  const totals = frozenHeaderTotals(invoice);
+  if (totals == null) return null;
 
   const lines: InvoicePdfFacts['lines'] = [];
   for (const line of invoice.lines) {
@@ -60,6 +104,11 @@ export function toInvoicePdfFacts(invoice: InvoiceRecord): InvoicePdfFacts | nul
     originQuoteNumber: invoice.quoteNumber,
     currency: invoice.currency,
     fiscal: invoice.fiscal,
+    // Condition follows confirmation settlement, not customer type (CREDIT may pay in full).
+    saleCondition: saleConditionFromInitialSettlement(
+      new Prisma.Decimal(totals.gross),
+      confirmationInitialPaymentAmount(invoice),
+    ),
     customerName: invoice.customerName,
     customerRnc: formatFiscalId(invoice.customerRnc) || null,
     customerPhone: formatDominicanPhone(invoice.customerPhone) || null,
@@ -70,11 +119,7 @@ export function toInvoicePdfFacts(invoice: InvoiceRecord): InvoicePdfFacts | nul
     cancelReason: invoice.cancelReason,
     cancelledByName: invoice.cancelledByName,
     lines,
-    totals: {
-      gross: moneyString(invoice.gross),
-      base: moneyString(invoice.base),
-      itbis: moneyString(invoice.itbis),
-    },
+    totals,
     // Stored pdfTemplateVersion is generation metadata. Re-downloads always use
     // the current writer so retired local labels like internal-v3 keep working
     // without a permanent relabel migration (DOC-001).
@@ -88,13 +133,13 @@ export function toQuotePdfFacts(invoice: InvoiceRecord): QuotePdfFacts | null {
     invoice.quoteNumber == null ||
     invoice.quoteIssuedAt == null ||
     invoice.quoteExpiresAt == null ||
-    invoice.customerName == null ||
-    invoice.gross == null ||
-    invoice.base == null ||
-    invoice.itbis == null
+    invoice.customerName == null
   ) {
     return null;
   }
+
+  const totals = frozenHeaderTotals(invoice);
+  if (totals == null) return null;
 
   const lines: QuotePdfFacts['lines'] = [];
   for (const line of invoice.lines) {
@@ -120,15 +165,11 @@ export function toQuotePdfFacts(invoice: InvoiceRecord): QuotePdfFacts | null {
     customerName: invoice.customerName,
     customerRnc: formatFiscalId(invoice.customerRnc) || null,
     customerPhone: formatDominicanPhone(invoice.customerPhone) || null,
-    sellerName: invoice.confirmedByName,
+    sellerName: invoice.quoteIssuedByName,
     quoteIssuedAt: invoice.quoteIssuedAt,
     quoteExpiresAt: invoice.quoteExpiresAt,
     lines,
-    totals: {
-      gross: moneyString(invoice.gross),
-      base: moneyString(invoice.base),
-      itbis: moneyString(invoice.itbis),
-    },
+    totals,
   };
 }
 

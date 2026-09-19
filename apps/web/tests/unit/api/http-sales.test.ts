@@ -32,6 +32,7 @@ const emptyInvoice = {
   currency: 'DOP',
   fiscal: false,
   applyItbis: false,
+  discountPercent: '0.00',
   customer: cashCustomer,
   customerSnapshot: null,
   confirmedAt: null,
@@ -46,14 +47,14 @@ const emptyInvoice = {
   refunded: '0.00',
   balance: '0.00',
   lines: [],
-  totals: { gross: '0.00', base: '0.00', itbis: '0.00' },
+  totals: { gross: '0.00', base: '0.00', itbis: '0.00', discount: '0.00' },
   createdAt: '2026-09-09T12:00:00.000Z',
   updatedAt: '2026-09-09T12:00:00.000Z',
 };
 
 const invoiceWithTotal = {
   ...emptyInvoice,
-  totals: { gross: '118.00', base: '100.00', itbis: '18.00' },
+  totals: { gross: '118.00', base: '100.00', itbis: '18.00', discount: '0.00' },
 };
 
 const completedInvoice = {
@@ -235,6 +236,71 @@ describe('HTTP sales draft contract', () => {
     });
     expect(fetchMock.mock.calls[0]?.[0]).toBe(
       `/api/sales/receivables/${cashCustomer.id}/statement.pdf`,
+    );
+  });
+
+  it('lists the seller sales report with optional seller and page query params', async () => {
+    const report = {
+      dateFrom: '2026-09-01',
+      dateTo: '2026-09-18',
+      sellerUserId: '11111111-1111-4111-8111-111111111111',
+      rows: [],
+      totals: [],
+      total: 0,
+      page: 2,
+      pageSize: 10,
+    };
+    const fetchMock = vi.fn(async (_path: string) => json(report));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const withSeller = await repository.listSellerSalesReport({
+      dateFrom: '2026-09-01',
+      dateTo: '2026-09-18',
+      sellerUserId: '11111111-1111-4111-8111-111111111111',
+      page: 2,
+    });
+    expect(withSeller).toEqual({ ok: true, value: report });
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      '/api/sales/reports/seller-sales?dateFrom=2026-09-01&dateTo=2026-09-18&sellerUserId=11111111-1111-4111-8111-111111111111&page=2',
+    );
+
+    fetchMock.mockClear();
+    const allSellers = await repository.listSellerSalesReport({
+      dateFrom: '2026-09-01',
+      dateTo: '2026-09-18',
+      page: 1,
+    });
+    expect(allSellers).toEqual({ ok: true, value: report });
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      '/api/sales/reports/seller-sales?dateFrom=2026-09-01&dateTo=2026-09-18',
+    );
+  });
+
+  it('downloads the seller sales report PDF from the dedicated endpoint', async () => {
+    const bytes = new Uint8Array([37, 80, 68, 70]);
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(bytes, {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/pdf',
+          'Content-Disposition': 'attachment; filename="ventas-por-vendedor.pdf"',
+        },
+      }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await repository.getSellerSalesReportPdf({
+      dateFrom: '2026-09-01',
+      dateTo: '2026-09-18',
+      sellerUserId: '11111111-1111-4111-8111-111111111111',
+    });
+
+    expect(result).toMatchObject({
+      ok: true,
+      value: { filename: 'ventas-por-vendedor.pdf' },
+    });
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      '/api/sales/reports/seller-sales.pdf?dateFrom=2026-09-01&dateTo=2026-09-18&sellerUserId=11111111-1111-4111-8111-111111111111',
     );
   });
 
@@ -794,7 +860,7 @@ describe('HTTP sales draft contract', () => {
         number: 'FAC-000001',
         customerName: 'Nombre al confirmar',
         currency: 'DOP',
-        totals: { gross: 118, itbis: 18, taxableBase: 100 },
+        totals: { gross: 118, itbis: 18, taxableBase: 100, discount: 0 },
       },
     });
     const confirmInit = fetchMock.mock.calls[0]?.[1] as RequestInit;

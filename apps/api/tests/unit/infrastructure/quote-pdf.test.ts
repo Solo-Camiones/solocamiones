@@ -26,7 +26,13 @@ const facts = {
       itbis: '18.00',
     },
   ],
-  totals: { gross: '118.00', base: '100.00', itbis: '18.00' },
+  totals: {
+    gross: '118.00',
+    base: '100.00',
+    itbis: '18.00',
+    discount: '0.00',
+    discountPercent: '0.00',
+  },
 };
 
 function pdfHexText(pdf: Buffer): string {
@@ -49,12 +55,31 @@ describe('quote PDF renderer (QUOTE-002 / DOC-001)', () => {
     expect(hexText).toContain(Buffer.from('COT-000007').toString('hex'));
     expect(hexText).toContain(Buffer.from('Transportes del Este').toString('hex'));
     expect(hexText).toContain(Buffer.from('1-01-11111-1').toString('hex'));
+    expect(hexText).toContain(Buffer.from('María Pérez', 'latin1').toString('hex'));
+    expect(hexText).toContain(Buffer.from('Vendedor').toString('hex'));
     expect(hexText).toContain(Buffer.from('Filtro').toString('hex'));
     expect(hexText).toContain(Buffer.from('Vigente hasta').toString('hex'));
     expect(hexText).toContain(Buffer.from('Subtotal').toString('hex'));
+    expect(hexText).toContain(Buffer.from('Descuento(0%)').toString('hex'));
     expect(hexText).toContain(Buffer.from('ITBIS').toString('hex'));
     expect(hexText).toContain(Buffer.from('TOTAL').toString('hex'));
     expect(pdf.toString('latin1')).toContain('3131382e3030');
+  });
+
+  it('prints Descuento with the applied percent when a commercial discount applies', async () => {
+    const pdf = await pdfkitQuotePdfRenderer.render({
+      ...facts,
+      totals: {
+        gross: '108.00',
+        base: '90.00',
+        itbis: '18.00',
+        discount: '10.00',
+        discountPercent: '10.00',
+      },
+    });
+    const hexText = pdfHexText(pdf);
+    expect(hexText).toContain(Buffer.from('Descuento(10%)').toString('hex'));
+    expect(hexText).toContain(Buffer.from('-RD$10.00').toString('hex'));
   });
 
   it('omits invoice labels, payment state, and the NO ES FACTURA phrase', async () => {
@@ -78,8 +103,13 @@ describe('quote PDF renderer (QUOTE-002 / DOC-001)', () => {
     expect(hexText).toContain(Buffer.from('829-627-3168').toString('hex'));
     expect(hexText).toContain(Buffer.from('solocamionessrl@gmail.com').toString('hex'));
     expect(hexText).toContain(Buffer.from('Av. Pdte.').toString('hex'));
+    expect(hexText).toContain(Buffer.from('Importadora de repuestos nuevos y usados').toString('hex'));
     expect(hexText).toContain(Buffer.from('@solocamionessrl').toString('hex'));
     expect(hexText).toContain(Buffer.from('solo.camiones.srl').toString('hex'));
+    expect(hexText).toContain(Buffer.from('Términos y condiciones', 'latin1').toString('hex'));
+    expect(hexText).not.toContain(Buffer.from('Documento interno').toString('hex'));
+    expect(hexText).not.toContain(Buffer.from('Al contado').toString('hex'));
+    expect(hexText).not.toContain(Buffer.from('A crédito', 'latin1').toString('hex'));
     expect(hexText).toContain(Buffer.from('Pagos por transferencia:').toString('hex'));
     expect(hexText).toContain(Buffer.from('Banco Popular Dominicano').toString('hex'));
     expect(hexText).toContain(Buffer.from('857578579').toString('hex'));

@@ -1,9 +1,9 @@
+import { SALE_CONDITION_LABELS } from '../document-pdf/constants.js';
 import {
   COMMERCIAL_DOCUMENT_CONTACT_LAYOUT,
   renderCommercialDocument,
 } from '../document-pdf/pdfkit-commercial-document.js';
 import {
-  INVOICE_PDF_INTERNAL_NOTICE,
   INVOICE_PDF_NCF_FIELD,
   INVOICE_PDF_TEMPLATE_V4,
   INVOICE_PDF_THANK_YOU,
@@ -21,6 +21,7 @@ function renderInternalV4(facts: InvoicePdfFacts): Promise<Buffer> {
       sellerName: facts.sellerName,
       issuedAt: facts.confirmedAt,
       secondaryDate: facts.dueDate,
+      saleCondition: SALE_CONDITION_LABELS[facts.saleCondition],
       lines: facts.lines,
       totals: facts.totals,
       originQuoteNumber: facts.originQuoteNumber,
@@ -38,8 +39,8 @@ function renderInternalV4(facts: InvoicePdfFacts): Promise<Buffer> {
       subject: INVOICE_PDF_NCF_FIELD,
       customerLabel: 'FACTURAR A',
       secondaryDateLabel: 'Vencimiento',
+      secondaryDateAsCalendarDate: true,
       thankYou: INVOICE_PDF_THANK_YOU,
-      internalNotice: INVOICE_PDF_INTERNAL_NOTICE,
       ncfField: INVOICE_PDF_NCF_FIELD,
       contactLayout: COMMERCIAL_DOCUMENT_CONTACT_LAYOUT.invoice,
     },

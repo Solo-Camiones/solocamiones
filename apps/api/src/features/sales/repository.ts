@@ -1,6 +1,7 @@
 import { Prisma, type Invoice, type InvoiceSequence } from '@prisma/client';
 
 import { prisma } from '../../infrastructure/database/index.js';
+import { businessDayRange } from '../payments/dates.js';
 import { formatInvoiceNumber, formatQuoteNumber } from './constants.js';
 import type {
   CompleteInvoiceRecord,
@@ -63,10 +64,7 @@ function listInvoiceWhere(query: ListInvoicesQuery): Prisma.InvoiceWhereInput {
   }
 
   if (query.dateFrom || query.dateTo) {
-    const range = {
-      ...(query.dateFrom ? { gte: new Date(`${query.dateFrom}T00:00:00-04:00`) } : {}),
-      ...(query.dateTo ? { lte: new Date(`${query.dateTo}T23:59:59.999-04:00`) } : {}),
-    };
+    const range = businessDayRange(query.dateFrom, query.dateTo);
 
     // Each document stage has its own business date. This keeps a mixed "Todas"
     // list useful without treating a draft creation date as an invoice issue date.
@@ -136,6 +134,9 @@ export class SalesRepository {
         currency: input.currency,
         fiscal: input.fiscal,
         applyItbis: input.applyItbis,
+        ...(input.discountPercent !== undefined
+          ? { discountPercent: input.discountPercent }
+          : {}),
         customerId: input.customerId,
       },
       include: invoiceDetailInclude,
@@ -149,6 +150,7 @@ export class SalesRepository {
         currency: source.currency,
         fiscal: source.fiscal,
         applyItbis: source.applyItbis,
+        discountPercent: source.discountPercent,
         customerId: source.customerId,
         lines: {
           create: source.lines.map((line) => ({
@@ -289,6 +291,9 @@ export class SalesRepository {
         ...(input.currency !== undefined ? { currency: input.currency } : {}),
         ...(input.fiscal !== undefined ? { fiscal: input.fiscal } : {}),
         ...(input.applyItbis !== undefined ? { applyItbis: input.applyItbis } : {}),
+        ...(input.discountPercent !== undefined
+          ? { discountPercent: input.discountPercent }
+          : {}),
         ...(input.customerId !== undefined ? { customerId: input.customerId } : {}),
       },
       include: invoiceDetailInclude,
@@ -416,6 +421,8 @@ export class SalesRepository {
         customerName: input.customerName,
         customerRnc: input.customerRnc,
         customerPhone: input.customerPhone,
+        quoteIssuedByUserId: input.quoteIssuedByUserId,
+        quoteIssuedByName: input.quoteIssuedByName,
         gross: input.gross,
         base: input.base,
         itbis: input.itbis,

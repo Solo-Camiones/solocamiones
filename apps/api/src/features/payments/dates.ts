@@ -1,4 +1,6 @@
 const BUSINESS_TIME_ZONE = 'America/Santo_Domingo';
+/** Fixed AST offset for America/Santo_Domingo (no DST). */
+const BUSINESS_UTC_OFFSET = '-04:00';
 const DATE_PARTS = new Intl.DateTimeFormat('en-CA', {
   timeZone: BUSINESS_TIME_ZONE,
   year: 'numeric',
@@ -11,6 +13,28 @@ export function businessDateString(value: Date): string {
   const part = (type: Intl.DateTimeFormatPartTypes) =>
     parts.find((entry) => entry.type === type)?.value;
   return `${part('year')}-${part('month')}-${part('day')}`;
+}
+
+/**
+ * Inclusive calendar-day bounds for Prisma date filters in the business timezone.
+ * Both ends are required for full-range reports; list filters may pass only one side.
+ */
+export function businessDayRange(
+  dateFrom: string,
+  dateTo: string,
+): { gte: Date; lte: Date };
+export function businessDayRange(
+  dateFrom?: string,
+  dateTo?: string,
+): { gte?: Date; lte?: Date };
+export function businessDayRange(
+  dateFrom?: string,
+  dateTo?: string,
+): { gte?: Date; lte?: Date } {
+  return {
+    ...(dateFrom ? { gte: new Date(`${dateFrom}T00:00:00${BUSINESS_UTC_OFFSET}`) } : {}),
+    ...(dateTo ? { lte: new Date(`${dateTo}T23:59:59.999${BUSINESS_UTC_OFFSET}`) } : {}),
+  };
 }
 
 export function databaseDate(value: string): Date {

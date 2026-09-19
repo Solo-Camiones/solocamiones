@@ -2,10 +2,8 @@ import { describe, expect, it } from 'vitest';
 
 import {
   evolutionChartRange,
-  percentChange,
-  previousRange,
+  formatDateRange,
   resolvePeriodRange,
-  trendFromChange,
 } from '../../../../src/features/profitability/period';
 
 describe('profitability period', () => {
@@ -64,26 +62,15 @@ describe('profitability period', () => {
     ).toEqual({ from: '2026-09-10', to: '2026-09-20' });
   });
 
-  it('builds an equal-length previous window and percent change', () => {
-    expect(previousRange({ from: '2026-09-11', to: '2026-09-11' })).toEqual({
-      from: '2026-09-10',
-      to: '2026-09-10',
-    });
-    expect(previousRange({ from: '2026-09-01', to: '2026-09-11' })).toEqual({
-      from: '2026-08-21',
-      to: '2026-08-31',
-    });
-    expect(percentChange(110, 100)).toBe(10);
-    expect(percentChange(50, 0)).toBeNull();
-    expect(percentChange(0, 0)).toBe(0);
-    expect(trendFromChange(12.4)).toEqual({
-      label: '+12.4% vs período anterior',
-      tone: 'up',
-    });
-    expect(trendFromChange(-3)).toEqual({
-      label: '-3.0% vs período anterior',
-      tone: 'down',
-    });
-    expect(trendFromChange(null)).toBeUndefined();
+  it('formats a single day without a range separator', () => {
+    expect(formatDateRange('2026-09-18', '2026-09-18')).toBe('18 sept de 2026');
+  });
+
+  it('omits the year from the start date when both ends share the year', () => {
+    expect(formatDateRange('2026-09-01', '2026-09-18')).toBe('1 sept — 18 sept de 2026');
+  });
+
+  it('keeps both years when the range crosses a year boundary', () => {
+    expect(formatDateRange('2025-12-28', '2026-01-03')).toBe('28 dic de 2025 — 3 ene de 2026');
   });
 });

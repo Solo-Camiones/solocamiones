@@ -28,16 +28,23 @@ import { toChartView } from './chart-data';
 import {
   DEFAULT_PERIOD_PRESET,
   evolutionChartRange,
-  percentChange,
-  previousRange,
   resolvePeriodRange,
-  trendFromChange,
   type PeriodPreset,
 } from './period';
 import { ProfitabilityCharts } from './ProfitabilityCharts';
 import { ProfitabilityPeriodControls } from './ProfitabilityPeriodControls';
 import { RecordGrossProfitModal } from './RecordGrossProfitModal';
 import { useProfitability } from './useProfitability';
+
+function shareOfTotal(
+  amount: number,
+  total: number,
+  suffix: string,
+  whenEmpty = '—',
+): string {
+  if (total <= 0) return whenEmpty;
+  return `${((amount / total) * 100).toFixed(1)} % ${suffix}`;
+}
 
 function IconFrame({ className, children }: { className: string; children: ReactNode }) {
   return (
@@ -47,42 +54,12 @@ function IconFrame({ className, children }: { className: string; children: React
   );
 }
 
-function TrendIcon() {
-  return (
-    <svg viewBox="0 0 20 20" className="h-4 w-4" fill="none">
-      <path
-        d="M3 13.5 7.5 9l3 3L17 5.5"
-        stroke="currentColor"
-        strokeWidth="1.6"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <path d="M12.5 5.5H17V10" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
-    </svg>
-  );
-}
-
 function WalletIcon() {
   return (
     <svg viewBox="0 0 20 20" className="h-4 w-4" fill="none">
       <rect x="2.5" y="5" width="15" height="11" rx="2" stroke="currentColor" strokeWidth="1.6" />
       <path d="M2.5 8h15" stroke="currentColor" strokeWidth="1.6" />
       <circle cx="13.5" cy="12.2" r="1" fill="currentColor" />
-    </svg>
-  );
-}
-
-function AlertIcon() {
-  return (
-    <svg viewBox="0 0 20 20" className="h-4 w-4" fill="none">
-      <path
-        d="M10 3.5 17.5 16H2.5L10 3.5Z"
-        stroke="currentColor"
-        strokeWidth="1.6"
-        strokeLinejoin="round"
-      />
-      <path d="M10 8.5v3.2" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
-      <circle cx="10" cy="13.8" r="0.8" fill="currentColor" />
     </svg>
   );
 }
@@ -108,6 +85,12 @@ function invoiceInRange(row: ProfitabilityInvoiceRow, from: string, to: string):
   const day = businessDateFromTimestamp(row.confirmedAt);
   return day >= from && day <= to;
 }
+
+/**
+ * Charts and per-invoice profit detail need acquisition cost from inventory.
+ * Keep off until Release 4+ inventory cost is available; flip to true to restore UI.
+ */
+const SHOW_PROFIT_DETAIL_AND_CHARTS = false;
 
 const SOURCE_TOOLTIP = {
   pending: 'La factura en dólares aún no tiene tasa guardada; el sistema no puede convertir la ganancia a pesos.',
@@ -163,7 +146,7 @@ export function ProfitabilityPage() {
   );
 
   if (query.status === 'loading') {
-    return <Skeleton label="Cargando rentabilidad" variant="cards" lines={3} />;
+    return <Skeleton label="Cargando rentabilidad" variant="kpi-grid" lines={3} cols={3} />;
   }
 
   if (query.status === 'error') {
@@ -177,11 +160,6 @@ export function ProfitabilityPage() {
   const { snapshot } = query;
   const chartRange = evolutionChartRange(range, preset, today);
   const view = toChartView(snapshot.charts, chartRange, today);
-  const previous = toChartView(snapshot.charts, previousRange(range), today);
-  const profitTrend = trendFromChange(percentChange(view.periodProfit, previous.periodProfit));
-  const collectedTrend = trendFromChange(
-    percentChange(view.periodCollected, previous.periodCollected),
-  );
 
   const invoices = pendingFxOnly
     ? snapshot.invoices.filter((row) => row.pendingFx)
@@ -251,13 +229,18 @@ export function ProfitabilityPage() {
       <PageHeader
         compact
         title="Rentabilidad"
-        description="Ganancia bruta y cobrado neto en pesos."
+        description={
+          SHOW_PROFIT_DETAIL_AND_CHARTS
+            ? 'Ganancia bruta, facturado y cobrado neto en pesos.'
+            : 'Facturado, cobrado neto y cuentas por cobrar en pesos.'
+        }
         actions={
           <div className="flex min-w-0 flex-col items-stretch gap-3 sm:items-end">
             <ProfitabilityPeriodControls
               preset={preset}
               customFrom={customFrom}
               customTo={customTo}
+              resolvedRange={range}
               onPresetChange={handlePresetChange}
               onCustomFromChange={setCustomFrom}
               onCustomToChange={setCustomTo}
@@ -276,25 +259,12 @@ export function ProfitabilityPage() {
 
       <LoadingOverlay active={query.isRefreshing} label="Actualizando rentabilidad">
       <div className="grid min-w-0 gap-4">
-        <div className="grid min-w-0 gap-4 grid-cols-1 md:grid-cols-2 xl:grid-cols-3">
-          <KpiCard
-            label="Ganancia bruta"
-            value={money(view.periodProfit, 'DOP')}
-            hint="En el período"
-            tone="brand"
-            trend={profitTrend}
-            icon={
-              <IconFrame className="bg-brand/10 text-brand">
-                <TrendIcon />
-              </IconFrame>
-            }
-          />
+        {/* Cards primarias: punto de entrada visual de la página */}
+        <div className="grid min-w-0 gap-4 grid-cols-1 md:grid-cols-2">
           <KpiCard
             label="Cobrado neto"
             value={money(view.periodCollected, 'DOP')}
-            hint="Pagos menos reembolsos"
             tone="brand"
-            trend={collectedTrend}
             icon={
               <IconFrame className="bg-navy-50 text-navy">
                 <WalletIcon />
@@ -302,21 +272,103 @@ export function ProfitabilityPage() {
             }
           />
           <KpiCard
-            label="Pendientes de tasa de cambio"
-            value={new Intl.NumberFormat('es-DO').format(snapshot.pendingFxCount)}
-            hint="Facturas USD sin tasa"
-            tone={snapshot.pendingFxCount > 0 ? 'amber' : 'default'}
-            to={snapshot.pendingFxCount > 0 ? OPERATIONAL_HREFS.profitabilityPendingFx : undefined}
-            actionLabel={snapshot.pendingFxCount > 0 ? 'Ver facturas →' : undefined}
+            label="Cuentas por cobrar"
+            value={money(snapshot.outstandingDop, 'DOP')}
+            hint={
+              snapshot.outstandingUsd > 0
+                ? `Dólares pendientes: ${money(snapshot.outstandingUsd, 'USD')}`
+                : 'Saldos abiertos por cobrar'
+            }
+            tone={snapshot.outstandingDop > 0 || snapshot.outstandingUsd > 0 ? 'amber' : 'default'}
+            to={OPERATIONAL_HREFS.salesOutstanding}
+            actionLabel="Ver cuentas por cobrar"
             icon={
-              <IconFrame className={snapshot.pendingFxCount > 0 ? 'bg-amber-50 text-amber-800' : 'bg-navy-50 text-navy-400'}>
-                <AlertIcon />
+              <IconFrame
+                className={
+                  snapshot.outstandingDop > 0 || snapshot.outstandingUsd > 0
+                    ? 'bg-amber-50 text-amber-800'
+                    : 'bg-navy-50 text-navy-400'
+                }
+              >
+                <WalletIcon />
               </IconFrame>
             }
           />
         </div>
 
-        {snapshot.invoicesMissingProfitCount > 0 ? (
+        {/* Cards secundarias: desglose por facturación */}
+        <section className="min-w-0">
+          <SectionTitle title="Facturación del período" />
+          <div className="grid min-w-0 gap-3 grid-cols-1 sm:grid-cols-2 xl:grid-cols-3">
+            {/* Total primero: es la cifra principal de la sección */}
+            <KpiCard
+              label="Total facturado"
+              value={money(view.periodInvoicedTotal, 'DOP')}
+              tone="brand"
+              size="sm"
+            />
+            {/* Desglose: el hint indica qué fracción representa cada modalidad */}
+            <KpiCard
+              label="Facturado al contado"
+              value={money(view.periodInvoicedCash, 'DOP')}
+              hint={shareOfTotal(view.periodInvoicedCash, view.periodInvoicedTotal, 'del total')}
+              tone="default"
+              size="sm"
+            />
+            <KpiCard
+              label="Facturado a crédito"
+              value={money(view.periodInvoicedCredit, 'DOP')}
+              hint={shareOfTotal(view.periodInvoicedCredit, view.periodInvoicedTotal, 'del total')}
+              tone="default"
+              size="sm"
+            />
+          </div>
+        </section>
+
+        {/* Cards secundarias: desglose por método de cobro */}
+        <section className="min-w-0">
+          <SectionTitle title="Desglose de cobrado neto por método" />
+          <div className="grid min-w-0 gap-3 grid-cols-1 sm:grid-cols-3">
+            <KpiCard
+              label="Cobrado efectivo"
+              value={money(view.periodCollectedByMethod.CASH, 'DOP')}
+              hint={shareOfTotal(
+                view.periodCollectedByMethod.CASH,
+                view.periodCollected,
+                'del cobrado neto',
+                '0.0 % del cobrado neto',
+              )}
+              tone="default"
+              size="sm"
+            />
+            <KpiCard
+              label="Cobrado transferencia"
+              value={money(view.periodCollectedByMethod.TRANSFER, 'DOP')}
+              hint={shareOfTotal(
+                view.periodCollectedByMethod.TRANSFER,
+                view.periodCollected,
+                'del cobrado neto',
+                '0.0 % del cobrado neto',
+              )}
+              tone="default"
+              size="sm"
+            />
+            <KpiCard
+              label="Cobrado cheque"
+              value={money(view.periodCollectedByMethod.CHECK, 'DOP')}
+              hint={shareOfTotal(
+                view.periodCollectedByMethod.CHECK,
+                view.periodCollected,
+                'del cobrado neto',
+                '0.0 % del cobrado neto',
+              )}
+              tone="default"
+              size="sm"
+            />
+          </div>
+        </section>
+
+        {SHOW_PROFIT_DETAIL_AND_CHARTS && snapshot.invoicesMissingProfitCount > 0 ? (
           <Info tone="warning" title="Facturas aún sin ganancia en las gráficas">
             {snapshot.invoicesMissingProfitCount === 1
               ? '1 factura completada no suma en ganancia porque el costo es desconocido o falta la tasa.'
@@ -332,126 +384,136 @@ export function ProfitabilityPage() {
           </Info>
         ) : null}
 
-        <ProfitabilityCharts
-          daily={view.daily}
-          profitByMonth={view.profitByMonth}
-          collectedByMonth={view.collectedByMonth}
-        />
-
-        {pendingFxOnly && (
-          <div className="flex flex-wrap items-center gap-2">
-            <Chip tone="amber">Pendientes de tasa de cambio</Chip>
-            <Button variant="ghost" size="sm" onClick={clearPendingFxFilter}>
-              Quitar filtro
-            </Button>
-          </div>
-        )}
-
-        <section className="min-w-0">
-          <SectionTitle title="Detalle de rentabilidad por factura" />
-          {invoices.length === 0 ? (
-            <Empty
-              title={
-                pendingFxOnly
-                  ? 'No hay facturas pendientes de tasa'
-                  : 'No hay facturas en este período'
-              }
-              description={
-                pendingFxOnly
-                  ? 'Quitar el filtro para ver el resto de facturas.'
-                  : 'Prueba otro período o espera a que se confirmen facturas.'
-              }
+        {SHOW_PROFIT_DETAIL_AND_CHARTS ? (
+          <>
+            <ProfitabilityCharts
+              daily={view.daily}
+              profitByMonth={view.profitByMonth}
+              collectedByMonth={view.collectedByMonth}
             />
-          ) : (
-            <TableShell>
-              <thead className="border-b border-navy-100 bg-navy-50 text-navy-400">
-                <tr>
-                  <th className="px-4 py-3 align-middle font-medium">Factura</th>
-                  <th className="px-4 py-3 align-middle font-medium">Cliente</th>
-                  <th className="px-4 py-3 align-middle font-medium">Moneda</th>
-                  <th className="px-4 py-3 align-middle font-medium">Total</th>
-                  <th className="px-4 py-3 align-middle font-medium">Ganancia bruta</th>
-                  <th className="px-4 py-3 align-middle font-medium">Cálculo</th>
-                  <th className="px-4 py-3 align-middle font-medium">Acción</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-navy-100">
-                {invoices.map((row) => (
-                  <HoverRow key={row.id} to={row.href}>
-                    <td className="px-4 py-3 align-middle font-medium text-navy">
-                      <EntityLink to={row.href}>{row.number}</EntityLink>
-                    </td>
-                    <td className="max-w-[12rem] truncate px-4 py-3 align-middle text-navy-700">{row.customerName}</td>
-                    <td className="px-4 py-3 align-middle">{currencyLabel(row.currency)}</td>
-                    <td className="px-4 py-3 align-middle font-mono tabular-nums">{money(row.total, row.currency)}</td>
-                    <td className="px-4 py-3 align-middle">
-                      {row.pendingFx ? (
-                        <span className="text-amber-800">Pendiente de tasa de cambio</span>
-                      ) : row.profit == null ? (
-                        <span className="text-navy-400">No disponible</span>
-                      ) : (
-                        <span className="font-mono tabular-nums">{money(row.profit, 'DOP')}</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 align-middle">
-                      <ProfitSourceBadge row={row} />
-                    </td>
-                    <td className="px-4 py-3 align-middle whitespace-nowrap">
-                      {row.pendingFx ? (
-                        <Button
-                          size="sm"
-                          variant="secondary"
-                          className="min-h-9 px-2.5 py-1 text-xs"
-                          disabled={isMutating}
-                          onClick={() => void handleRetry(row.id)}
-                        >
-                          Reintentar
-                        </Button>
-                      ) : row.canRecordManual ? (
-                        <Button
-                          size="sm"
-                          variant="secondary"
-                          className="min-h-9 gap-1.5 px-2.5 py-1 text-xs"
-                          disabled={isMutating}
-                          onClick={() => {
-                            setRecordError(null);
-                            setRecording(row);
-                          }}
-                        >
-                          {row.profit == null ? (
-                            'Registrar ganancia'
+
+            {pendingFxOnly && (
+              <div className="flex flex-wrap items-center gap-2">
+                <Chip tone="amber">Pendientes de tasa de cambio</Chip>
+                <Button variant="ghost" size="sm" onClick={clearPendingFxFilter}>
+                  Quitar filtro
+                </Button>
+              </div>
+            )}
+
+            <section className="min-w-0">
+              <SectionTitle title="Detalle de rentabilidad por factura" />
+              {invoices.length === 0 ? (
+                <Empty
+                  title={
+                    pendingFxOnly
+                      ? 'No hay facturas pendientes de tasa'
+                      : 'No hay facturas en este período'
+                  }
+                  description={
+                    pendingFxOnly
+                      ? 'Quitar el filtro para ver el resto de facturas.'
+                      : 'Prueba otro período o espera a que se confirmen facturas.'
+                  }
+                />
+              ) : (
+                <TableShell>
+                  <thead className="border-b border-navy-100 bg-navy-50 text-navy-400">
+                    <tr>
+                      <th className="px-4 py-3 align-middle font-medium">Factura</th>
+                      <th className="px-4 py-3 align-middle font-medium">Cliente</th>
+                      <th className="px-4 py-3 align-middle font-medium">Moneda</th>
+                      <th className="px-4 py-3 align-middle font-medium">Total</th>
+                      <th className="px-4 py-3 align-middle font-medium">Ganancia bruta</th>
+                      <th className="px-4 py-3 align-middle font-medium">Cálculo</th>
+                      <th className="px-4 py-3 align-middle font-medium">Acción</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-navy-100">
+                    {invoices.map((row) => (
+                      <HoverRow key={row.id} to={row.href}>
+                        <td className="px-4 py-3 align-middle font-medium text-navy">
+                          <EntityLink to={row.href}>{row.number}</EntityLink>
+                        </td>
+                        <td className="max-w-[12rem] truncate px-4 py-3 align-middle text-navy-700">
+                          {row.customerName}
+                        </td>
+                        <td className="px-4 py-3 align-middle">{currencyLabel(row.currency)}</td>
+                        <td className="px-4 py-3 align-middle font-mono tabular-nums">
+                          {money(row.total, row.currency)}
+                        </td>
+                        <td className="px-4 py-3 align-middle">
+                          {row.pendingFx ? (
+                            <span className="text-amber-800">Pendiente de tasa de cambio</span>
+                          ) : row.profit == null ? (
+                            <span className="text-navy-400">No disponible</span>
                           ) : (
-                            <>
-                              <PencilIcon />
-                              Editar ganancia
-                            </>
+                            <span className="font-mono tabular-nums">{money(row.profit, 'DOP')}</span>
                           )}
-                        </Button>
-                      ) : (
-                        <span className="text-navy-400">—</span>
-                      )}
-                    </td>
-                  </HoverRow>
-                ))}
-              </tbody>
-            </TableShell>
-          )}
-        </section>
+                        </td>
+                        <td className="px-4 py-3 align-middle">
+                          <ProfitSourceBadge row={row} />
+                        </td>
+                        <td className="px-4 py-3 align-middle whitespace-nowrap">
+                          {row.pendingFx ? (
+                            <Button
+                              size="sm"
+                              variant="secondary"
+                              className="min-h-9 px-2.5 py-1 text-xs"
+                              disabled={isMutating}
+                              onClick={() => void handleRetry(row.id)}
+                            >
+                              Reintentar
+                            </Button>
+                          ) : row.canRecordManual ? (
+                            <Button
+                              size="sm"
+                              variant="secondary"
+                              className="min-h-9 gap-1.5 px-2.5 py-1 text-xs"
+                              disabled={isMutating}
+                              onClick={() => {
+                                setRecordError(null);
+                                setRecording(row);
+                              }}
+                            >
+                              {row.profit == null ? (
+                                'Registrar ganancia'
+                              ) : (
+                                <>
+                                  <PencilIcon />
+                                  Editar ganancia
+                                </>
+                              )}
+                            </Button>
+                          ) : (
+                            <span className="text-navy-400">—</span>
+                          )}
+                        </td>
+                      </HoverRow>
+                    ))}
+                  </tbody>
+                </TableShell>
+              )}
+            </section>
+          </>
+        ) : null}
       </div>
       </LoadingOverlay>
 
-      <RecordGrossProfitModal
-        open={recording != null}
-        invoiceNumber={recording?.number ?? ''}
-        initialProfitDop={recording?.source === 'MANUAL' ? recording.profit : null}
-        isSaving={isMutating}
-        error={recordError}
-        onClose={() => {
-          setRecording(null);
-          setRecordError(null);
-        }}
-        onSubmit={(input) => void handleRecord(input)}
-      />
+      {SHOW_PROFIT_DETAIL_AND_CHARTS ? (
+        <RecordGrossProfitModal
+          open={recording != null}
+          invoiceNumber={recording?.number ?? ''}
+          initialProfitDop={recording?.source === 'MANUAL' ? recording.profit : null}
+          isSaving={isMutating}
+          error={recordError}
+          onClose={() => {
+            setRecording(null);
+            setRecordError(null);
+          }}
+          onSubmit={(input) => void handleRecord(input)}
+        />
+      ) : null}
     </div>
   );
 }

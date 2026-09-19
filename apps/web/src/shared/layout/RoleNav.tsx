@@ -33,6 +33,7 @@ const NAV_ICONS: Record<string, ReactNode> = {
   users: <UserIcon />,
   profitability: <ChartIcon />,
   recovery: <ShieldIcon />,
+  'seller-sales': <PeopleIcon />,
 };
 
 export type RoleNavProps = {

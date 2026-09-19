@@ -12,6 +12,8 @@ import {
   getInvoicePdf,
   getInvoices,
   getReceivables,
+  getSellerSalesReport,
+  listSellerSalesReport,
   patchDraft,
   patchDraftLine,
   postConfirmInvoice,
@@ -33,6 +35,8 @@ import {
   invoiceLineIdSchema,
   listInvoicesSchema,
   listReceivablesSchema,
+  sellerSalesReportQuerySchema,
+  sellerSalesReportPdfQuerySchema,
   statementCustomerIdSchema,
   setLinePriceSchema,
   updateDraftMetaSchema,
@@ -59,6 +63,18 @@ salesRouter.get(
   requireAdministrator,
   validate({ params: statementCustomerIdSchema }),
   getAccountStatement,
+);
+salesRouter.get(
+  '/reports/seller-sales',
+  requireAdministrator,
+  validate({ query: sellerSalesReportQuerySchema }),
+  listSellerSalesReport,
+);
+salesRouter.get(
+  '/reports/seller-sales.pdf',
+  requireAdministrator,
+  validate({ query: sellerSalesReportPdfQuerySchema }),
+  getSellerSalesReport,
 );
 salesRouter.get('/:id/pdf', validate({ params: invoiceIdSchema }), getInvoicePdf);
 salesRouter.post(
