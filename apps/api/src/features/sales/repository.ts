@@ -96,7 +96,7 @@ function receivableBalances(query: ListReceivablesQuery): Prisma.Sql {
     ? Prisma.sql`AND i."customerId" = ${query.customerId}::uuid`
     : Prisma.empty;
   const invoiceFilter = query.invoice
-    ? Prisma.sql`AND i."number" = ${query.invoice}`
+    ? Prisma.sql`AND (i."number" = ${query.invoice} OR i."conduceNumber" = ${query.invoice})`
     : Prisma.empty;
   return Prisma.sql`
     WITH "paymentTotals" AS (
@@ -120,7 +120,7 @@ function receivableBalances(query: ListReceivablesQuery): Prisma.Sql {
       FROM "Invoice" i
       INNER JOIN "Customer" c ON c."id" = i."customerId"
       LEFT JOIN "paymentTotals" p ON p."invoiceId" = i."id"
-      WHERE i."status" = 'COMPLETED'
+      WHERE i."status" IN ('COMPLETED', 'CONDUCE')
         AND i."gross" > COALESCE(p."paid", 0)
         ${customerFilter}
         ${invoiceFilter}
@@ -268,6 +268,7 @@ export class SalesRepository {
       select: {
         id: true,
         number: true,
+        conduceNumber: true,
         confirmedAt: true,
         dueDate: true,
         status: true,

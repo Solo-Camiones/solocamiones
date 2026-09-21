@@ -2,7 +2,15 @@ import { Prisma, type CustomerType, type InvoiceCurrency, type Role } from '@pri
 
 import { AppError } from '../../infrastructure/errors/app-error.js';
 import {
+  businessDateString,
+  databaseDate,
+  invoiceDueDate,
+} from '../payments/dates.js';
+import {
   CASH_CUSTOMER_CREDIT_FORBIDDEN_MESSAGE,
+  CONDUCE_DUE_DATE_BEFORE_EMISSION_MESSAGE,
+  CONDUCE_DUE_DATE_NOT_ALLOWED_MESSAGE,
+  CONDUCE_DUE_DATE_REQUIRED_MESSAGE,
   CREDIT_LIMIT_EXCEEDED_MESSAGE,
   SELLER_CREDIT_CONFIRM_PAYMENT_FORBIDDEN_MESSAGE,
   USD_INVOICE_MUST_BE_PAID_IN_FULL_MESSAGE,
@@ -71,6 +79,11 @@ export function confirmationInitialPaymentAmount(
   return byKey?.amount ?? null;
 }
 
+/** Named CASH (not default Cliente contado) — Admin conduce balance exception target (CON-002). */
+export function isNamedCashCustomer(customer: ConfirmationCustomer): boolean {
+  return customer.customerType === 'CASH' && !customer.isDefault;
+}
+
 function requiresFullSettlement(customer: ConfirmationCustomer, currency: InvoiceCurrency): boolean {
   return customer.customerType === 'CASH' || customer.isDefault || currency === 'USD';
 }
@@ -94,6 +107,10 @@ export function invoiceNewBalance(
   return Prisma.Decimal.max(invoiceGross.minus(paid), 0);
 }
 
+/**
+ * SALE-005 / PAY-001: direct invoice confirmation (and Seller/default conduce paths via reuse).
+ * Named-CASH Admin balance on conduce is intentionally not here — see assertConduceInitialPaymentPolicy.
+ */
 export function assertInitialPaymentPolicy(input: {
   customer: ConfirmationCustomer;
   currency: InvoiceCurrency;
@@ -115,6 +132,60 @@ export function assertInitialPaymentPolicy(input: {
   if (actorRole === 'SELLER' && initialPaymentAmount != null) {
     throw AppError.forbidden(SELLER_CREDIT_CONFIRM_PAYMENT_FORBIDDEN_MESSAGE);
   }
+}
+
+/**
+ * CON-002: Admin may leave balance on named CASH DOP/USD conduces only.
+ * Default Cliente contado, Seller, and CREDIT USD still require full settlement.
+ */
+export function assertConduceInitialPaymentPolicy(input: {
+  customer: ConfirmationCustomer;
+  currency: InvoiceCurrency;
+  actorRole: Role;
+  invoiceGross: Prisma.Decimal;
+  initialPaymentAmount: Prisma.Decimal | null;
+}): void {
+  if (input.actorRole === 'ADMINISTRATOR' && isNamedCashCustomer(input.customer)) {
+    return;
+  }
+  assertInitialPaymentPolicy(input);
+}
+
+/**
+ * Resolves dueDate for conduce emission.
+ * Admin named-CASH with open balance: actor-supplied calendar day ≥ local emission day.
+ * CREDIT DOP: frozen term. Otherwise emission day (term 0).
+ */
+export function resolveConduceDueDate(input: {
+  customer: ConfirmationCustomer;
+  currency: InvoiceCurrency;
+  actorRole: Role;
+  confirmedAt: Date;
+  newBalance: Prisma.Decimal;
+  actorDueDate: string | undefined;
+}): Date {
+  const { customer, currency, actorRole, confirmedAt, newBalance, actorDueDate } = input;
+  const needsActorDueDate =
+    actorRole === 'ADMINISTRATOR' &&
+    isNamedCashCustomer(customer) &&
+    newBalance.greaterThan(0);
+
+  if (needsActorDueDate) {
+    if (actorDueDate == null) {
+      throw AppError.conflict(CONDUCE_DUE_DATE_REQUIRED_MESSAGE);
+    }
+    const emissionDay = businessDateString(confirmedAt);
+    if (actorDueDate < emissionDay) {
+      throw AppError.conflict(CONDUCE_DUE_DATE_BEFORE_EMISSION_MESSAGE);
+    }
+    return databaseDate(actorDueDate);
+  }
+
+  if (actorDueDate != null) {
+    throw AppError.conflict(CONDUCE_DUE_DATE_NOT_ALLOWED_MESSAGE);
+  }
+
+  return invoiceDueDate(confirmedAt, confirmationDueTermDays(customer, currency));
 }
 
 export function assertCreditExposureWithinLimit(input: {

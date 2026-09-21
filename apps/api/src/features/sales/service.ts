@@ -35,6 +35,9 @@ import {
   PAYMENT_IDEMPOTENCY_MISMATCH_MESSAGE,
   CANCELLATION_COMPLETED_ONLY_MESSAGE,
   CANCELLATION_REASON_REQUIRED_MESSAGE,
+  CANCELLATION_REFUND_AMOUNT_REQUIRED_MESSAGE,
+  CANCELLATION_REFUND_EXCEEDS_NET_MESSAGE,
+  CANCELLATION_REFUND_METHOD_REQUIRED_MESSAGE,
   CONDUCE_FISCAL_RETRY_MISMATCH_MESSAGE,
   CONDUCE_ONLY_CONVERT_TO_INVOICE_MESSAGE,
   EXPIRED_QUOTE_CONVERT_MESSAGE,
@@ -46,11 +49,13 @@ import {
 import { DEFAULT_LINE_QUANTITY } from './money/constants.js';
 import { calculateLineMoney, parsePositiveDecimal, applyInvoiceDiscount, isTaxableLineType } from './money/index.js';
 import {
+  assertConduceInitialPaymentPolicy,
   assertCreditExposureWithinLimit,
   assertInitialPaymentPolicy,
   confirmationDueTermDays,
   confirmationPaymentIdempotencyKey,
   invoiceNewBalance,
+  resolveConduceDueDate,
 } from './credit-confirmation.js';
 import {
   assertDraftLineDescriptionEditable,
@@ -83,6 +88,7 @@ import {
   genericDraftLineSchema,
   invoiceIdSchema,
   invoiceLineIdSchema,
+  issueConduceSchema,
   listInvoicesSchema,
   listReceivablesSchema,
   serviceDraftLineSchema,
@@ -625,8 +631,8 @@ export class SalesService {
   }
 
   /**
-   * Recognizes a sale as CONDUCE (no FAC-). Payment policy reuses SALE-005 for M3;
-   * Administrator named-CASH balance exception is M4 (CON-002).
+   * Recognizes a sale as CONDUCE (no FAC-). Payment/dueDate follow CON-002
+   * (Admin named-CASH balance exception; default Cliente contado always full).
    */
   private async issueConduceSale(
     actorId: string,
@@ -635,7 +641,7 @@ export class SalesService {
     sourceStatus: 'DRAFT' | 'QUOTE_ISSUED',
   ) {
     invoiceIdSchema.parse({ id });
-    const profile = confirmInvoiceSchema.parse(input ?? {});
+    const profile = issueConduceSchema.parse(input ?? {});
     const { invoice, actor } = await this.transaction(
       async ({ sales, customers, payments, users, history }) => {
         const actor = requireInvoiceManager(await users.findById(actorId));
@@ -696,7 +702,7 @@ export class SalesService {
         if (initialPaymentAmount?.greaterThan(totals.gross)) {
           throw AppError.conflict(PAYMENT_EXCEEDS_BALANCE_MESSAGE);
         }
-        assertInitialPaymentPolicy({
+        assertConduceInitialPaymentPolicy({
           customer,
           currency: existing.currency,
           actorRole: actor.role,
@@ -717,15 +723,20 @@ export class SalesService {
         });
         const conduceNumber = await sales.allocateNextConduceNumber();
         const confirmedAt = new Date();
+        const dueDate = resolveConduceDueDate({
+          customer,
+          currency: existing.currency,
+          actorRole: actor.role,
+          confirmedAt,
+          newBalance,
+          actorDueDate: profile.dueDate,
+        });
         const primaryPhone = customer.contacts.find((contact) => contact.isPrimary)?.phone ?? null;
         let issued = await sales.issueConduce({
           id,
           conduceNumber,
           confirmedAt,
-          dueDate: invoiceDueDate(
-            confirmedAt,
-            confirmationDueTermDays(customer, existing.currency),
-          ),
+          dueDate,
           customerName: sourceStatus === 'QUOTE_ISSUED' ? existing.customerName! : customer.name,
           customerRnc: sourceStatus === 'QUOTE_ISSUED' ? existing.customerRnc : customer.rnc,
           customerPhone: sourceStatus === 'QUOTE_ISSUED' ? existing.customerPhone : primaryPhone,
@@ -991,7 +1002,10 @@ export class SalesService {
       await sales.lockById(id);
       let invoice = await sales.findById(id);
       if (!invoice) throw AppError.notFound('Invoice not found');
-      if (invoice.status !== 'COMPLETED' || invoice.confirmedAt == null) {
+      if (invoice.status !== 'COMPLETED' && invoice.status !== 'CONDUCE') {
+        throw AppError.conflict(PAYMENT_COMPLETED_ONLY_MESSAGE);
+      }
+      if (invoice.confirmedAt == null) {
         throw AppError.conflict(PAYMENT_COMPLETED_ONLY_MESSAGE);
       }
 
@@ -1064,22 +1078,34 @@ export class SalesService {
       ) {
         return toPublicInvoice(invoice, actor);
       }
-      if (invoice.status !== 'COMPLETED') {
+      if (invoice.status !== 'COMPLETED' && invoice.status !== 'CONDUCE') {
         throw AppError.conflict(CANCELLATION_COMPLETED_ONLY_MESSAGE);
       }
       if (!profile.reason) throw AppError.conflict(CANCELLATION_REASON_REQUIRED_MESSAGE);
 
       const summary = summarizePayments(invoice);
       const netReceived = summary.paid.minus(summary.refunded);
-      if (netReceived.greaterThan(0) && !profile.refundMethod) {
-        throw AppError.conflict('La cancelación requiere el método del reembolso neto total');
+      const refundAmount =
+        profile.refundAmount != null
+          ? new Prisma.Decimal(profile.refundAmount)
+          : netReceived.isZero()
+            ? new Prisma.Decimal(0)
+            : null;
+      if (refundAmount == null) {
+        throw AppError.conflict(CANCELLATION_REFUND_AMOUNT_REQUIRED_MESSAGE);
+      }
+      if (refundAmount.greaterThan(netReceived)) {
+        throw AppError.conflict(CANCELLATION_REFUND_EXCEEDS_NET_MESSAGE);
+      }
+      if (refundAmount.greaterThan(0) && !profile.refundMethod) {
+        throw AppError.conflict(CANCELLATION_REFUND_METHOD_REQUIRED_MESSAGE);
       }
 
       const cancelledAt = new Date();
-      const refund = netReceived.greaterThan(0)
+      const refund = refundAmount.greaterThan(0)
         ? await payments.createRefund({
             invoiceId: id,
-            amount: netReceived,
+            amount: refundAmount,
             currency: invoice.currency,
             method: profile.refundMethod!,
             effectiveDate: todayBusinessDate(cancelledAt),
@@ -1106,7 +1132,7 @@ export class SalesService {
           cancelledAt: cancelledAt.toISOString(),
           cancelledByName: actor.name,
           refundId: refund?.id ?? null,
-          refundAmount: netReceived.toFixed(2),
+          refundAmount: refundAmount.toFixed(2),
           refundMethod: refund?.method ?? null,
         },
       });

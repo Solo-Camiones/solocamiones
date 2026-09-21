@@ -24,7 +24,7 @@
 | M1 | Formalizar reglas y criterios de aceptación | Completado localmente (2026-09-20) |
 | M2 | Migración y modelo de dominio | Completado localmente (2026-09-20) |
 | M3 | Motor de emisión y conversión | Completado localmente (2026-09-20) |
-| M4 | Pagos, vencimiento, CxC y cancelación | Pendiente |
+| M4 | Pagos, vencimiento, CxC y cancelación | Completado localmente (2026-09-20) |
 | M5 | PDFs y fiscalidad manual | Pendiente |
 | M6 | Reportes, rentabilidad e historial | Pendiente |
 | M7 | Integración web y mocks | Pendiente |
@@ -227,6 +227,9 @@ Respuesta pública incluye `conduceNumber`, `conduceIssuedAt`, `invoiceIssuedAt`
 
 **Objetivo:** Aplicar la matriz financiera completa del conduce.
 
+**Estado:** Completado localmente — 2026-09-20  
+**Alcance:** Matriz CON-002 en emisión, `dueDate` Admin named-`CASH`, abonos en `CONDUCE`, CxC/`CON-`, cancelación `0…neto` (CANCEL-002) en `CONDUCE` y `COMPLETED`. Sin PDF conduce (M5), FX/rentabilidad (M6) ni UI web (M7).
+
 ### Reglas financieras
 
 - Administrador + `CASH` puede confirmar con pago cero, parcial o total.
@@ -242,7 +245,7 @@ Respuesta pública incluye `conduceNumber`, `conduceIssuedAt`, `invoiceIssuedAt`
 ### Cancelación
 
 - Extender `POST /api/sales/:id/cancel` a conduces.
-- Permitir reembolso real indicado entre cero y el neto cobrado.
+- Permitir reembolso real indicado entre cero y el neto cobrado (`refundAmount`).
 - Rechazar reembolso superior al neto cobrado.
 - Extinguir el saldo pendiente al cancelar.
 - Si ya existe `FAC-`, cancelar toda la operación `CON-/FAC-`.
@@ -252,23 +255,34 @@ Respuesta pública incluye `conduceNumber`, `conduceIssuedAt`, `invoiceIssuedAt`
   - facturar no toca inventario.
 - No adelantar en este milestone los módulos completos `ITEM/QTY` que todavía pertenecen a releases posteriores; dejar la regla documentada y conectar el mismo límite transaccional cuando se habiliten.
 
-### Pruebas
+### Implementación
 
-- Matriz completa actor/cliente/moneda/pago.
-- Vencimientos `CASH` y `CREDIT`.
-- Límite de crédito bajo concurrencia.
-- Pagos posteriores y autorización negativa para Vendedor.
-- Cancelación con reembolso cero, parcial y total.
-- Conservación del ledger después de convertir o cancelar.
+| Artefacto | Detalle |
+|---|---|
+| Policy | `assertConduceInitialPaymentPolicy`, `resolveConduceDueDate` (CON-002) |
+| Validation | `issueConduceSchema` (+`dueDate`); `cancelInvoiceSchema` (+`refundAmount`); receivables `FAC-`/`CON-` |
+| Service | Emisión conduce usa matriz CON-002; `addPayment`/`cancel` aceptan `CONDUCE`; cancel refund 0…neto |
+| CxC | `receivableBalances` incluye `CONDUCE`; statement PDF usa `number ?? conduceNumber` |
+| Tests | Unit policy/validation; integration `conduce-payments-cancellation-http` + regresión payments/cancel/conduce |
+
+### Verificación
+
+- Unitarios: `credit-confirmation.test.ts` + `validation.test.ts` — **passed** (matriz CON-002, dueDate, refundAmount, filtro CON-).
+- Integración (reset autorizado en `solocamiones_test`): `conduce-payments-cancellation-http` + `payments-cancellation-http` + `conduce-http` — **42 passed**.
+- Typecheck API: OK.
+
+### Inventario diferido (CON-005)
+
+Cuando ITEM/QTY exista: emitir consume/reserva→vendido; cancelar restaura una vez; facturar no toca inventario. Hoy las líneas ITEM/QTY siguen rechazadas en borrador; la frontera transaccional se compartirá con el release de inventario.
 
 ### Documentación al cerrar
 
-- Actualizar `CON-002`, `CON-005`, Features 08/12/13 y el estado de M4.
-- Registrar casos de prueba y decisiones de vencimiento/reembolso.
-- Marcar criterios únicamente después de pruebas de integración.
-- Documentar los efectos de inventario diferidos y su futura frontera transaccional.
+- Actualizar `CON-002`, `CON-005`, Features 08/12/13 y el estado de M4. **Hecho** (Features 12/13/16, USE_CASE_FLOWS, este plan).
+- Registrar casos de prueba y decisiones de vencimiento/reembolso. **Hecho** (arriba).
+- Marcar criterios únicamente después de pruebas de integración. **Hecho**.
+- Documentar los efectos de inventario diferidos y su futura frontera transaccional. **Hecho** (arriba).
 
-**Gate:** CxC, pagos, saldos, vencimientos y cancelación coinciden en dominio, API y base de datos.
+**Gate:** CxC, pagos, saldos, vencimientos y cancelación coinciden en dominio, API y base de datos. **Cumplido localmente (2026-09-20)** pendiente de `Verificado` owner si se requiere.
 
 ---
 

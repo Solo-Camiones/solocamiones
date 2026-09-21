@@ -390,6 +390,7 @@ describe('payments, due date, and cancellation HTTP', () => {
 
     const denied = await seller.agent.post(`${SALES}/${invoice.id}/cancel`).set(CSRF).send({
       reason: 'Solicitud del cliente',
+      refundAmount: '400.00',
       refundMethod: 'CASH',
       idempotencyKey: randomUUID(),
     });
@@ -397,6 +398,7 @@ describe('payments, due date, and cancellation HTTP', () => {
 
     const cancellation = {
       reason: 'Solicitud del cliente',
+      refundAmount: '400.00',
       refundMethod: 'TRANSFER',
       idempotencyKey: randomUUID(),
     };
@@ -460,7 +462,7 @@ describe('payments, due date, and cancellation HTTP', () => {
     });
   });
 
-  it('requires a refund method when cancelling an invoice with net money received', async () => {
+  it('requires a refund amount and method when cancelling an invoice with net money received', async () => {
     const app = createTestApp();
     const seller = await fixture(request.agent(app), 'SELLER');
     const admin = await fixture(request.agent(app), 'ADMINISTRATOR');
@@ -475,15 +477,25 @@ describe('payments, due date, and cancellation HTTP', () => {
         idempotencyKey: randomUUID(),
       });
 
-    const cancellation = await admin.agent.post(`${SALES}/${invoice.id}/cancel`).set(CSRF).send({
+    const missingAmount = await admin.agent.post(`${SALES}/${invoice.id}/cancel`).set(CSRF).send({
       reason: 'Venta anulada',
       idempotencyKey: randomUUID(),
     });
-
-    expect(cancellation.status).toBe(409);
-    expect(cancellation.body.error.message).toBe(
-      'La cancelación requiere el método del reembolso neto total',
+    expect(missingAmount.status).toBe(409);
+    expect(missingAmount.body.error.message).toBe(
+      'La cancelación requiere el monto de reembolso cuando hay neto cobrado',
     );
+
+    const missingMethod = await admin.agent.post(`${SALES}/${invoice.id}/cancel`).set(CSRF).send({
+      reason: 'Venta anulada',
+      refundAmount: '300.00',
+      idempotencyKey: randomUUID(),
+    });
+    expect(missingMethod.status).toBe(409);
+    expect(missingMethod.body.error.message).toBe(
+      'La cancelación requiere el método del reembolso cuando el monto es mayor que cero',
+    );
+
     await expect(prisma.invoice.findUnique({ where: { id: invoice.id } })).resolves.toMatchObject({
       status: 'COMPLETED',
     });

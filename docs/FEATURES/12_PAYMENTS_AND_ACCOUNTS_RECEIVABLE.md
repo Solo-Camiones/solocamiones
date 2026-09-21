@@ -16,7 +16,7 @@ The old consolidated requirements/validation files are intentionally no longer r
 
 **Pre-production change set (2026-09-16):** Paso 7 implements derived `ABONADO` states (`PAY-006`), issued date on the AR list, and Administrator AR filters limited to customer and invoice (`PAY-007`). Paso 5 already restricted later payments and CxC: `POST /payments` and `GET /receivables` are Administrator-only (Seller 403); Seller nav/deep links to CxC are denied, and Seller invoice list/detail omit payment state, paid amount, outstanding balance, refunds, and movements. Paso 8 implements the Administrator-only customer account-statement PDF (`STMT-001`) from CxC.
 
-**Commercial conduces (2026-09-20, documentation):** Feature 16 extends AR and later collections to include emitted conduces with open balance (`CON-002`, `CON-006`). Direct invoice confirmation cash/credit rules stay in SALE-005 / PAY-001. Administrator named-`CASH` balance is conduce-emission only and excludes default `Cliente contado`. Do not implement from this paragraph alone; use Feature 16 IDs.
+**Commercial conduces (2026-09-20, documentation + M4 runtime):** Feature 16 extends AR and later collections to include emitted conduces with open balance (`CON-002`, `CON-006`). Direct invoice confirmation cash/credit rules stay in SALE-005 / PAY-001. Administrator named-`CASH` balance is conduce-emission only and excludes default `Cliente contado`. Open `CONDUCE` rows appear in `GET /receivables` and account statements; document filter accepts `FAC-` and `CON-`.
 
 ## What this feature does
 
@@ -112,7 +112,7 @@ Advanced AR such as aging buckets, interest, collection promises/tasks, automate
 - [x] Open receivables query.
 - [x] Customer outstanding summary grouped by currency.
 - [x] Invoice receivable/payment-history detail.
-- [x] Filters by customer and invoice. _(Owner decision 2026-09-16: the CxC surface and endpoint expose only the searchable customer selector and invoice lookup by `FAC-` number; payment state, issued-date, and currency filters are intentionally unavailable. Operators never type invoice UUIDs. **Planned Feature 16:** document filters also accept `CON-`.)_
+- [x] Filters by customer and invoice. _(Owner decision 2026-09-16: the CxC surface and endpoint expose only the searchable customer selector and invoice lookup by `FAC-` number; payment state, issued-date, and currency filters are intentionally unavailable. Operators never type invoice UUIDs. **Feature 16 M4 (2026-09-20):** document filters also accept `CON-`; open `CONDUCE` balances appear in AR and account statements.)_
 - [x] Overdue behavior uses the validated fixed due-date policy; aging remains deferred.
 
 ### Frontend

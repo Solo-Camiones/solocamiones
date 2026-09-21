@@ -491,7 +491,7 @@ For quantity stock, `availableToReserve = physical/on-hand quantity - currently 
 3. Original payment records are never overwritten.
 4. Commercial State remains Sold regardless of payment state.
 5. Seller invoice detail shows derived state and balance and omits movements.
-6. **Planned (Feature 16):** conduce emission uses CON-002 (Administrator may leave balance only on **named** `CASH`, not default `Cliente contado`; Seller keeps current full-pay / credit limits).
+6. **Implemented (Feature 16 / M4):** conduce emission uses CON-002 (Administrator may leave balance only on **named** `CASH`, not default `Cliente contado`; Seller keeps current full-pay / credit limits).
 
 **Invoice output:** A valid completed invoice shows its `FAC-` internal number, origin `COT-` when converted from a quote, planned origin `CON-` when converted from a conduce, one currency, two-decimal base/ITBIS/total, and produces an internal printable PDF with `NCF: ______________________` intentionally blank. Re-download applies current corporate presentation and keeps stored commercial money (DOC-001). There is no DGII, NCF generation, validation, or assignment workflow.
 
@@ -718,44 +718,45 @@ For quantity stock, `availableToReserve = physical/on-hand quantity - currently 
 1. Actor prepares a `QUOTE_DRAFT` with the same customer, currency, fiscal flags, ITBIS flag, and lines that the future invoice or conduce will use.
 2. Issue assigns unique `COT-` and freezes the quote through end of day 15 in `America/Santo_Domingo`.
 3. Convert-to-invoice runs confirmation on the same aggregate, assigns `FAC-`, preserves origin `COT-`, and applies direct cash/credit rules (SALE-005).
-4. **Implemented (Feature 16 / M3):** convert-to-conduce assigns `CON-` on the same aggregate and recognizes the sale under current SALE-005 payment rules (CON-002 Admin named-`CASH` exception remains M4). Later convert-to-invoice follows CON-003 without recalculating money.
+4. **Implemented (Feature 16 / M3–M4):** convert-to-conduce assigns `CON-` on the same aggregate and recognizes the sale under CON-002 (Administrator may leave balance only on **named** `CASH`, not default `Cliente contado`; Seller keeps current full-pay / credit limits). Later convert-to-invoice follows CON-003 without recalculating money.
 5. If expired, convert is rejected; duplicate creates a new editable quote.
 
 **Conflicts:** Quotes do not take payments, open AR, or reserve inventory until conversion recognizes the sale. Retrying convert does not duplicate `FAC-`, `CON-`, or lines.
 
-## Issue a conduce and convert it to an invoice (Feature 16 — M3 runtime; M4 matrix pending)
+## Issue a conduce and convert it to an invoice (Feature 16 — M3–M4 runtime)
 
 **Primary Actor:** Seller or Administrator
 
 **Main Flow:**
 
 1. From a Draft, `POST /api/sales/:id/issue-conduce`; from an issued quote, `POST /api/sales/:id/convert-quote-to-conduce`.
-2. Initial payment follows SALE-005 for M3 (full pay for cash/USD; Seller credit unpaid). Administrator named-`CASH` balance exception and actor `dueDate` arrive in M4 (CON-002).
+2. Initial payment follows CON-002 (`issueConduceSchema`: optional `payment`, optional `dueDate` when Administrator leaves named-`CASH` balance). Direct invoice confirmation without conduce keeps SALE-005.
 3. Emission assigns `CON-`, freezes snapshots, sets `confirmedAt` / `conduceIssuedAt`, forces non-fiscal document, and may record an initial payment. FX/profitability and conduce PDF remain M6/M5.
-4. Later, Administrator or Seller calls `POST /api/sales/:id/convert-conduce-to-invoice` with `{ fiscal }`, assigning `FAC-` and `invoiceIssuedAt` without recalculating lines, payments, inventory, or profitability.
-5. Invoice PDF generation runs on conversion (existing path); dedicated conduce PDF is M5.
+4. Later collections reuse `POST /api/sales/:id/payments` on open `CONDUCE` or `COMPLETED` (Administrator-only).
+5. Later, Administrator or Seller calls `POST /api/sales/:id/convert-conduce-to-invoice` with `{ fiscal }`, assigning `FAC-` and `invoiceIssuedAt` without recalculating lines, payments, inventory, or profitability.
+6. Invoice PDF generation runs on conversion (existing path); dedicated conduce PDF is M5.
 
-**Conflicts:** Expired quotes, cancelled conduces, cash without full payment (SALE-005), and fiscal conversion without frozen RNC/Cédula are rejected. Direct confirm without conduce keeps SALE-005 (no named-`CASH` Admin balance exception).
+**Conflicts:** Expired quotes, cancelled conduces, unauthorized payment matrix violations (CON-002), and fiscal conversion without frozen RNC/Cédula are rejected. Direct confirm without conduce keeps SALE-005 (no named-`CASH` Admin balance exception).
 
 ## Generate a customer account statement
 
 **Primary Actor:** Administrator
 
-**Preconditions:** The selected customer has at least one open DOP invoice.
+**Preconditions:** The selected customer has at least one open DOP invoice or conduce.
 
 **Main Flow:**
 
 1. From Accounts Receivable, Administrator picks the customer in the searchable selector.
-2. `Generar estado de cuenta` downloads a PDF of every open DOP invoice with issued date, due date, state, total, cumulative paid, and balance.
+2. `Generar estado de cuenta` downloads a PDF of every open DOP invoice/conduce with issued date, due date, state, total, cumulative paid, and balance. While no `FAC-` exists, the row shows `CON-` as the document number.
 3. Row totals reconcile to the statement outstanding total.
 
-**Conflicts:** Seller is denied. Cancelled invoices and individual payment movements are omitted. Customers without open balance are not selectable. **Planned (Feature 16):** open conduces with balance are included; document filters accept `CON-` and `FAC-`.
+**Conflicts:** Seller is denied. Cancelled operations and individual payment movements are omitted. Customers without open balance are not selectable. Document filters accept `CON-` and `FAC-`.
 
 ## Cancellation and refund baseline
 
-- Only Administrator may cancel a Completed invoice (and, when implemented, an active conduce or `CON-/FAC-` operation) and register a cancellation refund.
+- Only Administrator may cancel a Completed invoice or an active conduce / `CON-/FAC-` operation and register a cancellation refund.
 - Cancellation records reason, actor, and time without editing or deleting the original document.
-- Payments and refunds are additive. Refunds represent money actually returned (**zero through net collected**, CANCEL-002 amended 2026-09-20) and do not erase receipts. Outstanding balance is extinguished.
+- Payments and refunds are additive. Refunds represent money actually returned (**zero through net collected**, CANCEL-002; `refundAmount` on cancel API) and do not erase receipts. Outstanding balance is extinguished.
 - Cancellation restores eligible Commercial State exactly once and does not recreate reservations.
 - The linked Work-Order branch must be selected from the Pending, In-Progress stop, In-Progress continue, or already-Completed flows above.
 

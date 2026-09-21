@@ -37,6 +37,7 @@ import {
   createDraftSchema,
   invoiceIdSchema,
   invoiceLineIdSchema,
+  issueConduceSchema,
   listInvoicesSchema,
   listReceivablesSchema,
   sellerSalesReportQuerySchema,
@@ -125,13 +126,13 @@ salesRouter.post(
 salesRouter.post(
   '/:id/issue-conduce',
   requireCsrfHeader,
-  validate({ params: invoiceIdSchema, body: confirmInvoiceSchema }),
+  validate({ params: invoiceIdSchema, body: issueConduceSchema }),
   postIssueConduce,
 );
 salesRouter.post(
   '/:id/convert-quote-to-conduce',
   requireCsrfHeader,
-  validate({ params: invoiceIdSchema, body: confirmInvoiceSchema }),
+  validate({ params: invoiceIdSchema, body: issueConduceSchema }),
   postConvertQuoteToConduce,
 );
 salesRouter.post(

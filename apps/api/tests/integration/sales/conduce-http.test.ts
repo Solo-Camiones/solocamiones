@@ -7,7 +7,7 @@ import { afterAll, afterEach, describe, expect, it } from 'vitest';
 import { hashPassword } from '../../../src/features/access/password.js';
 import { resetLoginRateLimit } from '../../../src/features/access/login-rate-limit.js';
 import {
-  CASH_CUSTOMER_CREDIT_FORBIDDEN_MESSAGE,
+  CONDUCE_DUE_DATE_REQUIRED_MESSAGE,
   CONDUCE_FISCAL_RETRY_MISMATCH_MESSAGE,
   CONDUCE_ONLY_CONVERT_TO_INVOICE_MESSAGE,
   DRAFT_ONLY_EDIT_MESSAGE,
@@ -387,7 +387,7 @@ describe('conduce emission and conversion HTTP (CON-001/CON-003)', () => {
     });
   });
 
-  it('rejects wrong source status, cash without full payment, and cancelled conversion', async () => {
+  it('rejects wrong source status, named-CASH without dueDate when balance remains, and cancelled conversion', async () => {
     const { agent } = await fixture();
     const cash = await namedCashCustomer();
     const unpaidDraft = await draftWithLine(agent, cash.id);
@@ -396,7 +396,7 @@ describe('conduce emission and conversion HTTP (CON-001/CON-003)', () => {
       .set(TEST_CSRF_HEADERS)
       .send({});
     expect(unpaid.status).toBe(409);
-    expect(unpaid.body.error.message).toBe(CASH_CUSTOMER_CREDIT_FORBIDDEN_MESSAGE);
+    expect(unpaid.body.error.message).toBe(CONDUCE_DUE_DATE_REQUIRED_MESSAGE);
 
     const draft = await draftWithLine(agent, (await creditCustomer()).id);
     const wrongQuoteCommand = await agent

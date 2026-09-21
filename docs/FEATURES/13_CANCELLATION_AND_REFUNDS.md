@@ -12,7 +12,9 @@ The old consolidated requirements/validation files are intentionally no longer r
 
 **Implementation (2026-09-10):** Early financial slice **pulled forward** — production API + HTTP UI (`POST /api/sales/:id/cancel`, additive refund, Cancelled PDF). Inventory and Work-Order checklist `[x]` items below are **prototype mock only**; there is no Item/Work-Order persistence. Future Releases 5/7 must implement those branches in the API, not treat the mock as done.
 
-**Refund policy amendment (2026-09-20, documentation):** Owner confirmed a **global** cancellation refund rule for Feature 16 / pre-production conduces work: Administrator indicates the actual money returned from **zero through net collected** (reject above net). Outstanding balance is extinguished on cancel. This supersedes the earlier “mandatory full-net refund” wording for all cancellable commercial operations (invoice-only and conduce / `CON-+FAC-`). Runtime still implements full-net until the owning milestone updates API/UI/tests; do not treat checklist `[x]` below as matching the new rule until that work ships.
+**Refund policy amendment (2026-09-20, documentation):** Owner confirmed a **global** cancellation refund rule for Feature 16 / pre-production conduces work: Administrator indicates the actual money returned from **zero through net collected** (reject above net). Outstanding balance is extinguished on cancel. This supersedes the earlier “mandatory full-net refund” wording for all cancellable commercial operations (invoice-only and conduce / `CON-+FAC-`).
+
+**Runtime (2026-09-20, M4):** `POST /api/sales/:id/cancel` accepts optional `refundAmount` (required when net collected &gt; 0), rejects amounts above net, requires `refundMethod` when refund &gt; 0, and cancels `COMPLETED` or `CONDUCE`. UI still lands in Feature 16 M7.
 
 ## What this feature does
 
@@ -72,8 +74,8 @@ Use transaction/version checks for races between cancellation, payment, Work-Ord
 - [x] Non-inventory invoice cancellation.
 - [x] Additive same-currency refund record.
 - [x] Cancellation/refund history and idempotency.
-- [x] Mandatory full-net refund in the same cancellation transaction. _(historical implementation note; **rule superseded 2026-09-20** by CANCEL-002 zero..net — runtime update tracked with Feature 16 / plan M4)_
-- [ ] Administrator-indicated cancellation refund from zero through net collected; reject above net; extinguish open balance (CANCEL-002 amended 2026-09-20).
+- [x] Mandatory full-net refund in the same cancellation transaction. _(historical implementation note; **rule superseded 2026-09-20** by CANCEL-002 zero..net)_
+- [x] Administrator-indicated cancellation refund from zero through net collected; reject above net; extinguish open balance (CANCEL-002 amended 2026-09-20). _(API runtime Feature 16 / plan M4, 2026-09-20: `refundAmount` on `POST /api/sales/:id/cancel`; also cancels `CONDUCE`)_
 - [x] Downloadable Cancelled PDF with preserved invoice facts and cancellation attribution.
 
 ### Inventory slice (prototype mock only — production API not started; Release 5)

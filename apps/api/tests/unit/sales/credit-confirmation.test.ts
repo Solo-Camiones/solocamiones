@@ -3,22 +3,34 @@ import { describe, expect, it } from 'vitest';
 
 import {
   CASH_CUSTOMER_CREDIT_FORBIDDEN_MESSAGE,
+  CONDUCE_DUE_DATE_BEFORE_EMISSION_MESSAGE,
+  CONDUCE_DUE_DATE_NOT_ALLOWED_MESSAGE,
+  CONDUCE_DUE_DATE_REQUIRED_MESSAGE,
   CREDIT_LIMIT_EXCEEDED_MESSAGE,
   SELLER_CREDIT_CONFIRM_PAYMENT_FORBIDDEN_MESSAGE,
   USD_INVOICE_MUST_BE_PAID_IN_FULL_MESSAGE,
 } from '../../../src/features/sales/constants.js';
 import {
+  assertConduceInitialPaymentPolicy,
   assertCreditExposureWithinLimit,
   assertInitialPaymentPolicy,
   confirmationDueTermDays,
   confirmationInitialPaymentAmount,
   invoiceNewBalance,
+  resolveConduceDueDate,
   saleConditionFromInitialSettlement,
 } from '../../../src/features/sales/credit-confirmation.js';
 
 const cash = {
   customerType: 'CASH' as const,
   isDefault: false,
+  creditLimitDop: null,
+  creditTermDays: null,
+};
+
+const defaultCash = {
+  customerType: 'CASH' as const,
+  isDefault: true,
   creditLimitDop: null,
   creditTermDays: null,
 };
@@ -187,5 +199,139 @@ describe('credit confirmation policy', () => {
         payments: [],
       }),
     ).toBeNull();
+  });
+});
+
+describe('conduce initial payment policy (CON-002)', () => {
+  const gross = new Prisma.Decimal('5000.00');
+
+  it('allows Administrator named CASH DOP/USD with zero, partial, or full payment', () => {
+    for (const currency of ['DOP', 'USD'] as const) {
+      for (const amount of [null, new Prisma.Decimal('2000.00'), new Prisma.Decimal('5000.00')]) {
+        expect(() =>
+          assertConduceInitialPaymentPolicy({
+            customer: cash,
+            currency,
+            actorRole: 'ADMINISTRATOR',
+            invoiceGross: gross,
+            initialPaymentAmount: amount,
+          }),
+        ).not.toThrow();
+      }
+    }
+  });
+
+  it('still requires full payment for default Cliente contado on conduce', () => {
+    expect(() =>
+      assertConduceInitialPaymentPolicy({
+        customer: defaultCash,
+        currency: 'DOP',
+        actorRole: 'ADMINISTRATOR',
+        invoiceGross: gross,
+        initialPaymentAmount: new Prisma.Decimal('2000.00'),
+      }),
+    ).toThrow(CASH_CUSTOMER_CREDIT_FORBIDDEN_MESSAGE);
+  });
+
+  it('still requires Seller named CASH to pay in full on conduce', () => {
+    expect(() =>
+      assertConduceInitialPaymentPolicy({
+        customer: cash,
+        currency: 'DOP',
+        actorRole: 'SELLER',
+        invoiceGross: gross,
+        initialPaymentAmount: new Prisma.Decimal('2000.00'),
+      }),
+    ).toThrow(CASH_CUSTOMER_CREDIT_FORBIDDEN_MESSAGE);
+  });
+
+  it('still requires Administrator CREDIT USD full payment on conduce', () => {
+    expect(() =>
+      assertConduceInitialPaymentPolicy({
+        customer: credit,
+        currency: 'USD',
+        actorRole: 'ADMINISTRATOR',
+        invoiceGross: gross,
+        initialPaymentAmount: new Prisma.Decimal('2000.00'),
+      }),
+    ).toThrow(USD_INVOICE_MUST_BE_PAID_IN_FULL_MESSAGE);
+  });
+});
+
+describe('resolveConduceDueDate (CON-002)', () => {
+  const confirmedAt = new Date('2026-09-20T16:00:00.000Z'); // AST 12:00 → local day 2026-09-20
+
+  it('requires actor dueDate for Admin named CASH with balance and accepts emission day', () => {
+    expect(() =>
+      resolveConduceDueDate({
+        customer: cash,
+        currency: 'DOP',
+        actorRole: 'ADMINISTRATOR',
+        confirmedAt,
+        newBalance: new Prisma.Decimal('100.00'),
+        actorDueDate: undefined,
+      }),
+    ).toThrow(CONDUCE_DUE_DATE_REQUIRED_MESSAGE);
+
+    expect(
+      resolveConduceDueDate({
+        customer: cash,
+        currency: 'USD',
+        actorRole: 'ADMINISTRATOR',
+        confirmedAt,
+        newBalance: new Prisma.Decimal('100.00'),
+        actorDueDate: '2026-09-20',
+      }),
+    ).toEqual(new Date('2026-09-20T00:00:00.000Z'));
+  });
+
+  it('rejects dueDate before local emission day', () => {
+    expect(() =>
+      resolveConduceDueDate({
+        customer: cash,
+        currency: 'DOP',
+        actorRole: 'ADMINISTRATOR',
+        confirmedAt,
+        newBalance: new Prisma.Decimal('100.00'),
+        actorDueDate: '2026-09-19',
+      }),
+    ).toThrow(CONDUCE_DUE_DATE_BEFORE_EMISSION_MESSAGE);
+  });
+
+  it('rejects actor dueDate when balance is settled or customer is CREDIT', () => {
+    expect(() =>
+      resolveConduceDueDate({
+        customer: cash,
+        currency: 'DOP',
+        actorRole: 'ADMINISTRATOR',
+        confirmedAt,
+        newBalance: new Prisma.Decimal(0),
+        actorDueDate: '2026-09-25',
+      }),
+    ).toThrow(CONDUCE_DUE_DATE_NOT_ALLOWED_MESSAGE);
+
+    expect(() =>
+      resolveConduceDueDate({
+        customer: credit,
+        currency: 'DOP',
+        actorRole: 'ADMINISTRATOR',
+        confirmedAt,
+        newBalance: new Prisma.Decimal('100.00'),
+        actorDueDate: '2026-09-25',
+      }),
+    ).toThrow(CONDUCE_DUE_DATE_NOT_ALLOWED_MESSAGE);
+  });
+
+  it('derives CREDIT DOP dueDate from snapshotted term', () => {
+    expect(
+      resolveConduceDueDate({
+        customer: credit,
+        currency: 'DOP',
+        actorRole: 'SELLER',
+        confirmedAt,
+        newBalance: new Prisma.Decimal('5000.00'),
+        actorDueDate: undefined,
+      }),
+    ).toEqual(new Date('2026-11-04T00:00:00.000Z')); // 2026-09-20 + 45
   });
 });

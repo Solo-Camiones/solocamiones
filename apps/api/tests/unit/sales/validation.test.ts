@@ -12,6 +12,7 @@ import {
   externalDraftLineSchema,
   genericDraftLineSchema,
   serviceDraftLineSchema,
+  issueConduceSchema,
   lineNotesSchema,
   listInvoicesSchema,
   listReceivablesSchema,
@@ -491,12 +492,14 @@ describe('payment and cancellation HTTP validation', () => {
     expect(
       cancelInvoiceSchema.parse({
         reason: 'Cliente devolvió las piezas',
+        refundAmount: '50.00',
         refundMethod: 'TRANSFER',
         refundReference: '  CHK-1  ',
         idempotencyKey: 'cancel-key',
       }),
     ).toEqual({
       reason: 'Cliente devolvió las piezas',
+      refundAmount: '50.00',
       refundMethod: 'TRANSFER',
       refundReference: 'CHK-1',
       idempotencyKey: 'cancel-key',
@@ -504,6 +507,13 @@ describe('payment and cancellation HTTP validation', () => {
     expect(
       cancelInvoiceSchema.parse({ reason: 'Duplicada', idempotencyKey: 'cancel-key' }),
     ).toEqual({ reason: 'Duplicada', idempotencyKey: 'cancel-key' });
+    expect(
+      cancelInvoiceSchema.parse({
+        reason: 'Sin devolución',
+        refundAmount: '0.00',
+        idempotencyKey: 'cancel-key',
+      }),
+    ).toMatchObject({ refundAmount: '0.00' });
   });
 
   it.each([
@@ -511,7 +521,25 @@ describe('payment and cancellation HTTP validation', () => {
     { reason: 'Duplicada', idempotencyKey: '' },
     { reason: 'Duplicada' },
     { reason: 'Duplicada', idempotencyKey: 'cancel-key', refundMethod: 'CARD' },
+    { reason: 'Duplicada', idempotencyKey: 'cancel-key', refundAmount: '-1.00' },
   ])('rejects cancellation payload %#', (input) => {
     expect(cancelInvoiceSchema.safeParse(input).success).toBe(false);
+  });
+
+  it('accepts issue-conduce with optional dueDate and FAC/CON receivables filters', () => {
+    expect(issueConduceSchema.parse({ dueDate: '2026-09-25' })).toEqual({ dueDate: '2026-09-25' });
+    expect(
+      issueConduceSchema.parse({
+        payment: { amount: '10.00', method: 'CASH' },
+        dueDate: '2026-09-25',
+      }),
+    ).toMatchObject({ dueDate: '2026-09-25' });
+    expect(listReceivablesSchema.parse({ invoice: 'con-000001' })).toEqual({
+      page: 1,
+      pageSize: 10,
+      invoice: 'CON-000001',
+    });
+    expect(listReceivablesSchema.parse({ invoice: 'FAC-000001' }).invoice).toBe('FAC-000001');
+    expect(listReceivablesSchema.safeParse({ invoice: 'COT-000001' }).success).toBe(false);
   });
 });

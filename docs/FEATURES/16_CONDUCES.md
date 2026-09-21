@@ -20,7 +20,7 @@ If another retained document conflicts with a requirement block below, update th
 
 **Required before the first production release** (pre-production gate amendment, 2026-09-20). Sequenced as milestones M2–M8 in `docs/plan_feature_contado/IMPLEMENTATION_PLAN.md` after this documentation milestone (M1).
 
-**Implementation:** M2 domain/migration and M3 emission/conversion API are in the sales module. Payments matrix (CON-002 Admin named-`CASH`), CxC listings, conduce PDF, FX/profitability at emission, and web UI remain M4–M7. Existing direct invoice confirmation, quotes, and payments remain as Features 08/10/12/13 except where CON-* already amended runtime.
+**Implementation:** M2 domain/migration, M3 emission/conversion API, and M4 payments/CxC/cancellation (CON-002 / CON-005 / CANCEL-002) are in the sales module. Conduce PDF, FX/profitability at emission, and web UI remain M5–M7. Existing direct invoice confirmation, quotes, and payments remain as Features 08/10/12/13 except where CON-* already amended runtime.
 
 ## What this feature does
 
@@ -119,19 +119,20 @@ Direct invoice confirmation does **not** use the Administrator named-`CASH` bala
 
 ### Emission and conversion HTTP (M3)
 
-- `POST /api/sales/:id/issue-conduce` — body same as confirm (`payment` optional); SALE-005 until M4 extends Admin named-`CASH`.
+- `POST /api/sales/:id/issue-conduce` — body `issueConduceSchema` (`payment` optional, `dueDate` optional for Admin named-`CASH` with balance); CON-002 matrix.
 - `POST /api/sales/:id/convert-quote-to-conduce` — same body; rejects expired quotes.
 - `POST /api/sales/:id/convert-conduce-to-invoice` — `{ fiscal: boolean }`; validates frozen snapshot identity; preserves money/`dueDate`/ledger/`confirmedAt`/seller.
 - History events written in the same transaction: `CONDUCE_ISSUED`, `QUOTE_CONVERTED_TO_CONDUCE`, `CONDUCE_INVOICED`.
-- Credit-limit exposure query includes open `CONDUCE` balances (remainder of CxC UI/filters is M4).
+- Credit-limit exposure query includes open `CONDUCE` balances.
 
 ### Payments, CxC, cancellation (M4)
 
-- [ ] Full actor/customer/currency/payment matrix including named-`CASH` Admin exception and default-`Cliente contado` full-pay rule (CON-002).
-- [x] Credit exposure includes open conduce balances *(M3)*; [ ] `dueDate` rules for Admin named-`CASH` with balance (CON-002).
-- [ ] Later payments Administrator-only; [x] convert preserves ledger *(M3)* (CON-002, CON-003).
-- [ ] Cancel/refund zero..net for conduce and for invoice-only operations (CON-005, CANCEL-002).
-- [ ] Documented inventory effects when ITEM/QTY enabled: emit consumes; cancel restores once; convert does not touch inventory (CON-005).
+- [x] Full actor/customer/currency/payment matrix including named-`CASH` Admin exception and default-`Cliente contado` full-pay rule (CON-002). *(2026-09-20)*
+- [x] Credit exposure includes open conduce balances *(M3)*; [x] `dueDate` rules for Admin named-`CASH` with balance (CON-002). *(2026-09-20)*
+- [x] Later payments on `CONDUCE`/`COMPLETED` Administrator-only; [x] convert preserves ledger *(M3)* (CON-002, CON-003). *(2026-09-20)*
+- [x] Cancel/refund zero..net for conduce and for invoice-only operations (CON-005, CANCEL-002). *(2026-09-20)*
+- [x] Documented inventory effects when ITEM/QTY enabled: emit consumes; cancel restores once; convert does not touch inventory (CON-005). *(documented 2026-09-20; ITEM/QTY runtime remains later releases)*
+- [x] CxC open list and account-statement PDF include open `CONDUCE` balances; document filter accepts `FAC-` and `CON-`. *(2026-09-20)*
 
 ### Documents (M5)
 
