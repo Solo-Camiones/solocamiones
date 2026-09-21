@@ -8,6 +8,7 @@ import {
 const facts = {
   status: 'COMPLETED' as const,
   number: 'FAC-000001',
+  originConduceNumber: null,
   originQuoteNumber: null,
   currency: 'DOP' as const,
   fiscal: false,
@@ -16,7 +17,7 @@ const facts = {
   customerRnc: null,
   customerPhone: null,
   sellerName: 'María Pérez',
-  confirmedAt: new Date('2026-09-08T18:00:00.000Z'),
+  invoiceIssuedAt: new Date('2026-09-08T18:00:00.000Z'),
   dueDate: new Date('2026-10-08T00:00:00.000Z'),
   cancelledAt: null,
   cancelReason: null,
@@ -195,6 +196,36 @@ describe('invoice PDF renderer (SALE-004)', () => {
     expect(withoutHex).not.toContain(Buffer.from('COT-').toString('hex'));
   });
 
+  it('prints origin CON- (and COT- when present) for invoices from a conduce', async () => {
+    const withBoth = await pdfkitInvoicePdfRenderer.render({
+      ...facts,
+      originConduceNumber: 'CON-000003',
+      originQuoteNumber: 'COT-000012',
+    });
+    const withConduceOnly = await pdfkitInvoicePdfRenderer.render({
+      ...facts,
+      originConduceNumber: 'CON-000003',
+    });
+
+    const bothHex = pdfHexText(withBoth);
+    const conduceHex = pdfHexText(withConduceOnly);
+    expect(bothHex).toContain(Buffer.from('CON-000003').toString('hex'));
+    expect(bothHex).toContain(Buffer.from('COT-000012').toString('hex'));
+    expect(conduceHex).toContain(Buffer.from('CON-000003').toString('hex'));
+    expect(conduceHex).not.toContain(Buffer.from('COT-').toString('hex'));
+  });
+
+  it('prints invoiceIssuedAt as the documentary Emitida date', async () => {
+    const pdf = await pdfkitInvoicePdfRenderer.render({
+      ...facts,
+      invoiceIssuedAt: new Date('2026-09-20T18:00:00.000Z'),
+      dueDate: new Date('2026-10-08T00:00:00.000Z'),
+    });
+    const hexText = pdfHexText(pdf);
+    expect(hexText).toContain(Buffer.from('20/09/2026').toString('hex'));
+    expect(hexText).not.toContain(Buffer.from('08/09/2026').toString('hex'));
+  });
+
   it('prints the approved corporate profile, terms, tagline, and payment footer without collection data', async () => {
     const pdf = await pdfkitInvoicePdfRenderer.render(facts);
     const hexText = pdfHexText(pdf);
@@ -238,7 +269,7 @@ describe('invoice PDF renderer (SALE-004)', () => {
   it('prints cash dueDate as the same calendar day without America/Santo_Domingo shift', async () => {
     const pdf = await pdfkitInvoicePdfRenderer.render({
       ...facts,
-      confirmedAt: new Date('2026-09-18T18:00:00.000Z'),
+      invoiceIssuedAt: new Date('2026-09-18T18:00:00.000Z'),
       dueDate: new Date('2026-09-18T00:00:00.000Z'),
     });
     const hexText = pdfHexText(pdf);

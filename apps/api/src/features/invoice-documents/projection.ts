@@ -1,6 +1,7 @@
 import type { InvoiceLine } from '@prisma/client';
 import { Prisma } from '@prisma/client';
 
+import type { ConducePdfFacts } from '../../infrastructure/conduce-pdf/index.js';
 import {
   INVOICE_PDF_TEMPLATE_VERSION,
   type InvoicePdfFacts,
@@ -101,6 +102,7 @@ export function toInvoicePdfFacts(invoice: InvoiceRecord): InvoicePdfFacts | nul
   return {
     status: invoice.status,
     number: invoice.number,
+    originConduceNumber: invoice.conduceNumber,
     originQuoteNumber: invoice.quoteNumber,
     currency: invoice.currency,
     fiscal: invoice.fiscal,
@@ -113,7 +115,8 @@ export function toInvoicePdfFacts(invoice: InvoiceRecord): InvoicePdfFacts | nul
     customerRnc: formatFiscalId(invoice.customerRnc) || null,
     customerPhone: formatDominicanPhone(invoice.customerPhone) || null,
     sellerName: invoice.confirmedByName,
-    confirmedAt: invoice.confirmedAt,
+    // CON-004: converted invoices use conversion day; direct invoices equal confirmedAt.
+    invoiceIssuedAt: invoice.invoiceIssuedAt ?? invoice.confirmedAt,
     dueDate: invoice.dueDate,
     cancelledAt: invoice.cancelledAt,
     cancelReason: invoice.cancelReason,
@@ -124,6 +127,59 @@ export function toInvoicePdfFacts(invoice: InvoiceRecord): InvoicePdfFacts | nul
     // the current writer so retired local labels like internal-v3 keep working
     // without a permanent relabel migration (DOC-001).
     templateVersion: INVOICE_PDF_TEMPLATE_VERSION,
+  };
+}
+
+/**
+ * Conduce PDF facts from frozen snapshots (CON-004). Eligible while status is
+ * CONDUCE, or after convert/cancel when conduceNumber remains on the aggregate.
+ */
+export function toConducePdfFacts(invoice: InvoiceRecord): ConducePdfFacts | null {
+  if (invoice.conduceNumber == null || invoice.conduceIssuedAt == null) return null;
+  if (
+    invoice.status !== 'CONDUCE' &&
+    invoice.status !== 'COMPLETED' &&
+    invoice.status !== 'CANCELLED'
+  ) {
+    return null;
+  }
+  if (invoice.customerName == null || invoice.dueDate == null) return null;
+
+  const totals = frozenHeaderTotals(invoice);
+  if (totals == null) return null;
+
+  const lines: ConducePdfFacts['lines'] = [];
+  for (const line of invoice.lines) {
+    const money = persistedLineMoney(line);
+    if (money == null) return null;
+    lines.push({
+      description: line.description,
+      notes: line.notes,
+      quantity: moneyString(line.quantity),
+      unitPrice: moneyString(line.unitPrice),
+      base: moneyString(money.base),
+      gross: moneyString(money.gross),
+      itbis: moneyString(money.itbis),
+    });
+  }
+
+  return {
+    // COMPLETED keeps the original conduce document regenerable without NCF.
+    status: invoice.status === 'CANCELLED' ? 'CANCELLED' : 'CONDUCE',
+    conduceNumber: invoice.conduceNumber,
+    originQuoteNumber: invoice.quoteNumber,
+    currency: invoice.currency,
+    customerName: invoice.customerName,
+    customerRnc: formatFiscalId(invoice.customerRnc) || null,
+    customerPhone: formatDominicanPhone(invoice.customerPhone) || null,
+    sellerName: invoice.confirmedByName,
+    conduceIssuedAt: invoice.conduceIssuedAt,
+    dueDate: invoice.dueDate,
+    cancelledAt: invoice.cancelledAt,
+    cancelReason: invoice.cancelReason,
+    cancelledByName: invoice.cancelledByName,
+    lines,
+    totals,
   };
 }
 

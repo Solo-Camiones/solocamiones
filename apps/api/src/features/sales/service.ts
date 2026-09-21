@@ -806,7 +806,7 @@ export class SalesService {
         return { invoice: issued, actor };
       },
     );
-    // FX/profitability (M6) and conduce PDF (M5) are intentionally deferred.
+    // FX/profitability remains M6. Conduce PDF is on-demand via GET …/conduce.pdf (M5).
     return toPublicInvoice(invoice, actor);
   }
 
@@ -1142,6 +1142,10 @@ export class SalesService {
 
   async getPdf(actorId: string, id: string) {
     return this.invoiceDocuments.download(actorId, id);
+  }
+
+  async getConducePdf(actorId: string, id: string) {
+    return this.invoiceDocuments.downloadConduce(actorId, id);
   }
 
   async regeneratePdf(actorId: string, id: string) {

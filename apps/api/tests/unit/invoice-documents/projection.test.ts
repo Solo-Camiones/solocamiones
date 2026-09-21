@@ -1,7 +1,7 @@
 import { Prisma } from '@prisma/client';
 import { describe, expect, it } from 'vitest';
 
-import { toInvoicePdfFacts, toQuotePdfFacts } from '../../../src/features/invoice-documents/projection.js';
+import { toConducePdfFacts, toInvoicePdfFacts, toQuotePdfFacts } from '../../../src/features/invoice-documents/projection.js';
 import type { InvoiceRecord } from '../../../src/features/sales/types.js';
 
 function invoice(overrides: Record<string, unknown> = {}): InvoiceRecord {
@@ -11,6 +11,9 @@ function invoice(overrides: Record<string, unknown> = {}): InvoiceRecord {
     status: 'COMPLETED',
     number: 'FAC-000001',
     quoteNumber: null,
+    conduceNumber: null,
+    conduceIssuedAt: null,
+    invoiceIssuedAt: confirmedAt,
     currency: 'DOP',
     fiscal: false,
     applyItbis: false,
@@ -64,6 +67,7 @@ describe('toInvoicePdfFacts', () => {
     expect(facts).toMatchObject({
       status: 'COMPLETED',
       number: 'FAC-000001',
+      originConduceNumber: null,
       originQuoteNumber: 'COT-000012',
       currency: 'DOP',
       saleCondition: 'CASH',
@@ -71,6 +75,7 @@ describe('toInvoicePdfFacts', () => {
       customerRnc: '001-0000000-1',
       customerPhone: null,
       sellerName: null,
+      invoiceIssuedAt: new Date('2026-09-08T18:00:00.000Z'),
       totals: { gross: '118.00', base: '118.00', itbis: '0.00', discount: '0.00', discountPercent: '0.00' },
       lines: [
         {
@@ -253,6 +258,26 @@ describe('toInvoicePdfFacts', () => {
     expect(toInvoicePdfFacts(invoice({ status: 'QUOTE_ISSUED' }))).toBeNull();
     expect(toInvoicePdfFacts(invoice({ status: 'DRAFT' }))).toBeNull();
   });
+
+  it('projects CON- origin and conversion invoiceIssuedAt for conduce-converted invoices', () => {
+    const confirmedAt = new Date('2026-09-08T18:00:00.000Z');
+    const invoiceIssuedAt = new Date('2026-09-20T18:00:00.000Z');
+    const facts = toInvoicePdfFacts(
+      invoice({
+        conduceNumber: 'CON-000003',
+        conduceIssuedAt: confirmedAt,
+        quoteNumber: 'COT-000012',
+        confirmedAt,
+        invoiceIssuedAt,
+      }),
+    );
+
+    expect(facts).toMatchObject({
+      originConduceNumber: 'CON-000003',
+      originQuoteNumber: 'COT-000012',
+      invoiceIssuedAt,
+    });
+  });
 });
 
 function issuedQuote(overrides: Record<string, unknown> = {}): InvoiceRecord {
@@ -363,5 +388,61 @@ describe('toQuotePdfFacts', () => {
     expect(toQuotePdfFacts(issuedQuote({ status: 'DRAFT' }))).toBeNull();
     expect(toQuotePdfFacts(issuedQuote({ status: 'COMPLETED' }))).toBeNull();
     expect(toQuotePdfFacts(issuedQuote({ status: 'CANCELLED' }))).toBeNull();
+  });
+});
+
+describe('toConducePdfFacts', () => {
+  const conduceIssuedAt = new Date('2026-09-08T18:00:00.000Z');
+
+  function issuedConduce(overrides: Record<string, unknown> = {}): InvoiceRecord {
+    return invoice({
+      status: 'CONDUCE',
+      number: null,
+      invoiceIssuedAt: null,
+      conduceNumber: 'CON-000001',
+      conduceIssuedAt,
+      confirmedAt: conduceIssuedAt,
+      confirmedByName: 'María Pérez',
+      ...overrides,
+    });
+  }
+
+  it('projects frozen conduce facts without NCF, payments, or balance fields', () => {
+    const facts = toConducePdfFacts(issuedConduce({ quoteNumber: 'COT-000012' }));
+
+    expect(facts).toMatchObject({
+      status: 'CONDUCE',
+      conduceNumber: 'CON-000001',
+      originQuoteNumber: 'COT-000012',
+      sellerName: 'María Pérez',
+      conduceIssuedAt,
+      totals: { gross: '118.00', base: '118.00', itbis: '0.00', discount: '0.00', discountPercent: '0.00' },
+    });
+    expect(facts).not.toHaveProperty('paymentState');
+    expect(facts).not.toHaveProperty('balance');
+    expect(facts).not.toHaveProperty('ncfField');
+  });
+
+  it('keeps regenerable after conversion and marks cancelled conduces', () => {
+    expect(toConducePdfFacts(issuedConduce({ status: 'COMPLETED', number: 'FAC-000001' }))).toMatchObject({
+      status: 'CONDUCE',
+      conduceNumber: 'CON-000001',
+    });
+    expect(
+      toConducePdfFacts(
+        issuedConduce({
+          status: 'CANCELLED',
+          cancelledAt: new Date('2026-09-09T18:00:00.000Z'),
+          cancelReason: 'Solicitud',
+          cancelledByName: 'Ana',
+        }),
+      ),
+    ).toMatchObject({ status: 'CANCELLED' });
+  });
+
+  it('rejects aggregates without an issued conduce', () => {
+    expect(toConducePdfFacts(invoice())).toBeNull();
+    expect(toConducePdfFacts(issuedConduce({ status: 'DRAFT' }))).toBeNull();
+    expect(toConducePdfFacts(issuedConduce({ conduceNumber: null }))).toBeNull();
   });
 });

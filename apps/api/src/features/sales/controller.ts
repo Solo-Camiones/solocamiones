@@ -123,6 +123,14 @@ export async function getInvoicePdf(req: Request, res: Response) {
   res.send(file.body);
 }
 
+export async function getConducePdf(req: Request, res: Response) {
+  const file = await salesServiceOf(req).getConducePdf(actor(req), id(req));
+  res.status(200);
+  res.setHeader('Content-Type', file.contentType);
+  res.setHeader('Content-Disposition', `attachment; filename="${file.filename}"`);
+  res.send(file.body);
+}
+
 export async function postRegenerateInvoicePdf(req: Request, res: Response) {
   res.json(await salesServiceOf(req).regeneratePdf(actor(req), id(req)));
 }

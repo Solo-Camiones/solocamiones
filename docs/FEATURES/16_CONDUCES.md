@@ -20,7 +20,7 @@ If another retained document conflicts with a requirement block below, update th
 
 **Required before the first production release** (pre-production gate amendment, 2026-09-20). Sequenced as milestones M2–M8 in `docs/plan_feature_contado/IMPLEMENTATION_PLAN.md` after this documentation milestone (M1).
 
-**Implementation:** M2 domain/migration, M3 emission/conversion API, and M4 payments/CxC/cancellation (CON-002 / CON-005 / CANCEL-002) are in the sales module. Conduce PDF, FX/profitability at emission, and web UI remain M5–M7. Existing direct invoice confirmation, quotes, and payments remain as Features 08/10/12/13 except where CON-* already amended runtime.
+**Implementation:** M2 domain/migration, M3 emission/conversion API, M4 payments/CxC/cancellation, and M5 conduce/invoice PDFs (CON-004) are in the sales/documents modules. FX/profitability at emission and web UI remain M6–M7. Existing direct invoice confirmation, quotes, and payments remain as Features 08/10/12/13 except where CON-* already amended runtime.
 
 ## What this feature does
 
@@ -136,8 +136,16 @@ Direct invoice confirmation does **not** use the Administrator named-`CASH` bala
 
 ### Documents (M5)
 
-- [ ] Conduce PDF renderer and `GET /api/sales/:id/conduce.pdf` (CON-004).
-- [ ] Invoice PDF shows origin `CON-` when applicable; both PDFs remain downloadable after conversion (CON-004).
+- [x] Conduce PDF renderer and `GET /api/sales/:id/conduce.pdf` (CON-004). *(API on-demand like quotes; unit + HTTP 2026-09-20)*
+- [x] Invoice PDF shows origin `CON-` when applicable; both PDFs remain downloadable after conversion (CON-004). *(invoice facts use `invoiceIssuedAt`; unit + HTTP 2026-09-20)*
+
+### Documents runtime notes (M5)
+
+- `GET /api/sales/:id/conduce.pdf` — Admin/Seller; regenerates from snapshots; no `pdfStatus`; Mechanic denied.
+- `GET /api/sales/:id/pdf` remains invoice/quote primary document (CONDUCE status still 409).
+- Conduce PDF: title `CONDUCE`, no NCF, no payments/balance; optional origin `COT-`; secondary date = `dueDate` (Vencimiento).
+- Invoice PDF: origins `CON-` then `COT-` when present; documentary date = `invoiceIssuedAt`; blank NCF retained (`internal-v4`).
+- Converted/cancelled aggregates with `conduceNumber` keep `conduce.pdf` regenerable.
 
 ### Reports and history (M6)
 

@@ -10,6 +10,7 @@ import {
   deleteDraftLine,
   getInvoice,
   getInvoicePdf,
+  getConducePdf,
   getInvoices,
   getReceivables,
   getSellerSalesReport,
@@ -82,6 +83,7 @@ salesRouter.get(
   getSellerSalesReport,
 );
 salesRouter.get('/:id/pdf', validate({ params: invoiceIdSchema }), getInvoicePdf);
+salesRouter.get('/:id/conduce.pdf', validate({ params: invoiceIdSchema }), getConducePdf);
 salesRouter.post(
   '/:id/pdf/regenerate',
   requireCsrfHeader,

@@ -25,7 +25,7 @@
 | M2 | Migración y modelo de dominio | Completado localmente (2026-09-20) |
 | M3 | Motor de emisión y conversión | Completado localmente (2026-09-20) |
 | M4 | Pagos, vencimiento, CxC y cancelación | Completado localmente (2026-09-20) |
-| M5 | PDFs y fiscalidad manual | Pendiente |
+| M5 | PDFs y fiscalidad manual | Completado localmente (2026-09-20) |
 | M6 | Reportes, rentabilidad e historial | Pendiente |
 | M7 | Integración web y mocks | Pendiente |
 | M8 | Estabilización y exit gate preproducción | Pendiente |
@@ -290,6 +290,9 @@ Cuando ITEM/QTY exista: emitir consume/reserva→vendido; cancelar restaura una 
 
 **Objetivo:** Generar documentos reproducibles y mantener conduce y factura disponibles simultáneamente.
 
+**Estado:** Completado localmente — 2026-09-20  
+**Alcance:** Renderer `conduce-pdf`, `GET /api/sales/:id/conduce.pdf`, origen `CON-` + fecha `invoiceIssuedAt` en factura. Sin UI web (M7) ni FX/rentabilidad (M6).
+
 ### Cambios
 
 - Crear renderer específico de conduce.
@@ -312,24 +315,30 @@ Cuando ITEM/QTY exista: emitir consume/reserva→vendido; cancelar restaura una 
 - Conservar descargables ambos PDFs después de facturar.
 - Regenerar documentos desde snapshots sin reabrir ni repetir la venta.
 
-### Pruebas
+### Implementación
 
-- Conduce nunca imprime NCF.
-- Factura conserva NCF en blanco.
-- PDFs muestran números y orígenes correctos.
-- Documentos históricos continúan generándose.
-- Muchas líneas, paginación, encabezado, pie y totales.
-- Fallo de PDF no revierte emisión o conversión.
+| Artefacto | Detalle |
+|---|---|
+| `infrastructure/conduce-pdf` | Renderer on-demand (patrón quote); título `CONDUCE`; sin NCF/`pdfStatus` |
+| `document-pdf` | Orígenes apilados `CON-` luego `COT-` |
+| Invoice PDF | `originConduceNumber`; `issuedAt` = `invoiceIssuedAt`; NCF blank `internal-v4` |
+| HTTP | `GET /api/sales/:id/conduce.pdf` (Admin/Seller); `/pdf` sigue siendo factura/cotización |
+| Tests | Unit `conduce-pdf`/proyección/`invoice-pdf`; integration `conduce-pdf-http` + regresión `pdf-http` |
+
+### Verificación
+
+- Unitarios: `conduce-pdf` + `invoice-pdf` + `projection` (+ regresión quote/visual) — **passed**.
+- Integración (reset autorizado en `solocamiones_test`): `conduce-pdf-http` + `pdf-http` — **13 passed**.
+- Typecheck API: OK.
 
 ### Documentación al cerrar
 
-- Actualizar `CON-004`, especificación de documentos y estado de M5.
-- Registrar versión de plantilla y muestras verificadas.
+- Actualizar `CON-004`, especificación de documentos y estado de M5. **Hecho** (Feature 16 + DOC-001 + este plan).
+- Registrar versión de plantilla y muestras verificadas. **Hecho:** factura `internal-v4`; conduce sin versión persistida (on-demand).
 - Anotar la aprobación empresarial de los PDFs cuando ocurra.
-- Documentar cualquier diferencia entre regeneración de factura y conduce.
+- Documentar cualquier diferencia entre regeneración de factura y conduce. **Hecho:** factura usa `pdfStatus` + regenerate Admin; conduce solo re-render on-demand.
 
-**Gate:** Conduce y factura se regeneran independientemente y reproducen los datos congelados.
-
+**Gate:** Conduce y factura se regeneran independientemente y reproducen los datos congelados. **Cumplido localmente (2026-09-20)** pendiente de `Verificado` owner si se requiere.
 ---
 
 ## Milestone 6 — Reportes, rentabilidad e historial
