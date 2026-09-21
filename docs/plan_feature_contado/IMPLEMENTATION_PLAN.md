@@ -1,0 +1,426 @@
+# Plan por milestones — Conduces comerciales
+
+**Estado inicial:** Planificado  
+**Prioridad:** Requerido antes del primer release productivo
+
+## Reglas de seguimiento y documentación
+
+- Este archivo registrará el estado de cada milestone: `Pendiente`, `En progreso`, `Completado localmente` o `Verificado`.
+- Al comenzar un milestone se anotará la fecha, alcance y cualquier decisión nueva.
+- Al terminarlo se documentarán:
+  - archivos y módulos implementados;
+  - migraciones aplicadas;
+  - pruebas ejecutadas y resultado;
+  - decisiones o desviaciones;
+  - pendientes trasladados al siguiente milestone.
+- Los requisitos canónicos vivirán en `docs/FEATURES/16_CONDUCES.md`; este plan solo define el orden técnico y registra el progreso.
+- Cada milestone actualizará también los documentos relacionados que haya afectado: `DEVELOPMENT_PLAN`, `FEATURES/README`, Features 08/10/11/12/13/14, roles, arquitectura y flujos.
+- No se marcará un criterio de aceptación `[x]` hasta que exista implementación y prueba correspondiente.
+
+## Estado de milestones
+
+| ID | Milestone | Estado |
+|---|---|---|
+| M1 | Formalizar reglas y criterios de aceptación | Pendiente |
+| M2 | Migración y modelo de dominio | Pendiente |
+| M3 | Motor de emisión y conversión | Pendiente |
+| M4 | Pagos, vencimiento, CxC y cancelación | Pendiente |
+| M5 | PDFs y fiscalidad manual | Pendiente |
+| M6 | Reportes, rentabilidad e historial | Pendiente |
+| M7 | Integración web y mocks | Pendiente |
+| M8 | Estabilización y exit gate preproducción | Pendiente |
+
+---
+
+## Milestone 1 — Formalizar reglas y criterios de aceptación
+
+**Objetivo:** Convertir todas las decisiones confirmadas en documentación canónica antes de modificar el dominio.
+
+### Implementación documental
+
+- Crear `docs/FEATURES/16_CONDUCES.md` con requisitos estables:
+  - `CON-001`: ciclo de vida y numeración;
+  - `CON-002`: pagos, crédito, vencimiento y permisos;
+  - `CON-003`: conversión a factura;
+  - `CON-004`: fiscalidad y documentos PDF;
+  - `CON-005`: cancelación, reembolso e inventario;
+  - `CON-006`: CxC, rentabilidad, reportes e historial.
+- Documentar la transición:
+
+  `DRAFT / QUOTE_ISSUED → CONDUCE → COMPLETED (factura) → CANCELLED`
+
+- Registrar la matriz de permisos:
+
+| Caso | Regla |
+|---|---|
+| Vendedor + `CASH` | Pago total obligatorio al emitir. |
+| Vendedor + `CREDIT` DOP | Sin pago inicial; aplica límite y plazo. |
+| Vendedor + USD | Pago total obligatorio. |
+| Administrador + `CREDIT` DOP | Pago cero, parcial o total; aplica límite y plazo. |
+| Administrador + `CASH` DOP/USD | Pago cero, parcial o total bajo su criterio. |
+| Administrador + `CREDIT` USD | Pago total obligatorio. |
+| Abonos posteriores | Solo Administrador. |
+| Facturar conduce | Administrador y Vendedor. |
+| Cancelar/reembolsar | Solo Administrador. |
+
+- Actualizar el release activo y el gate preproducción en `DEVELOPMENT_PLAN.md`.
+- Actualizar `FEATURES/README.md`, roles, arquitectura y casos de uso.
+- Enmendar las features de clientes, ventas, pagos, rentabilidad, cancelación e historial.
+
+### Verificación
+
+- Ninguna regla del feature debe existir únicamente en este plan.
+- Revisar que no se contradigan las reglas actuales de factura, cotización, CxC o USD.
+
+### Documentación al cerrar
+
+- Actualizar el estado y fecha de M1 en este archivo.
+- Enumerar los documentos actualizados y las decisiones trasladadas a cada uno.
+- Registrar cualquier conflicto encontrado con reglas existentes.
+
+**Gate:** Documentación aprobada, IDs canónicos creados y matriz de permisos sin ambigüedades.
+
+---
+
+## Milestone 2 — Migración y modelo de dominio
+
+**Objetivo:** Preparar el agregado de ventas para conservar conduce y factura dentro de una sola operación.
+
+### Cambios principales
+
+- Agregar `CONDUCE` a `InvoiceStatus`.
+- Incorporar:
+  - `conduceNumber`;
+  - `conduceIssuedAt`;
+  - `invoiceIssuedAt`.
+- Mantener `confirmedAt` como fecha del reconocimiento comercial:
+  - emisión del conduce; o
+  - confirmación directa de una factura.
+- Crear secuencia independiente `CON-000001`, sin reutilización después de cancelación.
+- Mantener `number` como número `FAC-`.
+- Permitir en constraints:
+  - conduce activo sin `FAC-`;
+  - conduce convertido con `CON-` y `FAC-`;
+  - conduce cancelado sin factura;
+  - factura cancelada con ambos números;
+  - facturas históricas sin conduce.
+- Preservar registros actuales sin reescribir importes, fechas o snapshots.
+- Añadir índices para búsqueda por `CON-`, estado, cliente, CxC y reportes.
+
+### Pruebas
+
+- Migración sobre base limpia.
+- Migración sobre una copia con borradores, cotizaciones, facturas, pagos y cancelaciones.
+- Constraints negativos para combinaciones imposibles.
+- Concurrencia y no reutilización de `CON-`.
+
+### Documentación al cerrar
+
+- Actualizar el estado y fecha de M2 en este archivo.
+- Registrar la migración y sus constraints en Feature 16 y arquitectura.
+- Documentar comandos ejecutados, resultados y estrategia de rollback operativo.
+- Enumerar cualquier desviación frente al diseño original.
+
+**Gate:** Migración reproducible y compatible con todos los datos existentes.
+
+---
+
+## Milestone 3 — Motor de emisión y conversión
+
+**Objetivo:** Implementar las transiciones comerciales sin duplicar el agregado.
+
+### API y dominio
+
+- Añadir:
+  - `POST /api/sales/:id/issue-conduce`;
+  - `POST /api/sales/:id/convert-quote-to-conduce`;
+  - `POST /api/sales/:id/convert-conduce-to-invoice`.
+- La conversión a factura recibirá `{ fiscal: boolean }`.
+- Emitir un conduce:
+  - asigna `CON-`;
+  - congela cliente, líneas, moneda, descuento, ITBIS, totales y vendedor;
+  - establece siempre el documento conduce como no fiscal;
+  - reconoce la venta una sola vez.
+- Una cotización vencida no puede convertirse.
+- El fiscal indicado previamente en un borrador o cotización no convierte al conduce en fiscal; se selecciona nuevamente al facturar.
+- Facturar:
+  - asigna `FAC-`;
+  - usa la fecha actual como `invoiceIssuedAt`;
+  - conserva el vencimiento original;
+  - no recalcula líneas, totales, descuento o ITBIS;
+  - no crea ni modifica pagos;
+  - no vuelve a ejecutar rentabilidad, FX o inventario;
+  - valida la identidad fiscal del snapshot congelado en el conduce.
+- El vendedor atribuido sigue siendo el emisor del conduce.
+- El actor que factura queda registrado en historial.
+- El conduce emitido es inmutable.
+
+### Auditoría
+
+- Añadir eventos:
+  - `CONDUCE_ISSUED`;
+  - `QUOTE_CONVERTED_TO_CONDUCE`;
+  - `CONDUCE_INVOICED`.
+- Hacer emisión y conversión idempotentes.
+
+### Pruebas
+
+- Borrador → conduce.
+- Cotización vigente → conduce.
+- Conduce → factura fiscal/no fiscal.
+- Rechazo de cotización vencida, conduce cancelado y doble conversión.
+- Conservación exacta de snapshots, importes y vendedor.
+- Reintentos sin duplicar números ni eventos.
+
+### Documentación al cerrar
+
+- Actualizar los checklists `CON-001`, `CON-003` y el estado de M3 en este archivo.
+- Registrar contratos HTTP definitivos y transiciones válidas.
+- Actualizar flujos de borrador, cotización, conduce y factura.
+- Enumerar servicios, repositorios, rutas y pruebas incorporadas.
+
+**Gate:** Cada operación conserva una sola identidad y los reintentos no duplican documentos.
+
+---
+
+## Milestone 4 — Pagos, vencimiento, CxC y cancelación
+
+**Objetivo:** Aplicar la matriz financiera completa del conduce.
+
+### Reglas financieras
+
+- Administrador + `CASH` puede confirmar con pago cero, parcial o total.
+- Si queda saldo `CASH`, exigir `dueDate` igual o posterior al día local de emisión.
+- `CREDIT` DOP deriva automáticamente el vencimiento desde el plazo congelado.
+- El saldo de un conduce `CREDIT` cuenta para su límite.
+- El Administrador puede aplicar la excepción a cualquier `CASH`, incluido `Cliente contado`; no se agrega bandera de confianza.
+- Los abonos posteriores reutilizan `POST /api/sales/:id/payments` y son Administrador-only.
+- Extender CxC, estados de pago y estado de cuenta para incluir conduces.
+- Los filtros por documento aceptan `CON-` y `FAC-`.
+- Facturar conserva pagos, saldo, estado y vencimiento.
+
+### Cancelación
+
+- Extender `POST /api/sales/:id/cancel` a conduces.
+- Permitir reembolso real indicado entre cero y el neto cobrado.
+- Rechazar reembolso superior al neto cobrado.
+- Extinguir el saldo pendiente al cancelar.
+- Si ya existe `FAC-`, cancelar toda la operación `CON-/FAC-`.
+- Cuando inventario esté habilitado:
+  - emitir consume reserva y marca vendido;
+  - cancelar restaura exactamente una vez;
+  - facturar no toca inventario.
+- No adelantar en este milestone los módulos completos `ITEM/QTY` que todavía pertenecen a releases posteriores; dejar la regla documentada y conectar el mismo límite transaccional cuando se habiliten.
+
+### Pruebas
+
+- Matriz completa actor/cliente/moneda/pago.
+- Vencimientos `CASH` y `CREDIT`.
+- Límite de crédito bajo concurrencia.
+- Pagos posteriores y autorización negativa para Vendedor.
+- Cancelación con reembolso cero, parcial y total.
+- Conservación del ledger después de convertir o cancelar.
+
+### Documentación al cerrar
+
+- Actualizar `CON-002`, `CON-005`, Features 08/12/13 y el estado de M4.
+- Registrar casos de prueba y decisiones de vencimiento/reembolso.
+- Marcar criterios únicamente después de pruebas de integración.
+- Documentar los efectos de inventario diferidos y su futura frontera transaccional.
+
+**Gate:** CxC, pagos, saldos, vencimientos y cancelación coinciden en dominio, API y base de datos.
+
+---
+
+## Milestone 5 — PDFs y fiscalidad manual
+
+**Objetivo:** Generar documentos reproducibles y mantener conduce y factura disponibles simultáneamente.
+
+### Cambios
+
+- Crear renderer específico de conduce.
+- El PDF del conduce mostrará:
+  - `CON-`;
+  - fecha de emisión;
+  - origen `COT-` cuando exista;
+  - cliente y vendedor;
+  - líneas, precios, descuento, ITBIS y total.
+- No mostrará NCF, historial de pagos ni saldo.
+- La factura convertida mostrará:
+  - `FAC-`;
+  - origen `CON-`;
+  - origen `COT-` cuando aplique;
+  - fecha de factura correspondiente a la conversión;
+  - vendedor original.
+- Mantener `NCF: ______________________` en la factura para completarlo manualmente fuera del sistema.
+- Añadir `GET /api/sales/:id/conduce.pdf`.
+- Mantener `GET /api/sales/:id/pdf` compatible como documento principal.
+- Conservar descargables ambos PDFs después de facturar.
+- Regenerar documentos desde snapshots sin reabrir ni repetir la venta.
+
+### Pruebas
+
+- Conduce nunca imprime NCF.
+- Factura conserva NCF en blanco.
+- PDFs muestran números y orígenes correctos.
+- Documentos históricos continúan generándose.
+- Muchas líneas, paginación, encabezado, pie y totales.
+- Fallo de PDF no revierte emisión o conversión.
+
+### Documentación al cerrar
+
+- Actualizar `CON-004`, especificación de documentos y estado de M5.
+- Registrar versión de plantilla y muestras verificadas.
+- Anotar la aprobación empresarial de los PDFs cuando ocurra.
+- Documentar cualquier diferencia entre regeneración de factura y conduce.
+
+**Gate:** Conduce y factura se regeneran independientemente y reproducen los datos congelados.
+
+---
+
+## Milestone 6 — Reportes, rentabilidad e historial
+
+**Objetivo:** Reconocer el conduce como venta completa sin duplicar métricas al facturarlo.
+
+### Cambios
+
+- Incluir conduces desde su emisión en:
+  - rentabilidad;
+  - CxC;
+  - KPIs de ventas y cobros;
+  - reporte por vendedor;
+  - historial de la operación.
+- Ejecutar FX/rentabilidad USD al emitir el conduce.
+- La conversión no solicita otra tasa ni recalcula la rentabilidad.
+- Mientras no exista factura, mostrar `CON-` como documento principal.
+- Después de facturar, mostrar `FAC-` como documento principal y conservar `CON-` como origen.
+- Mantener como fecha comercial `confirmedAt`; usar `invoiceIssuedAt` solo como fecha documental de factura.
+- Atribuir la venta al emisor del conduce, no al actor que factura.
+- Evitar que `CON-` y `FAC-` produzcan dos filas o dupliquen totales.
+- Proyectar eventos financieros únicamente a los roles autorizados.
+
+### Pruebas
+
+- Una sola venta antes y después de facturar.
+- Totales de reportes sin duplicación.
+- Atribución correcta del vendedor.
+- USD conserva tasa y rentabilidad originales.
+- Historial ordenado de cotización, conduce, pagos, factura y cancelación.
+
+### Documentación al cerrar
+
+- Actualizar `CON-006`, Features 11/14 y el estado de M6.
+- Registrar qué fecha usa cada reporte y documento.
+- Documentar cualquier cambio de etiqueta de “Facturado” a “Ventas” necesario para incluir conduces correctamente.
+- Enumerar consultas, proyecciones y pruebas de regresión modificadas.
+
+**Gate:** Reportes, rentabilidad e historial reflejan una sola operación comercial.
+
+---
+
+## Milestone 7 — Integración web y mocks
+
+**Objetivo:** Exponer el flujo completo en la aplicación sin mover reglas de negocio al frontend.
+
+### Cambios web
+
+- Extender contratos con:
+  - estado `CONDUCE`;
+  - `conduceNumber`;
+  - `conduceIssuedAt`;
+  - `invoiceIssuedAt`.
+- Borrador:
+  - `Confirmar factura`;
+  - `Emitir conduce`.
+- Cotización emitida:
+  - `Convertir en factura`;
+  - `Convertir en conduce`.
+- Conduce:
+  - descargar PDF;
+  - facturar;
+  - registrar pago si el actor es Administrador;
+  - cancelar si el actor es Administrador.
+- Formularios de emisión:
+  - pago inicial según matriz;
+  - vencimiento obligatorio para Administrador + `CASH` con saldo;
+  - mensajes explícitos sobre documento no fiscal.
+- Añadir filtro y etiquetas de conduce en listados.
+- Mostrar orígenes `COT-` y `CON-` en detalle y factura.
+- Mantener el detalle comercial inmutable después de emitir.
+- Actualizar mocks con las mismas reglas y contratos HTTP.
+
+### Pruebas
+
+- Componentes por rol.
+- Formularios de pago y vencimiento.
+- Flujos borrador/cotización/conduce/factura.
+- Acceso negativo a pagos y cancelación.
+- Listados, filtros, toasts y estados de carga/error.
+- Paridad básica entre mock y HTTP.
+
+### Documentación al cerrar
+
+- Actualizar el estado de M7 y los criterios UI de Feature 16.
+- Registrar pantallas, contratos y recorridos verificados.
+- Documentar diferencias intencionales entre mocks y capacidades productivas futuras.
+- Anotar evidencia del walkthrough HTTP por cada rol.
+
+**Gate:** Administrador y Vendedor completan sus recorridos autorizados usando HTTP real.
+
+---
+
+## Milestone 8 — Estabilización y exit gate preproducción
+
+**Objetivo:** Verificar el feature completo antes del primer release.
+
+### Verificación técnica
+
+- Ejecutar migraciones sobre una copia realista.
+- Ejecutar:
+  - `npm run lint`;
+  - `npm run typecheck`;
+  - `npm run test`;
+  - `npm run build`.
+- Ejecutar pruebas específicas de concurrencia para `CON-`, límite de crédito e idempotencia.
+- Ejecutar regresión de facturas, cotizaciones, pagos, CxC, PDFs, reportes y cancelaciones existentes.
+- Confirmar que no se modificaron contratos públicos existentes de forma incompatible.
+- Realizar walkthrough como Administrador y Vendedor.
+- Revisar PDFs de:
+  - conduce contado pagado;
+  - conduce `CASH` pendiente;
+  - conduce `CREDIT`;
+  - conduce originado en cotización;
+  - factura originada en conduce;
+  - operación cancelada.
+
+### Cierre documental
+
+- Actualizar cada milestone con fecha, estado y evidencia.
+- Marcar criterios completos en Feature 16 únicamente si implementación y pruebas existen.
+- Actualizar el snapshot de `DEVELOPMENT_PLAN.md`.
+- Registrar comandos ejecutados y resultados.
+- Documentar pendientes reales sin marcarlos como completados.
+- Añadir una sección final de decisiones, migración, rollback y aprobación empresarial.
+
+**Gate final:** Cero fallos conocidos en los flujos aprobados y autorización para incluir conduces en el primer release.
+
+---
+
+## Decisiones confirmadas
+
+- El conduce y la factura pertenecen a la misma operación; no se copian líneas ni pagos.
+- El conduce se reconoce como venta y CxC desde su emisión.
+- La factura usa la fecha de conversión y conserva el vencimiento del conduce.
+- El PDF original del conduce continúa disponible después de facturar.
+- El conduce nunca es fiscal; `Aplicar ITBIS` continúa siendo independiente.
+- La factura puede ser fiscal o no fiscal y mantiene el NCF en blanco para completarlo manualmente.
+- La factura usa el snapshot del cliente congelado al emitir el conduce.
+- Administrador y Vendedor pueden facturar; la venta permanece atribuida al emisor del conduce.
+- El conduce emitido es inmutable.
+- Cancelar una factura originada en conduce cancela toda la operación.
+- El Administrador puede dejar saldo a cualquier cliente `CASH`, incluido `Cliente contado`, sin configurar una marca de confianza.
+- El Administrador puede dejar saldo USD únicamente a clientes `CASH`.
+- El Vendedor conserva los mismos límites actuales de factura.
+- Los pagos posteriores son Administrador-only.
+- El PDF del conduce muestra precios y totales, pero no pagos ni saldo.
+
