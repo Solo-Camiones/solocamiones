@@ -47,6 +47,7 @@ export const CANCELLATION_COMPLETED_ONLY_MESSAGE = 'Solo se pueden cancelar fact
 export const CANCELLATION_REASON_REQUIRED_MESSAGE = 'La cancelación requiere un motivo';
 export const INVOICE_NUMBER_PREFIX = 'FAC-';
 export const QUOTE_NUMBER_PREFIX = 'COT-';
+export const CONDUCE_NUMBER_PREFIX = 'CON-';
 export const INVOICE_NUMBER_PAD_WIDTH = 6;
 
 export function formatInvoiceNumber(sequenceValue: number): string {
@@ -55,4 +56,8 @@ export function formatInvoiceNumber(sequenceValue: number): string {
 
 export function formatQuoteNumber(sequenceValue: number): string {
   return `${QUOTE_NUMBER_PREFIX}${String(sequenceValue).padStart(INVOICE_NUMBER_PAD_WIDTH, '0')}`;
+}
+
+export function formatConduceNumber(sequenceValue: number): string {
+  return `${CONDUCE_NUMBER_PREFIX}${String(sequenceValue).padStart(INVOICE_NUMBER_PAD_WIDTH, '0')}`;
 }

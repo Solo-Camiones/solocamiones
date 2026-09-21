@@ -16,6 +16,8 @@ The old consolidated requirements/validation files are intentionally no longer r
 
 **Pre-production change set (2026-09-16):** Paso 7 implements derived `ABONADO` states (`PAY-006`), issued date on the AR list, and Administrator AR filters limited to customer and invoice (`PAY-007`). Paso 5 already restricted later payments and CxC: `POST /payments` and `GET /receivables` are Administrator-only (Seller 403); Seller nav/deep links to CxC are denied, and Seller invoice list/detail omit payment state, paid amount, outstanding balance, refunds, and movements. Paso 8 implements the Administrator-only customer account-statement PDF (`STMT-001`) from CxC.
 
+**Commercial conduces (2026-09-20, documentation):** Feature 16 extends AR and later collections to include emitted conduces with open balance (`CON-002`, `CON-006`). Direct invoice confirmation cash/credit rules stay in SALE-005 / PAY-001. Administrator named-`CASH` balance is conduce-emission only and excludes default `Cliente contado`. Do not implement from this paragraph alone; use Feature 16 IDs.
+
 ## What this feature does
 
 Record cash/credit behavior through an additive same-currency payment ledger and derive useful basic Accounts Receivable views without building an advanced accounting/collections module.
@@ -60,7 +62,7 @@ Derive the public state from the preserved ledger and due date; do not store a m
 
 Credit due date **no longer defaults to +30 for every invoice**. For new credit invoices it uses the customer term snapshotted at confirmation (CUST-005): local calendar date in `America/Santo_Domingo` plus `creditTermDays` (30, 45, 60, 90, or 120), expiring at the end of that day. It cannot be overridden per invoice. For a fully paid cash invoice (`CASH`, or `USD` settled in full), `dueDate` is that same local confirmation calendar day at end of day — not `null` and not confirmation+30 (SALE-005). Settlement timing uses payment effective dates, not record timestamps. Existing completed invoices keep their already stored due dates; only new credit invoices use the customer term.
 
-Issued date on AR is `confirmedAt` (when `FAC-` is assigned), never draft `createdAt`.
+Issued date on AR is `confirmedAt` (commercial recognition: when `FAC-` is assigned on direct confirm, or when a conduce is emitted once Feature 16 lands), never draft `createdAt`. Document lookup filters today accept `FAC-`; planned Feature 16 also accepts `CON-`.
 
 Supported operational methods are `CASH`, `TRANSFER`, and `CHECK`; references are optional. Administrator invoice detail shows each additive movement with effective date, recorded time, method, reference and actor. Seller invoice list and detail omit payment state, paid amount, outstanding balance, and the movement list (PAY-007). The customer PDF omits payment movements and methods, showing current outstanding balance and the derived visible label.
 
@@ -79,7 +81,7 @@ Advanced AR such as aging buckets, interest, collection promises/tasks, automate
 
 ## Feature-level acceptance criteria
 
-- Completed `CASH` invoices are fully paid at confirmation; completed `CREDIT` invoices may be unpaid or partially paid.
+- Completed `CASH` invoices are fully paid at **direct** confirmation; completed `CREDIT` invoices may be unpaid or partially paid. Open named-`CASH` conduce balances (Administrator exception, CON-002) are planned AR rows when Feature 16 is implemented.
 - Visible state distinguishes `ABONADO` and `ABONADA VENCIDA` from unpaid pending/overdue.
 - AR screens and payment-collection endpoints are Administrator-only; Seller invoice list and detail omit payment state, paid amount, balance, and movements.
 - Account statement PDF lists every open DOP invoice for the selected customer and reconciles to the customer’s open total.
@@ -110,7 +112,7 @@ Advanced AR such as aging buckets, interest, collection promises/tasks, automate
 - [x] Open receivables query.
 - [x] Customer outstanding summary grouped by currency.
 - [x] Invoice receivable/payment-history detail.
-- [x] Filters by customer and invoice. _(Owner decision 2026-09-16: the CxC surface and endpoint expose only the searchable customer selector and invoice lookup by `FAC-` number; payment state, issued-date, and currency filters are intentionally unavailable. Operators never type invoice UUIDs.)_
+- [x] Filters by customer and invoice. _(Owner decision 2026-09-16: the CxC surface and endpoint expose only the searchable customer selector and invoice lookup by `FAC-` number; payment state, issued-date, and currency filters are intentionally unavailable. Operators never type invoice UUIDs. **Planned Feature 16:** document filters also accept `CON-`.)_
 - [x] Overdue behavior uses the validated fixed due-date policy; aging remains deferred.
 
 ### Frontend
@@ -145,16 +147,17 @@ The blocks below are the final reconciled requirements retained from the previou
 
 **Name:** Record immediate or deferred payment  
 **Status:** CONFIRMED  
-**Actors:** Seller (cash confirmation payment only); Administrator (cash confirmation, credit confirmation partial, and later collections)  
-**Requirement:** A completed invoice may be fully paid, partially paid, or unpaid on credit, with a calculated outstanding balance in exactly the invoice currency, subject to customer type (CUST-004) and SALE-005.  
-**Business Reason:** Both cash and credit sales are normal, but credit is an authorized customer condition.  
+**Actors:** Seller (cash confirmation payment and cash/USD full payment at conduce emission only); Administrator (cash confirmation, credit confirmation partial, named-`CASH` conduce initial payment per CON-002, and later collections)  
+**Requirement:** A completed invoice may be fully paid, partially paid, or unpaid on credit, with a calculated outstanding balance in exactly the invoice currency, subject to customer type (CUST-004) and SALE-005. When Feature 16 is implemented, an emitted conduce follows CON-002 for initial payment and may appear in AR with the same ledger rules.  
+**Business Reason:** Both cash and credit sales are normal, but credit is an authorized customer condition; named-`CASH` conduce balance is an Administrator-only exception documented in CON-002.  
 **Main Flow:** Actor records allowed sale terms and any allowed initial payment; the system calculates paid and outstanding amounts.  
-**Business Rules:** Inventory is Sold at invoice confirmation regardless of payment completion; payments and balance must use the invoice currency. `CASH` customers, including generic `Cliente contado`, cannot remain unpaid or partially paid at confirmation. `CREDIT` customers may remain unpaid (Seller confirmation) or partially paid (Administrator confirmation). Later collections on credit invoices are Administrator-only (PAY-007). Overdue/paid-late timing for a new credit invoice uses the snapshotted customer term, not a hard-coded 30 days (CUST-005, SALE-005).  
-**Important Exceptions/Edge Cases:** Cross-currency payment and any conversion of an operational payment or balance amount are rejected. This does not restrict the profitability-only cost conversion in COST-003, which never changes a payment, balance, or refund. Confirming `CASH` without a full initial payment returns a conflict and does not complete the sale.  
-**Dependencies:** SALE-005, CUST-004, CUST-005, PAY-002, PAY-007.  
+**Business Rules:** Inventory is Sold at commercial recognition (invoice confirmation today; conduce emission when implemented) regardless of payment completion; payments and balance must use the operation currency. On **direct invoice confirmation**, `CASH` customers, including generic `Cliente contado` and named `CASH`, cannot remain unpaid or partially paid. `CREDIT` customers may remain unpaid (Seller confirmation) or partially paid (Administrator confirmation). Later collections are Administrator-only (PAY-007). Overdue/paid-late timing for a new credit operation uses the snapshotted customer term, not a hard-coded 30 days (CUST-005, SALE-005). Conduce-specific payment matrix and named-`CASH` Admin exception: CON-002.  
+**Important Exceptions/Edge Cases:** Cross-currency payment and any conversion of an operational payment or balance amount are rejected. This does not restrict the profitability-only cost conversion in COST-003, which never changes a payment, balance, or refund. Confirming `CASH` without a full initial payment on the direct path returns a conflict and does not complete the sale.  
+**Dependencies:** SALE-005, CUST-004, CUST-005, PAY-002, PAY-007, CON-002.  
 **Acceptance Notes:** Cash confirmation with full payment is `PAID`. Seller credit confirmation with zero payment is `PENDING` or `OVERDUE` by the customer-term due date. Administrator credit confirmation with partial payment is `PARTIALLY_PAID` when still in that term. A 60-day customer is not overdue 31 days after confirmation.
 
-**Amended 2026-09-15:** Named customers are not implicitly credit-eligible; Seller later collections are withdrawn; credit due date follows the customer term instead of automatic +30.
+**Amended 2026-09-15:** Named customers are not implicitly credit-eligible; Seller later collections are withdrawn; credit due date follows the customer term instead of automatic +30.  
+**Amended 2026-09-20:** Clarified direct-confirmation cash rules vs conduce matrix (CON-002); AR will include conduces when Feature 16 is implemented.
 
 ---
 

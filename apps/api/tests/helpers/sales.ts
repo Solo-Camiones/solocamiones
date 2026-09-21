@@ -58,6 +58,11 @@ export const COMPLETED_CASH_SNAPSHOT = {
   snapshotCreditTermDays: null,
 };
 
+/** Documentary FAC- date for direct inserts; matches commercial recognition on historical rows. */
+export function invoiceIssuedAtFrom(confirmedAt: Date) {
+  return { confirmedAt, invoiceIssuedAt: confirmedAt };
+}
+
 export function cashSaleFullPayment(amount: string) {
   return {
     payment: {

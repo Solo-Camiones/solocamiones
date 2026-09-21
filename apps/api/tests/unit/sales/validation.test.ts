@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { formatInvoiceNumber } from '../../../src/features/sales/constants.js';
+import { formatConduceNumber, formatInvoiceNumber, formatQuoteNumber } from '../../../src/features/sales/constants.js';
 import {
   addInvoiceLineSchema,
   addPaymentSchema,
@@ -140,6 +140,9 @@ describe('draft HTTP validation', () => {
     expect(confirmInvoiceSchema.safeParse({ extra: true }).success).toBe(false);
     expect(formatInvoiceNumber(1)).toBe('FAC-000001');
     expect(formatInvoiceNumber(12)).toBe('FAC-000012');
+    expect(formatQuoteNumber(1)).toBe('COT-000001');
+    expect(formatConduceNumber(1)).toBe('CON-000001');
+    expect(formatConduceNumber(12)).toBe('CON-000012');
   });
 });
 

@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { afterAll, afterEach, describe, expect, it } from 'vitest';
 
 import { disconnectPrisma, prisma } from '../../../src/infrastructure/database/index.js';
-import { COMPLETED_CASH_SNAPSHOT } from '../../helpers/sales.js';
+import { COMPLETED_CASH_SNAPSHOT, invoiceIssuedAtFrom } from '../../helpers/sales.js';
 
 async function cleanup() {
   await prisma.invoicePayment.deleteMany();
@@ -60,6 +60,7 @@ describe('Pre-production domain migration (Paso 2)', () => {
       gross: null,
     });
 
+    const confirmedAt = new Date('2026-09-01T12:00:00.000Z');
     const completed = await prisma.invoice.create({
       data: {
         status: 'COMPLETED',
@@ -67,7 +68,7 @@ describe('Pre-production domain migration (Paso 2)', () => {
         fiscal: true,
         customerId: generic!.id,
         number: 'FAC-000500',
-        confirmedAt: new Date('2026-09-01T12:00:00.000Z'),
+        ...invoiceIssuedAtFrom(confirmedAt),
         dueDate: new Date('2026-10-01T00:00:00.000Z'),
         customerName: generic!.name,
         gross: '118.00',
@@ -81,6 +82,7 @@ describe('Pre-production domain migration (Paso 2)', () => {
       snapshotCustomerType: 'CASH',
       snapshotCreditTermDays: null,
       quoteNumber: null,
+      invoiceIssuedAt: confirmedAt,
     });
     expect(completed.gross?.toFixed(2)).toBe('118.00');
     expect(completed.base?.toFixed(2)).toBe('100.00');

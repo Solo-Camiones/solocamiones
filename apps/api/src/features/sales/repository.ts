@@ -2,7 +2,7 @@ import { Prisma, type Invoice, type InvoiceSequence } from '@prisma/client';
 
 import { prisma } from '../../infrastructure/database/index.js';
 import { businessDayRange } from '../payments/dates.js';
-import { formatInvoiceNumber, formatQuoteNumber } from './constants.js';
+import { formatConduceNumber, formatInvoiceNumber, formatQuoteNumber } from './constants.js';
 import type {
   CompleteInvoiceRecord,
   CreateDraftInvoiceRecord,
@@ -23,6 +23,7 @@ import type {
 
 export const INVOICE_SEQUENCE_NAME = 'FAC';
 export const QUOTE_SEQUENCE_NAME = 'COT';
+export const CONDUCE_SEQUENCE_NAME = 'CON';
 
 type SalesDatabase = Pick<Prisma.TransactionClient, 'invoice' | 'invoiceSequence' | '$queryRaw'>;
 
@@ -410,6 +411,16 @@ export class SalesRepository {
     return number;
   }
 
+  async allocateNextConduceNumber(): Promise<string> {
+    const sequence = await this.lockSequenceForUpdate(CONDUCE_SEQUENCE_NAME);
+    const number = formatConduceNumber(sequence.nextValue);
+    await this.database.invoiceSequence.update({
+      where: { name: CONDUCE_SEQUENCE_NAME },
+      data: { nextValue: sequence.nextValue + 1 },
+    });
+    return number;
+  }
+
   issueQuote(input: IssueQuoteRecord): Promise<InvoiceRecord> {
     return this.database.invoice.update({
       where: { id: input.id },
@@ -443,7 +454,10 @@ export class SalesRepository {
       data: {
         status: 'COMPLETED',
         number: input.number,
+        // Direct confirm: documentary invoice date matches commercial recognition.
+        // Conduce→invoice conversion (M3) will set invoiceIssuedAt independently.
         confirmedAt: input.confirmedAt,
+        invoiceIssuedAt: input.confirmedAt,
         dueDate: input.dueDate,
         customerName: input.customerName,
         customerRnc: input.customerRnc,

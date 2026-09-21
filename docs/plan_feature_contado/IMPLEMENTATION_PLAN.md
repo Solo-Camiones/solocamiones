@@ -21,8 +21,8 @@
 
 | ID | Milestone | Estado |
 |---|---|---|
-| M1 | Formalizar reglas y criterios de aceptación | Pendiente |
-| M2 | Migración y modelo de dominio | Pendiente |
+| M1 | Formalizar reglas y criterios de aceptación | Completado localmente (2026-09-20) |
+| M2 | Migración y modelo de dominio | Completado localmente (2026-09-20) |
 | M3 | Motor de emisión y conversión | Pendiente |
 | M4 | Pagos, vencimiento, CxC y cancelación | Pendiente |
 | M5 | PDFs y fiscalidad manual | Pendiente |
@@ -35,6 +35,9 @@
 ## Milestone 1 — Formalizar reglas y criterios de aceptación
 
 **Objetivo:** Convertir todas las decisiones confirmadas en documentación canónica antes de modificar el dominio.
+
+**Estado:** Completado localmente — 2026-09-20  
+**Alcance:** Solo documentación. Sin código, migraciones ni cambios de API/UI.
 
 ### Implementación documental
 
@@ -49,19 +52,23 @@
 
   `DRAFT / QUOTE_ISSUED → CONDUCE → COMPLETED (factura) → CANCELLED`
 
-- Registrar la matriz de permisos:
+  y conservar el camino directo `DRAFT / QUOTE_ISSUED → COMPLETED` sin conduce.
+
+- Registrar la matriz de permisos (versión canónica en Feature 16 / CON-002):
 
 | Caso | Regla |
 |---|---|
 | Vendedor + `CASH` | Pago total obligatorio al emitir. |
 | Vendedor + `CREDIT` DOP | Sin pago inicial; aplica límite y plazo. |
 | Vendedor + USD | Pago total obligatorio. |
+| Administrador + `CASH` nombrado DOP/USD | Pago cero, parcial o total; si queda saldo, `dueDate` ≥ día local de emisión. |
+| Administrador + `Cliente contado` predeterminado | Pago total obligatorio (sin excepción). |
 | Administrador + `CREDIT` DOP | Pago cero, parcial o total; aplica límite y plazo. |
-| Administrador + `CASH` DOP/USD | Pago cero, parcial o total bajo su criterio. |
 | Administrador + `CREDIT` USD | Pago total obligatorio. |
+| Confirmación directa a factura (sin `CON-`) | Conserva SALE-005 / PAY-001 (contado siempre liquida completo). |
 | Abonos posteriores | Solo Administrador. |
 | Facturar conduce | Administrador y Vendedor. |
-| Cancelar/reembolsar | Solo Administrador. |
+| Cancelar/reembolsar | Solo Administrador; reembolso global `0…neto cobrado`. |
 
 - Actualizar el release activo y el gate preproducción en `DEVELOPMENT_PLAN.md`.
 - Actualizar `FEATURES/README.md`, roles, arquitectura y casos de uso.
@@ -69,22 +76,48 @@
 
 ### Verificación
 
-- Ninguna regla del feature debe existir únicamente en este plan.
-- Revisar que no se contradigan las reglas actuales de factura, cotización, CxC o USD.
+- Ninguna regla del feature debe existir únicamente en este plan. **Verificado:** IDs canónicos en Feature 16; enmiendas cruzadas en Features 08/10/11/12/13/14, roles, arquitectura, flujos y `DEVELOPMENT_PLAN`.
+- Revisar que no se contradigan las reglas actuales de factura, cotización, CxC o USD. **Verificado con desviaciones owner explícitas (abajo).**
 
 ### Documentación al cerrar
 
-- Actualizar el estado y fecha de M1 en este archivo.
-- Enumerar los documentos actualizados y las decisiones trasladadas a cada uno.
-- Registrar cualquier conflicto encontrado con reglas existentes.
+- Actualizar el estado y fecha de M1 en este archivo. **Hecho.**
+- Enumerar los documentos actualizados y las decisiones trasladadas a cada uno:
 
-**Gate:** Documentación aprobada, IDs canónicos creados y matriz de permisos sin ambigüedades.
+  | Documento | Decisiones / cambios |
+  |---|---|
+  | `FEATURES/16_CONDUCES.md` | CREATE — `CON-001`…`CON-006`, matriz, checklists `[ ]` |
+  | `FEATURES/README.md` | Índice Feature 16 |
+  | `FEATURES/08_CUSTOMERS.md` | CUST-002: pago completo del default también en conduce; excepción Admin solo `CASH` nombrado |
+  | `FEATURES/10_SALES_AND_INVOICES.md` | SALE-005 / QUOTE-001 / DOC-001: camino directo vs conduce; convert-to-conduce planificado |
+  | `FEATURES/11_COST_AND_PROFITABILITY.md` | KPIs reconocen conduce una vez (CON-006) |
+  | `FEATURES/12_PAYMENTS_AND_ACCOUNTS_RECEIVABLE.md` | PAY-001 / AR: conduces y filtros `CON-` planificados |
+  | `FEATURES/13_CANCELLATION_AND_REFUNDS.md` | CANCEL-002 global `0…neto`; checklist runtime pendiente |
+  | `FEATURES/14_HISTORY_ADMIN_AND_RECOVERY.md` | Eventos `CONDUCE_*` planificados |
+  | `ROLES_AND_PERMISSIONS.md` | Filas emitir/facturar conduce; Admin saldo `CASH` nombrado; refund 0…neto |
+  | `ARCHITECTURE_PLAN.md` | Aggregate único; `CON-`; refund 0…neto |
+  | `USE_CASE_FLOWS.md` | Flujo conduce; quote→conduce; cancel/refund |
+  | `DEVELOPMENT_PLAN.md` | Snapshot + gate preproducción incluye Feature 16 |
+
+- Registrar cualquier conflicto encontrado con reglas existentes:
+
+  | Conflicto previo | Resolución owner (2026-09-20) |
+  |---|---|
+  | Plan decía excepción Admin a cualquier `CASH` incl. `Cliente contado` | **No:** solo `CASH` nombrados; default siempre pago completo |
+  | Ambiguo si la excepción aplicaba a factura directa | **No:** solo emisión de conduce |
+  | CANCEL exigía reembolso neto completo | **Sí cambia:** regla global `0…neto cobrado` (runtime en M4) |
+  | SALE-005 / PAY-001 “CASH must settle in full” | Se mantiene para confirmación directa; CON-002 gobierna conduce |
+
+**Gate:** Documentación aprobada, IDs canónicos creados y matriz de permisos sin ambigüedades. **Cumplido en documentación local (2026-09-20).** Pendiente de aprobación explícita del owner si se requiere estado `Verificado`.
 
 ---
 
 ## Milestone 2 — Migración y modelo de dominio
 
 **Objetivo:** Preparar el agregado de ventas para conservar conduce y factura dentro de una sola operación.
+
+**Estado:** Completado localmente — 2026-09-20  
+**Alcance:** Schema Prisma, migraciones SQL, secuencia `CON-`, helpers de numeración y `completeInvoice` escribe `invoiceIssuedAt`. Sin API de emisión/conversión (M3).
 
 ### Cambios principales
 
@@ -107,21 +140,36 @@
 - Preservar registros actuales sin reescribir importes, fechas o snapshots.
 - Añadir índices para búsqueda por `CON-`, estado, cliente, CxC y reportes.
 
-### Pruebas
+### Implementación
 
-- Migración sobre base limpia.
-- Migración sobre una copia con borradores, cotizaciones, facturas, pagos y cancelaciones.
-- Constraints negativos para combinaciones imposibles.
-- Concurrencia y no reutilización de `CON-`.
+| Artefacto | Detalle |
+|---|---|
+| `20260920000000_conduce_status_enum` | `ALTER TYPE … ADD VALUE 'CONDUCE'` (commit separado antes del CHECK) |
+| `20260920000001_conduce_domain` | Columnas, backfill `invoiceIssuedAt = confirmedAt` donde hay `FAC-`, format/pair CHECKs, `Invoice_number_status_check` ampliado, unique `conduceNumber`, índices `status+confirmedAt` y `recognized_customer_currency` (`COMPLETED`/`CONDUCE`), seed `InvoiceSequence` `CON` |
+| Domain | `formatConduceNumber`, `allocateNextConduceNumber`; confirmación directa setea `invoiceIssuedAt = confirmedAt` |
+
+### Verificación
+
+- Tests unitarios: `tests/unit/sales/validation.test.ts` — **38 passed** (incluye `formatConduceNumber`).
+- Smoke en `solocamiones_dev` tras `db:migrate:deploy`: secuencia `CON` seed; 0 filas `FAC-` sin `invoiceIssuedAt`; insert `CONDUCE` OK; `COMPLETED` sin `invoiceIssuedAt` rechazado (`23514`); allocate concurrente `CON-000001`/`CON-000002`.
+- Tests de integración (reset autorizado en `solocamiones_test`): `conduce-domain-migration` + `domain-migration` + `repository` — **19 passed**.
+
+### Rollback operativo
+
+1. No revertir datos de negocio: las columnas nuevas son aditivas y el backfill solo copia `confirmedAt` → `invoiceIssuedAt`.
+2. Rollback de código: desplegar revisión anterior **antes** de dropear columnas solo si ninguna fila `CONDUCE` existe aún (M3 no emitió).
+3. Rollback de schema (solo entornos no productivos o con aprobación): migraciones inversas manuales — dropear CHECKs/índices/columnas, borrar fila secuencia `CON`; el valor de enum `CONDUCE` en PostgreSQL no se elimina fácilmente (dejarlo inofensivo).
+4. Nunca `prisma migrate reset` en datos reales.
 
 ### Documentación al cerrar
 
-- Actualizar el estado y fecha de M2 en este archivo.
-- Registrar la migración y sus constraints en Feature 16 y arquitectura.
-- Documentar comandos ejecutados, resultados y estrategia de rollback operativo.
-- Enumerar cualquier desviación frente al diseño original.
+- Actualizar el estado y fecha de M2 en este archivo. **Hecho.**
+- Registrar la migración y sus constraints en Feature 16 y arquitectura. **Hecho.**
+- Documentar comandos ejecutados, resultados y estrategia de rollback operativo. **Hecho (arriba).**
+- Enumerar cualquier desviación frente al diseño original:
+  - Ninguna de negocio. Detalle técnico: dos migraciones (enum + dominio) por limitación de PostgreSQL al referenciar un enum nuevo en el mismo transaction que el CHECK; índice CxC renombrado a `Invoice_recognized_customer_currency_idx` incluyendo `CONDUCE` (queries de crédito siguen en `COMPLETED` hasta M4).
 
-**Gate:** Migración reproducible y compatible con todos los datos existentes.
+**Gate:** Migración reproducible y compatible con todos los datos existentes. **Cumplido localmente (2026-09-20)** pendiente de `Verificado` owner si se requiere.
 
 ---
 
@@ -193,7 +241,7 @@
 - Si queda saldo `CASH`, exigir `dueDate` igual o posterior al día local de emisión.
 - `CREDIT` DOP deriva automáticamente el vencimiento desde el plazo congelado.
 - El saldo de un conduce `CREDIT` cuenta para su límite.
-- El Administrador puede aplicar la excepción a cualquier `CASH`, incluido `Cliente contado`; no se agrega bandera de confianza.
+- El Administrador puede aplicar la excepción a **clientes `CASH` nombrados** al emitir conduce; no al `Cliente contado` predeterminado; no se agrega bandera de confianza.
 - Los abonos posteriores reutilizan `POST /api/sales/:id/payments` y son Administrador-only.
 - Extender CxC, estados de pago y estado de cuenta para incluir conduces.
 - Los filtros por documento aceptan `CON-` y `FAC-`.
@@ -418,9 +466,11 @@
 - Administrador y Vendedor pueden facturar; la venta permanece atribuida al emisor del conduce.
 - El conduce emitido es inmutable.
 - Cancelar una factura originada en conduce cancela toda la operación.
-- El Administrador puede dejar saldo a cualquier cliente `CASH`, incluido `Cliente contado`, sin configurar una marca de confianza.
-- El Administrador puede dejar saldo USD únicamente a clientes `CASH`.
-- El Vendedor conserva los mismos límites actuales de factura.
+- El Administrador puede dejar saldo **solo al emitir conduce** y **solo a clientes `CASH` nombrados** (no al `Cliente contado` predeterminado); no se agrega bandera de confianza. La confirmación directa a factura conserva SALE-005 (contado liquida completo). _(Aclarado M1, 2026-09-20; sustituye la redacción previa “cualquier CASH, incluido Cliente contado”.)_
+- El Administrador puede dejar saldo USD únicamente a clientes `CASH` nombrados en emisión de conduce.
+- El Vendedor conserva los mismos límites actuales de factura (también al emitir conduce).
 - Los pagos posteriores son Administrador-only.
 - El PDF del conduce muestra precios y totales, pero no pagos ni saldo.
+- El reembolso de cancelación es **global**: Administrador indica monto real de `0` hasta el neto cobrado (CANCEL-002 / CON-005). _(Aclarado M1, 2026-09-20.)_
+- Se conserva el camino directo `DRAFT` / `QUOTE_ISSUED` → `COMPLETED` sin conduce.
 
