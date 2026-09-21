@@ -90,9 +90,11 @@ type ApiSalesListItem = {
 
   id: string;
 
-  status: 'DRAFT' | 'COMPLETED' | 'CANCELLED';
+  status: 'DRAFT' | 'CONDUCE' | 'COMPLETED' | 'CANCELLED';
 
   number: string | null;
+
+  conduceNumber?: string | null;
 
   currency: 'DOP' | 'USD';
 
@@ -160,7 +162,10 @@ function toReceipts(item: ApiSalesListItem): ProfitabilitySeriesReceipt[] {
 
 function toRow(item: ApiSalesListItem): ProfitabilityInvoiceRow | null {
 
-  if (item.status !== 'COMPLETED' || item.profitability == null) {
+  if (
+    (item.status !== 'COMPLETED' && item.status !== 'CONDUCE') ||
+    item.profitability == null
+  ) {
 
     return null;
 
@@ -174,7 +179,7 @@ function toRow(item: ApiSalesListItem): ProfitabilityInvoiceRow | null {
 
     id: item.id,
 
-    number: item.number ?? item.id,
+    number: item.number ?? item.conduceNumber ?? item.id,
 
     customerName: item.customer.name,
 
@@ -220,7 +225,8 @@ function toSeriesInvoice(item: ApiSalesListItem): ProfitabilitySeriesInvoice {
 
     gross: Number(item.totals.gross),
 
-    profit: item.status === 'COMPLETED' ? (view?.profit ?? null) : null,
+    profit:
+      item.status === 'COMPLETED' || item.status === 'CONDUCE' ? (view?.profit ?? null) : null,
 
     pendingFx: view?.pendingFx === true,
 

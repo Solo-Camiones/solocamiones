@@ -20,7 +20,7 @@ If another retained document conflicts with a requirement block below, update th
 
 **Required before the first production release** (pre-production gate amendment, 2026-09-20). Sequenced as milestones M2–M8 in `docs/plan_feature_contado/IMPLEMENTATION_PLAN.md` after this documentation milestone (M1).
 
-**Implementation:** M2 domain/migration, M3 emission/conversion API, M4 payments/CxC/cancellation, and M5 conduce/invoice PDFs (CON-004) are in the sales/documents modules. FX/profitability at emission and web UI remain M6–M7. Existing direct invoice confirmation, quotes, and payments remain as Features 08/10/12/13 except where CON-* already amended runtime.
+**Implementation:** M2 domain/migration, M3 emission/conversion API, M4 payments/CxC/cancellation, M5 conduce/invoice PDFs (CON-004), and M6 profitability/FX/reports/history (CON-006) are in the sales/profitability modules. Web POS/UI for conduce remains M7. Existing direct invoice confirmation, quotes, and payments remain as Features 08/10/12/13 except where CON-* already amended runtime.
 
 ## What this feature does
 
@@ -149,8 +149,22 @@ Direct invoice confirmation does **not** use the Administrator named-`CASH` bala
 
 ### Reports and history (M6)
 
-- [ ] Profitability, CxC, KPIs, seller-sales, and history include conduces once (CON-006).
-- [x] History events `CONDUCE_ISSUED`, `QUOTE_CONVERTED_TO_CONDUCE`, `CONDUCE_INVOICED` *(written in M3; report projections remain M6)* (CON-006).
+- [x] Profitability, CxC, KPIs, seller-sales, and history include conduces once (CON-006). *(API FX/profit at emission; seller-sales CON-/FAC- + origin; KPI “Ventas”; integration 15 passed 2026-09-21)*
+- [x] History events `CONDUCE_ISSUED`, `QUOTE_CONVERTED_TO_CONDUCE`, `CONDUCE_INVOICED` *(written in M3; timeline descriptions M6)* (CON-006).
+
+### Reports runtime notes (M6)
+
+| Surface | Commercial date | Primary document | Origin |
+|---|---|---|---|
+| Profitability / period KPIs | `confirmedAt` | `number ?? conduceNumber` | N/A (one aggregate row) |
+| Seller-sales JSON/PDF | `confirmedAt` (sales) / `quoteIssuedAt` (quotes) | `CON-` while `CONDUCE`; `FAC-` after convert | `originNumber` = `CON-` after convert |
+| Invoice / conduce PDF | documentary `invoiceIssuedAt` / `conduceIssuedAt` | per CON-004 | per CON-004 |
+| FX / profitability | at conduce emission (`confirmedAt` UTC day for retry) | same sale | convert does not re-run FX |
+
+- Administrator Rentabilidad KPI labels use **Ventas** (not Facturado-only) so emitted conduces are included correctly.
+- Database checks `Invoice_fx_rate_check` and `Invoice_manual_gross_profit_check` allow those facts on `CONDUCE` (`20260921000000_conduce_recognized_profitability`).
+- Manual gross profit and USD FX retry apply to recognized sales (`CONDUCE` and `COMPLETED`).
+- Financial timeline events (payments, FX, manual profit) remain Administrator-projected (PAY-007).
 
 ### Web and mocks (M7)
 

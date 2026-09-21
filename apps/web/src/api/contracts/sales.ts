@@ -131,7 +131,7 @@ export type QuotePdfDownload = SalesDocumentPdfDownload;
 export type AccountStatementPdfDownload = SalesDocumentPdfDownload;
 export type SellerSalesReportPdfDownload = SalesDocumentPdfDownload;
 
-export type SellerSalesDocumentType = 'INVOICE' | 'QUOTE';
+export type SellerSalesDocumentType = 'INVOICE' | 'CONDUCE' | 'QUOTE';
 
 export type SellerSalesReportFilters = {
   dateFrom: string;
@@ -143,6 +143,7 @@ export type SellerSalesReportFilters = {
 export type SellerSalesReportRow = {
   documentType: SellerSalesDocumentType;
   number: string;
+  originNumber: string | null;
   documentDate: string;
   sellerUserId: string;
   sellerName: string;

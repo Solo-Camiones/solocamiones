@@ -38,7 +38,10 @@ export function invoiceProfitUsd(
   state: AppState,
   rateDopPerUsd: number,
 ): number | null {
-  if (invoice.status !== 'COMPLETED' || invoice.currency !== 'USD') {
+  if (
+    (invoice.status !== 'COMPLETED' && invoice.status !== 'CONDUCE') ||
+    invoice.currency !== 'USD'
+  ) {
     return null;
   }
 
@@ -71,7 +74,10 @@ export function usdProfitToDop(profitUsd: number, rateDopPerUsd: number): number
  * DOP-equivalent profit for a completed USD sale, or null when FX is pending or cost is unknown.
  */
 export function completedUsdProfitDop(invoice: Invoice): number | null {
-  if (invoice.status !== 'COMPLETED' || invoice.currency !== 'USD') {
+  if (
+    (invoice.status !== 'COMPLETED' && invoice.status !== 'CONDUCE') ||
+    invoice.currency !== 'USD'
+  ) {
     return null;
   }
 
@@ -98,7 +104,7 @@ function clearUsdProfit(invoice: Invoice): void {
  * Secondary enrichment after a valid USD sale. Never mutates payments, inventory, or FAC-.
  */
 export function applyUsdProfitability(state: AppState, invoice: Invoice): UsdProfitabilityOutcome {
-  if (invoice.currency !== 'USD' || invoice.status !== 'COMPLETED') {
+  if (invoice.currency !== 'USD' || (invoice.status !== 'COMPLETED' && invoice.status !== 'CONDUCE')) {
     return 'SKIPPED';
   }
 

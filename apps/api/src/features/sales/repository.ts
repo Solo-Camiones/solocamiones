@@ -568,7 +568,7 @@ export class SalesRepository {
     const result = await this.database.invoice.updateMany({
       where: {
         id: input.id,
-        status: 'COMPLETED',
+        status: { in: ['COMPLETED', 'CONDUCE'] },
         currency: 'USD',
         exchangeRateDopPerUsd: null,
       },

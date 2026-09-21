@@ -31,6 +31,7 @@ import {
 
 const DOCUMENT_TYPE_LABEL = {
   INVOICE: 'Factura',
+  CONDUCE: 'Conduce',
   QUOTE: 'Cotización',
 } as const;
 
@@ -314,7 +315,7 @@ export function SellerSalesPage() {
       ) : report && report.total === 0 ? (
         <Empty
           title="Sin resultados"
-          description="No hay facturas completadas ni cotizaciones emitidas para esos filtros."
+          description="No hay ventas reconocidas ni cotizaciones emitidas para esos filtros."
         />
       ) : report ? (
         <div className="space-y-6">
@@ -323,6 +324,7 @@ export function SellerSalesPage() {
               <tr>
                 <th className="px-4 py-3 font-medium">Tipo</th>
                 <th className="px-4 py-3 font-medium">Número</th>
+                <th className="px-4 py-3 font-medium">Origen</th>
                 <th className="px-4 py-3 font-medium">Fecha</th>
                 <th className="px-4 py-3 font-medium">Vendedor</th>
                 <th className="px-4 py-3 font-medium">Cliente</th>
@@ -338,6 +340,9 @@ export function SellerSalesPage() {
                   </td>
                   <td className="px-4 py-3 text-sm">
                     <Mono>{row.number}</Mono>
+                  </td>
+                  <td className="px-4 py-3 text-sm">
+                    {row.originNumber ? <Mono>{row.originNumber}</Mono> : '—'}
                   </td>
                   <td className="px-4 py-3 text-sm text-navy">{numericDate(row.documentDate)}</td>
                   <td className="px-4 py-3 text-sm text-navy">{row.sellerName}</td>

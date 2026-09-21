@@ -38,7 +38,10 @@ export function lineCostDop(line: InvoiceLine, state: AppState): number | null {
  * Returns null if any line has unknown cost or the invoice is not a DOP completed sale.
  */
 export function invoiceProfitDop(invoice: Invoice, state: AppState): number | null {
-  if (invoice.status !== 'COMPLETED' || invoice.currency !== 'DOP') {
+  if (
+    (invoice.status !== 'COMPLETED' && invoice.status !== 'CONDUCE') ||
+    invoice.currency !== 'DOP'
+  ) {
     return null;
   }
 

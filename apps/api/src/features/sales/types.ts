@@ -80,8 +80,8 @@ export type ListReceivablesQuery = {
   pageSize: number;
 };
 
-/** Administrator seller-sales report: COMPLETED invoices + outstanding QUOTE_ISSUED quotes. */
-export type SellerSalesDocumentType = 'INVOICE' | 'QUOTE';
+/** Administrator seller-sales report: recognized sales + outstanding QUOTE_ISSUED quotes. */
+export type SellerSalesDocumentType = 'INVOICE' | 'CONDUCE' | 'QUOTE';
 
 export type SellerSalesReportFilters = {
   dateFrom: string;
@@ -97,6 +97,8 @@ export type SellerSalesReportQuery = SellerSalesReportFilters & {
 export type SellerSalesReportRow = {
   documentType: SellerSalesDocumentType;
   number: string;
+  /** CON- origin when an invoiced sale was previously a conduce; otherwise null. */
+  originNumber: string | null;
   documentDate: Date;
   sellerUserId: string;
   sellerName: string;
@@ -108,6 +110,7 @@ export type SellerSalesReportRow = {
 export type PublicSellerSalesReportRow = {
   documentType: SellerSalesDocumentType;
   number: string;
+  originNumber: string | null;
   documentDate: string;
   sellerUserId: string;
   sellerName: string;

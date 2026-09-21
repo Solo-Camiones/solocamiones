@@ -806,8 +806,9 @@ export class SalesService {
         return { invoice: issued, actor };
       },
     );
-    // FX/profitability remains M6. Conduce PDF is on-demand via GET …/conduce.pdf (M5).
-    return toPublicInvoice(invoice, actor);
+    // CON-006: USD FX/profitability runs at conduce emission (same as direct confirmation).
+    const enriched = await this.enrichUsdProfitability(actorId, invoice);
+    return toPublicInvoice(enriched, actor);
   }
 
   private async completeSale(
@@ -1198,9 +1199,11 @@ export class SalesService {
       return await this.transaction(async ({ sales, history }) => {
         await sales.lockById(invoice.id);
         const existing = await sales.findById(invoice.id);
+        const recognized =
+          existing?.status === 'COMPLETED' || existing?.status === 'CONDUCE';
         if (
           existing == null ||
-          existing.status !== 'COMPLETED' ||
+          !recognized ||
           existing.currency !== 'USD' ||
           existing.exchangeRateDopPerUsd != null
         ) {

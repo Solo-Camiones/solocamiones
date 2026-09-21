@@ -40,7 +40,7 @@ export type ProfitabilitySeriesInvoice = {
   status: InvoiceStatus;
   currency: 'DOP' | 'USD';
   confirmedAt: string | null;
-  /** Commercial condition at confirmation; required for COMPLETED invoiced KPIs. */
+  /** Commercial condition at confirmation; required for recognized-sale invoiced KPIs. */
   saleCondition: SaleCondition | null;
   /** Invoice gross in invoice currency; converted to DOP when building invoiced series. */
   gross: number;
@@ -183,13 +183,17 @@ export function buildProfitabilitySeries(
   const confirmedDays = invoices
     .filter(
       (invoice) =>
-        (invoice.status === 'COMPLETED' || invoice.status === 'CANCELLED') &&
+        (invoice.status === 'COMPLETED' ||
+          invoice.status === 'CONDUCE' ||
+          invoice.status === 'CANCELLED') &&
         invoice.confirmedAt != null,
     )
     .map((invoice) => businessDateFromTimestamp(invoice.confirmedAt as string));
 
   const invoicesMissingProfitCount = invoices.filter(
-    (invoice) => invoice.status === 'COMPLETED' && (invoice.profit == null || invoice.pendingFx),
+    (invoice) =>
+      (invoice.status === 'COMPLETED' || invoice.status === 'CONDUCE') &&
+      (invoice.profit == null || invoice.pendingFx),
   ).length;
 
   if (confirmedDays.length === 0) {
@@ -214,8 +218,8 @@ export function buildProfitabilitySeries(
   let omittedUsdReceiptCount = 0;
 
   for (const invoice of invoices) {
-    // CANCELLED invoices are excluded from profit, invoiced, and collected KPIs.
-    if (invoice.status !== 'COMPLETED') continue;
+    // CANCELLED sales are excluded from profit, sales, and collected KPIs.
+    if (invoice.status !== 'COMPLETED' && invoice.status !== 'CONDUCE') continue;
 
     if (invoice.profit != null && !invoice.pendingFx && invoice.confirmedAt) {
       addAmount(profitByDay, businessDateFromTimestamp(invoice.confirmedAt), invoice.profit);

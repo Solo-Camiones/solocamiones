@@ -11,10 +11,11 @@ const ROW_HEIGHT = 22;
 const HEADER_ROW_HEIGHT = 22;
 
 /** Column widths for LETTER portrait (content ≈ 540pt with 36pt margins). */
-const COLUMN_WIDTHS = [52, 72, 58, 88, 110, 40, 80] as const;
+const COLUMN_WIDTHS = [46, 66, 66, 52, 78, 96, 36, 72] as const;
 const COLUMN_LABELS = [
   'TIPO',
   'NÚMERO',
+  'ORIGEN',
   'FECHA',
   'VENDEDOR',
   'CLIENTE',
@@ -107,7 +108,7 @@ function drawTableHeader(document: PdfDocument, y: number): number {
   document.rect(left, y, tableWidth(), HEADER_ROW_HEIGHT).fill(BRAND_NAVY);
   let x = left;
   COLUMN_LABELS.forEach((label, index) => {
-    const align = index >= 5 ? 'right' : 'left';
+    const align = index >= 6 ? 'right' : 'left';
     document
       .fillColor('#ffffff')
       .font('Helvetica-Bold')
@@ -242,6 +243,7 @@ function writeReport(facts: SellerSalesPdfFacts, document: PdfDocument): void {
     const values = [
       row.documentTypeLabel,
       row.number,
+      row.originNumber ?? '—',
       row.documentDateLabel,
       row.sellerName,
       row.customerName,
@@ -252,11 +254,11 @@ function writeReport(facts: SellerSalesPdfFacts, document: PdfDocument): void {
     values.forEach((value, column) => {
       document
         .fillColor(BRAND_NAVY)
-        .font(column === 6 ? 'Helvetica-Bold' : 'Helvetica')
+        .font(column === 7 ? 'Helvetica-Bold' : 'Helvetica')
         .fontSize(6.8)
         .text(value, x + 3, y + 7, {
           width: COLUMN_WIDTHS[column]! - 6,
-          align: column >= 5 ? 'right' : 'left',
+          align: column >= 6 ? 'right' : 'left',
           lineBreak: false,
         });
       x += COLUMN_WIDTHS[column]!;

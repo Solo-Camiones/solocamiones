@@ -29,7 +29,7 @@ describe('ProfitabilityPage', () => {
     await chooseSelectOption(user, 'Período', '30 días');
 
     expect(screen.getByRole('heading', { name: 'Rentabilidad' })).toBeVisible();
-    expect(screen.getByText('Facturado, cobrado neto y cuentas por cobrar en pesos.')).toBeVisible();
+    expect(screen.getByText('Ventas, cobrado neto y cuentas por cobrar en pesos.')).toBeVisible();
     expect(screen.getAllByText('Cobrado neto').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Cuentas por cobrar').length).toBeGreaterThan(0);
     expect(screen.getByText('Ver cuentas por cobrar')).toBeVisible();
@@ -62,11 +62,12 @@ describe('ProfitabilityPage', () => {
     const user = userEvent.setup();
     renderWithProviders(<ProfitabilityPage />, { route: '/profitability' });
     await screen.findByLabelText('Período');
-    await chooseSelectOption(user, 'Período', '30 días');
+    // Seed invoices are dated August 2026; previous month stays stable as the calendar advances.
+    await chooseSelectOption(user, 'Período', 'Mes anterior');
 
-    expect(await screen.findByText('Facturado al contado')).toBeVisible();
-    expect(screen.getByText('Facturado a crédito')).toBeVisible();
-    expect(screen.getByText('Total facturado')).toBeVisible();
+    expect(await screen.findByText('Ventas al contado')).toBeVisible();
+    expect(screen.getByText('Ventas a crédito')).toBeVisible();
+    expect(screen.getByText('Total ventas')).toBeVisible();
     expect(screen.getByText('Cobrado efectivo')).toBeVisible();
     expect(screen.getByText('Cobrado transferencia')).toBeVisible();
     expect(screen.getByText('Cobrado cheque')).toBeVisible();

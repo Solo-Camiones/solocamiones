@@ -139,6 +139,30 @@ describe('invoice history timeline', () => {
   });
 
   it.each([
+    ['CONDUCE_ISSUED', { conduceNumber: 'CON-000001' }, 'Conduce CON-000001 emitido'],
+    [
+      'QUOTE_CONVERTED_TO_CONDUCE',
+      { quoteNumber: 'COT-000001', conduceNumber: 'CON-000002' },
+      'Cotización convertida en conduce CON-000002',
+    ],
+    [
+      'CONDUCE_INVOICED',
+      { conduceNumber: 'CON-000001', invoiceNumber: 'FAC-000050' },
+      'Conduce facturado como FAC-000050',
+    ],
+  ])('describes %s for the operation timeline', (eventType, payload, description) => {
+    expect(toInvoiceHistoryEntries([row(eventType, payload)], 'SELLER')).toEqual([
+      {
+        id: '11111111-1111-4111-8111-111111111111',
+        type: eventType,
+        description,
+        createdAt: occurredAt.toISOString(),
+        actorName: 'Ana Pérez',
+      },
+    ]);
+  });
+
+  it.each([
     ['INVOICE_DRAFT_CREATED', null, 'Borrador creado'],
     ['INVOICE_DRAFT_DISCARDED', null, 'Borrador descartado'],
     ['INVOICE_CONFIRMED', {}, 'Factura confirmada'],

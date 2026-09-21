@@ -199,9 +199,9 @@ describe('HTTP profitability flow', () => {
     await chooseSelectOption(user, 'Período', '30 días');
     expect(screen.getAllByText('Cobrado neto').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Cuentas por cobrar').length).toBeGreaterThan(0);
-    expect(screen.getByText('Facturado al contado')).toBeVisible();
-    expect(screen.getByText('Facturado a crédito')).toBeVisible();
-    expect(screen.getByText('Total facturado')).toBeVisible();
+    expect(screen.getByText('Ventas al contado')).toBeVisible();
+    expect(screen.getByText('Ventas a crédito')).toBeVisible();
+    expect(screen.getByText('Total ventas')).toBeVisible();
     expect(screen.getAllByText(money(18_000, 'DOP')).length).toBeGreaterThan(0);
     expect(screen.getAllByText(money(2_000, 'DOP')).length).toBeGreaterThan(0);
     expect(screen.getByText('Cobrado efectivo')).toBeVisible();

@@ -26,7 +26,7 @@
 | M3 | Motor de emisión y conversión | Completado localmente (2026-09-20) |
 | M4 | Pagos, vencimiento, CxC y cancelación | Completado localmente (2026-09-20) |
 | M5 | PDFs y fiscalidad manual | Completado localmente (2026-09-20) |
-| M6 | Reportes, rentabilidad e historial | Pendiente |
+| M6 | Reportes, rentabilidad e historial | Completado localmente (2026-09-21) |
 | M7 | Integración web y mocks | Pendiente |
 | M8 | Estabilización y exit gate preproducción | Pendiente |
 
@@ -345,39 +345,54 @@ Cuando ITEM/QTY exista: emitir consume/reserva→vendido; cancelar restaura una 
 
 **Objetivo:** Reconocer el conduce como venta completa sin duplicar métricas al facturarlo.
 
+**Estado:** Completado localmente — 2026-09-21  
+**Alcance:** FX/rentabilidad al emitir, seller-sales `CON-`/`FAC-`+origen, KPIs Admin “Ventas”, historial. Sin UI POS de emisión (M7).
+
 ### Cambios
 
 - Incluir conduces desde su emisión en:
   - rentabilidad;
-  - CxC;
+  - CxC *(ya M4)*;
   - KPIs de ventas y cobros;
   - reporte por vendedor;
   - historial de la operación.
 - Ejecutar FX/rentabilidad USD al emitir el conduce.
 - La conversión no solicita otra tasa ni recalcula la rentabilidad.
 - Mientras no exista factura, mostrar `CON-` como documento principal.
-- Después de facturar, mostrar `FAC-` como documento principal y conservar `CON-` como origen.
+- Después de facturar, mostrar `FAC-` como documento principal y conservar `CON-` como origen (`originNumber` en seller-sales JSON/PDF).
 - Mantener como fecha comercial `confirmedAt`; usar `invoiceIssuedAt` solo como fecha documental de factura.
 - Atribuir la venta al emisor del conduce, no al actor que factura.
 - Evitar que `CON-` y `FAC-` produzcan dos filas o dupliquen totales.
 - Proyectar eventos financieros únicamente a los roles autorizados.
+- Ganancia manual (COST-005) y retry FX permitidos en `CONDUCE`.
+- Labels KPI: “Ventas al contado / a crédito / Total ventas”.
 
-### Pruebas
+### Implementación
 
-- Una sola venta antes y después de facturar.
-- Totales de reportes sin duplicación.
-- Atribución correcta del vendedor.
-- USD conserva tasa y rentabilidad originales.
-- Historial ordenado de cotización, conduce, pagos, factura y cancelación.
+| Artefacto | Detalle |
+|---|---|
+| `20260921000000_conduce_recognized_profitability` | CHECKs FX y ganancia manual admiten `CONDUCE` |
+| `sales/service` + `recordUsdFxRate` | `enrichUsdProfitability` tras emitir conduce; status `CONDUCE`\|`COMPLETED` |
+| `money/profit` | `calculatedCompletedProfitability` reconoce `CONDUCE` |
+| `profitability` | retry/manual en ventas reconocidas |
+| seller-sales | filas `CONDUCE`; tras convert `INVOICE` + `originNumber=CON-` |
+| web rentabilidad | series incluyen `CONDUCE`; labels Ventas |
+| Tests | unit money/timeline/pdf/series; integration `conduce-profitability-reports-http` + seller-sales + profitability |
+
+### Verificación
+
+- Unitarios API: money + timeline + seller-sales-pdf — **passed**.
+- Unitarios/web component rentabilidad — **13 passed**.
+- Integración (reset autorizado en `solocamiones_test`): `conduce-profitability-reports-http` + `seller-sales-http` + `profitability/http` + `fx-retry-http` — **15 passed**.
 
 ### Documentación al cerrar
 
-- Actualizar `CON-006`, Features 11/14 y el estado de M6.
-- Registrar qué fecha usa cada reporte y documento.
-- Documentar cualquier cambio de etiqueta de “Facturado” a “Ventas” necesario para incluir conduces correctamente.
-- Enumerar consultas, proyecciones y pruebas de regresión modificadas.
+- Actualizar `CON-006`, Features 11/14 y el estado de M6. **Hecho.**
+- Registrar qué fecha usa cada reporte y documento. **Hecho** (tabla en Feature 16).
+- Documentar cambio de etiqueta “Facturado” → “Ventas”. **Hecho.**
+- Enumerar consultas, proyecciones y pruebas. **Hecho** (arriba).
 
-**Gate:** Reportes, rentabilidad e historial reflejan una sola operación comercial.
+**Gate:** Reportes, rentabilidad e historial reflejan una sola operación comercial. **Cumplido localmente (2026-09-21)** pendiente de `Verificado` owner si se requiere. La migración `20260921000000_conduce_recognized_profitability` quedó aplicada en `solocamiones_test`; hay que desplegarla en la base de desarrollo antes de usar FX/ganancia manual sobre conduces ahí.
 
 ---
 

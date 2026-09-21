@@ -12,7 +12,7 @@ The old consolidated requirements/validation files are intentionally no longer r
 
 **Implementation (2026-09-10):** User/customer/catalog/invoice confirmation/payment/PDF/cancellation events append in the writing transaction. Invoice detail `GET /api/sales/:id` plus HTTP UI project a Seller/Administrator timeline (profit/FX and payment events Administrator-only). Owner: draft meta edits and line add/update/remove are not invoice activity — they are not appended; already-stored rows of those types are hidden, not deleted. No standalone history HTTP API or admin screen. PDF regeneration is production (sales). Pending USD retry is production on **profitability**, not recovery. Cost/currency/baseline corrections, reservation/WO recovery, and diagnostics remain open. Mock recovery screens do not count.
 
-**Commercial conduces (2026-09-20):** Feature 16 document events `CONDUCE_ISSUED`, `QUOTE_CONVERTED_TO_CONDUCE`, and `CONDUCE_INVOICED` are appended on the same operation timeline (M3). Report/KPI projections that treat conduces as recognized sales remain M6 (CON-006).
+**Commercial conduces (2026-09-20 / M6 2026-09-21):** Feature 16 document events `CONDUCE_ISSUED`, `QUOTE_CONVERTED_TO_CONDUCE`, and `CONDUCE_INVOICED` are appended on the same operation timeline (M3). Report/KPI projections treat conduces as recognized sales once (CON-006 / M6); payment and FX/profit events remain Administrator-only on the timeline.
 
 ## What this feature does
 

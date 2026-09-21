@@ -133,7 +133,13 @@ export type Service = {
   active: boolean;
 };
 
-export type InvoiceStatus = 'DRAFT' | 'QUOTE_DRAFT' | 'QUOTE_ISSUED' | 'COMPLETED' | 'CANCELLED';
+export type InvoiceStatus =
+  | 'DRAFT'
+  | 'QUOTE_DRAFT'
+  | 'QUOTE_ISSUED'
+  | 'CONDUCE'
+  | 'COMPLETED'
+  | 'CANCELLED';
 export type PaymentState =
   | 'UNPAID'
   | 'PENDING'
@@ -204,6 +210,9 @@ export type Invoice = {
   quoteNumber?: string;
   quoteIssuedAt?: string;
   quoteExpiresAt?: string;
+  conduceNumber?: string;
+  conduceIssuedAt?: string;
+  invoiceIssuedAt?: string;
   status: InvoiceStatus;
   customerId: string;
   currency: Currency;

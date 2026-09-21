@@ -94,7 +94,7 @@ async function cleanup() {
   await prisma.invoicePayment.deleteMany();
   await prisma.invoice.deleteMany();
   await prisma.invoiceSequence.updateMany({
-    where: { name: { in: ['FAC', 'COT'] } },
+    where: { name: { in: ['FAC', 'COT', 'CON'] } },
     data: { nextValue: 1 },
   });
   await prisma.customerContact.deleteMany({ where: { customer: { isDefault: false } } });
@@ -131,7 +131,7 @@ describe('seller sales report HTTP', () => {
     expect(badFormat.status).toBe(400);
   });
 
-  it('includes COMPLETED and QUOTE_ISSUED and excludes cancelled and drafts', async () => {
+  it('includes COMPLETED, CONDUCE, and QUOTE_ISSUED and excludes cancelled and drafts', async () => {
     const app = createTestApp();
     const admin = await fixture(request.agent(app), 'ADMINISTRATOR');
     const completed = await confirmCreditInvoice(admin.agent);
@@ -145,6 +145,22 @@ describe('seller sales report HTTP', () => {
 
     const draft = await admin.agent.post('/api/sales').set(TEST_CSRF_HEADERS).send({});
     expect(draft.status).toBe(201);
+    expect(
+      (
+        await admin.agent.post(`/api/sales/${draft.body.id}/lines`).set(TEST_CSRF_HEADERS).send({
+          type: 'GENERIC',
+          description: 'Conduce pendiente',
+          unitPrice: '250.00',
+        })
+      ).status,
+    ).toBe(201);
+    await assignNamedCustomerForCredit(admin.agent, draft.body.id, completed.customerId);
+    const conduce = await admin.agent
+      .post(`/api/sales/${draft.body.id}/issue-conduce`)
+      .set(TEST_CSRF_HEADERS)
+      .send({});
+    expect(conduce.status).toBe(200);
+
     const quoteDraft = await admin.agent
       .post('/api/sales/quotes')
       .set(TEST_CSRF_HEADERS)
@@ -159,19 +175,28 @@ describe('seller sales report HTTP', () => {
         expect.objectContaining({
           documentType: 'INVOICE',
           number: completed.invoice.number,
+          originNumber: null,
           sellerUserId: admin.user.id,
           gross: '1000.00',
         }),
         expect.objectContaining({
+          documentType: 'CONDUCE',
+          number: conduce.body.conduceNumber,
+          originNumber: null,
+          sellerUserId: admin.user.id,
+          gross: '250.00',
+        }),
+        expect.objectContaining({
           documentType: 'QUOTE',
           number: issued.quote.quoteNumber,
+          originNumber: null,
           sellerUserId: admin.user.id,
           gross: '500.00',
         }),
       ]),
     );
-    expect(response.body.rows).toHaveLength(2);
-    expect(response.body.total).toBe(2);
+    expect(response.body.rows).toHaveLength(3);
+    expect(response.body.total).toBe(3);
     expect(response.body.page).toBe(1);
     expect(response.body.pageSize).toBe(10);
     expect(response.body.rows).not.toEqual(
@@ -185,7 +210,7 @@ describe('seller sales report HTTP', () => {
       expect.objectContaining({
         sellerUserId: admin.user.id,
         currency: 'DOP',
-        gross: '1500.00',
+        gross: '1750.00',
       }),
     ]);
   });
