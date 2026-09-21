@@ -212,6 +212,33 @@ export type CompleteInvoiceRecord = {
   lines: CompleteInvoiceLineMoneyRecord[];
 };
 
+/** Commercial recognition as CONDUCE: assigns CON-, freezes money, never sets FAC-. */
+export type IssueConduceRecord = {
+  id: string;
+  conduceNumber: string;
+  confirmedAt: Date;
+  dueDate: Date;
+  customerName: string;
+  customerRnc: string | null;
+  customerPhone: string | null;
+  snapshotCustomerType: CustomerType;
+  snapshotCreditTermDays: number | null;
+  confirmedByUserId: string | null;
+  confirmedByName: string | null;
+  gross: Prisma.Decimal | string;
+  base: Prisma.Decimal | string;
+  itbis: Prisma.Decimal | string;
+  lines: CompleteInvoiceLineMoneyRecord[];
+};
+
+/** Documentary FAC- on an already-recognized conduce; does not recalculate money. */
+export type ConvertConduceToInvoiceRecord = {
+  id: string;
+  number: string;
+  invoiceIssuedAt: Date;
+  fiscal: boolean;
+};
+
 export type InvoiceSequenceRecord = InvoiceSequence;
 
 export type InvoiceCustomerView = {
@@ -321,6 +348,9 @@ export type PublicInvoice = {
   quoteIssuedAt: string | null;
   quoteExpiresAt: string | null;
   quoteExpired: boolean;
+  conduceNumber: string | null;
+  conduceIssuedAt: string | null;
+  invoiceIssuedAt: string | null;
   currency: InvoiceCurrency;
   fiscal: boolean;
   applyItbis: boolean;
@@ -365,6 +395,9 @@ export type PublicInvoiceListItem = {
   quoteIssuedAt: string | null;
   quoteExpiresAt: string | null;
   quoteExpired: boolean;
+  conduceNumber: string | null;
+  conduceIssuedAt: string | null;
+  invoiceIssuedAt: string | null;
   currency: InvoiceCurrency;
   fiscal: boolean;
   applyItbis: boolean;
@@ -373,7 +406,7 @@ export type PublicInvoiceListItem = {
   customerSnapshot: InvoiceCustomerSnapshot | null;
   confirmedAt: string | null;
   dueDate: string | null;
-  /** Present on confirmed invoices (COMPLETED / CANCELLED). Follows settlement, not customer type. */
+  /** Present on recognized sales (CONDUCE / COMPLETED / CANCELLED). Follows settlement, not customer type. */
   saleCondition?: SaleCondition;
   paymentState?: PublicPaymentState;
   payments?: PublicInvoiceListPayment[];
@@ -403,6 +436,18 @@ export type InvoiceConfirmedHistorySnapshot = {
   customerSnapshot: InvoiceCustomerSnapshot;
   totals: { gross: string; base: string; itbis: string; discount: string };
   confirmedAt: string;
+  dueDate: string;
+  confirmedByUserId: string;
+  confirmedByName: string;
+};
+
+export type ConduceIssuedHistorySnapshot = {
+  conduceNumber: string;
+  currency: InvoiceCurrency;
+  customerId: string;
+  customerSnapshot: InvoiceCustomerSnapshot;
+  totals: { gross: string; base: string; itbis: string; discount: string };
+  issuedAt: string;
   dueDate: string;
   confirmedByUserId: string;
   confirmedByName: string;

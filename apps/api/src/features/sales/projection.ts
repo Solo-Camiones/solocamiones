@@ -20,6 +20,7 @@ import {
 import { isQuoteExpired } from './quote-dates.js';
 import type { InvoiceHistoryEntryView } from '../history/invoice-timeline.js';
 import type {
+  ConduceIssuedHistorySnapshot,
   InvoiceConfirmedHistorySnapshot,
   InvoiceCustomerSnapshot,
   InvoiceDraftHistorySnapshot,
@@ -93,18 +94,21 @@ function customerSnapshotOf(
 
 function toCustomerView(invoice: InvoiceRecord | InvoiceListRecord) {
   const snapshot = customerSnapshotOf(invoice);
-  const completed = invoice.status === 'COMPLETED' || invoice.status === 'CANCELLED';
+  const recognized =
+    invoice.status === 'COMPLETED' ||
+    invoice.status === 'CANCELLED' ||
+    invoice.status === 'CONDUCE';
   return {
     id: invoice.customer.id,
     name: snapshot?.name ?? invoice.customer.name,
     rnc: snapshot ? snapshot.rnc : invoice.customer.rnc,
     isDefault: invoice.customer.isDefault,
-    customerType: completed
+    customerType: recognized
       ? (invoice.snapshotCustomerType ?? invoice.customer.customerType)
       : invoice.customer.customerType,
-    creditTermDays: completed ? invoice.snapshotCreditTermDays : invoice.customer.creditTermDays,
+    creditTermDays: recognized ? invoice.snapshotCreditTermDays : invoice.customer.creditTermDays,
     creditLimitDop:
-      completed || invoice.customer.creditLimitDop == null
+      recognized || invoice.customer.creditLimitDop == null
         ? null
         : moneyString(invoice.customer.creditLimitDop),
   };
@@ -353,8 +357,11 @@ export function toPublicInvoice(
 ): PublicInvoice {
   const profitability = administratorProfitability(invoice, viewer);
   const document = toPublicInvoiceDocument(invoice);
-  const completed = invoice.status === 'COMPLETED' || invoice.status === 'CANCELLED';
-  const payment = completed ? summarizePayments(invoice) : null;
+  const recognized =
+    invoice.status === 'COMPLETED' ||
+    invoice.status === 'CANCELLED' ||
+    invoice.status === 'CONDUCE';
+  const payment = recognized ? summarizePayments(invoice) : null;
   return {
     id: invoice.id,
     status: invoice.status,
@@ -363,6 +370,9 @@ export function toPublicInvoice(
     quoteIssuedAt: invoice.quoteIssuedAt?.toISOString() ?? null,
     quoteExpiresAt: invoice.quoteExpiresAt?.toISOString() ?? null,
     quoteExpired: isQuoteExpired(invoice.quoteExpiresAt),
+    conduceNumber: invoice.conduceNumber,
+    conduceIssuedAt: invoice.conduceIssuedAt?.toISOString() ?? null,
+    invoiceIssuedAt: invoice.invoiceIssuedAt?.toISOString() ?? null,
     currency: invoice.currency,
     fiscal: invoice.fiscal,
     applyItbis: invoice.applyItbis,
@@ -371,7 +381,7 @@ export function toPublicInvoice(
     customerSnapshot: customerSnapshotOf(invoice),
     confirmedAt: invoice.confirmedAt?.toISOString() ?? null,
     dueDate: invoice.dueDate ? databaseDateString(invoice.dueDate) : null,
-    // Quotes freeze the issuer; invoices freeze the confirmer. Same public field.
+    // Quotes freeze the issuer; conduces/invoices freeze the commercial confirmer.
     sellerName:
       invoice.status === 'QUOTE_ISSUED' ? invoice.quoteIssuedByName : invoice.confirmedByName,
     cancelledAt: invoice.cancelledAt?.toISOString() ?? null,
@@ -418,7 +428,13 @@ function toPublicListPayments(invoice: InvoiceListRecord): PublicInvoiceListPaym
 
 /** Same DOC-001 rule as PDF: full confirm settlement → CASH, remaining balance → CREDIT. */
 function listSaleCondition(invoice: InvoiceListRecord): SaleCondition | undefined {
-  if (invoice.status !== 'COMPLETED' && invoice.status !== 'CANCELLED') return undefined;
+  if (
+    invoice.status !== 'COMPLETED' &&
+    invoice.status !== 'CANCELLED' &&
+    invoice.status !== 'CONDUCE'
+  ) {
+    return undefined;
+  }
   const totals = invoiceTotals(invoice);
   return saleConditionFromInitialSettlement(
     new Prisma.Decimal(totals.gross),
@@ -432,8 +448,11 @@ export function toPublicInvoiceListItem(
   now = new Date(),
 ): PublicInvoiceListItem {
   const profitability = administratorProfitability(invoice, viewer);
-  const completed = invoice.status === 'COMPLETED' || invoice.status === 'CANCELLED';
-  const payment = completed ? summarizePayments(invoice, now) : null;
+  const recognized =
+    invoice.status === 'COMPLETED' ||
+    invoice.status === 'CANCELLED' ||
+    invoice.status === 'CONDUCE';
+  const payment = recognized ? summarizePayments(invoice, now) : null;
   const saleCondition = listSaleCondition(invoice);
   const storedRate =
     viewer.role === 'ADMINISTRATOR' && invoice.exchangeRateDopPerUsd != null
@@ -447,6 +466,9 @@ export function toPublicInvoiceListItem(
     quoteIssuedAt: invoice.quoteIssuedAt?.toISOString() ?? null,
     quoteExpiresAt: invoice.quoteExpiresAt?.toISOString() ?? null,
     quoteExpired: isQuoteExpired(invoice.quoteExpiresAt),
+    conduceNumber: invoice.conduceNumber,
+    conduceIssuedAt: invoice.conduceIssuedAt?.toISOString() ?? null,
+    invoiceIssuedAt: invoice.invoiceIssuedAt?.toISOString() ?? null,
     currency: invoice.currency,
     fiscal: invoice.fiscal,
     applyItbis: invoice.applyItbis,
@@ -542,6 +564,33 @@ export function toConfirmedHistorySnapshot(
     customerSnapshot: snapshot,
     totals: invoiceTotals(invoice),
     confirmedAt: invoice.confirmedAt.toISOString(),
+    dueDate: databaseDateString(invoice.dueDate),
+    confirmedByUserId: invoice.confirmedByUserId,
+    confirmedByName: invoice.confirmedByName,
+  };
+}
+
+export function toConduceIssuedHistorySnapshot(
+  invoice: InvoiceRecord,
+): ConduceIssuedHistorySnapshot {
+  const snapshot = customerSnapshotOf(invoice);
+  if (
+    invoice.conduceNumber == null ||
+    invoice.confirmedAt == null ||
+    invoice.dueDate == null ||
+    invoice.confirmedByUserId == null ||
+    invoice.confirmedByName == null ||
+    snapshot == null
+  ) {
+    throw new Error('Issued conduce is missing snapshot fields');
+  }
+  return {
+    conduceNumber: invoice.conduceNumber,
+    currency: invoice.currency,
+    customerId: invoice.customerId,
+    customerSnapshot: snapshot,
+    totals: invoiceTotals(invoice),
+    issuedAt: invoice.confirmedAt.toISOString(),
     dueDate: databaseDateString(invoice.dueDate),
     confirmedByUserId: invoice.confirmedByUserId,
     confirmedByName: invoice.confirmedByName,

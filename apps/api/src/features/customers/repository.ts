@@ -74,7 +74,8 @@ export class CustomerRepository {
 
   findCompletedInvoicesWithPayments(customerId: string): Promise<CompletedInvoicePaymentSummary[]> {
     return this.database.invoice.findMany({
-      where: { customerId, status: 'COMPLETED', currency: 'DOP' },
+      // Open CONDUCE balances count toward credit limit once the sale is recognized (CON-002).
+      where: { customerId, status: { in: ['COMPLETED', 'CONDUCE'] }, currency: 'DOP' },
       select: {
         status: true,
         gross: true,

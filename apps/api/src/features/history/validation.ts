@@ -311,6 +311,53 @@ export const historyEventSchema = z
     z
       .object({
         ...invoiceBase,
+        eventType: z.literal('CONDUCE_ISSUED'),
+        payload: z
+          .object({
+            conduceNumber: z.string().regex(/^CON-\d{6}$/),
+            currency: z.enum(['DOP', 'USD']),
+            customerId: z.uuid(),
+            customerSnapshot: invoiceCustomerSnapshot,
+            totals: invoiceMoneyTotalsSnapshot,
+            issuedAt: z.iso.datetime(),
+            dueDate: z.iso.date(),
+            confirmedByUserId: z.uuid(),
+            confirmedByName: z.string().min(1),
+          })
+          .strict(),
+      })
+      .strict(),
+    z
+      .object({
+        ...invoiceBase,
+        eventType: z.literal('QUOTE_CONVERTED_TO_CONDUCE'),
+        payload: z
+          .object({
+            quoteNumber: z.string().regex(/^COT-\d{6}$/),
+            conduceNumber: z.string().regex(/^CON-\d{6}$/),
+            issuedAt: z.iso.datetime(),
+            convertedAt: z.iso.datetime(),
+          })
+          .strict(),
+      })
+      .strict(),
+    z
+      .object({
+        ...invoiceBase,
+        eventType: z.literal('CONDUCE_INVOICED'),
+        payload: z
+          .object({
+            conduceNumber: z.string().regex(/^CON-\d{6}$/),
+            invoiceNumber: z.string().regex(/^FAC-\d{6}$/),
+            fiscal: z.boolean(),
+            invoicedAt: z.iso.datetime(),
+          })
+          .strict(),
+      })
+      .strict(),
+    z
+      .object({
+        ...invoiceBase,
         eventType: z.literal('INVOICE_DRAFT_UPDATED'),
         payload: z.object({ before: invoiceDraftSnapshot, after: invoiceDraftSnapshot }).strict(),
       })

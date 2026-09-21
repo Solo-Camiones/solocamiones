@@ -20,7 +20,7 @@ If another retained document conflicts with a requirement block below, update th
 
 **Required before the first production release** (pre-production gate amendment, 2026-09-20). Sequenced as milestones M2–M8 in `docs/plan_feature_contado/IMPLEMENTATION_PLAN.md` after this documentation milestone (M1).
 
-**Implementation:** Not started in API or HTTP. Domain, payments, CxC, PDFs, reports, and UI land in later milestones. Existing direct invoice confirmation, quotes, and payments remain as Features 08/10/12/13 until those milestones amend runtime behavior.
+**Implementation:** M2 domain/migration and M3 emission/conversion API are in the sales module. Payments matrix (CON-002 Admin named-`CASH`), CxC listings, conduce PDF, FX/profitability at emission, and web UI remain M4–M7. Existing direct invoice confirmation, quotes, and payments remain as Features 08/10/12/13 except where CON-* already amended runtime.
 
 ## What this feature does
 
@@ -105,10 +105,10 @@ Direct invoice confirmation does **not** use the Administrator named-`CASH` bala
 
 ### Domain and lifecycle (M2–M3)
 
-- [x] `CONDUCE` status on the sales aggregate with `conduceNumber` / `conduceIssuedAt` / `invoiceIssuedAt` (CON-001). *(Domain/migration M2, 2026-09-20; emission API remains M3.)*
-- [x] Independent `CON-` sequence; no reuse after cancellation (CON-001). *(Sequence + uniqueness M2; emission path M3.)*
-- [ ] Issue conduce from draft; convert quote → conduce; convert conduce → invoice with `{ fiscal: boolean }` (CON-001, CON-003).
-- [ ] Idempotent issue/convert; immutable issued conduce (CON-001, CON-003).
+- [x] `CONDUCE` status on the sales aggregate with `conduceNumber` / `conduceIssuedAt` / `invoiceIssuedAt` (CON-001). *(Domain/migration M2, 2026-09-20.)*
+- [x] Independent `CON-` sequence; no reuse after cancellation (CON-001). *(Sequence + uniqueness M2; emission path M3, 2026-09-20.)*
+- [x] Issue conduce from draft; convert quote → conduce; convert conduce → invoice with `{ fiscal: boolean }` (CON-001, CON-003). *(M3, 2026-09-20.)*
+- [x] Idempotent issue/convert; immutable issued conduce (CON-001, CON-003). *(M3, 2026-09-20.)*
 
 ### Domain migration notes (M2)
 
@@ -117,11 +117,19 @@ Direct invoice confirmation does **not** use the Administrator named-`CASH` bala
 - DB constraints allow active conduce (no `FAC-`), converted (`CON-`+`FAC-`), cancelled conduce-only, cancelled with both numbers, and historical invoices without conduce.
 - `InvoiceSequence` row `CON` starts at `nextValue = 1`. Format `^CON-[0-9]{6}$`.
 
+### Emission and conversion HTTP (M3)
+
+- `POST /api/sales/:id/issue-conduce` — body same as confirm (`payment` optional); SALE-005 until M4 extends Admin named-`CASH`.
+- `POST /api/sales/:id/convert-quote-to-conduce` — same body; rejects expired quotes.
+- `POST /api/sales/:id/convert-conduce-to-invoice` — `{ fiscal: boolean }`; validates frozen snapshot identity; preserves money/`dueDate`/ledger/`confirmedAt`/seller.
+- History events written in the same transaction: `CONDUCE_ISSUED`, `QUOTE_CONVERTED_TO_CONDUCE`, `CONDUCE_INVOICED`.
+- Credit-limit exposure query includes open `CONDUCE` balances (remainder of CxC UI/filters is M4).
+
 ### Payments, CxC, cancellation (M4)
 
 - [ ] Full actor/customer/currency/payment matrix including named-`CASH` Admin exception and default-`Cliente contado` full-pay rule (CON-002).
-- [ ] Credit exposure includes open conduce balances; `dueDate` rules for Admin named-`CASH` with balance (CON-002).
-- [ ] Later payments Administrator-only; convert preserves ledger (CON-002, CON-003).
+- [x] Credit exposure includes open conduce balances *(M3)*; [ ] `dueDate` rules for Admin named-`CASH` with balance (CON-002).
+- [ ] Later payments Administrator-only; [x] convert preserves ledger *(M3)* (CON-002, CON-003).
 - [ ] Cancel/refund zero..net for conduce and for invoice-only operations (CON-005, CANCEL-002).
 - [ ] Documented inventory effects when ITEM/QTY enabled: emit consumes; cancel restores once; convert does not touch inventory (CON-005).
 
@@ -133,7 +141,7 @@ Direct invoice confirmation does **not** use the Administrator named-`CASH` bala
 ### Reports and history (M6)
 
 - [ ] Profitability, CxC, KPIs, seller-sales, and history include conduces once (CON-006).
-- [ ] History events `CONDUCE_ISSUED`, `QUOTE_CONVERTED_TO_CONDUCE`, `CONDUCE_INVOICED` (CON-006).
+- [x] History events `CONDUCE_ISSUED`, `QUOTE_CONVERTED_TO_CONDUCE`, `CONDUCE_INVOICED` *(written in M3; report projections remain M6)* (CON-006).
 
 ### Web and mocks (M7)
 

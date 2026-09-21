@@ -28,6 +28,12 @@ export const QUOTE_DRAFT_ONLY_ISSUE_MESSAGE = 'Solo se puede emitir una cotizaci
 export const QUOTE_ISSUED_ONLY_DUPLICATE_MESSAGE = 'Solo se puede duplicar una cotización emitida';
 export const QUOTE_ISSUED_ONLY_CONVERT_MESSAGE = 'Solo se puede convertir una cotización emitida';
 export const EXPIRED_QUOTE_CONVERT_MESSAGE = 'La cotización está vencida y no puede convertirse';
+export const DRAFT_ONLY_ISSUE_CONDUCE_MESSAGE = 'Solo se puede emitir un conduce desde un borrador';
+export const QUOTE_ISSUED_ONLY_CONVERT_TO_CONDUCE_MESSAGE =
+  'Solo se puede convertir a conduce una cotización emitida';
+export const CONDUCE_ONLY_CONVERT_TO_INVOICE_MESSAGE = 'Solo se puede facturar un conduce emitido';
+export const CONDUCE_FISCAL_RETRY_MISMATCH_MESSAGE =
+  'El conduce ya fue facturado con otra opción fiscal';
 export const PAYMENT_COMPLETED_ONLY_MESSAGE =
   'Solo se pueden registrar pagos en facturas completadas';
 export const PAYMENT_DATE_RANGE_MESSAGE =

@@ -22,6 +22,9 @@ import {
   postIssueQuote,
   postDuplicateQuote,
   postConvertQuote,
+  postIssueConduce,
+  postConvertQuoteToConduce,
+  postConvertConduceToInvoice,
   postDraftLine,
   postRegenerateInvoicePdf,
   postInvoicePayment,
@@ -30,6 +33,7 @@ import {
 import {
   addInvoiceLineSchema,
   confirmInvoiceSchema,
+  convertConduceToInvoiceSchema,
   createDraftSchema,
   invoiceIdSchema,
   invoiceLineIdSchema,
@@ -117,6 +121,24 @@ salesRouter.post(
   requireCsrfHeader,
   validate({ params: invoiceIdSchema, body: confirmInvoiceSchema }),
   postConvertQuote,
+);
+salesRouter.post(
+  '/:id/issue-conduce',
+  requireCsrfHeader,
+  validate({ params: invoiceIdSchema, body: confirmInvoiceSchema }),
+  postIssueConduce,
+);
+salesRouter.post(
+  '/:id/convert-quote-to-conduce',
+  requireCsrfHeader,
+  validate({ params: invoiceIdSchema, body: confirmInvoiceSchema }),
+  postConvertQuoteToConduce,
+);
+salesRouter.post(
+  '/:id/convert-conduce-to-invoice',
+  requireCsrfHeader,
+  validate({ params: invoiceIdSchema, body: convertConduceToInvoiceSchema }),
+  postConvertConduceToInvoice,
 );
 salesRouter.post(
   '/:id/payments',

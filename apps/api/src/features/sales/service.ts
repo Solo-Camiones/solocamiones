@@ -22,6 +22,7 @@ import {
   DRAFT_ONLY_CONFIRM_MESSAGE,
   DRAFT_ONLY_DISCARD_MESSAGE,
   DRAFT_ONLY_EDIT_MESSAGE,
+  DRAFT_ONLY_ISSUE_CONDUCE_MESSAGE,
   DUPLICATE_DELIVERY_LINE_MESSAGE,
   EMPTY_DRAFT_CONFIRM_MESSAGE,
   FISCAL_IDENTITY_REQUIRED_MESSAGE,
@@ -34,9 +35,12 @@ import {
   PAYMENT_IDEMPOTENCY_MISMATCH_MESSAGE,
   CANCELLATION_COMPLETED_ONLY_MESSAGE,
   CANCELLATION_REASON_REQUIRED_MESSAGE,
+  CONDUCE_FISCAL_RETRY_MISMATCH_MESSAGE,
+  CONDUCE_ONLY_CONVERT_TO_INVOICE_MESSAGE,
   EXPIRED_QUOTE_CONVERT_MESSAGE,
   QUOTE_DRAFT_ONLY_ISSUE_MESSAGE,
   QUOTE_ISSUED_ONLY_CONVERT_MESSAGE,
+  QUOTE_ISSUED_ONLY_CONVERT_TO_CONDUCE_MESSAGE,
   QUOTE_ISSUED_ONLY_DUPLICATE_MESSAGE,
 } from './constants.js';
 import { DEFAULT_LINE_QUANTITY } from './money/constants.js';
@@ -56,6 +60,7 @@ import {
 } from './policies.js';
 import {
   toConfirmedHistorySnapshot,
+  toConduceIssuedHistorySnapshot,
   toDraftHistorySnapshot,
   toPublicInvoice,
   toPublicInvoiceListItem,
@@ -71,6 +76,7 @@ import {
   addPaymentSchema,
   cancelInvoiceSchema,
   confirmInvoiceSchema,
+  convertConduceToInvoiceSchema,
   createDraftSchema,
   deliveryDraftLineSchema,
   externalDraftLineSchema,
@@ -553,6 +559,244 @@ export class SalesService {
 
   async convertQuote(actorId: string, id: string, input: unknown) {
     return this.completeSale(actorId, id, input, 'QUOTE_ISSUED');
+  }
+
+  async issueConduce(actorId: string, id: string, input: unknown) {
+    return this.issueConduceSale(actorId, id, input, 'DRAFT');
+  }
+
+  async convertQuoteToConduce(actorId: string, id: string, input: unknown) {
+    return this.issueConduceSale(actorId, id, input, 'QUOTE_ISSUED');
+  }
+
+  async convertConduceToInvoice(actorId: string, id: string, input: unknown) {
+    invoiceIdSchema.parse({ id });
+    const profile = convertConduceToInvoiceSchema.parse(input ?? {});
+    const { invoice, actor, alreadyCompleted } = await this.transaction(
+      async ({ sales, users, history }) => {
+        const actor = requireInvoiceManager(await users.findById(actorId));
+        await sales.lockById(id);
+        const existing = await sales.findById(id);
+        if (!existing) throw AppError.notFound('Invoice not found');
+
+        if (existing.status === 'COMPLETED' && existing.conduceNumber != null) {
+          if (existing.fiscal !== profile.fiscal) {
+            throw AppError.conflict(CONDUCE_FISCAL_RETRY_MISMATCH_MESSAGE);
+          }
+          return { invoice: existing, actor, alreadyCompleted: true };
+        }
+        if (existing.status !== 'CONDUCE') {
+          throw AppError.conflict(CONDUCE_ONLY_CONVERT_TO_INVOICE_MESSAGE);
+        }
+
+        // Fiscal identity is validated against the frozen conduce snapshot (CON-003).
+        assertFiscalCustomer(
+          { isDefault: existing.customer.isDefault, rnc: existing.customerRnc },
+          profile.fiscal,
+        );
+
+        const number = await sales.allocateNextNumber();
+        const invoiceIssuedAt = new Date();
+        const converted = await sales.convertConduceToInvoice({
+          id,
+          number,
+          invoiceIssuedAt,
+          fiscal: profile.fiscal,
+        });
+        await history.append({
+          actor: { actorType: 'USER', actorUserId: actorId },
+          subjectType: 'INVOICE',
+          subjectId: id,
+          eventType: 'CONDUCE_INVOICED',
+          payload: {
+            conduceNumber: existing.conduceNumber!,
+            invoiceNumber: converted.number!,
+            fiscal: profile.fiscal,
+            invoicedAt: invoiceIssuedAt.toISOString(),
+          },
+        });
+        return { invoice: converted, actor, alreadyCompleted: false };
+      },
+    );
+    const withDocument = alreadyCompleted
+      ? invoice
+      : await this.generateInvoicePdf(actorId, invoice);
+    return toPublicInvoice(withDocument, actor);
+  }
+
+  /**
+   * Recognizes a sale as CONDUCE (no FAC-). Payment policy reuses SALE-005 for M3;
+   * Administrator named-CASH balance exception is M4 (CON-002).
+   */
+  private async issueConduceSale(
+    actorId: string,
+    id: string,
+    input: unknown,
+    sourceStatus: 'DRAFT' | 'QUOTE_ISSUED',
+  ) {
+    invoiceIdSchema.parse({ id });
+    const profile = confirmInvoiceSchema.parse(input ?? {});
+    const { invoice, actor } = await this.transaction(
+      async ({ sales, customers, payments, users, history }) => {
+        const actor = requireInvoiceManager(await users.findById(actorId));
+        await sales.lockById(id);
+        const existing = await sales.findById(id);
+        if (!existing) throw AppError.notFound('Invoice not found');
+        if (existing.status === 'CONDUCE') {
+          return { invoice: existing, actor };
+        }
+        if (existing.status !== sourceStatus) {
+          throw AppError.conflict(
+            sourceStatus === 'DRAFT'
+              ? DRAFT_ONLY_ISSUE_CONDUCE_MESSAGE
+              : QUOTE_ISSUED_ONLY_CONVERT_TO_CONDUCE_MESSAGE,
+          );
+        }
+        if (sourceStatus === 'QUOTE_ISSUED' && isQuoteExpired(existing.quoteExpiresAt)) {
+          throw AppError.conflict(EXPIRED_QUOTE_CONVERT_MESSAGE);
+        }
+        if (existing.lines.length === 0) throw AppError.conflict(EMPTY_DRAFT_CONFIRM_MESSAGE);
+
+        for (const line of existing.lines) {
+          assertDraftLineTypeEnabled(line.type);
+        }
+
+        await customers.lockById(existing.customerId);
+        const customer = await customers.findById(existing.customerId);
+        if (!customer) throw AppError.notFound('Customer not found');
+
+        const lineMoney = existing.lines.map((line) => ({
+          line,
+          money:
+            sourceStatus === 'QUOTE_ISSUED'
+              ? (() => {
+                  if (line.gross == null || line.base == null || line.itbis == null) {
+                    throw AppError.internal('Issued quote line is missing frozen money');
+                  }
+                  return { gross: line.gross, base: line.base, itbis: line.itbis };
+                })()
+              : calculateLineMoney({
+                  type: line.type,
+                  unitPrice: line.unitPrice,
+                  quantity: line.quantity,
+                  applyItbis: existing.applyItbis,
+                }),
+        }));
+        const totals = applyInvoiceDiscount({
+          lines: lineMoney.map(({ line, money }) => ({
+            ...money,
+            taxable: isTaxableLineType(line.type),
+          })),
+          discountPercent: existing.discountPercent,
+          applyItbis: existing.applyItbis,
+        });
+        const initialPaymentAmount = profile.payment
+          ? new Prisma.Decimal(profile.payment.amount)
+          : null;
+        if (initialPaymentAmount?.greaterThan(totals.gross)) {
+          throw AppError.conflict(PAYMENT_EXCEEDS_BALANCE_MESSAGE);
+        }
+        assertInitialPaymentPolicy({
+          customer,
+          currency: existing.currency,
+          actorRole: actor.role,
+          invoiceGross: totals.gross,
+          initialPaymentAmount,
+        });
+        const newBalance = invoiceNewBalance(totals.gross, initialPaymentAmount);
+        const openInvoices = await customers.findCompletedInvoicesWithPayments(customer.id);
+        const openExposure = openInvoices.reduce(
+          (sum, invoice) => sum.plus(summarizePayments(invoice).balance),
+          new Prisma.Decimal(0),
+        );
+        assertCreditExposureWithinLimit({
+          customer,
+          currency: existing.currency,
+          openExposure,
+          newBalance,
+        });
+        const conduceNumber = await sales.allocateNextConduceNumber();
+        const confirmedAt = new Date();
+        const primaryPhone = customer.contacts.find((contact) => contact.isPrimary)?.phone ?? null;
+        let issued = await sales.issueConduce({
+          id,
+          conduceNumber,
+          confirmedAt,
+          dueDate: invoiceDueDate(
+            confirmedAt,
+            confirmationDueTermDays(customer, existing.currency),
+          ),
+          customerName: sourceStatus === 'QUOTE_ISSUED' ? existing.customerName! : customer.name,
+          customerRnc: sourceStatus === 'QUOTE_ISSUED' ? existing.customerRnc : customer.rnc,
+          customerPhone: sourceStatus === 'QUOTE_ISSUED' ? existing.customerPhone : primaryPhone,
+          snapshotCustomerType: customer.customerType,
+          snapshotCreditTermDays: customer.creditTermDays,
+          confirmedByUserId: actorId,
+          confirmedByName: actor.name,
+          gross: totals.gross,
+          base: totals.base,
+          itbis: totals.itbis,
+          lines: lineMoney.map(({ line, money }) => ({
+            id: line.id,
+            gross: money.gross,
+            base: money.base,
+            itbis: money.itbis,
+          })),
+        });
+        if (sourceStatus === 'QUOTE_ISSUED') {
+          await history.append({
+            actor: { actorType: 'USER', actorUserId: actorId },
+            subjectType: 'INVOICE',
+            subjectId: id,
+            eventType: 'QUOTE_CONVERTED_TO_CONDUCE',
+            payload: {
+              quoteNumber: existing.quoteNumber!,
+              conduceNumber: issued.conduceNumber!,
+              issuedAt: existing.quoteIssuedAt!.toISOString(),
+              convertedAt: issued.confirmedAt!.toISOString(),
+            },
+          });
+        } else {
+          await history.append({
+            actor: { actorType: 'USER', actorUserId: actorId },
+            subjectType: 'INVOICE',
+            subjectId: id,
+            eventType: 'CONDUCE_ISSUED',
+            payload: toConduceIssuedHistorySnapshot(issued),
+          });
+        }
+        if (profile.payment && initialPaymentAmount) {
+          const payment = await payments.createPayment({
+            invoiceId: id,
+            amount: initialPaymentAmount,
+            currency: issued.currency,
+            method: profile.payment.method,
+            effectiveDate: todayBusinessDate(confirmedAt),
+            reference: profile.payment.reference ?? null,
+            actorUserId: actorId,
+            idempotencyKey: confirmationPaymentIdempotencyKey(id),
+          });
+          await history.append({
+            actor: { actorType: 'USER', actorUserId: actorId },
+            subjectType: 'INVOICE',
+            subjectId: id,
+            eventType: 'PAYMENT_RECORDED',
+            payload: {
+              paymentId: payment.id,
+              amount: payment.amount.toFixed(2),
+              currency: payment.currency,
+              method: payment.method,
+              effectiveDate: databaseDateString(payment.effectiveDate),
+              reference: payment.reference,
+            },
+          });
+          issued = (await sales.findById(id))!;
+        }
+        return { invoice: issued, actor };
+      },
+    );
+    // FX/profitability (M6) and conduce PDF (M5) are intentionally deferred.
+    return toPublicInvoice(invoice, actor);
   }
 
   private async completeSale(

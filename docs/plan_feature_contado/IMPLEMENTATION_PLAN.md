@@ -23,7 +23,7 @@
 |---|---|---|
 | M1 | Formalizar reglas y criterios de aceptación | Completado localmente (2026-09-20) |
 | M2 | Migración y modelo de dominio | Completado localmente (2026-09-20) |
-| M3 | Motor de emisión y conversión | Pendiente |
+| M3 | Motor de emisión y conversión | Completado localmente (2026-09-20) |
 | M4 | Pagos, vencimiento, CxC y cancelación | Pendiente |
 | M5 | PDFs y fiscalidad manual | Pendiente |
 | M6 | Reportes, rentabilidad e historial | Pendiente |
@@ -177,57 +177,49 @@
 
 **Objetivo:** Implementar las transiciones comerciales sin duplicar el agregado.
 
-### API y dominio
+**Estado:** Completado localmente — 2026-09-20  
+**Alcance:** API de emisión/conversión, historial, proyección pública, exposición de crédito incluye `CONDUCE`. Pago inicial reutiliza SALE-005 (`confirmInvoiceSchema`); excepción Admin+`CASH` nombrado queda en M4. Sin PDF de conduce (M5) ni FX/rentabilidad al emitir (M6).
 
-- Añadir:
-  - `POST /api/sales/:id/issue-conduce`;
-  - `POST /api/sales/:id/convert-quote-to-conduce`;
-  - `POST /api/sales/:id/convert-conduce-to-invoice`.
-- La conversión a factura recibirá `{ fiscal: boolean }`.
-- Emitir un conduce:
-  - asigna `CON-`;
-  - congela cliente, líneas, moneda, descuento, ITBIS, totales y vendedor;
-  - establece siempre el documento conduce como no fiscal;
-  - reconoce la venta una sola vez.
-- Una cotización vencida no puede convertirse.
-- El fiscal indicado previamente en un borrador o cotización no convierte al conduce en fiscal; se selecciona nuevamente al facturar.
-- Facturar:
-  - asigna `FAC-`;
-  - usa la fecha actual como `invoiceIssuedAt`;
-  - conserva el vencimiento original;
-  - no recalcula líneas, totales, descuento o ITBIS;
-  - no crea ni modifica pagos;
-  - no vuelve a ejecutar rentabilidad, FX o inventario;
-  - valida la identidad fiscal del snapshot congelado en el conduce.
-- El vendedor atribuido sigue siendo el emisor del conduce.
-- El actor que factura queda registrado en historial.
-- El conduce emitido es inmutable.
+### Contratos HTTP
 
-### Auditoría
+| Método | Ruta | Body | Transición |
+|---|---|---|---|
+| `POST` | `/api/sales/:id/issue-conduce` | `confirmInvoiceSchema` (pago opcional; SALE-005) | `DRAFT` → `CONDUCE` |
+| `POST` | `/api/sales/:id/convert-quote-to-conduce` | `confirmInvoiceSchema` | `QUOTE_ISSUED` → `CONDUCE` |
+| `POST` | `/api/sales/:id/convert-conduce-to-invoice` | `{ fiscal: boolean }` | `CONDUCE` → `COMPLETED` |
 
-- Añadir eventos:
-  - `CONDUCE_ISSUED`;
-  - `QUOTE_CONVERTED_TO_CONDUCE`;
-  - `CONDUCE_INVOICED`.
-- Hacer emisión y conversión idempotentes.
+Respuesta pública incluye `conduceNumber`, `conduceIssuedAt`, `invoiceIssuedAt`. Emisión fuerza `fiscal: false`. Reintentos idempotentes; retry de facturación con `fiscal` distinto → conflicto.
 
-### Pruebas
+### Implementación
 
-- Borrador → conduce.
-- Cotización vigente → conduce.
-- Conduce → factura fiscal/no fiscal.
-- Rechazo de cotización vencida, conduce cancelado y doble conversión.
-- Conservación exacta de snapshots, importes y vendedor.
-- Reintentos sin duplicar números ni eventos.
+| Artefacto | Detalle |
+|---|---|
+| Repository | `issueConduce`, `convertConduceToInvoice`; list search incluye `CON-` |
+| Service | `issueConduce` / `convertQuoteToConduce` / `convertConduceToInvoice` |
+| History | `CONDUCE_ISSUED`, `QUOTE_CONVERTED_TO_CONDUCE`, `CONDUCE_INVOICED` + timeline |
+| Customers | `findCompletedInvoicesWithPayments` incluye status `CONDUCE` (exposición crédito) |
+| Tests | `conduce-http.test.ts` (6); unit schema `convertConduceToInvoiceSchema` |
+
+### Verificación
+
+- Unitarios: `tests/unit/sales/validation.test.ts` — **40 passed** (incluye `CONDUCE` status + convert schema).
+- Integración (reset autorizado en `solocamiones_test`): `conduce-http.test.ts` — **6 passed**.
+- Typecheck API: OK.
+
+### Desviaciones / diferidos a M4–M6
+
+- Matriz CON-002 Admin+named-`CASH` (pago parcial + `dueDate` actor) → **M4**.
+- CxC listados/filtros `CON-` → **M4** (exposición de límite ya cuenta conduces).
+- PDF conduce / origen `CON-` en plantilla factura → **M5**.
+- FX/rentabilidad al emitir → **M6**.
 
 ### Documentación al cerrar
 
-- Actualizar los checklists `CON-001`, `CON-003` y el estado de M3 en este archivo.
-- Registrar contratos HTTP definitivos y transiciones válidas.
-- Actualizar flujos de borrador, cotización, conduce y factura.
-- Enumerar servicios, repositorios, rutas y pruebas incorporadas.
+- Checklists CON-001 / CON-003 en Feature 16 — **Hecho**.
+- Feature 14 eventos runtime — **Hecho**.
+- USE_CASE_FLOWS camino conduce — **Hecho** (matriz Admin CASH sigue planificada M4).
 
-**Gate:** Cada operación conserva una sola identidad y los reintentos no duplican documentos.
+**Gate:** Cada operación conserva una sola identidad y los reintentos no duplican documentos. **Cumplido localmente (2026-09-20)** pendiente de `Verificado` owner si se requiere.
 
 ---
 

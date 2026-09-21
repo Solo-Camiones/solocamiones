@@ -6,6 +6,7 @@ import {
   addPaymentSchema,
   cancelInvoiceSchema,
   confirmInvoiceSchema,
+  convertConduceToInvoiceSchema,
   createDraftSchema,
   deliveryDraftLineSchema,
   externalDraftLineSchema,
@@ -143,6 +144,16 @@ describe('draft HTTP validation', () => {
     expect(formatQuoteNumber(1)).toBe('COT-000001');
     expect(formatConduceNumber(1)).toBe('CON-000001');
     expect(formatConduceNumber(12)).toBe('CON-000012');
+  });
+
+  it('accepts convert-conduce-to-invoice fiscal body and CONDUCE list status', () => {
+    expect(convertConduceToInvoiceSchema.parse({ fiscal: true })).toEqual({ fiscal: true });
+    expect(convertConduceToInvoiceSchema.parse({ fiscal: false })).toEqual({ fiscal: false });
+    expect(convertConduceToInvoiceSchema.safeParse({}).success).toBe(false);
+    expect(convertConduceToInvoiceSchema.safeParse({ fiscal: true, extra: 1 }).success).toBe(false);
+    expect(listInvoicesSchema.parse({ status: 'CONDUCE', page: 1, pageSize: 10 })).toMatchObject({
+      status: 'CONDUCE',
+    });
   });
 });
 

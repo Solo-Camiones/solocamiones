@@ -5,10 +5,12 @@ import { businessDayRange } from '../payments/dates.js';
 import { formatConduceNumber, formatInvoiceNumber, formatQuoteNumber } from './constants.js';
 import type {
   CompleteInvoiceRecord,
+  ConvertConduceToInvoiceRecord,
   CreateDraftInvoiceRecord,
   CreateInvoiceLineRecord,
   InvoiceListRecord,
   InvoiceRecord,
+  IssueConduceRecord,
   IssueQuoteRecord,
   InvoiceSequenceRecord,
   ListInvoicesQuery,
@@ -58,6 +60,7 @@ function listInvoiceWhere(query: ListInvoicesQuery): Prisma.InvoiceWhereInput {
       OR: [
         { number: { contains: q, mode: 'insensitive' } },
         { quoteNumber: { contains: q, mode: 'insensitive' } },
+        { conduceNumber: { contains: q, mode: 'insensitive' } },
         { customerName: { contains: q, mode: 'insensitive' } },
         { customer: { name: { contains: q, mode: 'insensitive' } } },
       ],
@@ -71,7 +74,7 @@ function listInvoiceWhere(query: ListInvoicesQuery): Prisma.InvoiceWhereInput {
     // list useful without treating a draft creation date as an invoice issue date.
     clauses.push({
       OR: [
-        { status: { in: ['COMPLETED', 'CANCELLED'] }, confirmedAt: range },
+        { status: { in: ['COMPLETED', 'CANCELLED', 'CONDUCE'] }, confirmedAt: range },
         { status: 'QUOTE_ISSUED', quoteIssuedAt: range },
         { status: { in: ['DRAFT', 'QUOTE_DRAFT'] }, createdAt: range },
       ],
@@ -475,6 +478,51 @@ export class SalesRepository {
             data: { gross: line.gross, base: line.base, itbis: line.itbis },
           })),
         },
+      },
+      include: invoiceDetailInclude,
+    });
+  }
+
+  issueConduce(input: IssueConduceRecord): Promise<InvoiceRecord> {
+    return this.database.invoice.update({
+      where: { id: input.id },
+      data: {
+        status: 'CONDUCE',
+        // Conduce documents are never fiscal; fiscal is chosen again at invoice conversion.
+        fiscal: false,
+        conduceNumber: input.conduceNumber,
+        conduceIssuedAt: input.confirmedAt,
+        confirmedAt: input.confirmedAt,
+        dueDate: input.dueDate,
+        customerName: input.customerName,
+        customerRnc: input.customerRnc,
+        customerPhone: input.customerPhone,
+        snapshotCustomerType: input.snapshotCustomerType,
+        snapshotCreditTermDays: input.snapshotCreditTermDays,
+        confirmedByUserId: input.confirmedByUserId,
+        confirmedByName: input.confirmedByName,
+        gross: input.gross,
+        base: input.base,
+        itbis: input.itbis,
+        lines: {
+          update: input.lines.map((line) => ({
+            where: { id: line.id },
+            data: { gross: line.gross, base: line.base, itbis: line.itbis },
+          })),
+        },
+      },
+      include: invoiceDetailInclude,
+    });
+  }
+
+  convertConduceToInvoice(input: ConvertConduceToInvoiceRecord): Promise<InvoiceRecord> {
+    return this.database.invoice.update({
+      where: { id: input.id },
+      data: {
+        status: 'COMPLETED',
+        number: input.number,
+        invoiceIssuedAt: input.invoiceIssuedAt,
+        fiscal: input.fiscal,
       },
       include: invoiceDetailInclude,
     });

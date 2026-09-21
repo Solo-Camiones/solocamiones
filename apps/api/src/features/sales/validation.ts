@@ -17,6 +17,7 @@ export const invoiceStatusSchema = z.enum([
   'DRAFT',
   'QUOTE_DRAFT',
   'QUOTE_ISSUED',
+  'CONDUCE',
   'COMPLETED',
   'CANCELLED',
 ]);
@@ -221,6 +222,11 @@ export const confirmInvoiceSchema = z.strictObject({
       idempotencyKey: z.string().trim().min(1).max(100).optional(),
     })
     .optional(),
+});
+
+/** Convert conduce → invoice: fiscal choice is made here, not at conduce emission (CON-003). */
+export const convertConduceToInvoiceSchema = z.strictObject({
+  fiscal: z.boolean(),
 });
 
 export const addPaymentSchema = z.strictObject({

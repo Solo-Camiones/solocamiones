@@ -54,6 +54,26 @@ export async function postConvertQuote(req: Request, res: Response) {
   res.json(await salesServiceOf(req).convertQuote(actor(req), id(req), req.validated?.body ?? {}));
 }
 
+export async function postIssueConduce(req: Request, res: Response) {
+  res.json(await salesServiceOf(req).issueConduce(actor(req), id(req), req.validated?.body ?? {}));
+}
+
+export async function postConvertQuoteToConduce(req: Request, res: Response) {
+  res.json(
+    await salesServiceOf(req).convertQuoteToConduce(actor(req), id(req), req.validated?.body ?? {}),
+  );
+}
+
+export async function postConvertConduceToInvoice(req: Request, res: Response) {
+  res.json(
+    await salesServiceOf(req).convertConduceToInvoice(
+      actor(req),
+      id(req),
+      req.validated?.body ?? {},
+    ),
+  );
+}
+
 export async function getInvoices(req: Request, res: Response) {
   res.json(await salesServiceOf(req).list(actor(req), req.validated?.query));
 }
