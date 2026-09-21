@@ -12,7 +12,7 @@ import { UNDO_TOAST_DURATION_MS, UX_TERMS } from '../../shared/copy/glossary';
 import { Button, Card, Chip, ConfirmActionModal, Info, money, useObjectUrlState, useToast } from '../../shared/ui';
 import { AddLineModal } from './AddLineModal';
 import { AssemblyTree } from './AssemblyTree';
-import { ConfirmSaleModal } from './ConfirmSaleModal';
+import { ConfirmSaleModal, type ConfirmSaleMode } from './ConfirmSaleModal';
 import { DocumentPanel } from './DocumentPanel';
 import { EditLineModal, type PosLineManualPatch } from './EditLineModal';
 import { LINE_TYPE_LABELS } from './labels';
@@ -58,6 +58,7 @@ export function PosPage() {
   const [linePendingRemoval, setLinePendingRemoval] = useState<PosLineView | null>(null);
   const [discardPending, setDiscardPending] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [confirmMode, setConfirmMode] = useState<ConfirmSaleMode>('invoice');
   const [addError, setAddError] = useState<string | null>(null);
   const [editError, setEditError] = useState<string | null>(null);
   const [metaError, setMetaError] = useState<string | null>(null);
@@ -256,10 +257,23 @@ export function PosPage() {
                 disabled={pos.isMutating || draft.quoteExpired}
                 onClick={() => {
                   setOperationError(null);
+                  setConfirmMode('invoice');
                   setConfirmOpen(true);
                 }}
               >
                 Convertir a factura
+              </Button>
+              <Button
+                variant="secondary"
+                size="sm"
+                disabled={pos.isMutating || draft.quoteExpired}
+                onClick={() => {
+                  setOperationError(null);
+                  setConfirmMode('conduce');
+                  setConfirmOpen(true);
+                }}
+              >
+                Convertir a conduce
               </Button>
               <Button
                 variant="secondary"
@@ -459,10 +473,21 @@ export function PosPage() {
                   return;
                 }
                 setConfirmError(null);
+                setConfirmMode('invoice');
                 setConfirmOpen(true);
               }}
+              onIssueConduce={
+                isQuoteDraft
+                  ? undefined
+                  : () => {
+                      setConfirmError(null);
+                      setConfirmMode('conduce');
+                      setConfirmOpen(true);
+                    }
+              }
               onViewRequirements={handleViewRequirements}
-              confirmLabel={isQuoteDraft ? 'Emitir cotización' : 'Confirmar venta'}
+              confirmLabel={isQuoteDraft ? 'Emitir cotización' : 'Confirmar factura'}
+              conduceLabel="Emitir conduce"
               discardLabel={isQuoteDraft ? 'Descartar cotización' : 'Descartar borrador'}
             />
           )}
@@ -547,6 +572,7 @@ export function PosPage() {
       <ConfirmSaleModal
         open={confirmOpen}
         draft={draft}
+        mode={confirmMode}
         isConfirming={pos.isMutating}
         error={confirmError}
         onClose={() => {
@@ -555,14 +581,29 @@ export function PosPage() {
             setConfirmError(null);
           }
         }}
-        onConfirm={async (payment) => {
-          const operation = isIssuedQuote ? pos.convertQuote(payment) : pos.confirm(payment);
+        onConfirm={async (input) => {
+          const payment = input?.payment;
+          const operation =
+            confirmMode === 'conduce'
+              ? isIssuedQuote
+                ? pos.convertQuoteToConduce(input)
+                : pos.issueConduce(input)
+              : isIssuedQuote
+                ? pos.convertQuote(payment)
+                : pos.confirm(payment);
           const response = await operation;
           if (!response.ok) {
             setConfirmError(toPosUserMessage(response.error));
             return;
           }
           setConfirmOpen(false);
+          if (confirmMode === 'conduce') {
+            pushToast(
+              isIssuedQuote ? 'Cotización convertida a conduce' : 'Conduce emitido',
+              'success',
+            );
+            return;
+          }
           pushToast(isIssuedQuote ? 'Cotización convertida' : 'Venta confirmada', 'success');
         }}
       />
@@ -586,8 +627,10 @@ type PosCheckoutActionsProps = {
   blockedSummary: string | null;
   onDiscard: () => void;
   onConfirm: () => void;
+  onIssueConduce?: () => void;
   onViewRequirements: () => void;
   confirmLabel: string;
+  conduceLabel?: string;
   discardLabel: string;
 };
 
@@ -601,8 +644,10 @@ function PosCheckoutActions({
   blockedSummary,
   onDiscard,
   onConfirm,
+  onIssueConduce,
   onViewRequirements,
   confirmLabel,
+  conduceLabel,
   discardLabel,
 }: PosCheckoutActionsProps) {
   return (
@@ -618,15 +663,27 @@ function PosCheckoutActions({
           {discardLabel}
         </Button>
         <div className="flex flex-col items-end gap-1">
-          <Button
-            size="lg"
-            disabled={isMutating || confirmBlocked}
-            busy={isMutating}
-            aria-describedby={confirmBlocked ? 'pos-confirm-block-reason' : undefined}
-            onClick={onConfirm}
-          >
-            {confirmLabel}
-          </Button>
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            {onIssueConduce && conduceLabel && (
+              <Button
+                variant="secondary"
+                size="lg"
+                disabled={isMutating || confirmBlocked}
+                onClick={onIssueConduce}
+              >
+                {conduceLabel}
+              </Button>
+            )}
+            <Button
+              size="lg"
+              disabled={isMutating || confirmBlocked}
+              busy={isMutating}
+              aria-describedby={confirmBlocked ? 'pos-confirm-block-reason' : undefined}
+              onClick={onConfirm}
+            >
+              {confirmLabel}
+            </Button>
+          </div>
           {confirmBlocked && blockedSummary && (
             <div className="flex max-w-xs flex-wrap items-center justify-end gap-x-3 gap-y-1 text-sm text-amber-800">
               <span id="pos-confirm-block-reason">{blockedSummary}</span>

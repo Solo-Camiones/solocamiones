@@ -187,8 +187,11 @@ export function addPayment(state: AppState, actor: User, input: AddPaymentInput)
 
   const invoice = found.value;
 
-  if (invoice.status !== 'COMPLETED') {
-    return err({ code: 'VALIDATION', message: 'Solo se pueden registrar pagos en facturas completadas' });
+  if (invoice.status !== 'COMPLETED' && invoice.status !== 'CONDUCE') {
+    return err({
+      code: 'VALIDATION',
+      message: 'Solo se pueden registrar pagos en facturas o conduces reconocidos',
+    });
   }
 
   if (input.idempotencyKey) {
@@ -246,8 +249,11 @@ export function cancelInvoice(state: AppState, actor: User, input: CancelInvoice
   const invoice = found.value;
   const reason = input.reason.trim();
 
-  if (invoice.status !== 'COMPLETED') {
-    return err({ code: 'VALIDATION', message: 'Solo se pueden cancelar facturas completadas' });
+  if (invoice.status !== 'COMPLETED' && invoice.status !== 'CONDUCE') {
+    return err({
+      code: 'VALIDATION',
+      message: 'Solo se pueden cancelar facturas o conduces reconocidos',
+    });
   }
 
   if (!reason) {
@@ -259,26 +265,48 @@ export function cancelInvoice(state: AppState, actor: User, input: CancelInvoice
   if (inProgress.length > 0 && input.inProgressDecision == null) {
     return err({
       code: 'VALIDATION',
-      message: 'Debe elegir si detener el desarme en proceso o continuar el trabajo físico',
+      message: 'Debe elegir si detener el desarme en progreso o continuar el trabajo físico',
     });
   }
 
   let refund: Payment | undefined;
   const netReceived = roundMoney(invoicePaid(invoice) - invoiceRefunded(invoice));
 
-  // Cancellation refunds the complete net received in the same operation.
+  // CANCEL-002: Administrator indicates actual refund from zero through net collected.
+  let refundAmount = 0;
   if (netReceived > 0) {
+    if (input.refundAmount == null || !Number.isFinite(input.refundAmount)) {
+      return err({
+        code: 'VALIDATION',
+        message: 'Indique el monto de reembolso (0 hasta el neto cobrado)',
+      });
+    }
+    refundAmount = roundMoney(input.refundAmount);
+    if (refundAmount < 0 || refundAmount > netReceived) {
+      return err({
+        code: 'VALIDATION',
+        message: 'El reembolso debe estar entre 0 y el neto cobrado',
+      });
+    }
+  } else if (input.refundAmount != null && roundMoney(input.refundAmount) !== 0) {
+    return err({
+      code: 'VALIDATION',
+      message: 'El reembolso debe estar entre 0 y el neto cobrado',
+    });
+  }
+
+  if (refundAmount > 0) {
     if (!input.refundMethod) {
       return err({
         code: 'VALIDATION',
-        message: 'La cancelación requiere el método del reembolso neto total',
+        message: 'La cancelación requiere el método del reembolso cuando el monto es mayor que cero',
       });
     }
 
     refund = {
       id: nextNumericId(allPaymentIds(state), 'PAY-', 3),
       invoiceId: invoice.id,
-      amount: netReceived,
+      amount: refundAmount,
       method: input.refundMethod,
       createdAt: DEMO_NOW_ISO,
       kind: 'REFUND',
@@ -305,8 +333,8 @@ export function cancelInvoice(state: AppState, actor: User, input: CancelInvoice
   invoice.cancelReason = reason;
   invoice.paymentState = derivePaymentState(invoice);
 
-  const number = invoice.number ?? invoice.id;
-  appendEvent(state, 'INVOICE_CANCELLED', `Factura ${number} cancelada`, actor, {
+  const number = invoice.number ?? invoice.conduceNumber ?? invoice.id;
+  appendEvent(state, 'INVOICE_CANCELLED', `Operación ${number} cancelada`, actor, {
     invoiceId: invoice.id,
     reason,
     refundAmount: refund?.amount ?? 0,
@@ -393,11 +421,14 @@ export function correctCurrency(
 export {
   addDraftLine,
   confirmInvoice,
+  convertConduceToInvoice,
   convertQuote,
+  convertQuoteToConduce,
   createDraft,
   createQuote,
   duplicateQuote,
   discardDraft,
+  issueConduce,
   removeDraftLine,
   issueQuote,
   setDraftLinePrice,

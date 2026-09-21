@@ -31,6 +31,7 @@ const TABS: { id: SalesListTab; label: string }[] = [
   { id: 'DRAFT', label: 'Borrador' },
   { id: 'QUOTE_DRAFT', label: 'Cot. Borrador' },
   { id: 'QUOTE_ISSUED', label: 'Cot. Emitida' },
+  { id: 'CONDUCE', label: 'Conduce' },
   { id: 'COMPLETED', label: 'Completada' },
   { id: 'CANCELLED', label: 'Cancelada' },
 ];

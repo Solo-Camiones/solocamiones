@@ -49,10 +49,13 @@ import type {
   AddPaymentInput,
   CancelInvoiceInput,
   ConfirmInvoicePayment,
+  ConvertConduceToInvoiceInput,
   CorrectCurrencyInput,
   CreateDraftResult,
+  ConducePdfDownload,
   InvoiceDetailView,
   InvoicePdfDownload,
+  IssueConduceInput,
   QuotePdfDownload,
   AccountStatementPdfDownload,
   PosDraftView,
@@ -155,6 +158,7 @@ export type SalesRepository = {
   getInvoice(id: string): Promise<Result<InvoiceDetailView>>;
   getInvoicePdf(id: string): Promise<Result<InvoicePdfDownload>>;
   getQuotePdf(id: string): Promise<Result<QuotePdfDownload>>;
+  getConducePdf(id: string): Promise<Result<ConducePdfDownload>>;
   getAccountStatementPdf(customerId: string): Promise<Result<AccountStatementPdfDownload>>;
   listSellerSalesReport(filters: SellerSalesReportFilters): Promise<Result<SellerSalesReport>>;
   getSellerSalesReportPdf(
@@ -173,9 +177,15 @@ export type SalesRepository = {
   setLineQuantity(input: SetDraftLineQuantityInput): Promise<Result<PosDraftView>>;
   setDraftMeta(input: SetDraftMetaInput): Promise<Result<PosDraftView>>;
   confirmInvoice(draftId: string, payment?: ConfirmInvoicePayment): Promise<Result<PosDraftView>>;
+  issueConduce(draftId: string, input?: IssueConduceInput): Promise<Result<PosDraftView>>;
   issueQuote(draftId: string): Promise<Result<PosDraftView>>;
   duplicateQuote(quoteId: string): Promise<Result<CreateDraftResult>>;
   convertQuote(quoteId: string, payment?: ConfirmInvoicePayment): Promise<Result<PosDraftView>>;
+  convertQuoteToConduce(quoteId: string, input?: IssueConduceInput): Promise<Result<PosDraftView>>;
+  convertConduceToInvoice(
+    invoiceId: string,
+    input: ConvertConduceToInvoiceInput,
+  ): Promise<Result<InvoiceDetailView>>;
   discardDraft(draftId: string): Promise<Result<void>>;
 };
 

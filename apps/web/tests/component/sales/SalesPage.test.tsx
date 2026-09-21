@@ -69,14 +69,14 @@ describe('SalesPage', () => {
 
     renderWithProviders(<SalesPage />, { route: '/sales', auth: createAuthValue('SELLER') });
 
-    expect(await screen.findByText('Mostrando 1–10 de 13')).toBeVisible();
+    expect(await screen.findByText('Mostrando 1–10 de 14')).toBeVisible();
     expect(screen.getByRole('button', { name: 'Siguiente' })).toBeEnabled();
-    expect(screen.getAllByRole('link', { name: /FAC-|Borrador/ })).toHaveLength(10);
+    expect(screen.getAllByRole('link', { name: /FAC-|Borrador|CON-/ })).toHaveLength(10);
 
     await user.click(screen.getByRole('button', { name: 'Siguiente' }));
 
-    expect(await screen.findByText('Mostrando 11–13 de 13')).toBeVisible();
-    expect(screen.getAllByRole('link', { name: /FAC-|Borrador/ })).toHaveLength(3);
+    expect(await screen.findByText('Mostrando 11–14 de 14')).toBeVisible();
+    expect(screen.getAllByRole('link', { name: /FAC-|Borrador|CON-/ })).toHaveLength(4);
   });
 
   it('filters drafts in the Borrador tab', async () => {

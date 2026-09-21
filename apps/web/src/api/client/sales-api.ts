@@ -4,12 +4,15 @@ import type {
   AddPaymentInput,
   CancelInvoiceInput,
   ConfirmInvoicePayment,
+  ConvertConduceToInvoiceInput,
   CorrectCurrencyInput,
   CreateDraftResult,
   CustomerOutstandingRow,
+  ConducePdfDownload,
   InvoiceDetailView,
   InvoiceDocumentView,
   InvoicePdfDownload,
+  IssueConduceInput,
   QuotePdfDownload,
   SalesDocumentPdfDownload,
   AccountStatementPdfDownload,
@@ -85,12 +88,15 @@ type ApiHistoryEntry = {
 
 type ApiInvoice = {
   id: string;
-  status: 'DRAFT' | 'QUOTE_DRAFT' | 'QUOTE_ISSUED' | 'COMPLETED' | 'CANCELLED';
+  status: 'DRAFT' | 'QUOTE_DRAFT' | 'QUOTE_ISSUED' | 'CONDUCE' | 'COMPLETED' | 'CANCELLED';
   number: string | null;
   quoteNumber?: string | null;
   quoteIssuedAt?: string | null;
   quoteExpiresAt?: string | null;
   quoteExpired?: boolean;
+  conduceNumber?: string | null;
+  conduceIssuedAt?: string | null;
+  invoiceIssuedAt?: string | null;
   currency: 'DOP' | 'USD';
   fiscal: boolean;
   applyItbis: boolean;
@@ -194,12 +200,15 @@ function toPosDraft(
 
 function invoiceListNumber(item: ApiInvoiceListItem): string {
   if (item.number) return item.number;
+  if (item.conduceNumber) return item.conduceNumber;
   if (item.quoteNumber) return item.quoteNumber;
   return item.status === 'QUOTE_DRAFT'
     ? 'Cotización borrador'
     : item.status === 'DRAFT'
       ? 'Borrador'
-      : 'Factura';
+      : item.status === 'CONDUCE'
+        ? 'Conduce'
+        : 'Factura';
 }
 
 function invoiceHref(item: ApiInvoiceListItem): string {
@@ -217,6 +226,7 @@ function toSalesListRow(item: ApiInvoiceListItem): SalesListRow {
     id: item.id,
     number: invoiceListNumber(item),
     quoteNumber: optionalText(item.quoteNumber),
+    conduceNumber: optionalText(item.conduceNumber),
     status: item.status,
     customerId: item.customer.id,
     customerName: item.customer.name,
@@ -278,11 +288,18 @@ function toInvoiceDocument(
 function toInvoiceDetail(invoice: ApiInvoice): InvoiceDetailView {
   const total = moneyNumber(invoice.totals.gross);
   const document = toInvoiceDocument(invoice.document);
+  const openRecognized =
+    (invoice.status === 'COMPLETED' || invoice.status === 'CONDUCE') &&
+    invoice.balance != null &&
+    moneyNumber(invoice.balance) > 0;
 
   return {
     id: invoice.id,
     number: optionalText(invoice.number),
     quoteNumber: optionalText(invoice.quoteNumber),
+    conduceNumber: optionalText(invoice.conduceNumber),
+    conduceIssuedAt: optionalText(invoice.conduceIssuedAt),
+    invoiceIssuedAt: optionalText(invoice.invoiceIssuedAt),
     status: invoice.status,
     customerId: invoice.customer.id,
     customerName: invoice.customer.name,
@@ -340,15 +357,14 @@ function toInvoiceDetail(invoice: ApiInvoice): InvoiceDetailView {
     ...(invoice.refunded != null ? { refunded: moneyNumber(invoice.refunded) } : {}),
     ...(invoice.balance != null ? { balance: moneyNumber(invoice.balance) } : {}),
     actions: {
-      // HTTP mapper has no viewer role; InvoiceDetailPage requires ADMINISTRATOR.
-      canPay:
-        invoice.status === 'COMPLETED' &&
-        invoice.balance != null &&
-        moneyNumber(invoice.balance) > 0,
-      canCancel: invoice.status === 'COMPLETED',
+      // HTTP mapper has no viewer role; InvoiceDetailPage requires ADMINISTRATOR for pay.
+      canPay: openRecognized,
+      canCancel: invoice.status === 'COMPLETED' || invoice.status === 'CONDUCE',
       canCorrectCurrency: false,
-      canViewPdf: document?.status === 'READY',
-      canRegeneratePdf: document?.status === 'FAILED',
+      canViewPdf: Boolean(invoice.number) && document?.status === 'READY',
+      canViewConducePdf: Boolean(invoice.conduceNumber),
+      canConvertToInvoice: invoice.status === 'CONDUCE',
+      canRegeneratePdf: Boolean(invoice.number) && document?.status === 'FAILED',
     },
   };
 }
@@ -543,6 +559,10 @@ export function getQuotePdfWithHttp(id: string): Promise<Result<QuotePdfDownload
   return getSalesDocumentPdfWithHttp(id);
 }
 
+export function getConducePdfWithHttp(id: string): Promise<Result<ConducePdfDownload>> {
+  return request(() => httpClientBlob(`${SALES_PATH}/${id}/conduce.pdf`));
+}
+
 export function getAccountStatementPdfWithHttp(
   customerId: string,
 ): Promise<Result<AccountStatementPdfDownload>> {
@@ -616,6 +636,7 @@ export async function cancelInvoiceWithHttp(
       headers: CSRF_HEADERS,
       body: JSON.stringify({
         reason: input.reason,
+        ...(input.refundAmount != null ? { refundAmount: moneyString(input.refundAmount) } : {}),
         refundMethod: input.refundMethod,
         refundReference: input.refundReference,
         idempotencyKey: input.idempotencyKey,
@@ -759,6 +780,35 @@ export function confirmInvoiceWithHttp(
   );
 }
 
+function issueConduceBody(input?: IssueConduceInput): Record<string, unknown> {
+  const body: Record<string, unknown> = {};
+  if (input?.payment) {
+    body.payment = {
+      amount: moneyString(input.payment.amount),
+      method: input.payment.method,
+      reference: input.payment.reference,
+      idempotencyKey: input.payment.idempotencyKey,
+    };
+  }
+  if (input?.dueDate) {
+    body.dueDate = input.dueDate;
+  }
+  return body;
+}
+
+export function issueConduceWithHttp(
+  draftId: string,
+  input?: IssueConduceInput,
+): Promise<Result<PosDraftView>> {
+  return mutateDraft(() =>
+    httpClient<ApiInvoice>(`${SALES_PATH}/${draftId}/issue-conduce`, {
+      method: 'POST',
+      headers: CSRF_HEADERS,
+      body: JSON.stringify(issueConduceBody(input)),
+    }),
+  );
+}
+
 export function issueQuoteWithHttp(quoteId: string): Promise<Result<PosDraftView>> {
   return mutateDraft(() =>
     httpClient<ApiInvoice>(`${SALES_PATH}/${quoteId}/issue-quote`, {
@@ -793,6 +843,36 @@ export function convertQuoteWithHttp(
       ),
     }),
   );
+}
+
+export function convertQuoteToConduceWithHttp(
+  quoteId: string,
+  input?: IssueConduceInput,
+): Promise<Result<PosDraftView>> {
+  return mutateDraft(() =>
+    httpClient<ApiInvoice>(`${SALES_PATH}/${quoteId}/convert-quote-to-conduce`, {
+      method: 'POST',
+      headers: CSRF_HEADERS,
+      body: JSON.stringify(issueConduceBody(input)),
+    }),
+  );
+}
+
+export function convertConduceToInvoiceWithHttp(
+  invoiceId: string,
+  input: ConvertConduceToInvoiceInput,
+): Promise<Result<InvoiceDetailView>> {
+  return request(async () => {
+    const invoice = await httpClient<ApiInvoice>(
+      `${SALES_PATH}/${invoiceId}/convert-conduce-to-invoice`,
+      {
+        method: 'POST',
+        headers: CSRF_HEADERS,
+        body: JSON.stringify({ fiscal: input.fiscal }),
+      },
+    );
+    return toInvoiceDetail(invoice);
+  });
 }
 
 export function discardDraftWithHttp(draftId: string): Promise<Result<void>> {

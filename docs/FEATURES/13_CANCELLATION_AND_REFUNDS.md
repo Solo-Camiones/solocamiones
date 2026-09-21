@@ -14,7 +14,9 @@ The old consolidated requirements/validation files are intentionally no longer r
 
 **Refund policy amendment (2026-09-20, documentation):** Owner confirmed a **global** cancellation refund rule for Feature 16 / pre-production conduces work: Administrator indicates the actual money returned from **zero through net collected** (reject above net). Outstanding balance is extinguished on cancel. This supersedes the earlier “mandatory full-net refund” wording for all cancellable commercial operations (invoice-only and conduce / `CON-+FAC-`).
 
-**Runtime (2026-09-20, M4):** `POST /api/sales/:id/cancel` accepts optional `refundAmount` (required when net collected &gt; 0), rejects amounts above net, requires `refundMethod` when refund &gt; 0, and cancels `COMPLETED` or `CONDUCE`. UI still lands in Feature 16 M7.
+**Runtime (2026-09-20, M4):** `POST /api/sales/:id/cancel` accepts optional `refundAmount` (required when net collected &gt; 0), rejects amounts above net, requires `refundMethod` when refund &gt; 0, and cancels `COMPLETED` or `CONDUCE`.
+
+**UI (2026-09-21, M7):** `CancelInvoiceModal` defaults the refund amount to net collected and lets the Administrator edit 0…neto before submit; HTTP client sends `refundAmount`.
 
 ## What this feature does
 

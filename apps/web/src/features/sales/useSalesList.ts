@@ -12,6 +12,7 @@ export const SALES_LIST_TABS: SalesListTab[] = [
   'DRAFT',
   'QUOTE_DRAFT',
   'QUOTE_ISSUED',
+  'CONDUCE',
   'COMPLETED',
   'CANCELLED',
 ];

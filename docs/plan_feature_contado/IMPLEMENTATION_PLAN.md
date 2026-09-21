@@ -27,7 +27,7 @@
 | M4 | Pagos, vencimiento, CxC y cancelación | Completado localmente (2026-09-20) |
 | M5 | PDFs y fiscalidad manual | Completado localmente (2026-09-20) |
 | M6 | Reportes, rentabilidad e historial | Completado localmente (2026-09-21) |
-| M7 | Integración web y mocks | Pendiente |
+| M7 | Integración web y mocks | Completado localmente (2026-09-21) |
 | M8 | Estabilización y exit gate preproducción | Pendiente |
 
 ---
@@ -400,6 +400,18 @@ Cuando ITEM/QTY exista: emitir consume/reserva→vendido; cancelar restaura una 
 
 **Objetivo:** Exponer el flujo completo en la aplicación sin mover reglas de negocio al frontend.
 
+**Estado:** Completado localmente — 2026-09-21  
+**Alcance:** Contratos web, POS dual factura/conduce, detalle (PDF/facturar/pago/cancel), tab Conduce, mocks CON-002/CANCEL-002 + seed `CON-000001`. CxC filtro UI diferido (decisión owner). Walkthrough HTTP vivo pendiente de reset autorizado de `solocamiones_test` o recorrido manual.
+
+### Decisiones owner (2026-09-21)
+
+1. Tab dedicado **Conduce** en listado de ventas.
+2. Tras emitir conduce → navegar a `/sales/:id`.
+3. Cancel: `refundAmount` default = neto cobrado, editable 0…neto.
+4. CxC UI (filtro `CON-`) **fuera** de M7.
+5. Seed mock con al menos un conduce.
+6. Walkthrough HTTP documentado; suite API integration requiere consentimiento de reset.
+
 ### Cambios web
 
 - Extender contratos con:
@@ -427,23 +439,33 @@ Cuando ITEM/QTY exista: emitir consume/reserva→vendido; cancelar restaura una 
 - Mantener el detalle comercial inmutable después de emitir.
 - Actualizar mocks con las mismas reglas y contratos HTTP.
 
-### Pruebas
+### Implementación
 
-- Componentes por rol.
-- Formularios de pago y vencimiento.
-- Flujos borrador/cotización/conduce/factura.
-- Acceso negativo a pagos y cancelación.
-- Listados, filtros, toasts y estados de carga/error.
-- Paridad básica entre mock y HTTP.
+| Artefacto | Detalle |
+|---|---|
+| Contratos / repository | `IssueConduceInput`, `getConducePdf`, issue/convert methods, tab `CONDUCE`, detail actions |
+| HTTP client | Map `CONDUCE` fields/actions; `/issue-conduce`, `/convert-quote-to-conduce`, `/convert-conduce-to-invoice`, `/conduce.pdf`; cancel envía `refundAmount` |
+| POS | `ConfirmSaleModal` mode invoice/conduce (CON-002 dueDate); dual CTAs; navigate to detail tras emitir |
+| Detalle | PDF conduce, Facturar (`ConvertConduceModal`), pago/cancel Admin; orígenes CON-/COT- |
+| Cancel UI | `refundAmount` 0…neto (CANCEL-002) |
+| Listados | Tab Conduce; `InvoiceStatusChip`; número primario FAC- > CON- > COT- |
+| Mocks | `issueConduce` / convert / PDF stub; cancel 0…neto; `invoiceBalance` reconoce CONDUCE; seed `INV-CON-01` / `CON-000001` |
+
+### Verificación
+
+- Web typecheck: OK.
+- Vitest web (sales components + HTTP client + mock repos + conduce POS commands): **passed**.
+- API integration conduce HTTP: **no ejecutada** en este cierre — `vitest` integration dispara `prisma migrate reset` sobre `solocamiones_test` y requiere consentimiento explícito del owner.
 
 ### Documentación al cerrar
 
-- Actualizar el estado de M7 y los criterios UI de Feature 16.
-- Registrar pantallas, contratos y recorridos verificados.
-- Documentar diferencias intencionales entre mocks y capacidades productivas futuras.
-- Anotar evidencia del walkthrough HTTP por cada rol.
+- Actualizar el estado de M7 y los criterios UI de Feature 16. **Hecho.**
+- Feature 13: UI cancel con `refundAmount`. **Hecho.**
+- Registrar pantallas, contratos y recorridos verificados. **Hecho (arriba).**
+- Diferencias intencionales mock vs productivo: PDF mock es blob `%PDF-1.4 mock …` (sin layout real); seller-sales report sigue no implementado en mock.
+- Walkthrough HTTP vivo: pendiente (ver gate).
 
-**Gate:** Administrador y Vendedor completan sus recorridos autorizados usando HTTP real.
+**Gate:** Administrador y Vendedor completan sus recorridos autorizados usando HTTP real. **UI + mocks + contratos HTTP listos (2026-09-21).** Pendiente evidencia walkthrough contra API en ejecución (o consentimiento para reset de `solocamiones_test`).
 
 ---
 

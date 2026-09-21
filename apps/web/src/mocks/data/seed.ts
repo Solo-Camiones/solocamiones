@@ -564,6 +564,50 @@ export function createInitialState(): AppState {
       createdAt: ISO('2026-08-22T15:45:00.000Z'),
       confirmedAt: ISO('2026-08-22T15:50:00.000Z'),
     },
+    {
+      id: 'INV-CON-01',
+      conduceNumber: 'CON-000001',
+      conduceIssuedAt: ISO('2026-08-24T11:00:00.000Z'),
+      status: 'CONDUCE' as const,
+      customerId: 'C2',
+      customerSnapshot: {
+        name: 'Logística Norte SA',
+        rnc: '101-98765-4',
+        customerType: 'CASH' as const,
+      },
+      currency: 'DOP' as const,
+      fiscal: false,
+      applyItbis: true,
+      lines: [
+        {
+          id: 'L-CON-1',
+          type: 'GENERIC' as const,
+          description: 'Filtro de aire industrial',
+          quantity: 1,
+          unitPrice: 12_000,
+          taxable: true,
+          base: 10_169.49,
+          itbis: 1_830.51,
+          gross: 12_000,
+        },
+      ],
+      payments: [
+        {
+          id: 'P-CON-1',
+          invoiceId: 'INV-CON-01',
+          amount: 4_000,
+          method: 'TRANSFER' as const,
+          idempotencyKey: 'confirm:INV-CON-01',
+          effectiveDate: '2026-08-24',
+          createdAt: ISO('2026-08-24T11:00:00.000Z'),
+          actorId: 'U-ADMIN',
+        },
+      ],
+      paymentState: 'PARTIALLY_PAID' as const,
+      dueDate: '2026-09-07',
+      createdAt: ISO('2026-08-24T10:50:00.000Z'),
+      confirmedAt: ISO('2026-08-24T11:00:00.000Z'),
+    },
   ];
 
   const workOrders = [
@@ -639,17 +683,12 @@ export function createInitialState(): AppState {
       createdAt: ISO('2026-08-25T11:00:00.000Z'),
     },
     {
-      id: 'EV-004',
-      type: 'DISMANTLING_COMPLETED',
-      description:
-        'ALT-010 retirado de MOT-002 (OD-DEMO-063). Queda independiente; el motor registra el faltante.',
-      actorId: 'U-CARLOS',
-      createdAt: ISO('2026-08-18T12:00:00.000Z'),
-      metadata: {
-        itemId: 'ALT-010',
-        parentId: 'MOT-002',
-        workOrderId: 'OD-DEMO-063',
-      },
+      id: 'EV-005',
+      type: 'CONDUCE_ISSUED',
+      description: 'Conduce CON-000001 emitido',
+      actorId: 'U-ADMIN',
+      createdAt: ISO('2026-08-24T11:00:00.000Z'),
+      metadata: { invoiceId: 'INV-CON-01', conduceNumber: 'CON-000001' },
     },
   ];
 
@@ -669,6 +708,7 @@ export function createInitialState(): AppState {
     fxRateDopPerUsd: 61.5,
     facSeq: 100,
     cotSeq: 1,
+    conSeq: 2,
     itemCodeSeq: buildItemCodeSeq(
       categories,
       items.map((item) => item.id),

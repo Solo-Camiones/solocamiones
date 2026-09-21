@@ -6,11 +6,14 @@ import {
   addDraftLine,
   cancelInvoice,
   confirmInvoice,
+  convertConduceToInvoice,
   convertQuote,
+  convertQuoteToConduce,
   createDraft,
   createQuote,
   discardDraft,
   duplicateQuote,
+  issueConduce,
   issueQuote,
   setDraftLinePrice,
   setDraftMeta,
@@ -867,5 +870,96 @@ describe('POS draft commands', () => {
 
     expect(buildPosDraftView(state, quote).quoteExpired).toBe(false);
     expect(toSalesListRow(state, quote).quoteExpired).toBe(false);
+  });
+});
+
+describe('conduce POS commands (CON-001..CON-003)', () => {
+  it('issues a conduce with CON- without assigning FAC-', () => {
+    const state = createInitialState();
+    const created = createDraft(state, seller);
+    expect(created.ok).toBe(true);
+    if (!created.ok) return;
+    const draftId = created.value.draftId;
+    expect(
+      addDraftLine(state, seller, {
+        draftId,
+        type: 'GENERIC',
+        description: 'Filtro conduce',
+        unitPrice: 1_000,
+      }).ok,
+    ).toBe(true);
+    expect(setDraftMeta(state, seller, { draftId, customerId: 'C0' }).ok).toBe(true);
+
+    const issued = issueConduce(state, seller, draftId, {
+      payment: { amount: 1_000, method: 'CASH' },
+    });
+    expect(issued.ok).toBe(true);
+    const invoice = state.invoices.find((entry) => entry.id === draftId)!;
+    expect(invoice.status).toBe('CONDUCE');
+    expect(invoice.conduceNumber).toBe('CON-000002');
+    expect(invoice.number).toBeUndefined();
+    expect(invoice.fiscal).toBe(false);
+  });
+
+  it('allows Admin named-CASH balance with dueDate and converts to invoice', () => {
+    const state = createInitialState();
+    const created = createDraft(state, admin);
+    expect(created.ok).toBe(true);
+    if (!created.ok) return;
+    const draftId = created.value.draftId;
+    expect(
+      addDraftLine(state, admin, {
+        draftId,
+        type: 'GENERIC',
+        description: 'Repuesto',
+        unitPrice: 2_000,
+      }).ok,
+    ).toBe(true);
+    expect(setDraftMeta(state, admin, { draftId, customerId: 'C2' }).ok).toBe(true);
+
+    const issued = issueConduce(state, admin, draftId, {
+      payment: { amount: 500, method: 'TRANSFER' },
+      dueDate: '2026-09-15',
+    });
+    expect(issued.ok).toBe(true);
+    const conduce = state.invoices.find((entry) => entry.id === draftId)!;
+    expect(conduce.status).toBe('CONDUCE');
+    expect(conduce.dueDate).toBe('2026-09-15');
+    expect(invoiceBalance(conduce)).toBe(1_500);
+
+    const converted = convertConduceToInvoice(state, seller, draftId, true);
+    expect(converted.ok).toBe(true);
+    expect(conduce.status).toBe('COMPLETED');
+    expect(conduce.number).toMatch(/^FAC-/);
+    expect(conduce.conduceNumber).toBeTruthy();
+    expect(conduce.fiscal).toBe(true);
+    expect(invoiceBalance(conduce)).toBe(1_500);
+  });
+
+  it('converts an issued quote to conduce', () => {
+    const state = createInitialState();
+    const created = createQuote(state, seller);
+    expect(created.ok).toBe(true);
+    if (!created.ok) return;
+    const quoteId = created.value.draftId;
+    expect(setDraftMeta(state, seller, { draftId: quoteId, customerId: 'C0' }).ok).toBe(true);
+    expect(
+      addDraftLine(state, seller, {
+        draftId: quoteId,
+        type: 'GENERIC',
+        description: 'Cot a conduce',
+        unitPrice: 800,
+      }).ok,
+    ).toBe(true);
+    expect(issueQuote(state, seller, quoteId).ok).toBe(true);
+
+    const converted = convertQuoteToConduce(state, seller, quoteId, {
+      payment: { amount: 800, method: 'CASH' },
+    });
+    expect(converted.ok).toBe(true);
+    const invoice = state.invoices.find((entry) => entry.id === quoteId)!;
+    expect(invoice.status).toBe('CONDUCE');
+    expect(invoice.quoteNumber).toMatch(/^COT-/);
+    expect(invoice.conduceNumber).toMatch(/^CON-/);
   });
 });

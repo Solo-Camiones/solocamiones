@@ -20,7 +20,7 @@ If another retained document conflicts with a requirement block below, update th
 
 **Required before the first production release** (pre-production gate amendment, 2026-09-20). Sequenced as milestones M2–M8 in `docs/plan_feature_contado/IMPLEMENTATION_PLAN.md` after this documentation milestone (M1).
 
-**Implementation:** M2 domain/migration, M3 emission/conversion API, M4 payments/CxC/cancellation, M5 conduce/invoice PDFs (CON-004), and M6 profitability/FX/reports/history (CON-006) are in the sales/profitability modules. Web POS/UI for conduce remains M7. Existing direct invoice confirmation, quotes, and payments remain as Features 08/10/12/13 except where CON-* already amended runtime.
+**Implementation:** M2–M6 cover API domain, emission/conversion, payments/CxC/cancellation, PDFs, and profitability/FX/reports/history. **M7 (2026-09-21):** web contracts, POS dual factura/conduce, detalle (PDF/facturar/pago/cancel), tab Conduce, mocks CON-002/CANCEL-002 + seed `CON-000001`; live HTTP walkthrough still pending authorized `solocamiones_test` reset or manual app run. Existing direct invoice confirmation, quotes, and payments remain as Features 08/10/12/13 except where CON-* already amended runtime.
 
 ## What this feature does
 
@@ -168,8 +168,10 @@ Direct invoice confirmation does **not** use the Administrator named-`CASH` bala
 
 ### Web and mocks (M7)
 
-- [ ] Draft/quote/conduce actions, labels, filters, and role-gated payment/cancel UI (CON-001..CON-005 UI).
-- [ ] Mock parity with HTTP contracts (CON-*).
+- [x] Draft/quote/conduce actions, labels, filters, and role-gated payment/cancel UI (CON-001..CON-005 UI). _(2026-09-21)_
+- [x] Mock parity with HTTP contracts (CON-*). _(2026-09-21)_
+- [x] Cancellation UI indicates refund amount zero through net collected (CANCEL-002). _(2026-09-21)_
+- [ ] Live HTTP walkthrough Admin/Seller against running API (requires authorized reset of `solocamiones_test` or manual app walkthrough).
 
 ### Stabilization (M8)
 

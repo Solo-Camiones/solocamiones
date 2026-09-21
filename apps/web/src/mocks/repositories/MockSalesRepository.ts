@@ -1,31 +1,22 @@
 import type { SalesRepository } from '../../api/contracts/repositories';
 import { toListPage } from '../../api/contracts/pagination';
 import { businessDateFromTimestamp } from '../../api/client/profitability-series';
-import type {
-  AddDraftLineInput,
-  AddPaymentInput,
-  CancelInvoiceInput,
-  ConfirmInvoicePayment,
-  CorrectCurrencyInput,
-  RemoveDraftLineInput,
-  SalesListTab,
-  SetDraftLinePriceInput,
-  SetDraftLineQuantityInput,
-  SetDraftMetaInput,
-} from '../../api/contracts/sales';
 import { err, ok } from '../../shared/auth/types';
 import {
   addDraftLine,
   addPayment,
   cancelInvoice,
   confirmInvoice,
+  convertConduceToInvoice,
   convertQuote,
+  convertQuoteToConduce,
   correctCurrency,
   createDraft,
   createQuote,
   duplicateQuote,
   discardDraft,
   removeDraftLine,
+  issueConduce,
   issueQuote,
   setDraftLinePrice,
   setDraftLineQuantity,
@@ -35,6 +26,20 @@ import { buildInvoiceDetail, buildReceivables, buildSalesList } from '../service
 import { buildPosDraftView } from '../services/sales-draft';
 import { requireAdministrator, requirePermission } from '../services/require-permission';
 import { cloneForRead, getMockState } from '../state';
+import type {
+  AddDraftLineInput,
+  AddPaymentInput,
+  CancelInvoiceInput,
+  ConfirmInvoicePayment,
+  ConvertConduceToInvoiceInput,
+  CorrectCurrencyInput,
+  IssueConduceInput,
+  RemoveDraftLineInput,
+  SalesListTab,
+  SetDraftLinePriceInput,
+  SetDraftLineQuantityInput,
+  SetDraftMetaInput,
+} from '../../api/contracts/sales';
 
 export class MockSalesRepository implements SalesRepository {
   async listInvoices(
@@ -113,6 +118,25 @@ export class MockSalesRepository implements SalesRepository {
     return ok({
       blob: new Blob(['%PDF-1.4 mock quote'], { type: 'application/pdf' }),
       filename: `${invoice.quoteNumber}.pdf`,
+    });
+  }
+
+  async getConducePdf(id: string) {
+    const permission = requirePermission('sales.manage');
+    if (!permission.ok) return permission;
+    const invoice = getMockState().invoices.find((entry) => entry.id === id);
+    if (!invoice) {
+      return err({ code: 'NOT_FOUND', message: 'Conduce no encontrado' });
+    }
+    if (!invoice.conduceNumber) {
+      return err({
+        code: 'CONFLICT',
+        message: 'El PDF de conduce solo está disponible cuando existe CON-',
+      });
+    }
+    return ok({
+      blob: new Blob(['%PDF-1.4 mock conduce'], { type: 'application/pdf' }),
+      filename: `${invoice.conduceNumber}.pdf`,
     });
   }
 
@@ -313,6 +337,14 @@ export class MockSalesRepository implements SalesRepository {
     return ok(cloneForRead(buildPosDraftView(getMockState(), result.value)));
   }
 
+  async issueConduce(draftId: string, input?: IssueConduceInput) {
+    const permission = requirePermission('sales.manage');
+    if (!permission.ok) return permission;
+    const result = issueConduce(getMockState(), permission.value, draftId, input);
+    if (!result.ok) return result;
+    return ok(cloneForRead(buildPosDraftView(getMockState(), result.value)));
+  }
+
   async issueQuote(draftId: string) {
     const permission = requirePermission('sales.manage');
     if (!permission.ok) return permission;
@@ -333,6 +365,27 @@ export class MockSalesRepository implements SalesRepository {
     const result = convertQuote(getMockState(), permission.value, quoteId, payment);
     if (!result.ok) return result;
     return ok(cloneForRead(buildPosDraftView(getMockState(), result.value)));
+  }
+
+  async convertQuoteToConduce(quoteId: string, input?: IssueConduceInput) {
+    const permission = requirePermission('sales.manage');
+    if (!permission.ok) return permission;
+    const result = convertQuoteToConduce(getMockState(), permission.value, quoteId, input);
+    if (!result.ok) return result;
+    return ok(cloneForRead(buildPosDraftView(getMockState(), result.value)));
+  }
+
+  async convertConduceToInvoice(invoiceId: string, input: ConvertConduceToInvoiceInput) {
+    const permission = requirePermission('sales.manage');
+    if (!permission.ok) return permission;
+    const result = convertConduceToInvoice(
+      getMockState(),
+      permission.value,
+      invoiceId,
+      input.fiscal,
+    );
+    if (!result.ok) return result;
+    return ok(cloneForRead(buildInvoiceDetail(getMockState(), result.value, permission.value)));
   }
 
   async discardDraft(draftId: string) {

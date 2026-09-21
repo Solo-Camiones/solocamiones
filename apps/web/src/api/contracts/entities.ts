@@ -315,6 +315,8 @@ export type AppState = {
   facSeq: number;
   /** Next unused public quote number (COT-000001). */
   cotSeq?: number;
+  /** Next unused public conduce number (CON-000001). */
+  conSeq?: number;
   /** Next unused number per category id for individually tracked item codes. */
   itemCodeSeq: Record<string, number>;
 };

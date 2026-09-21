@@ -94,7 +94,7 @@ describe('PosPage', () => {
 
     const addLine = screen.getByRole('button', { name: 'Agregar línea' });
     const discardDraft = screen.getByRole('button', { name: 'Descartar borrador' });
-    const confirmSale = screen.getByRole('button', { name: 'Confirmar venta' });
+    const confirmSale = screen.getByRole('button', { name: 'Confirmar factura' });
     expect(addLine.className).toEqual(expect.stringContaining('text-sm'));
     expect(discardDraft.className).toEqual(expect.stringContaining('text-sm'));
     expect(addLine.className).toEqual(expect.stringContaining('min-h-11'));
@@ -155,7 +155,7 @@ describe('PosPage', () => {
     expect(screen.getByRole('option', { name: 'Mercancía genérica' })).toBeVisible();
 
     await user.click(screen.getByRole('button', { name: 'Cancelar' }));
-    await user.click(screen.getByRole('button', { name: 'Confirmar venta' }));
+    await user.click(screen.getByRole('button', { name: 'Confirmar factura' }));
     expect(screen.queryByLabelText('Pago inicial')).not.toBeInTheDocument();
     expect(screen.queryByText(/orden de desmonte pendiente/i)).not.toBeInTheDocument();
   });
@@ -234,11 +234,11 @@ describe('PosPage', () => {
     renderPos();
     await screen.findByText('Alternador 24V');
 
-    await user.click(screen.getByRole('button', { name: 'Confirmar venta' }));
+    await user.click(screen.getByRole('button', { name: 'Confirmar factura' }));
     expect(screen.getByText('Revisa los datos antes de emitir la factura.')).toBeVisible();
     expect(screen.getByText('Comprobante fiscal')).toBeVisible();
-    const confirmButtons = screen.getAllByRole('button', { name: 'Confirmar venta' });
-    await user.click(confirmButtons[confirmButtons.length - 1]);
+    const dialog = await screen.findByRole('dialog', { name: 'Confirmar venta' });
+    await user.click(within(dialog).getByRole('button', { name: 'Confirmar venta' }));
 
     expect(await screen.findByText('Venta confirmada')).toBeVisible();
     expect(screen.getByText(/Orden de desmonte: OD-DEMO-064/)).toBeVisible();
@@ -262,7 +262,7 @@ describe('PosPage', () => {
     await user.click(within(addDialog).getByRole('button', { name: 'Agregar' }));
     expect(await screen.findByText('Filtro contado')).toBeVisible();
 
-    await user.click(screen.getByRole('button', { name: 'Confirmar venta' }));
+    await user.click(screen.getByRole('button', { name: 'Confirmar factura' }));
     const dialog = await screen.findByRole('dialog', { name: 'Confirmar venta' });
     expect(screen.getByText(/Los clientes de contado y las facturas en USD/)).toBeVisible();
     const amount = screen.getByLabelText('Monto');
@@ -286,11 +286,11 @@ describe('PosPage', () => {
     );
     await screen.findByText('Alternador 24V');
 
-    await user.click(screen.getByRole('button', { name: 'Confirmar venta' }));
+    await user.click(screen.getByRole('button', { name: 'Confirmar factura' }));
     expect(screen.getByText(/El Administrador registra el pago/)).toBeVisible();
     expect(screen.queryByLabelText('Pago inicial')).not.toBeInTheDocument();
-    const confirmButtons = screen.getAllByRole('button', { name: 'Confirmar venta' });
-    await user.click(confirmButtons[confirmButtons.length - 1]);
+    const dialog = await screen.findByRole('dialog', { name: 'Confirmar venta' });
+    await user.click(within(dialog).getByRole('button', { name: 'Confirmar venta' }));
 
     expect(await screen.findByText('Venta confirmada')).toBeVisible();
   });
@@ -367,7 +367,7 @@ describe('PosPage', () => {
     const user = userEvent.setup();
     renderPos(created.value.draftId);
 
-    expect(await screen.findByRole('button', { name: 'Confirmar venta' })).toBeDisabled();
+    expect(await screen.findByRole('button', { name: 'Confirmar factura' })).toBeDisabled();
     expect(
       screen.getByText('Agregue al menos una línea', { selector: '#pos-confirm-block-reason' }),
     ).toBeVisible();
