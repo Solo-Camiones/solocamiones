@@ -332,6 +332,7 @@ function toInvoiceDetail(invoice: ApiInvoice): InvoiceDetailView {
       reference: optionalText(payment.reference),
       actorName: payment.actorName,
     })),
+    discount: moneyNumber(invoice.totals.discount ?? '0'),
     total,
     createdAt: invoice.createdAt,
     confirmedAt: optionalText(invoice.confirmedAt),

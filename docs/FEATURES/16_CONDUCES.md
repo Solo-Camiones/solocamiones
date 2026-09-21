@@ -171,11 +171,11 @@ Direct invoice confirmation does **not** use the Administrator named-`CASH` bala
 - [x] Draft/quote/conduce actions, labels, filters, and role-gated payment/cancel UI (CON-001..CON-005 UI). _(2026-09-21)_
 - [x] Mock parity with HTTP contracts (CON-*). _(2026-09-21)_
 - [x] Cancellation UI indicates refund amount zero through net collected (CANCEL-002). _(2026-09-21)_
-- [ ] Live HTTP walkthrough Admin/Seller against running API (requires authorized reset of `solocamiones_test` or manual app walkthrough).
+- [x] Live HTTP walkthrough Admin/Seller against running API. _(Owner browser walkthrough OK, 2026-09-21.)_
 
 ### Stabilization (M8)
 
-- [ ] Migration, suites, walkthroughs, and pre-production gate evidence for conduces.
+- [x] Migration, suites, walkthroughs, and pre-production gate evidence for conduces. _(M8 Completado localmente 2026-09-21; `Verificado` / firma release pendiente.)_
 
 ## Canonical validated requirements
 

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, it } from 'vitest';
 
@@ -48,6 +48,40 @@ const ISSUED_QUOTE: SalesListRow = {
   createdAt: '2026-09-10T10:00:00.000Z',
   quoteIssuedAt: '2026-09-15T14:00:00.000Z',
   href: '/sales/INV-3',
+};
+
+const INVOICE_FROM_CONDUCE: SalesListRow = {
+  id: 'INV-5',
+  number: 'FAC-000010',
+  quoteNumber: 'COT-000010',
+  conduceNumber: 'CON-000010',
+  status: 'COMPLETED',
+  customerId: 'CUST-1',
+  customerName: 'Transportes del Caribe',
+  currency: 'DOP',
+  fiscal: false,
+  total: 9200,
+  createdAt: '2026-09-10T10:00:00.000Z',
+  confirmedAt: '2026-09-16T12:00:00.000Z',
+  href: '/sales/INV-5',
+};
+
+const ACTIVE_CONDUCE: SalesListRow = {
+  id: 'INV-6',
+  number: 'CON-000011',
+  quoteNumber: 'COT-000011',
+  conduceNumber: 'CON-000011',
+  status: 'CONDUCE',
+  customerId: 'CUST-1',
+  customerName: 'Transportes del Caribe',
+  currency: 'DOP',
+  fiscal: false,
+  total: 7100,
+  balance: 3100,
+  paymentState: 'PARTIALLY_PAID',
+  createdAt: '2026-09-10T10:00:00.000Z',
+  confirmedAt: '2026-09-16T15:00:00.000Z',
+  href: '/sales/INV-6',
 };
 
 const UNCONFIRMED_DRAFT: SalesListRow = {
@@ -105,5 +139,54 @@ describe('SalesTable', () => {
     );
 
     expect(screen.getByText('—')).toBeVisible();
+  });
+
+  it('shows CON- and COT- origins under FAC- when the invoice came from a conduce', () => {
+    render(
+      <MemoryRouter>
+        <SalesTable rows={[INVOICE_FROM_CONDUCE]} />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByText('FAC-000010')).toBeVisible();
+    expect(screen.getByText('Origen CON-000010')).toBeVisible();
+    expect(screen.getByText('Origen COT-000010')).toBeVisible();
+  });
+
+  it('shows COT- origin under an active conduce without repeating CON- as origin', () => {
+    render(
+      <MemoryRouter>
+        <SalesTable rows={[ACTIVE_CONDUCE]} />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByText('CON-000011')).toBeVisible();
+    expect(screen.getByText('Origen COT-000011')).toBeVisible();
+    expect(screen.queryByText('Origen CON-000011')).not.toBeInTheDocument();
+  });
+
+  it('shows payment state and balance for conduces when settlement columns are enabled', () => {
+    render(
+      <MemoryRouter>
+        <SalesTable rows={[ACTIVE_CONDUCE]} showPaymentSettlement />
+      </MemoryRouter>,
+    );
+
+    const row = screen.getByText('CON-000011').closest('tr');
+    expect(row).not.toBeNull();
+    expect(within(row!).getByText('Abonado')).toBeVisible();
+    expect(within(row!).getByText(/3[,.]100/)).toBeVisible();
+  });
+
+  it('hides payment settlement cells for conduces when settlement columns are off', () => {
+    render(
+      <MemoryRouter>
+        <SalesTable rows={[ACTIVE_CONDUCE]} />
+      </MemoryRouter>,
+    );
+
+    expect(screen.queryByRole('columnheader', { name: 'Pago' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('columnheader', { name: 'Saldo' })).not.toBeInTheDocument();
+    expect(screen.queryByText('Abonado')).not.toBeInTheDocument();
   });
 });

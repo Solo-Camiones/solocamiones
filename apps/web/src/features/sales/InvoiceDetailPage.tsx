@@ -219,7 +219,7 @@ export function InvoiceDetailPage() {
                   setPayOpen(true);
                 }}
               >
-                Confirmar pago
+                Registrar pago
               </Button>
             )}
             {detail.actions.canCorrectCurrency && can(user, 'sales.correctCurrency') && (
@@ -264,11 +264,29 @@ export function InvoiceDetailPage() {
         <Chip>{detail.currency}</Chip>
       </div>
 
-      <div className={`mb-8 grid gap-4 ${canViewPaymentSettlement ? 'sm:grid-cols-3' : ''}`}>
+      <div
+        className={`mb-8 grid gap-4 ${
+          canViewPaymentSettlement
+            ? detail.discount > 0
+              ? 'sm:grid-cols-2 lg:grid-cols-4'
+              : 'sm:grid-cols-3'
+            : detail.discount > 0
+              ? 'sm:grid-cols-2'
+              : ''
+        }`}
+      >
         <Card>
           <p className="text-xs font-medium uppercase tracking-wide text-navy-400">Total</p>
           <p className="mt-1 font-mono text-xl text-navy">{money(detail.total, detail.currency)}</p>
         </Card>
+        {detail.discount > 0 ? (
+          <Card>
+            <p className="text-xs font-medium uppercase tracking-wide text-navy-400">Descuento</p>
+            <p className="mt-1 font-mono text-xl text-navy">
+              {detail.discountPercent}% (−{money(detail.discount, detail.currency)})
+            </p>
+          </Card>
+        ) : null}
         {canViewPaymentSettlement ? (
           <>
             <Card>

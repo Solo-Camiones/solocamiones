@@ -1135,6 +1135,7 @@ describe('HTTP sales draft contract', () => {
         customerName: 'Snapshot',
         customerRnc: '131098765',
         currency: 'USD',
+        discount: 0,
         total: 118,
         balance: 118,
         lines: [{ description: 'Filtro', itbis: 18, gross: 118 }],
@@ -1172,6 +1173,29 @@ describe('HTTP sales draft contract', () => {
         source: 'CALCULATED',
       });
     }
+  });
+
+  it('maps invoice-level discount into the invoice detail', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        json({
+          ...completedInvoice,
+          discountPercent: '10.00',
+          totals: { gross: '153.00', base: '135.00', itbis: '18.00', discount: '15.00' },
+        }),
+      ),
+    );
+
+    const result = await repository.getInvoice(draftId);
+    expect(result).toMatchObject({
+      ok: true,
+      value: {
+        discountPercent: 10,
+        discount: 15,
+        total: 153,
+      },
+    });
   });
 
   it('maps a failed document so the seller can see the error and cannot download', async () => {

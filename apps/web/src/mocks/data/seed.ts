@@ -683,6 +683,19 @@ export function createInitialState(): AppState {
       createdAt: ISO('2026-08-25T11:00:00.000Z'),
     },
     {
+      id: 'EV-004',
+      type: 'DISMANTLING_COMPLETED',
+      description:
+        'ALT-010 retirado de MOT-002 (OD-DEMO-063). Queda independiente; el motor registra el faltante.',
+      actorId: 'U-CARLOS',
+      createdAt: ISO('2026-08-18T12:00:00.000Z'),
+      metadata: {
+        itemId: 'ALT-010',
+        parentId: 'MOT-002',
+        workOrderId: 'OD-DEMO-063',
+      },
+    },
+    {
       id: 'EV-005',
       type: 'CONDUCE_ISSUED',
       description: 'Conduce CON-000001 emitido',

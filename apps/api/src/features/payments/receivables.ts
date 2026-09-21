@@ -46,10 +46,12 @@ export function openReceivables(invoices: InvoiceListRecord[], now = new Date())
       state: summary.state,
     });
   }
+  // Newest issued first — matches GET /receivables list order (confirmedAt DESC).
   return open.sort((left, right) => {
-    const due = (left.invoice.dueDate?.getTime() ?? 0) - (right.invoice.dueDate?.getTime() ?? 0);
-    if (due !== 0) return due;
-    return left.invoice.id.localeCompare(right.invoice.id);
+    const issued =
+      (right.invoice.confirmedAt?.getTime() ?? 0) - (left.invoice.confirmedAt?.getTime() ?? 0);
+    if (issued !== 0) return issued;
+    return right.invoice.id.localeCompare(left.invoice.id);
   });
 }
 

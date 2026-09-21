@@ -11,6 +11,7 @@ import type {
 import { LIST_PAGE_SIZE } from '../../api/contracts/pagination';
 import { can } from '../../shared/auth/policies';
 import {
+  applyInvoiceDiscount,
   invoiceBalance,
   derivePaymentState,
   invoicePaid,
@@ -225,6 +226,7 @@ export function buildInvoiceDetail(
   const recognized = completed || invoice.status === 'CONDUCE';
   const numbered = completed || invoice.status === 'CANCELLED';
   const openBalance = recognized && invoiceBalance(invoice) > 0;
+  const discounted = applyInvoiceDiscount(invoice);
 
   return {
     id: invoice.id,
@@ -255,7 +257,8 @@ export function buildInvoiceDetail(
             actorName: resolveActorName(state.users, payment.actorId),
           }))
         : [],
-    total: invoiceTotal(invoice),
+    discount: discounted.discount,
+    total: discounted.gross,
     ...(actor.role === 'ADMINISTRATOR'
       ? {
           paymentState: derivePaymentState(invoice),

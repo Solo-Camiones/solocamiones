@@ -128,6 +128,9 @@ beforeEach(() => {
     if (url.startsWith('/api/sales?status=CANCELLED') && !init?.method) {
       return json({ items: [], total: 0, page: 1, pageSize: 10 });
     }
+    if (url.startsWith('/api/sales?status=CONDUCE') && !init?.method) {
+      return json({ items: [], total: 0, page: 1, pageSize: 10 });
+    }
     if (url.startsWith('/api/sales?status=COMPLETED') && !init?.method) {
       const items = role === 'ADMINISTRATOR' ? invoices : invoices.map(({ profitability: _, ...rest }) => rest);
       return json({ items, total: items.length, page: 1, pageSize: 10 });

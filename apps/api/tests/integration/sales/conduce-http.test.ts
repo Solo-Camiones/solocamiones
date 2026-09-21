@@ -459,4 +459,25 @@ describe('conduce emission and conversion HTTP (CON-001/CON-003)', () => {
     expect(issued.status).toBe(200);
     expect(issued.body.fiscal).toBe(false);
   });
+
+  it('assigns unique CON- numbers under concurrent issue-conduce', async () => {
+    const { agent } = await fixture();
+    const customer = await creditCustomer('Crédito concurrente', '40212345672');
+    const first = await draftWithLine(agent, customer.id);
+    const second = await draftWithLine(agent, customer.id);
+
+    const [a, b] = await Promise.all([
+      agent.post(`${ROOT}/${first.id}/issue-conduce`).set(TEST_CSRF_HEADERS).send({}),
+      agent.post(`${ROOT}/${second.id}/issue-conduce`).set(TEST_CSRF_HEADERS).send({}),
+    ]);
+    expect(a.status).toBe(200);
+    expect(b.status).toBe(200);
+    expect([a.body.conduceNumber, b.body.conduceNumber].sort()).toEqual([
+      'CON-000001',
+      'CON-000002',
+    ]);
+    expect(await prisma.invoiceSequence.findUnique({ where: { name: 'CON' } })).toMatchObject({
+      nextValue: 3,
+    });
+  });
 });

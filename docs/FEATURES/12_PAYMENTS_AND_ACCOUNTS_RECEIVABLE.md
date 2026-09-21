@@ -62,7 +62,7 @@ Derive the public state from the preserved ledger and due date; do not store a m
 
 Credit due date **no longer defaults to +30 for every invoice**. For new credit invoices it uses the customer term snapshotted at confirmation (CUST-005): local calendar date in `America/Santo_Domingo` plus `creditTermDays` (30, 45, 60, 90, or 120), expiring at the end of that day. It cannot be overridden per invoice. For a fully paid cash invoice (`CASH`, or `USD` settled in full), `dueDate` is that same local confirmation calendar day at end of day — not `null` and not confirmation+30 (SALE-005). Settlement timing uses payment effective dates, not record timestamps. Existing completed invoices keep their already stored due dates; only new credit invoices use the customer term.
 
-Issued date on AR is `confirmedAt` (commercial recognition: when `FAC-` is assigned on direct confirm, or when a conduce is emitted once Feature 16 lands), never draft `createdAt`. Document lookup filters today accept `FAC-`; planned Feature 16 also accepts `CON-`.
+Issued date on AR is `confirmedAt` (commercial recognition: when `FAC-` is assigned on direct confirm, or when a conduce is emitted), never draft `createdAt`. Document lookup filters accept `FAC-` and `CON-` (API M4; CxC UI M8).
 
 Supported operational methods are `CASH`, `TRANSFER`, and `CHECK`; references are optional. Administrator invoice detail shows each additive movement with effective date, recorded time, method, reference and actor. Seller invoice list and detail omit payment state, paid amount, outstanding balance, and the movement list (PAY-007). The customer PDF omits payment movements and methods, showing current outstanding balance and the derived visible label.
 
@@ -112,7 +112,7 @@ Advanced AR such as aging buckets, interest, collection promises/tasks, automate
 - [x] Open receivables query.
 - [x] Customer outstanding summary grouped by currency.
 - [x] Invoice receivable/payment-history detail.
-- [x] Filters by customer and invoice. _(Owner decision 2026-09-16: the CxC surface and endpoint expose only the searchable customer selector and invoice lookup by `FAC-` number; payment state, issued-date, and currency filters are intentionally unavailable. Operators never type invoice UUIDs. **Feature 16 M4 (2026-09-20):** document filters also accept `CON-`; open `CONDUCE` balances appear in AR and account statements.)_
+- [x] Filters by customer and invoice. _(Owner decision 2026-09-16: the CxC surface and endpoint expose only the searchable customer selector and invoice lookup by `FAC-` number; payment state, issued-date, and currency filters are intentionally unavailable. Operators never type invoice UUIDs. **Feature 16 M4 (2026-09-20):** document filters also accept `CON-`; open `CONDUCE` balances appear in AR and account statements. **M8 (2026-09-21):** CxC UI document field accepts `FAC-` and `CON-`.)_
 - [x] Overdue behavior uses the validated fixed due-date policy; aging remains deferred.
 
 ### Frontend

@@ -310,7 +310,7 @@ function toSnapshot(
 
 async function loadInvoicesByStatus(
 
-  status: 'COMPLETED' | 'CANCELLED',
+  status: 'COMPLETED' | 'CONDUCE' | 'CANCELLED',
 
 ): Promise<ApiSalesListItem[]> {
 
@@ -336,15 +336,18 @@ async function loadInvoicesByStatus(
 
 async function loadSnapshotItems(): Promise<ApiSalesListItem[]> {
 
-  const [completed, cancelled] = await Promise.all([
+  // CON-006: recognized sales are COMPLETED and CONDUCE; both count once toward KPIs.
+  const [completed, conduces, cancelled] = await Promise.all([
 
     loadInvoicesByStatus('COMPLETED'),
+
+    loadInvoicesByStatus('CONDUCE'),
 
     loadInvoicesByStatus('CANCELLED'),
 
   ]);
 
-  return [...completed, ...cancelled];
+  return [...completed, ...conduces, ...cancelled];
 
 }
 

@@ -14,7 +14,7 @@ describe('mock state', () => {
     expect(reset.customers).toHaveLength(3);
     expect(reset.qtyProducts).toHaveLength(2);
     expect(reset.workOrders).toHaveLength(4);
-    expect(reset.invoices).toHaveLength(5);
+    expect(reset.invoices).toHaveLength(6);
   });
 
   it('deep-clones repository read values', () => {

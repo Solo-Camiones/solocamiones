@@ -73,10 +73,11 @@ describe('ProfitabilityPage', () => {
     expect(screen.getByText('Cobrado cheque')).toBeVisible();
 
     // Contado: FAC-000097 (DOP 5,500). FAC-000096 USD without rate is omitted.
-    // Crédito: FAC-000098 (19,500) + FAC-000099 (7,200). Cobrado efectivo: 5,500 + 3,600.
+    // Crédito: FAC-000098 (19,500) + FAC-000099 (7,200) + CON-000001 (12,000, pago inicial parcial).
+    // Cobrado efectivo: 5,500 + 3,600.
     expect(screen.getAllByText(money(5_500, 'DOP')).length).toBeGreaterThan(0);
-    expect(screen.getAllByText(money(19_500 + 7_200, 'DOP')).length).toBeGreaterThan(0);
-    expect(screen.getAllByText(money(5_500 + 19_500 + 7_200, 'DOP')).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(money(19_500 + 7_200 + 12_000, 'DOP')).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(money(5_500 + 19_500 + 7_200 + 12_000, 'DOP')).length).toBeGreaterThan(0);
     expect(screen.getAllByText(money(5_500 + 3_600, 'DOP')).length).toBeGreaterThan(0);
   });
 });

@@ -28,7 +28,7 @@
 | M5 | PDFs y fiscalidad manual | Completado localmente (2026-09-20) |
 | M6 | Reportes, rentabilidad e historial | Completado localmente (2026-09-21) |
 | M7 | Integración web y mocks | Completado localmente (2026-09-21) |
-| M8 | Estabilización y exit gate preproducción | Pendiente |
+| M8 | Estabilización y exit gate preproducción | Completado localmente (2026-09-21) |
 
 ---
 
@@ -473,36 +473,54 @@ Cuando ITEM/QTY exista: emitir consume/reserva→vendido; cancelar restaura una 
 
 **Objetivo:** Verificar el feature completo antes del primer release.
 
-### Verificación técnica
+**Estado:** Completado localmente — 2026-09-21  
+**Alcance:** Gate técnico (migraciones `solocamiones_dev`, lint/typecheck/test/build), filtro CxC UI `CON-`, test concurrencia HTTP `CON-`, walkthrough browser Admin/Seller + PDFs (owner). Paso 10 del change set preproducción **fuera** de este milestone. Cierre como Completado localmente; Verificado queda a firma owner.
 
-- Ejecutar migraciones sobre una copia realista.
-- Ejecutar:
-  - `npm run lint`;
-  - `npm run typecheck`;
-  - `npm run test`;
-  - `npm run build`.
-- Ejecutar pruebas específicas de concurrencia para `CON-`, límite de crédito e idempotencia.
-- Ejecutar regresión de facturas, cotizaciones, pagos, CxC, PDFs, reportes y cancelaciones existentes.
-- Confirmar que no se modificaron contratos públicos existentes de forma incompatible.
-- Realizar walkthrough como Administrador y Vendedor.
-- Revisar PDFs de:
-  - conduce contado pagado;
-  - conduce `CASH` pendiente;
-  - conduce `CREDIT`;
-  - conduce originado en cotización;
-  - factura originada en conduce;
-  - operación cancelada.
+### Decisiones owner (2026-09-21)
 
-### Cierre documental
+1. Migraciones: `migrate deploy` en `solocamiones_dev` (no dump aislado).
+2. Walkthrough: browser local Admin + Seller (ejecutado por el owner; resultado OK).
+3. Estado de cierre: Completado localmente; Verificado = firma owner aparte.
+4. Filtro CxC UI `CON-` **entra** en M8 (antes diferido de M7).
+5. Paso 10 preproducción sigue aparte.
+6. Fixes: regresiones + gaps de cobertura claros (p. ej. concurrencia HTTP `CON-`).
+7. Reset de `solocamiones_test` autorizado para la suite de integración.
 
-- Actualizar cada milestone con fecha, estado y evidencia.
-- Marcar criterios completos en Feature 16 únicamente si implementación y pruebas existen.
-- Actualizar el snapshot de `DEVELOPMENT_PLAN.md`.
-- Registrar comandos ejecutados y resultados.
-- Documentar pendientes reales sin marcarlos como completados.
-- Añadir una sección final de decisiones, migración, rollback y aprobación empresarial.
+### Implementación (código mínimo de estabilización)
 
-**Gate final:** Cero fallos conocidos en los flujos aprobados y autorización para incluir conduces en el primer release.
+| Artefacto | Detalle |
+|---|---|
+| CxC UI | `invoice-filter` acepta `FAC-`/`CON-`; labels Documento; tablas/copy alineados |
+| Seed mock | Restaurado `EV-004` (DISMANTLING_COMPLETED) que M7 había reemplazado al añadir `EV-005` |
+| Tests web | Receivables `CON-`; expectativas seed (outstanding 31_100, KPIs, state length 6) |
+| Tests API | `assigns unique CON- numbers under concurrent issue-conduce` en `conduce-http` |
+
+### Verificación técnica — evidencia
+
+| Comando / actividad | Resultado |
+|---|---|
+| `npm run db:migrate:deploy` → `solocamiones_dev` | Aplicó `20260921000000_conduce_recognized_profitability`; 24 migraciones al día |
+| `npm run lint` | OK (0 errors; warnings preexistentes) |
+| `npm run typecheck` | OK |
+| `npm run test` (API unit+integration + web; reset `solocamiones_test` autorizado) | API unit **51/51**; API integration **33/33** (**275**); web **114/114** (**798**) |
+| `npm run build` | OK |
+| Concurrencia `CON-` / crédito / idempotencia | Cubiertas por suites conduce (+ test HTTP concurrente nuevo) |
+| Walkthrough Admin/Seller + 6 PDFs | Owner: **todo bien** (2026-09-21) |
+
+### Documentación al cerrar
+
+- Feature 16: walkthrough + estabilización `[x]`. **Hecho.**
+- Feature 12: UI CxC documento `FAC-`/`CON-` (M8). **Hecho.**
+- `DEVELOPMENT_PLAN.md` snapshot: M1–M8 Completado localmente; Paso 10 sigue abierto. **Hecho.**
+- Pendientes reales: Paso 10 preproducción; firma owner para estado `Verificado` / autorización explícita al primer release; ITEM/QTY inventario (releases posteriores).
+
+### Migración / rollback / aprobación empresarial
+
+- Migraciones conduce son aditivas (enum `CONDUCE`, columnas, CHECKs FX/profit, secuencia `CON`).
+- Rollback de schema solo en no-productivo o con aprobación; no dropear fácilmente el valor de enum PostgreSQL.
+- **Aprobación empresarial / `Verificado`:** pendiente de firma explícita del owner (este cierre es Completado localmente).
+
+**Gate final (técnico local):** Cero fallos conocidos en flujos aprobados tras suites + walkthrough owner. Autorización formal para incluir conduces en el primer release = pendiente `Verificado`.
 
 ---
 

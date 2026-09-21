@@ -645,7 +645,7 @@ describe('payments, due date, and cancellation HTTP', () => {
     expect(retiredIssuedFrom.status).toBe(400);
   });
 
-  it('paginates open receivables while keeping the complete customer aggregate', async () => {
+  it('paginates open receivables newest-first while keeping the complete customer aggregate', async () => {
     const seller = await fixture(request.agent(createTestApp()), 'ADMINISTRATOR');
     const first = await confirmInvoice(seller.agent);
     const second = await confirmInvoice(seller.agent, {}, first.customer.id);
@@ -657,9 +657,9 @@ describe('payments, due date, and cancellation HTTP', () => {
     expect(secondPage.status).toBe(200);
     expect(firstPage.body).toMatchObject({ total: 2, page: 1, pageSize: 1 });
     expect(secondPage.body).toMatchObject({ total: 2, page: 2, pageSize: 1 });
-    expect([firstPage.body.invoices[0].id, secondPage.body.invoices[0].id].sort()).toEqual(
-      [first.id, second.id].sort(),
-    );
+    // Most recently confirmed invoice appears on page 1.
+    expect(firstPage.body.invoices[0].id).toBe(second.id);
+    expect(secondPage.body.invoices[0].id).toBe(first.id);
     expect(firstPage.body.customers).toEqual([
       expect.objectContaining({
         invoiceCount: 2,

@@ -212,7 +212,7 @@ export class SalesRepository {
         ${balances}
         SELECT "id"
         FROM "receivableBalances"
-        ORDER BY "dueDate" ASC, "confirmedAt" ASC, "id" ASC
+        ORDER BY "confirmedAt" DESC, "id" DESC
         LIMIT ${query.pageSize} OFFSET ${offset}
       `,
       this.database.$queryRaw<ReceivableCountRow[]>`

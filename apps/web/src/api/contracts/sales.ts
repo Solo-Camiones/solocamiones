@@ -207,6 +207,8 @@ export type InvoiceDetailView = {
   discountPercent: number;
   lines: InvoiceLineView[];
   payments: PaymentView[];
+  /** Invoice-level discount amount applied to all line bases. */
+  discount: number;
   total: number;
   paid?: number;
   refunded?: number;

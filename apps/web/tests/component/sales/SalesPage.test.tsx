@@ -52,6 +52,31 @@ describe('SalesPage', () => {
     expect(partialRow && within(partialRow).getByText('Abonado')).toBeTruthy();
   });
 
+  it('shows payment state and balance for seed conduces to an administrator', async () => {
+    signInAs('ADMINISTRATOR');
+    renderWithProviders(<SalesPage />, {
+      route: '/sales',
+      auth: createAuthValue('ADMINISTRATOR'),
+    });
+
+    expect(await screen.findByText('CON-000001')).toBeVisible();
+    const conduceRow = screen.getByText('CON-000001').closest('tr');
+    expect(conduceRow).not.toBeNull();
+    expect(within(conduceRow!).getByText('Abonado')).toBeVisible();
+    // Seed CON-000001: total 12_000 − paid 4_000 = 8_000 remaining.
+    expect(within(conduceRow!).getByText(/8[,.]000/)).toBeVisible();
+  });
+
+  it('hides conduce payment settlement from the seller list', async () => {
+    renderWithProviders(<SalesPage />, { route: '/sales', auth: createAuthValue('SELLER') });
+
+    expect(await screen.findByText('CON-000001')).toBeVisible();
+    expect(screen.queryByRole('columnheader', { name: 'Pago' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('columnheader', { name: 'Saldo' })).not.toBeInTheDocument();
+    const conduceRow = screen.getByText('CON-000001').closest('tr');
+    expect(conduceRow && within(conduceRow).queryByText('Abonado')).toBeNull();
+  });
+
   it('lists ten invoices per page and moves with Siguiente', async () => {
     const user = userEvent.setup();
     const state = getMockState();
@@ -192,6 +217,7 @@ describe('SalesPage', () => {
 
     expect(await screen.findByText('FAC-000098')).toBeVisible();
     expect(screen.getByText('FAC-000099')).toBeVisible();
+    expect(screen.getByText('CON-000001')).toBeVisible();
     expect(screen.getByText('Saldo pendiente')).toBeVisible();
     expect(screen.queryByText('FAC-000097')).not.toBeInTheDocument();
     expect(screen.queryByText('FAC-000096')).not.toBeInTheDocument();
