@@ -36,6 +36,8 @@ const detail: InvoiceDetailView = {
     canCancel: false,
     canCorrectCurrency: false,
     canViewPdf: true,
+    canViewConducePdf: false,
+    canConvertToInvoice: false,
     canRegeneratePdf: false,
   },
 };

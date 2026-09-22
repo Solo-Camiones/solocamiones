@@ -544,15 +544,8 @@ export function toDraftHistorySnapshot(invoice: {
 export function toConfirmedHistorySnapshot(
   invoice: InvoiceRecord,
 ): InvoiceConfirmedHistorySnapshot {
-  const snapshot = customerSnapshotOf(invoice);
-  if (
-    invoice.number == null ||
-    invoice.confirmedAt == null ||
-    invoice.dueDate == null ||
-    invoice.confirmedByUserId == null ||
-    invoice.confirmedByName == null ||
-    snapshot == null
-  ) {
+  const recognition = requireRecognitionHistoryFields(invoice);
+  if (invoice.number == null || recognition == null) {
     throw new Error('Confirmed invoice is missing snapshot fields');
   }
   return {
@@ -561,36 +554,49 @@ export function toConfirmedHistorySnapshot(
     currency: invoice.currency,
     fiscal: invoice.fiscal,
     customerId: invoice.customerId,
-    customerSnapshot: snapshot,
+    customerSnapshot: recognition.customerSnapshot,
     totals: invoiceTotals(invoice),
-    confirmedAt: invoice.confirmedAt.toISOString(),
-    dueDate: databaseDateString(invoice.dueDate),
-    confirmedByUserId: invoice.confirmedByUserId,
-    confirmedByName: invoice.confirmedByName,
+    confirmedAt: recognition.confirmedAtIso,
+    dueDate: recognition.dueDate,
+    confirmedByUserId: recognition.confirmedByUserId,
+    confirmedByName: recognition.confirmedByName,
   };
 }
 
 export function toConduceIssuedHistorySnapshot(
   invoice: InvoiceRecord,
 ): ConduceIssuedHistorySnapshot {
-  const snapshot = customerSnapshotOf(invoice);
-  if (
-    invoice.conduceNumber == null ||
-    invoice.confirmedAt == null ||
-    invoice.dueDate == null ||
-    invoice.confirmedByUserId == null ||
-    invoice.confirmedByName == null ||
-    snapshot == null
-  ) {
+  const recognition = requireRecognitionHistoryFields(invoice);
+  if (invoice.conduceNumber == null || recognition == null) {
     throw new Error('Issued conduce is missing snapshot fields');
   }
   return {
     conduceNumber: invoice.conduceNumber,
     currency: invoice.currency,
     customerId: invoice.customerId,
-    customerSnapshot: snapshot,
+    customerSnapshot: recognition.customerSnapshot,
     totals: invoiceTotals(invoice),
-    issuedAt: invoice.confirmedAt.toISOString(),
+    issuedAt: recognition.confirmedAtIso,
+    dueDate: recognition.dueDate,
+    confirmedByUserId: recognition.confirmedByUserId,
+    confirmedByName: recognition.confirmedByName,
+  };
+}
+
+function requireRecognitionHistoryFields(invoice: InvoiceRecord) {
+  const snapshot = customerSnapshotOf(invoice);
+  if (
+    invoice.confirmedAt == null ||
+    invoice.dueDate == null ||
+    invoice.confirmedByUserId == null ||
+    invoice.confirmedByName == null ||
+    snapshot == null
+  ) {
+    return null;
+  }
+  return {
+    customerSnapshot: snapshot,
+    confirmedAtIso: invoice.confirmedAt.toISOString(),
     dueDate: databaseDateString(invoice.dueDate),
     confirmedByUserId: invoice.confirmedByUserId,
     confirmedByName: invoice.confirmedByName,

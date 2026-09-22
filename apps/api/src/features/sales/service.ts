@@ -41,22 +41,18 @@ import {
   CANCELLATION_REFUND_METHOD_REQUIRED_MESSAGE,
   CONDUCE_FISCAL_RETRY_MISMATCH_MESSAGE,
   CONDUCE_ONLY_CONVERT_TO_INVOICE_MESSAGE,
-  EXPIRED_QUOTE_CONVERT_MESSAGE,
   QUOTE_DRAFT_ONLY_ISSUE_MESSAGE,
   QUOTE_ISSUED_ONLY_CONVERT_MESSAGE,
   QUOTE_ISSUED_ONLY_CONVERT_TO_CONDUCE_MESSAGE,
   QUOTE_ISSUED_ONLY_DUPLICATE_MESSAGE,
 } from './constants.js';
 import { DEFAULT_LINE_QUANTITY } from './money/constants.js';
-import { calculateLineMoney, parsePositiveDecimal, applyInvoiceDiscount, isTaxableLineType } from './money/index.js';
+import { calculateLineMoney, parsePositiveDecimal } from './money/index.js';
 import {
   assertConduceInitialPaymentPolicy,
   assertConduceRetryMatches,
-  assertCreditExposureWithinLimit,
   assertInitialPaymentPolicy,
   confirmationDueTermDays,
-  confirmationPaymentIdempotencyKey,
-  invoiceNewBalance,
   resolveConduceDueDate,
 } from './credit-confirmation.js';
 import {
@@ -75,7 +71,16 @@ import {
   toUsdFxRecordedHistorySnapshot,
 } from './projection.js';
 import { SalesRepository } from './repository.js';
-import { isQuoteExpired, quoteExpirationDate } from './quote-dates.js';
+import { quoteExpirationDate } from './quote-dates.js';
+import {
+  assertRecognitionCreditExposure,
+  assertRecognitionSourceReady,
+  parseInitialPaymentAmount,
+  recognitionCustomerSnapshot,
+  recognitionPersistedLineMoney,
+  recordInitialRecognitionPayment,
+  resolveSaleLineMoneyAndTotals,
+} from './sale-recognition.js';
 import { salesTransaction, type SalesTransaction } from './transaction.js';
 import type { CreateInvoiceLineRecord, InvoiceRecord } from './types.js';
 import {
@@ -461,22 +466,11 @@ export class SalesService {
       const customer = await customers.findById(existing.customerId);
       if (!customer) throw AppError.notFound('Customer not found');
       assertFiscalCustomer(customer, existing.fiscal);
-      const lineMoney = existing.lines.map((line) => ({
-        line,
-        money: calculateLineMoney({
-          type: line.type,
-          unitPrice: line.unitPrice,
-          quantity: line.quantity,
-          applyItbis: existing.applyItbis,
-        }),
-      }));
-      const totals = applyInvoiceDiscount({
-        lines: lineMoney.map(({ line, money }) => ({
-          ...money,
-          taxable: isTaxableLineType(line.type),
-        })),
-        discountPercent: existing.discountPercent,
+      const { lineMoney, totals } = resolveSaleLineMoneyAndTotals({
+        lines: existing.lines,
         applyItbis: existing.applyItbis,
+        discountPercent: existing.discountPercent,
+        preferFrozenLineMoney: false,
       });
       const issuedAt = new Date();
       const issued = await sales.issueQuote({
@@ -493,7 +487,7 @@ export class SalesService {
         gross: totals.gross,
         base: totals.base,
         itbis: totals.itbis,
-        lines: lineMoney.map(({ line, money }) => ({ id: line.id, ...money })),
+        lines: recognitionPersistedLineMoney(lineMoney),
       });
       await history.append({
         actor: { actorType: 'USER', actorUserId: actorId },
@@ -666,50 +660,19 @@ export class SalesService {
               : QUOTE_ISSUED_ONLY_CONVERT_TO_CONDUCE_MESSAGE,
           );
         }
-        if (sourceStatus === 'QUOTE_ISSUED' && isQuoteExpired(existing.quoteExpiresAt)) {
-          throw AppError.conflict(EXPIRED_QUOTE_CONVERT_MESSAGE);
-        }
-        if (existing.lines.length === 0) throw AppError.conflict(EMPTY_DRAFT_CONFIRM_MESSAGE);
-
-        for (const line of existing.lines) {
-          assertDraftLineTypeEnabled(line.type);
-        }
+        assertRecognitionSourceReady(existing, sourceStatus);
 
         await customers.lockById(existing.customerId);
         const customer = await customers.findById(existing.customerId);
         if (!customer) throw AppError.notFound('Customer not found');
 
-        const lineMoney = existing.lines.map((line) => ({
-          line,
-          money:
-            sourceStatus === 'QUOTE_ISSUED'
-              ? (() => {
-                  if (line.gross == null || line.base == null || line.itbis == null) {
-                    throw AppError.internal('Issued quote line is missing frozen money');
-                  }
-                  return { gross: line.gross, base: line.base, itbis: line.itbis };
-                })()
-              : calculateLineMoney({
-                  type: line.type,
-                  unitPrice: line.unitPrice,
-                  quantity: line.quantity,
-                  applyItbis: existing.applyItbis,
-                }),
-        }));
-        const totals = applyInvoiceDiscount({
-          lines: lineMoney.map(({ line, money }) => ({
-            ...money,
-            taxable: isTaxableLineType(line.type),
-          })),
-          discountPercent: existing.discountPercent,
+        const { lineMoney, totals } = resolveSaleLineMoneyAndTotals({
+          lines: existing.lines,
           applyItbis: existing.applyItbis,
+          discountPercent: existing.discountPercent,
+          preferFrozenLineMoney: sourceStatus === 'QUOTE_ISSUED',
         });
-        const initialPaymentAmount = profile.payment
-          ? new Prisma.Decimal(profile.payment.amount)
-          : null;
-        if (initialPaymentAmount?.greaterThan(totals.gross)) {
-          throw AppError.conflict(PAYMENT_EXCEEDS_BALANCE_MESSAGE);
-        }
+        const initialPaymentAmount = parseInitialPaymentAmount(profile.payment, totals.gross);
         assertConduceInitialPaymentPolicy({
           customer,
           currency: existing.currency,
@@ -717,17 +680,12 @@ export class SalesService {
           invoiceGross: totals.gross,
           initialPaymentAmount,
         });
-        const newBalance = invoiceNewBalance(totals.gross, initialPaymentAmount);
-        const openInvoices = await customers.findCompletedInvoicesWithPayments(customer.id);
-        const openExposure = openInvoices.reduce(
-          (sum, invoice) => sum.plus(summarizePayments(invoice).balance),
-          new Prisma.Decimal(0),
-        );
-        assertCreditExposureWithinLimit({
+        const newBalance = await assertRecognitionCreditExposure({
+          customers,
           customer,
           currency: existing.currency,
-          openExposure,
-          newBalance,
+          invoiceGross: totals.gross,
+          initialPaymentAmount,
         });
         const conduceNumber = await sales.allocateNextConduceNumber();
         const confirmedAt = new Date();
@@ -739,15 +697,17 @@ export class SalesService {
           newBalance,
           actorDueDate: profile.dueDate,
         });
-        const primaryPhone = customer.contacts.find((contact) => contact.isPrimary)?.phone ?? null;
+        const customerSnapshot = recognitionCustomerSnapshot({
+          sourceStatus,
+          invoice: existing,
+          customer,
+        });
         let issued = await sales.issueConduce({
           id,
           conduceNumber,
           confirmedAt,
           dueDate,
-          customerName: sourceStatus === 'QUOTE_ISSUED' ? existing.customerName! : customer.name,
-          customerRnc: sourceStatus === 'QUOTE_ISSUED' ? existing.customerRnc : customer.rnc,
-          customerPhone: sourceStatus === 'QUOTE_ISSUED' ? existing.customerPhone : primaryPhone,
+          ...customerSnapshot,
           snapshotCustomerType: customer.customerType,
           snapshotCreditTermDays: customer.creditTermDays,
           confirmedByUserId: actorId,
@@ -755,12 +715,7 @@ export class SalesService {
           gross: totals.gross,
           base: totals.base,
           itbis: totals.itbis,
-          lines: lineMoney.map(({ line, money }) => ({
-            id: line.id,
-            gross: money.gross,
-            base: money.base,
-            itbis: money.itbis,
-          })),
+          lines: recognitionPersistedLineMoney(lineMoney),
         });
         if (sourceStatus === 'QUOTE_ISSUED') {
           await history.append({
@@ -785,31 +740,17 @@ export class SalesService {
           });
         }
         if (profile.payment && initialPaymentAmount) {
-          const payment = await payments.createPayment({
+          issued = await recordInitialRecognitionPayment({
             invoiceId: id,
-            amount: initialPaymentAmount,
+            actorId,
             currency: issued.currency,
-            method: profile.payment.method,
-            effectiveDate: todayBusinessDate(confirmedAt),
-            reference: profile.payment.reference ?? null,
-            actorUserId: actorId,
-            idempotencyKey: confirmationPaymentIdempotencyKey(id),
+            confirmedAt,
+            payment: profile.payment,
+            initialPaymentAmount,
+            payments,
+            history,
+            sales,
           });
-          await history.append({
-            actor: { actorType: 'USER', actorUserId: actorId },
-            subjectType: 'INVOICE',
-            subjectId: id,
-            eventType: 'PAYMENT_RECORDED',
-            payload: {
-              paymentId: payment.id,
-              amount: payment.amount.toFixed(2),
-              currency: payment.currency,
-              method: payment.method,
-              effectiveDate: databaseDateString(payment.effectiveDate),
-              reference: payment.reference,
-            },
-          });
-          issued = (await sales.findById(id))!;
         }
         return { invoice: issued, actor };
       },
@@ -846,14 +787,7 @@ export class SalesService {
               : QUOTE_ISSUED_ONLY_CONVERT_MESSAGE,
           );
         }
-        if (sourceStatus === 'QUOTE_ISSUED' && isQuoteExpired(existing.quoteExpiresAt)) {
-          throw AppError.conflict(EXPIRED_QUOTE_CONVERT_MESSAGE);
-        }
-        if (existing.lines.length === 0) throw AppError.conflict(EMPTY_DRAFT_CONFIRM_MESSAGE);
-
-        for (const line of existing.lines) {
-          assertDraftLineTypeEnabled(line.type);
-        }
+        assertRecognitionSourceReady(existing, sourceStatus);
 
         await customers.lockById(existing.customerId);
         const customer = await customers.findById(existing.customerId);
@@ -862,37 +796,13 @@ export class SalesService {
         // revalidates the customer's current credit classification, limit and term.
         if (sourceStatus === 'DRAFT') assertFiscalCustomer(customer, existing.fiscal);
 
-        const lineMoney = existing.lines.map((line) => ({
-          line,
-          money:
-            sourceStatus === 'QUOTE_ISSUED'
-              ? (() => {
-                  if (line.gross == null || line.base == null || line.itbis == null) {
-                    throw AppError.internal('Issued quote line is missing frozen money');
-                  }
-                  return { gross: line.gross, base: line.base, itbis: line.itbis };
-                })()
-              : calculateLineMoney({
-                  type: line.type,
-                  unitPrice: line.unitPrice,
-                  quantity: line.quantity,
-                  applyItbis: existing.applyItbis,
-                }),
-        }));
-        const totals = applyInvoiceDiscount({
-          lines: lineMoney.map(({ line, money }) => ({
-            ...money,
-            taxable: isTaxableLineType(line.type),
-          })),
-          discountPercent: existing.discountPercent,
+        const { lineMoney, totals } = resolveSaleLineMoneyAndTotals({
+          lines: existing.lines,
           applyItbis: existing.applyItbis,
+          discountPercent: existing.discountPercent,
+          preferFrozenLineMoney: sourceStatus === 'QUOTE_ISSUED',
         });
-        const initialPaymentAmount = profile.payment
-          ? new Prisma.Decimal(profile.payment.amount)
-          : null;
-        if (initialPaymentAmount?.greaterThan(totals.gross)) {
-          throw AppError.conflict(PAYMENT_EXCEEDS_BALANCE_MESSAGE);
-        }
+        const initialPaymentAmount = parseInitialPaymentAmount(profile.payment, totals.gross);
         assertInitialPaymentPolicy({
           customer,
           currency: existing.currency,
@@ -900,21 +810,20 @@ export class SalesService {
           invoiceGross: totals.gross,
           initialPaymentAmount,
         });
-        const newBalance = invoiceNewBalance(totals.gross, initialPaymentAmount);
-        const openInvoices = await customers.findCompletedInvoicesWithPayments(customer.id);
-        const openExposure = openInvoices.reduce(
-          (sum, invoice) => sum.plus(summarizePayments(invoice).balance),
-          new Prisma.Decimal(0),
-        );
-        assertCreditExposureWithinLimit({
+        await assertRecognitionCreditExposure({
+          customers,
           customer,
           currency: existing.currency,
-          openExposure,
-          newBalance,
+          invoiceGross: totals.gross,
+          initialPaymentAmount,
         });
         const number = await sales.allocateNextNumber();
         const confirmedAt = new Date();
-        const primaryPhone = customer.contacts.find((contact) => contact.isPrimary)?.phone ?? null;
+        const customerSnapshot = recognitionCustomerSnapshot({
+          sourceStatus,
+          invoice: existing,
+          customer,
+        });
         let completed = await sales.completeInvoice({
           id,
           number,
@@ -923,9 +832,7 @@ export class SalesService {
             confirmedAt,
             confirmationDueTermDays(customer, existing.currency),
           ),
-          customerName: sourceStatus === 'QUOTE_ISSUED' ? existing.customerName! : customer.name,
-          customerRnc: sourceStatus === 'QUOTE_ISSUED' ? existing.customerRnc : customer.rnc,
-          customerPhone: sourceStatus === 'QUOTE_ISSUED' ? existing.customerPhone : primaryPhone,
+          ...customerSnapshot,
           snapshotCustomerType: customer.customerType,
           snapshotCreditTermDays: customer.creditTermDays,
           confirmedByUserId: actorId,
@@ -933,12 +840,7 @@ export class SalesService {
           gross: totals.gross,
           base: totals.base,
           itbis: totals.itbis,
-          lines: lineMoney.map(({ line, money }) => ({
-            id: line.id,
-            gross: money.gross,
-            base: money.base,
-            itbis: money.itbis,
-          })),
+          lines: recognitionPersistedLineMoney(lineMoney),
         });
         if (sourceStatus === 'QUOTE_ISSUED') {
           await history.append({
@@ -963,32 +865,17 @@ export class SalesService {
           });
         }
         if (profile.payment && initialPaymentAmount) {
-          const payment = await payments.createPayment({
+          completed = await recordInitialRecognitionPayment({
             invoiceId: id,
-            amount: initialPaymentAmount,
+            actorId,
             currency: completed.currency,
-            method: profile.payment.method,
-            effectiveDate: todayBusinessDate(confirmedAt),
-            reference: profile.payment.reference ?? null,
-            actorUserId: actorId,
-            // Always confirm:{id} so saleCondition reconstruction ignores nearby CxC payments.
-            idempotencyKey: confirmationPaymentIdempotencyKey(id),
+            confirmedAt,
+            payment: profile.payment,
+            initialPaymentAmount,
+            payments,
+            history,
+            sales,
           });
-          await history.append({
-            actor: { actorType: 'USER', actorUserId: actorId },
-            subjectType: 'INVOICE',
-            subjectId: id,
-            eventType: 'PAYMENT_RECORDED',
-            payload: {
-              paymentId: payment.id,
-              amount: payment.amount.toFixed(2),
-              currency: payment.currency,
-              method: payment.method,
-              effectiveDate: databaseDateString(payment.effectiveDate),
-              reference: payment.reference,
-            },
-          });
-          completed = (await sales.findById(id))!;
         }
         return { invoice: completed, actor, alreadyCompleted: false };
       },

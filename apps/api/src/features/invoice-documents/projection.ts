@@ -64,6 +64,34 @@ function frozenHeaderTotals(invoice: InvoiceRecord): InvoicePdfFacts['totals'] |
   }
 }
 
+/** Shared frozen line money for invoice / conduce / quote PDFs (DOC-001 / CON-004). */
+function mapPersistedPdfLines(invoice: InvoiceRecord): InvoicePdfFacts['lines'] | null {
+  const lines: InvoicePdfFacts['lines'] = [];
+  for (const line of invoice.lines) {
+    // Use stored line money. Recalculating would rewrite historical documents.
+    const money = persistedLineMoney(line);
+    if (money == null) return null;
+    lines.push({
+      description: line.description,
+      notes: line.notes,
+      quantity: moneyString(line.quantity),
+      unitPrice: moneyString(line.unitPrice),
+      base: moneyString(money.base),
+      gross: moneyString(money.gross),
+      itbis: moneyString(money.itbis),
+    });
+  }
+  return lines;
+}
+
+function pdfCustomerFields(invoice: InvoiceRecord) {
+  return {
+    customerName: invoice.customerName!,
+    customerRnc: formatFiscalId(invoice.customerRnc) || null,
+    customerPhone: formatDominicanPhone(invoice.customerPhone) || null,
+  };
+}
+
 export function toInvoicePdfFacts(invoice: InvoiceRecord): InvoicePdfFacts | null {
   if (
     invoice.status !== 'COMPLETED' &&
@@ -82,22 +110,8 @@ export function toInvoicePdfFacts(invoice: InvoiceRecord): InvoicePdfFacts | nul
 
   const totals = frozenHeaderTotals(invoice);
   if (totals == null) return null;
-
-  const lines: InvoicePdfFacts['lines'] = [];
-  for (const line of invoice.lines) {
-    // Use stored line money. Recalculating would rewrite historical invoices.
-    const money = persistedLineMoney(line);
-    if (money == null) return null;
-    lines.push({
-      description: line.description,
-      notes: line.notes,
-      quantity: moneyString(line.quantity),
-      unitPrice: moneyString(line.unitPrice),
-      base: moneyString(money.base),
-      gross: moneyString(money.gross),
-      itbis: moneyString(money.itbis),
-    });
-  }
+  const lines = mapPersistedPdfLines(invoice);
+  if (lines == null) return null;
 
   return {
     status: invoice.status,
@@ -111,9 +125,7 @@ export function toInvoicePdfFacts(invoice: InvoiceRecord): InvoicePdfFacts | nul
       new Prisma.Decimal(totals.gross),
       confirmationInitialPaymentAmount(invoice),
     ),
-    customerName: invoice.customerName,
-    customerRnc: formatFiscalId(invoice.customerRnc) || null,
-    customerPhone: formatDominicanPhone(invoice.customerPhone) || null,
+    ...pdfCustomerFields(invoice),
     sellerName: invoice.confirmedByName,
     // CON-004: converted invoices use conversion day; direct invoices equal confirmedAt.
     invoiceIssuedAt: invoice.invoiceIssuedAt ?? invoice.confirmedAt,
@@ -147,21 +159,8 @@ export function toConducePdfFacts(invoice: InvoiceRecord): ConducePdfFacts | nul
 
   const totals = frozenHeaderTotals(invoice);
   if (totals == null) return null;
-
-  const lines: ConducePdfFacts['lines'] = [];
-  for (const line of invoice.lines) {
-    const money = persistedLineMoney(line);
-    if (money == null) return null;
-    lines.push({
-      description: line.description,
-      notes: line.notes,
-      quantity: moneyString(line.quantity),
-      unitPrice: moneyString(line.unitPrice),
-      base: moneyString(money.base),
-      gross: moneyString(money.gross),
-      itbis: moneyString(money.itbis),
-    });
-  }
+  const lines = mapPersistedPdfLines(invoice);
+  if (lines == null) return null;
 
   return {
     // COMPLETED keeps the original conduce document regenerable without NCF.
@@ -169,9 +168,7 @@ export function toConducePdfFacts(invoice: InvoiceRecord): ConducePdfFacts | nul
     conduceNumber: invoice.conduceNumber,
     originQuoteNumber: invoice.quoteNumber,
     currency: invoice.currency,
-    customerName: invoice.customerName,
-    customerRnc: formatFiscalId(invoice.customerRnc) || null,
-    customerPhone: formatDominicanPhone(invoice.customerPhone) || null,
+    ...pdfCustomerFields(invoice),
     sellerName: invoice.confirmedByName,
     conduceIssuedAt: invoice.conduceIssuedAt,
     dueDate: invoice.dueDate,
@@ -196,31 +193,16 @@ export function toQuotePdfFacts(invoice: InvoiceRecord): QuotePdfFacts | null {
 
   const totals = frozenHeaderTotals(invoice);
   if (totals == null) return null;
-
-  const lines: QuotePdfFacts['lines'] = [];
-  for (const line of invoice.lines) {
-    // Issued quote money is frozen on the aggregate. Recalculating would rewrite
-    // the document if tax rules change after QUOTE_ISSUED.
-    const money = persistedLineMoney(line);
-    if (money == null) return null;
-    lines.push({
-      description: line.description,
-      notes: line.notes,
-      quantity: moneyString(line.quantity),
-      unitPrice: moneyString(line.unitPrice),
-      base: moneyString(money.base),
-      gross: moneyString(money.gross),
-      itbis: moneyString(money.itbis),
-    });
-  }
+  // Issued quote money is frozen on the aggregate. Recalculating would rewrite
+  // the document if tax rules change after QUOTE_ISSUED.
+  const lines = mapPersistedPdfLines(invoice);
+  if (lines == null) return null;
 
   return {
     status: 'QUOTE_ISSUED',
     quoteNumber: invoice.quoteNumber,
     currency: invoice.currency,
-    customerName: invoice.customerName,
-    customerRnc: formatFiscalId(invoice.customerRnc) || null,
-    customerPhone: formatDominicanPhone(invoice.customerPhone) || null,
+    ...pdfCustomerFields(invoice),
     sellerName: invoice.quoteIssuedByName,
     quoteIssuedAt: invoice.quoteIssuedAt,
     quoteExpiresAt: invoice.quoteExpiresAt,

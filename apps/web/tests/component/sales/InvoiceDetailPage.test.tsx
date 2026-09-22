@@ -249,4 +249,28 @@ describe('InvoiceDetailPage', () => {
     expect(screen.getByText('10% (−RD$550.00)')).toBeVisible();
     expect(screen.getByText('RD$4,950.00')).toBeVisible();
   });
+
+  it('lets an administrator convert an open conduce into FAC- without recalculating money', async () => {
+    signInAs('ADMINISTRATOR');
+    const user = userEvent.setup();
+    renderWithProviders(detailRoute(), {
+      route: '/sales/INV-CON-01',
+      auth: createAuthValue('ADMINISTRATOR'),
+    });
+
+    expect(await screen.findByRole('heading', { name: 'CON-000001' })).toBeVisible();
+    await user.click(screen.getByRole('button', { name: 'Facturar' }));
+
+    const dialog = await screen.findByRole('dialog', { name: 'Facturar conduce' });
+    expect(within(dialog).getByText(/CON-000001/)).toBeVisible();
+    await user.click(within(dialog).getByRole('button', { name: 'Facturar' }));
+
+    expect(await screen.findByRole('heading', { name: 'FAC-000100' })).toBeVisible();
+    expect(screen.getAllByText('Origen CON-000001').length).toBeGreaterThan(0);
+    const converted = getMockState().invoices.find((entry) => entry.id === 'INV-CON-01');
+    expect(converted?.status).toBe('COMPLETED');
+    expect(converted?.number).toBe('FAC-000100');
+    expect(converted?.conduceNumber).toBe('CON-000001');
+    expect(converted?.payments).toHaveLength(1);
+  });
 });

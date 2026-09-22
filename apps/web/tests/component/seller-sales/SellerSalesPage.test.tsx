@@ -21,6 +21,7 @@ const SAMPLE_REPORT: SellerSalesReport = {
     {
       documentType: 'INVOICE',
       number: 'FAC-000100',
+      originNumber: null,
       documentDate: '2026-09-10T16:00:00.000Z',
       sellerUserId: 'U-LAURA',
       sellerName: 'Laura Pérez',
@@ -31,6 +32,7 @@ const SAMPLE_REPORT: SellerSalesReport = {
     {
       documentType: 'QUOTE',
       number: 'COT-000001',
+      originNumber: null,
       documentDate: '2026-09-12T16:00:00.000Z',
       sellerUserId: 'U-LAURA',
       sellerName: 'Laura Pérez',
