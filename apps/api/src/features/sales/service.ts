@@ -34,6 +34,7 @@ import {
   PAYMENT_EXCEEDS_BALANCE_MESSAGE,
   PAYMENT_IDEMPOTENCY_MISMATCH_MESSAGE,
   CANCELLATION_COMPLETED_ONLY_MESSAGE,
+  CANCELLATION_IDEMPOTENCY_MISMATCH_MESSAGE,
   CANCELLATION_REASON_REQUIRED_MESSAGE,
   CANCELLATION_REFUND_AMOUNT_REQUIRED_MESSAGE,
   CANCELLATION_REFUND_EXCEEDS_NET_MESSAGE,
@@ -50,6 +51,7 @@ import { DEFAULT_LINE_QUANTITY } from './money/constants.js';
 import { calculateLineMoney, parsePositiveDecimal, applyInvoiceDiscount, isTaxableLineType } from './money/index.js';
 import {
   assertConduceInitialPaymentPolicy,
+  assertConduceRetryMatches,
   assertCreditExposureWithinLimit,
   assertInitialPaymentPolicy,
   confirmationDueTermDays,
@@ -649,6 +651,12 @@ export class SalesService {
         const existing = await sales.findById(id);
         if (!existing) throw AppError.notFound('Invoice not found');
         if (existing.status === 'CONDUCE') {
+          assertConduceRetryMatches({
+            invoice: existing,
+            sourceStatus,
+            payment: profile.payment,
+            dueDate: profile.dueDate,
+          });
           return { invoice: existing, actor };
         }
         if (existing.status !== sourceStatus) {
@@ -1077,6 +1085,23 @@ export class SalesService {
         invoice.status === 'CANCELLED' &&
         invoice.cancellationIdempotencyKey === profile.idempotencyKey
       ) {
+        // Same pattern as addPayment: key reuse is only idempotent when the command matches
+        // what was already persisted (reason + refund amount/method/reference).
+        const existingRefund = await payments.findByIdempotencyKey(id, profile.idempotencyKey);
+        const requestedRefundAmount =
+          profile.refundAmount != null ? new Prisma.Decimal(profile.refundAmount) : null;
+        const sameCancellation =
+          invoice.cancelReason === profile.reason &&
+          (existingRefund
+            ? existingRefund.kind === 'REFUND' &&
+              requestedRefundAmount != null &&
+              existingRefund.amount.equals(requestedRefundAmount) &&
+              existingRefund.method === profile.refundMethod &&
+              existingRefund.reference === (profile.refundReference ?? null)
+            : requestedRefundAmount == null || requestedRefundAmount.isZero());
+        if (!sameCancellation) {
+          throw AppError.conflict(CANCELLATION_IDEMPOTENCY_MISMATCH_MESSAGE);
+        }
         return toPublicInvoice(invoice, actor);
       }
       if (invoice.status !== 'COMPLETED' && invoice.status !== 'CONDUCE') {

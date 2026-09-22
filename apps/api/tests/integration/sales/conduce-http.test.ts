@@ -10,6 +10,7 @@ import {
   CONDUCE_DUE_DATE_REQUIRED_MESSAGE,
   CONDUCE_FISCAL_RETRY_MISMATCH_MESSAGE,
   CONDUCE_ONLY_CONVERT_TO_INVOICE_MESSAGE,
+  CONDUCE_RETRY_MISMATCH_MESSAGE,
   DRAFT_ONLY_EDIT_MESSAGE,
   DRAFT_ONLY_ISSUE_CONDUCE_MESSAGE,
   EXPIRED_QUOTE_CONVERT_MESSAGE,
@@ -242,6 +243,13 @@ describe('conduce emission and conversion HTTP (CON-001/CON-003)', () => {
         where: { subjectId: quote.id, eventType: 'QUOTE_CONVERTED_TO_CONDUCE' },
       }),
     ).toBe(1);
+
+    const wrongOrigin = await agent
+      .post(`${ROOT}/${quote.id}/issue-conduce`)
+      .set(TEST_CSRF_HEADERS)
+      .send({});
+    expect(wrongOrigin.status).toBe(409);
+    expect(wrongOrigin.body.error.message).toBe(CONDUCE_RETRY_MISMATCH_MESSAGE);
 
     const expiredSource = await issuedQuoteWithLine(agent, customer.id);
     await prisma.invoice.update({

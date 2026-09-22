@@ -34,6 +34,8 @@ export const QUOTE_ISSUED_ONLY_CONVERT_TO_CONDUCE_MESSAGE =
 export const CONDUCE_ONLY_CONVERT_TO_INVOICE_MESSAGE = 'Solo se puede facturar un conduce emitido';
 export const CONDUCE_FISCAL_RETRY_MISMATCH_MESSAGE =
   'El conduce ya fue facturado con otra opción fiscal';
+export const CONDUCE_RETRY_MISMATCH_MESSAGE =
+  'El conduce ya fue emitido con otros datos de pago, vencimiento u origen';
 export const PAYMENT_COMPLETED_ONLY_MESSAGE =
   'Solo se pueden registrar pagos en facturas completadas o conduces emitidos';
 export const PAYMENT_DATE_RANGE_MESSAGE =
@@ -49,6 +51,8 @@ export const CREDIT_LIMIT_EXCEEDED_MESSAGE =
   'El límite de crédito del cliente sería excedido';
 export const PAYMENT_IDEMPOTENCY_MISMATCH_MESSAGE =
   'La clave de idempotencia ya fue usada con datos de pago diferentes';
+export const CANCELLATION_IDEMPOTENCY_MISMATCH_MESSAGE =
+  'La clave de idempotencia ya fue usada con datos de cancelación diferentes';
 export const CANCELLATION_COMPLETED_ONLY_MESSAGE =
   'Solo se pueden cancelar facturas completadas o conduces emitidos';
 export const CANCELLATION_REASON_REQUIRED_MESSAGE = 'La cancelación requiere un motivo';

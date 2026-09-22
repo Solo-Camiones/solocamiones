@@ -11,6 +11,7 @@ import {
   CASH_CUSTOMER_CREDIT_FORBIDDEN_MESSAGE,
   CANCELLATION_REFUND_EXCEEDS_NET_MESSAGE,
   CONDUCE_DUE_DATE_REQUIRED_MESSAGE,
+  CONDUCE_RETRY_MISMATCH_MESSAGE,
   CREDIT_LIMIT_EXCEEDED_MESSAGE,
   PAYMENT_COMPLETED_ONLY_MESSAGE,
   USD_INVOICE_MUST_BE_PAID_IN_FULL_MESSAGE,
@@ -417,5 +418,53 @@ describe('conduce payments, CxC, and cancellation (CON-002 / CON-005)', () => {
       where: { invoiceId: draft.id, kind: 'PAYMENT' },
     });
     expect(paid?.amount.toFixed(2)).toBe('100.00');
+  });
+
+  it('rejects conduce retries with different amount, method, or dueDate', async () => {
+    const { agent } = await fixture('ADMINISTRATOR');
+    const customer = await namedCashCustomer();
+    const draft = await draftWithLine(agent, customer.id);
+    const dueDate = businessDateString(new Date());
+    const body = {
+      payment: { amount: '400.00', method: 'CASH' as const },
+      dueDate,
+    };
+
+    const issued = await agent
+      .post(`${ROOT}/${draft.id}/issue-conduce`)
+      .set(TEST_CSRF_HEADERS)
+      .send(body);
+    expect(issued.status).toBe(200);
+
+    const same = await agent
+      .post(`${ROOT}/${draft.id}/issue-conduce`)
+      .set(TEST_CSRF_HEADERS)
+      .send(body);
+    expect(same.status).toBe(200);
+    expect(same.body.conduceNumber).toBe('CON-000001');
+    expect(await prisma.invoicePayment.count({ where: { invoiceId: draft.id } })).toBe(1);
+
+    const amountMismatch = await agent
+      .post(`${ROOT}/${draft.id}/issue-conduce`)
+      .set(TEST_CSRF_HEADERS)
+      .send({ payment: { amount: '300.00', method: 'CASH' }, dueDate });
+    expect(amountMismatch.status).toBe(409);
+    expect(amountMismatch.body.error.message).toBe(CONDUCE_RETRY_MISMATCH_MESSAGE);
+
+    const methodMismatch = await agent
+      .post(`${ROOT}/${draft.id}/issue-conduce`)
+      .set(TEST_CSRF_HEADERS)
+      .send({ payment: { amount: '400.00', method: 'TRANSFER' }, dueDate });
+    expect(methodMismatch.status).toBe(409);
+    expect(methodMismatch.body.error.message).toBe(CONDUCE_RETRY_MISMATCH_MESSAGE);
+
+    const [y, m, d] = dueDate.split('-').map(Number);
+    const otherDue = new Date(Date.UTC(y!, m! - 1, d! + 1)).toISOString().slice(0, 10);
+    const dueMismatch = await agent
+      .post(`${ROOT}/${draft.id}/issue-conduce`)
+      .set(TEST_CSRF_HEADERS)
+      .send({ payment: { amount: '400.00', method: 'CASH' }, dueDate: otherDue });
+    expect(dueMismatch.status).toBe(409);
+    expect(dueMismatch.body.error.message).toBe(CONDUCE_RETRY_MISMATCH_MESSAGE);
   });
 });

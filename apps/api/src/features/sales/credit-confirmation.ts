@@ -4,6 +4,7 @@ import { AppError } from '../../infrastructure/errors/app-error.js';
 import {
   businessDateString,
   databaseDate,
+  databaseDateString,
   invoiceDueDate,
 } from '../payments/dates.js';
 import {
@@ -11,6 +12,7 @@ import {
   CONDUCE_DUE_DATE_BEFORE_EMISSION_MESSAGE,
   CONDUCE_DUE_DATE_NOT_ALLOWED_MESSAGE,
   CONDUCE_DUE_DATE_REQUIRED_MESSAGE,
+  CONDUCE_RETRY_MISMATCH_MESSAGE,
   CREDIT_LIMIT_EXCEEDED_MESSAGE,
   SELLER_CREDIT_CONFIRM_PAYMENT_FORBIDDEN_MESSAGE,
   USD_INVOICE_MUST_BE_PAID_IN_FULL_MESSAGE,
@@ -201,5 +203,86 @@ export function assertCreditExposureWithinLimit(input: {
     input.openExposure.plus(input.newBalance).greaterThan(input.customer.creditLimitDop)
   ) {
     throw AppError.conflict(CREDIT_LIMIT_EXCEEDED_MESSAGE);
+  }
+}
+
+type ConduceRetryPaymentSource = {
+  id: string;
+  quoteNumber: string | null;
+  dueDate: Date | null;
+  gross: Prisma.Decimal | null;
+  snapshotCustomerType: CustomerType | null;
+  customer: { isDefault: boolean };
+  payments: Array<{
+    kind: string;
+    amount: Prisma.Decimal;
+    method: string | null;
+    reference: string | null;
+    idempotencyKey?: string | null;
+  }>;
+};
+
+type ConduceRetryPaymentPayload = {
+  amount: string;
+  method: string;
+  reference?: string | null;
+};
+
+/**
+ * Idempotent conduce retry: same commercial intent as the first emission, or 409.
+ * Compares origen (draft vs quote), confirm:{id} payment, and dueDate.
+ */
+export function assertConduceRetryMatches(input: {
+  invoice: ConduceRetryPaymentSource;
+  sourceStatus: 'DRAFT' | 'QUOTE_ISSUED';
+  payment?: ConduceRetryPaymentPayload;
+  dueDate?: string;
+}): void {
+  const fromQuote = input.invoice.quoteNumber != null;
+  if (input.sourceStatus === 'DRAFT' && fromQuote) {
+    throw AppError.conflict(CONDUCE_RETRY_MISMATCH_MESSAGE);
+  }
+  if (input.sourceStatus === 'QUOTE_ISSUED' && !fromQuote) {
+    throw AppError.conflict(CONDUCE_RETRY_MISMATCH_MESSAGE);
+  }
+
+  const confirmKey = confirmationPaymentIdempotencyKey(input.invoice.id);
+  const persistedPayment = input.invoice.payments.find(
+    (payment) => payment.kind === 'PAYMENT' && payment.idempotencyKey === confirmKey,
+  );
+
+  if (input.payment == null) {
+    if (persistedPayment != null) {
+      throw AppError.conflict(CONDUCE_RETRY_MISMATCH_MESSAGE);
+    }
+  } else if (
+    persistedPayment == null ||
+    !persistedPayment.amount.equals(input.payment.amount) ||
+    persistedPayment.method !== input.payment.method ||
+    persistedPayment.reference !== (input.payment.reference ?? null)
+  ) {
+    throw AppError.conflict(CONDUCE_RETRY_MISMATCH_MESSAGE);
+  }
+
+  const persistedDueDate =
+    input.invoice.dueDate == null ? null : databaseDateString(input.invoice.dueDate);
+
+  if (input.dueDate !== undefined) {
+    if (persistedDueDate !== input.dueDate) {
+      throw AppError.conflict(CONDUCE_RETRY_MISMATCH_MESSAGE);
+    }
+    return;
+  }
+
+  // Admin named-CASH with balance required actor dueDate on first emission; omit ≠ same payload.
+  const initialAmount = persistedPayment?.amount ?? null;
+  const gross = input.invoice.gross ?? new Prisma.Decimal(0);
+  const remaining = invoiceNewBalance(gross, initialAmount);
+  const namedCashWithBalance =
+    input.invoice.snapshotCustomerType === 'CASH' &&
+    !input.invoice.customer.isDefault &&
+    remaining.greaterThan(0);
+  if (namedCashWithBalance) {
+    throw AppError.conflict(CONDUCE_RETRY_MISMATCH_MESSAGE);
   }
 }

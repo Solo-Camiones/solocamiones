@@ -15,6 +15,7 @@ import {
 import { UserRepository } from '../../../src/features/users/repository.js';
 import {
   CANCELLATION_COMPLETED_ONLY_MESSAGE,
+  CANCELLATION_IDEMPOTENCY_MISMATCH_MESSAGE,
   CASH_CUSTOMER_CREDIT_FORBIDDEN_MESSAGE,
   PAYMENT_COMPLETED_ONLY_MESSAGE,
   PAYMENT_DATE_RANGE_MESSAGE,
@@ -544,6 +545,65 @@ describe('payments, due date, and cancellation HTTP', () => {
     expect(first.status).toBe(200);
     expect(retry.status).toBe(409);
     expect(retry.body.error.message).toBe(CANCELLATION_COMPLETED_ONLY_MESSAGE);
+  });
+
+  it.each([
+    ['reason', { reason: 'Otro motivo' }],
+    ['refund amount', { refundAmount: '300.00' }],
+    ['refund method', { refundMethod: 'CASH' }],
+    ['refund reference', { refundReference: 'REF-DIFFERENT' }],
+  ])(
+    'rejects reuse of a cancellation idempotency key with a different %s',
+    async (_field, change) => {
+      const admin = await fixture(request.agent(createTestApp()), 'ADMINISTRATOR');
+      const invoice = await confirmInvoice(admin.agent);
+      await admin.agent.post(`${SALES}/${invoice.id}/payments`).set(CSRF).send({
+        amount: '400.00',
+        method: 'CHECK',
+        effectiveDate: businessDateString(new Date(invoice.confirmedAt)),
+        idempotencyKey: randomUUID(),
+      });
+      const body = {
+        reason: 'Solicitud del cliente',
+        refundAmount: '400.00',
+        refundMethod: 'TRANSFER',
+        refundReference: 'REF-ORIGINAL',
+        idempotencyKey: randomUUID(),
+      };
+      const first = await admin.agent.post(`${SALES}/${invoice.id}/cancel`).set(CSRF).send(body);
+
+      const mismatch = await admin.agent
+        .post(`${SALES}/${invoice.id}/cancel`)
+        .set(CSRF)
+        .send({ ...body, ...change });
+
+      expect(first.status).toBe(200);
+      expect(mismatch.status).toBe(409);
+      expect(mismatch.body.error.message).toBe(CANCELLATION_IDEMPOTENCY_MISMATCH_MESSAGE);
+      await expect(
+        prisma.invoicePayment.count({ where: { invoiceId: invoice.id, kind: 'REFUND' } }),
+      ).resolves.toBe(1);
+    },
+  );
+
+  it('rejects reuse of a zero-refund cancellation idempotency key with a different reason', async () => {
+    const admin = await fixture(request.agent(createTestApp()), 'ADMINISTRATOR');
+    const invoice = await confirmInvoice(admin.agent);
+    const body = {
+      reason: 'Cliente desistió',
+      idempotencyKey: randomUUID(),
+    };
+    const first = await admin.agent.post(`${SALES}/${invoice.id}/cancel`).set(CSRF).send(body);
+
+    const mismatch = await admin.agent
+      .post(`${SALES}/${invoice.id}/cancel`)
+      .set(CSRF)
+      .send({ ...body, reason: 'Otro motivo' });
+
+    expect(first.status).toBe(200);
+    expect(mismatch.status).toBe(409);
+    expect(mismatch.body.error.message).toBe(CANCELLATION_IDEMPOTENCY_MISMATCH_MESSAGE);
+    await expect(prisma.invoicePayment.count({ where: { invoiceId: invoice.id } })).resolves.toBe(0);
   });
 
   it('rejects cancellation while the invoice is still a draft', async () => {

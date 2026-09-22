@@ -6,16 +6,19 @@ import {
   CONDUCE_DUE_DATE_BEFORE_EMISSION_MESSAGE,
   CONDUCE_DUE_DATE_NOT_ALLOWED_MESSAGE,
   CONDUCE_DUE_DATE_REQUIRED_MESSAGE,
+  CONDUCE_RETRY_MISMATCH_MESSAGE,
   CREDIT_LIMIT_EXCEEDED_MESSAGE,
   SELLER_CREDIT_CONFIRM_PAYMENT_FORBIDDEN_MESSAGE,
   USD_INVOICE_MUST_BE_PAID_IN_FULL_MESSAGE,
 } from '../../../src/features/sales/constants.js';
 import {
   assertConduceInitialPaymentPolicy,
+  assertConduceRetryMatches,
   assertCreditExposureWithinLimit,
   assertInitialPaymentPolicy,
   confirmationDueTermDays,
   confirmationInitialPaymentAmount,
+  confirmationPaymentIdempotencyKey,
   invoiceNewBalance,
   resolveConduceDueDate,
   saleConditionFromInitialSettlement,
@@ -333,5 +336,116 @@ describe('resolveConduceDueDate (CON-002)', () => {
         actorDueDate: undefined,
       }),
     ).toEqual(new Date('2026-11-04T00:00:00.000Z')); // 2026-09-20 + 45
+  });
+});
+
+describe('assertConduceRetryMatches', () => {
+  const invoiceId = 'inv-retry-1';
+  const confirmKey = confirmationPaymentIdempotencyKey(invoiceId);
+
+  function baseInvoice(overrides: Record<string, unknown> = {}) {
+    return {
+      id: invoiceId,
+      quoteNumber: null as string | null,
+      dueDate: new Date('2026-09-25T00:00:00.000Z'),
+      gross: new Prisma.Decimal('1000.00'),
+      snapshotCustomerType: 'CASH' as const,
+      customer: { isDefault: false },
+      payments: [
+        {
+          kind: 'PAYMENT',
+          amount: new Prisma.Decimal('400.00'),
+          method: 'CASH',
+          reference: null,
+          idempotencyKey: confirmKey,
+        },
+      ],
+      ...overrides,
+    };
+  }
+
+  it('allows identical payment and dueDate retries from the same origin', () => {
+    expect(() =>
+      assertConduceRetryMatches({
+        invoice: baseInvoice(),
+        sourceStatus: 'DRAFT',
+        payment: { amount: '400.00', method: 'CASH' },
+        dueDate: '2026-09-25',
+      }),
+    ).not.toThrow();
+  });
+
+  it('rejects different amount, method, or dueDate', () => {
+    expect(() =>
+      assertConduceRetryMatches({
+        invoice: baseInvoice(),
+        sourceStatus: 'DRAFT',
+        payment: { amount: '500.00', method: 'CASH' },
+        dueDate: '2026-09-25',
+      }),
+    ).toThrow(CONDUCE_RETRY_MISMATCH_MESSAGE);
+
+    expect(() =>
+      assertConduceRetryMatches({
+        invoice: baseInvoice(),
+        sourceStatus: 'DRAFT',
+        payment: { amount: '400.00', method: 'TRANSFER' },
+        dueDate: '2026-09-25',
+      }),
+    ).toThrow(CONDUCE_RETRY_MISMATCH_MESSAGE);
+
+    expect(() =>
+      assertConduceRetryMatches({
+        invoice: baseInvoice(),
+        sourceStatus: 'DRAFT',
+        payment: { amount: '400.00', method: 'CASH' },
+        dueDate: '2026-09-30',
+      }),
+    ).toThrow(CONDUCE_RETRY_MISMATCH_MESSAGE);
+  });
+
+  it('rejects omitting dueDate when named-CASH still has balance', () => {
+    expect(() =>
+      assertConduceRetryMatches({
+        invoice: baseInvoice(),
+        sourceStatus: 'DRAFT',
+        payment: { amount: '400.00', method: 'CASH' },
+      }),
+    ).toThrow(CONDUCE_RETRY_MISMATCH_MESSAGE);
+  });
+
+  it('rejects wrong origen between draft and quote paths', () => {
+    expect(() =>
+      assertConduceRetryMatches({
+        invoice: baseInvoice({ quoteNumber: 'COT-000001' }),
+        sourceStatus: 'DRAFT',
+        payment: { amount: '400.00', method: 'CASH' },
+        dueDate: '2026-09-25',
+      }),
+    ).toThrow(CONDUCE_RETRY_MISMATCH_MESSAGE);
+
+    expect(() =>
+      assertConduceRetryMatches({
+        invoice: baseInvoice(),
+        sourceStatus: 'QUOTE_ISSUED',
+        payment: { amount: '400.00', method: 'CASH' },
+        dueDate: '2026-09-25',
+      }),
+    ).toThrow(CONDUCE_RETRY_MISMATCH_MESSAGE);
+  });
+
+  it('allows unpaid CREDIT retry without payment or dueDate payload', () => {
+    expect(() =>
+      assertConduceRetryMatches({
+        invoice: baseInvoice({
+          quoteNumber: null,
+          snapshotCustomerType: 'CREDIT',
+          gross: new Prisma.Decimal('118.00'),
+          payments: [],
+          dueDate: new Date('2026-11-19T00:00:00.000Z'),
+        }),
+        sourceStatus: 'DRAFT',
+      }),
+    ).not.toThrow();
   });
 });
