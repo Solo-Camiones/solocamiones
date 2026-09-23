@@ -231,8 +231,8 @@ export function ProfitabilityPage() {
         title="Rentabilidad"
         description={
           SHOW_PROFIT_DETAIL_AND_CHARTS
-            ? 'Ganancia bruta, facturado y cobrado neto en pesos.'
-            : 'Facturado, cobrado neto y cuentas por cobrar en pesos.'
+            ? 'Ganancia bruta, ventas y cobrado neto en pesos.'
+            : 'Ventas, cobrado neto y cuentas por cobrar en pesos.'
         }
         actions={
           <div className="flex min-w-0 flex-col items-stretch gap-3 sm:items-end">
@@ -296,27 +296,27 @@ export function ProfitabilityPage() {
           />
         </div>
 
-        {/* Cards secundarias: desglose por facturación */}
+        {/* Cards secundarias: desglose por ventas reconocidas */}
         <section className="min-w-0">
-          <SectionTitle title="Facturación del período" />
+          <SectionTitle title="Ventas del período" />
           <div className="grid min-w-0 gap-3 grid-cols-1 sm:grid-cols-2 xl:grid-cols-3">
             {/* Total primero: es la cifra principal de la sección */}
             <KpiCard
-              label="Total facturado"
+              label="Total ventas"
               value={money(view.periodInvoicedTotal, 'DOP')}
               tone="brand"
               size="sm"
             />
             {/* Desglose: el hint indica qué fracción representa cada modalidad */}
             <KpiCard
-              label="Facturado al contado"
+              label="Ventas al contado"
               value={money(view.periodInvoicedCash, 'DOP')}
               hint={shareOfTotal(view.periodInvoicedCash, view.periodInvoicedTotal, 'del total')}
               tone="default"
               size="sm"
             />
             <KpiCard
-              label="Facturado a crédito"
+              label="Ventas a crédito"
               value={money(view.periodInvoicedCredit, 'DOP')}
               hint={shareOfTotal(view.periodInvoicedCredit, view.periodInvoicedTotal, 'del total')}
               tone="default"

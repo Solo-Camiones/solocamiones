@@ -11,6 +11,7 @@ export type InvoicePdfLineFacts = {
 export type InvoicePdfFacts = {
   status: 'COMPLETED' | 'CANCELLED';
   number: string;
+  originConduceNumber: string | null;
   originQuoteNumber: string | null;
   currency: 'DOP' | 'USD';
   fiscal: boolean;
@@ -20,7 +21,11 @@ export type InvoicePdfFacts = {
   customerRnc: string | null;
   customerPhone: string | null;
   sellerName: string | null;
-  confirmedAt: Date;
+  /**
+   * Documentary invoice date (CON-004): conversion time when from conduce,
+   * otherwise confirmation time. Direct invoices keep invoiceIssuedAt = confirmedAt.
+   */
+  invoiceIssuedAt: Date;
   dueDate: Date;
   cancelledAt: Date | null;
   cancelReason: string | null;

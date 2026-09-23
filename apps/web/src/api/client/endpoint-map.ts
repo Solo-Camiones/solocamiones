@@ -53,8 +53,12 @@ export const REPOSITORY_ENDPOINT_MAP = {
     setLineQuantity: 'PATCH /api/sales/:id/lines/:lineId',
     removeLine: 'DELETE /api/sales/:id/lines/:lineId',
     confirmInvoice: 'POST /api/sales/:id/confirm',
+    issueConduce: 'POST /api/sales/:id/issue-conduce',
+    convertQuoteToConduce: 'POST /api/sales/:id/convert-quote-to-conduce',
+    convertConduceToInvoice: 'POST /api/sales/:id/convert-conduce-to-invoice',
     getInvoicePdf: 'GET /api/sales/:id/pdf',
     getQuotePdf: 'GET /api/sales/:id/pdf',
+    getConducePdf: 'GET /api/sales/:id/conduce.pdf',
     regenerateInvoicePdf: 'POST /api/sales/:id/pdf/regenerate',
     addPayment: 'POST /api/sales/:id/payments',
     cancelInvoice: 'POST /api/sales/:id/cancel',
@@ -75,7 +79,7 @@ export const REPOSITORY_ENDPOINT_MAP = {
   },
   ProfitabilityRepository: {
     getSnapshot:
-      'GET /api/sales?status=COMPLETED and GET /api/sales?status=CANCELLED (composed snapshot; no GET /api/profitability)',
+      'GET /api/sales?status=COMPLETED, GET /api/sales?status=CONDUCE, and GET /api/sales?status=CANCELLED (composed snapshot; no GET /api/profitability)',
     setFxAvailable: 'POST /api/profitability/fx (demo only — not a production endpoint)',
     retryUsd: 'POST /api/profitability/:invoiceId/retry',
     recordManualGrossProfit: 'POST /api/profitability/:invoiceId/manual-gross-profit',

@@ -44,7 +44,7 @@ Controllers translate HTTP only. Business rules belong in services. Prisma/datab
 
 Customers are lightweight reusable records, not a CRM. Keep name, contacts, RNC/Cédula, address, notes, internal `customerType`, and credit terms only when the type is `CREDIT`.
 
-Provide a stable generic customer such as `Cliente contado` for eligible nonfiscal counter sales. That generic identity remains `CASH`, cannot satisfy fiscal RNC/Cédula requirements, and cannot be sold on credit.
+Provide a stable generic customer such as `Cliente contado` for eligible nonfiscal counter sales. That generic identity remains `CASH`, cannot satisfy fiscal RNC/Cédula requirements, and cannot be sold on credit. Full initial payment remains required on **every** commercial recognition path for that default identity: direct invoice confirmation and conduce emission (CON-002). The Administrator named-`CASH` balance exception on conduce emission does **not** apply to default `Cliente contado`.
 
 `customerType` is an internal classification independent of `name`. Do not prefix names with “contado” or “crédito”. The only record that keeps the literal name `Cliente contado` is the generic default customer.
 
@@ -70,7 +70,7 @@ At invoice confirmation, copy the applicable customer data into an immutable inv
 - Seller/Administrator can find, create, and edit ordinary customer data.
 - Seller can create only `CASH` customers; Administrator can create/edit `CASH` and `CREDIT`.
 - Eligible nonfiscal sale can use `Cliente contado`.
-- `Cliente contado` cannot be sold on credit: confirmation requires a full initial payment equal to the invoice total.
+- `Cliente contado` cannot be sold on credit: confirmation and conduce emission both require a full initial payment equal to the operation total (CON-002).
 - `CREDIT` requires RNC/Cédula, positive DOP limit, and an allowed term; `CASH` forbids those credit fields.
 - A named `CASH` customer with valid RNC/Cédula may receive a fiscal-value invoice; the generic default customer never may.
 - A `CREDIT` customer with open balance cannot be changed to `CASH`.
@@ -140,12 +140,13 @@ The blocks below are the final reconciled requirements retained from the previou
 **Requirement:** The system must permit a generic default customer such as `Cliente contado` for eligible nonfiscal sales.  
 **Business Reason:** Many counter sales do not require named-customer registration.  
 **Main Flow:** User retains the default customer and completes a nonfiscal invoice.  
-**Business Rules:** Generic customer cannot satisfy a fiscal requirement for customer RNC/Cédula. Generic customer is always `CASH` and cannot be sold on credit: confirmation must record an initial payment equal to the invoice total (owner decision 2026-09-11). Credit terms apply only to customers classified `CREDIT` under CUST-004/CUST-005, not to every named customer.  
-**Important Exceptions/Edge Cases:** A sale requiring fiscal identification must select or create a qualifying customer. Confirming `Cliente contado` without a full initial payment is rejected and does not assign a `FAC-` number.  
-**Dependencies:** CUST-001, CUST-004, SALE-003, SALE-005.  
-**Acceptance Notes:** Nonfiscal generic sale succeeds when paid in full at confirmation; fiscal validation rejects missing required identity; credit terms on `Cliente contado` are rejected.
+**Business Rules:** Generic customer cannot satisfy a fiscal requirement for customer RNC/Cédula. Generic customer is always `CASH` and cannot be sold on credit: confirmation and conduce emission must record an initial payment equal to the operation total (owner decision 2026-09-11; reaffirmed for conduces 2026-09-20). Credit terms apply only to customers classified `CREDIT` under CUST-004/CUST-005, not to every named customer. The Administrator exception that may leave balance on a **named** `CASH` conduce (CON-002) does not apply to this default identity.  
+**Important Exceptions/Edge Cases:** A sale requiring fiscal identification must select or create a qualifying customer. Confirming or emitting a conduce for `Cliente contado` without a full initial payment is rejected and does not assign a `FAC-` or `CON-` number.  
+**Dependencies:** CUST-001, CUST-004, SALE-003, SALE-005, CON-002.  
+**Acceptance Notes:** Nonfiscal generic sale succeeds when paid in full at confirmation or conduce emission; fiscal validation rejects missing required identity; credit terms on `Cliente contado` are rejected; Administrator partial payment on default `Cliente contado` conduce is rejected.
 
-**Amended 2026-09-15:** Named customers are no longer implicitly credit-eligible; that rule moved to CUST-004/CUST-005.
+**Amended 2026-09-15:** Named customers are no longer implicitly credit-eligible; that rule moved to CUST-004/CUST-005.  
+**Amended 2026-09-20:** Full-pay rule for default `Cliente contado` also applies at conduce emission; named-`CASH` Admin conduce exception is out of scope for this identity (CON-002).
 
 ---
 
@@ -154,7 +155,7 @@ The blocks below are the final reconciled requirements retained from the previou
 **Name:** Preserve customer details used at sale  
 **Status:** CONFIRMED  
 **Actors:** Seller, Administrator  
-**Requirement:** A completed invoice must preserve the customer identity and details used at confirmation, including required RNC/Cédula for fiscal documents.  
+**Requirement:** A completed invoice or issued conduce must preserve the customer identity and details used at commercial recognition, including required RNC/Cédula for later fiscal invoicing from a conduce snapshot.  
 **Business Reason:** Later customer edits must not rewrite issued documents.  
 **Preconditions:** A valid draft and customer selection exist.  
 **Main Flow:** Confirmation copies the applicable customer information into the invoice record.  

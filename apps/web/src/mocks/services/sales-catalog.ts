@@ -11,6 +11,7 @@ import type {
 import { LIST_PAGE_SIZE } from '../../api/contracts/pagination';
 import { can } from '../../shared/auth/policies';
 import {
+  applyInvoiceDiscount,
   invoiceBalance,
   derivePaymentState,
   invoicePaid,
@@ -47,8 +48,10 @@ function displayNumber(invoice: Invoice): string {
   if (invoice.number) {
     return invoice.number;
   }
+  if (invoice.conduceNumber) return invoice.conduceNumber;
   if (invoice.quoteNumber) return invoice.quoteNumber;
   if (invoice.status === 'QUOTE_DRAFT') return 'Cotización borrador';
+  if (invoice.status === 'CONDUCE') return 'Conduce';
   return invoice.status === 'DRAFT' ? 'Borrador' : 'Factura';
 }
 
@@ -62,6 +65,7 @@ export function toSalesListRow(
     id: invoice.id,
     number: displayNumber(invoice),
     quoteNumber: invoice.quoteNumber,
+    conduceNumber: invoice.conduceNumber,
     status: invoice.status,
     customerId: invoice.customerId,
     customerName: customerName(state, invoice),
@@ -81,7 +85,9 @@ export function toSalesListRow(
       ),
     href: draftHref(invoice),
     ...(includePaymentSettlement &&
-    (invoice.status === 'COMPLETED' || invoice.status === 'CANCELLED')
+    (invoice.status === 'COMPLETED' ||
+      invoice.status === 'CANCELLED' ||
+      invoice.status === 'CONDUCE')
       ? { paymentState: derivePaymentState(invoice), balance: invoiceBalance(invoice) }
       : {}),
   };
@@ -131,10 +137,12 @@ export function buildReceivables(
   filters: ReceivablesFilters = {},
 ): ReceivablesSnapshot {
   const matchesBaseFilters = (invoice: Invoice) => {
-    if (invoice.status !== 'COMPLETED') return false;
+    if (invoice.status !== 'COMPLETED' && invoice.status !== 'CONDUCE') return false;
     if (filters.customerId && invoice.customerId !== filters.customerId) return false;
-    if (filters.invoice && invoice.number?.toUpperCase() !== filters.invoice.toUpperCase()) {
-      return false;
+    if (filters.invoice) {
+      const needle = filters.invoice.toUpperCase();
+      const documentNumber = (invoice.number ?? invoice.conduceNumber ?? '').toUpperCase();
+      if (documentNumber !== needle) return false;
     }
     return true;
   };
@@ -215,12 +223,18 @@ export function buildInvoiceDetail(
 ): InvoiceDetailView {
   const customer = state.customers.find((entry) => entry.id === invoice.customerId);
   const completed = invoice.status === 'COMPLETED';
-  const numbered = invoice.status === 'COMPLETED' || invoice.status === 'CANCELLED';
+  const recognized = completed || invoice.status === 'CONDUCE';
+  const numbered = completed || invoice.status === 'CANCELLED';
+  const openBalance = recognized && invoiceBalance(invoice) > 0;
+  const discounted = applyInvoiceDiscount(invoice);
 
   return {
     id: invoice.id,
     number: invoice.number,
     quoteNumber: invoice.quoteNumber,
+    conduceNumber: invoice.conduceNumber,
+    conduceIssuedAt: invoice.conduceIssuedAt,
+    invoiceIssuedAt: invoice.invoiceIssuedAt,
     status: invoice.status,
     customerId: invoice.customerId,
     customerName: invoice.customerSnapshot?.name ?? customer?.name ?? invoice.customerId,
@@ -243,7 +257,8 @@ export function buildInvoiceDetail(
             actorName: resolveActorName(state.users, payment.actorId),
           }))
         : [],
-    total: invoiceTotal(invoice),
+    discount: discounted.discount,
+    total: discounted.gross,
     ...(actor.role === 'ADMINISTRATOR'
       ? {
           paymentState: derivePaymentState(invoice),
@@ -279,17 +294,16 @@ export function buildInvoiceDetail(
     profitability: profitabilityForInvoice(state, invoice, actor),
     actions: {
       canPay:
-        completed &&
-        actor.role === 'ADMINISTRATOR' &&
-        can(actor, 'sales.manage') &&
-        invoiceBalance(invoice) > 0,
-      canCancel: completed && can(actor, 'sales.cancel'),
+        openBalance && actor.role === 'ADMINISTRATOR' && can(actor, 'sales.manage'),
+      canCancel: recognized && can(actor, 'sales.cancel'),
       canCorrectCurrency:
         completed &&
         can(actor, 'sales.correctCurrency') &&
         invoice.payments.length === 0 &&
         invoice.paymentState !== 'PAID',
       canViewPdf: numbered && Boolean(invoice.number),
+      canViewConducePdf: Boolean(invoice.conduceNumber),
+      canConvertToInvoice: invoice.status === 'CONDUCE',
       canRegeneratePdf: false,
     },
     deliveredAssemblies: invoice.deliveredAssemblies,

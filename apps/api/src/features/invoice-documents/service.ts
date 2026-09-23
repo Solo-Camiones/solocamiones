@@ -2,6 +2,11 @@ import { randomUUID } from 'node:crypto';
 
 import { AppError } from '../../infrastructure/errors/app-error.js';
 import {
+  conducePdfFilename,
+  pdfkitConducePdfRenderer,
+  type ConducePdfRenderer,
+} from '../../infrastructure/conduce-pdf/index.js';
+import {
   INVOICE_PDF_TEMPLATE_VERSION,
   pdfkitInvoicePdfRenderer,
   type InvoicePdfRenderer,
@@ -20,11 +25,12 @@ import { assertAdministrator } from '../users/policies.js';
 import {
   PDF_COMPLETED_ONLY_MESSAGE,
   PDF_CONTENT_TYPE,
+  PDF_CONDUCE_ONLY_MESSAGE,
   PDF_FAILED_MESSAGE,
   PDF_NOT_READY_MESSAGE,
   PDF_REGENERATE_FAILED_ONLY_MESSAGE,
 } from './constants.js';
-import { toInvoicePdfFacts, toQuotePdfFacts } from './projection.js';
+import { toConducePdfFacts, toInvoicePdfFacts, toQuotePdfFacts } from './projection.js';
 import { invoicePdfFilename } from './filename.js';
 import type { InvoicePdfFile } from './types.js';
 
@@ -33,6 +39,7 @@ export class InvoiceDocumentService {
     private readonly transaction: SalesTransaction = salesTransaction,
     private readonly invoiceRenderer: InvoicePdfRenderer = pdfkitInvoicePdfRenderer,
     private readonly quoteRenderer: QuotePdfRenderer = pdfkitQuotePdfRenderer,
+    private readonly conduceRenderer: ConducePdfRenderer = pdfkitConducePdfRenderer,
   ) {}
 
   /**
@@ -77,6 +84,29 @@ export class InvoiceDocumentService {
       return this.downloadQuote(invoice);
     }
     return this.downloadInvoice(invoice);
+  }
+
+  /**
+   * Conduce PDF is on-demand from frozen snapshots (CON-004), like quotes:
+   * no pdfStatus and no regenerate recovery path.
+   */
+  async downloadConduce(actorId: string, id: string): Promise<InvoicePdfFile> {
+    invoiceIdSchema.parse({ id });
+    const invoice = await this.transaction(async ({ sales, users }) => {
+      requireInvoiceManager(await users.findById(actorId));
+      const existing = await sales.findById(id);
+      if (!existing) throw AppError.notFound('Invoice not found');
+      return existing;
+    });
+
+    const facts = toConducePdfFacts(invoice);
+    if (facts == null) throw AppError.conflict(PDF_CONDUCE_ONLY_MESSAGE);
+    const body = await this.conduceRenderer.render(facts);
+    return {
+      filename: conducePdfFilename(facts.conduceNumber),
+      contentType: PDF_CONTENT_TYPE,
+      body,
+    };
   }
 
   /**

@@ -19,11 +19,12 @@ function renderInternalV4(facts: InvoicePdfFacts): Promise<Buffer> {
       customerRnc: facts.customerRnc,
       customerPhone: facts.customerPhone,
       sellerName: facts.sellerName,
-      issuedAt: facts.confirmedAt,
+      issuedAt: facts.invoiceIssuedAt,
       secondaryDate: facts.dueDate,
       saleCondition: SALE_CONDITION_LABELS[facts.saleCondition],
       lines: facts.lines,
       totals: facts.totals,
+      originConduceNumber: facts.originConduceNumber,
       originQuoteNumber: facts.originQuoteNumber,
       cancellation:
         facts.status === 'CANCELLED'

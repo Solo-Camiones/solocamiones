@@ -51,7 +51,7 @@ function customerName(state: AppState, invoice: Invoice): string {
 }
 
 function toRow(state: AppState, invoice: Invoice, actor: User): ProfitabilityInvoiceRow | null {
-  if (invoice.status !== 'COMPLETED') {
+  if (invoice.status !== 'COMPLETED' && invoice.status !== 'CONDUCE') {
     return null;
   }
 
@@ -62,7 +62,7 @@ function toRow(state: AppState, invoice: Invoice, actor: User): ProfitabilityInv
 
   return {
     id: invoice.id,
-    number: invoice.number ?? invoice.id,
+    number: invoice.number ?? invoice.conduceNumber ?? invoice.id,
     customerName: customerName(state, invoice),
     currency: invoice.currency,
     total: invoiceTotal(invoice),
@@ -93,7 +93,13 @@ function toReceipt(payment: Payment): ProfitabilitySeriesReceipt | null {
  * Seeds marked PAID without ledger rows are treated as fully settled at confirm.
  */
 function saleConditionForInvoice(invoice: Invoice): SaleCondition | null {
-  if (invoice.status !== 'COMPLETED' && invoice.status !== 'CANCELLED') return null;
+  if (
+    invoice.status !== 'COMPLETED' &&
+    invoice.status !== 'CONDUCE' &&
+    invoice.status !== 'CANCELLED'
+  ) {
+    return null;
+  }
 
   const gross = invoiceTotal(invoice);
   const confirmKey = `confirm:${invoice.id}`;
@@ -138,7 +144,10 @@ function toSeriesInvoice(state: AppState, invoice: Invoice, actor: User): Profit
     confirmedAt: invoice.confirmedAt ?? null,
     saleCondition: saleConditionForInvoice(invoice),
     gross: invoiceTotal(invoice),
-    profit: invoice.status === 'COMPLETED' ? (view?.profit ?? null) : null,
+    profit:
+      invoice.status === 'COMPLETED' || invoice.status === 'CONDUCE'
+        ? (view?.profit ?? null)
+        : null,
     pendingFx: view?.pendingFx === true,
     rateDopPerUsd: view?.rateDopPerUsd ?? invoice.fxRateDopPerUsd ?? null,
     receipts,

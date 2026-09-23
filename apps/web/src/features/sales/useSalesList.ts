@@ -12,6 +12,7 @@ export const SALES_LIST_TABS: SalesListTab[] = [
   'DRAFT',
   'QUOTE_DRAFT',
   'QUOTE_ISSUED',
+  'CONDUCE',
   'COMPLETED',
   'CANCELLED',
 ];
@@ -97,7 +98,14 @@ export function applySalesUrlFilters(
       }
     }
 
-    if (filters.outstanding && !(row.status === 'COMPLETED' && (row.balance ?? 0) > 0)) {
+    // Open balance on FAC- or CON- (admin KPI / CxC parity).
+    if (
+      filters.outstanding &&
+      !(
+        (row.status === 'COMPLETED' || row.status === 'CONDUCE') &&
+        (row.balance ?? 0) > 0
+      )
+    ) {
       return false;
     }
 

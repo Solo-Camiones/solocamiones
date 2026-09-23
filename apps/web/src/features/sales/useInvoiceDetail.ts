@@ -4,7 +4,9 @@ import { useNavigate } from 'react-router-dom';
 import type {
   AddPaymentInput,
   CancelInvoiceInput,
+  ConvertConduceToInvoiceInput,
   CorrectCurrencyInput,
+  ConducePdfDownload,
   InvoiceDetailView,
   InvoicePdfDownload,
 } from '../../api/contracts/sales';
@@ -95,8 +97,26 @@ export function useInvoiceDetail(id: string | undefined) {
     return { ok: true, value: undefined };
   }, [reload]);
 
+  const convertConduceToInvoice = useCallback(
+    async (invoiceId: string, input: ConvertConduceToInvoiceInput): Promise<Result<void>> => {
+      setIsMutating(true);
+      const response = await salesRepository.convertConduceToInvoice(invoiceId, input);
+      setIsMutating(false);
+      if (!response.ok) {
+        return response;
+      }
+      reload();
+      return { ok: true, value: undefined };
+    },
+    [reload],
+  );
+
   const getInvoicePdf = useCallback(async (invoiceId: string): Promise<Result<InvoicePdfDownload>> => {
     return salesRepository.getInvoicePdf(invoiceId);
+  }, []);
+
+  const getConducePdf = useCallback(async (invoiceId: string): Promise<Result<ConducePdfDownload>> => {
+    return salesRepository.getConducePdf(invoiceId);
   }, []);
 
   const regenerateInvoicePdf = useCallback(async (invoiceId: string): Promise<Result<void>> => {
@@ -116,7 +136,9 @@ export function useInvoiceDetail(id: string | undefined) {
     addPayment,
     cancelInvoice,
     correctCurrency,
+    convertConduceToInvoice,
     getInvoicePdf,
+    getConducePdf,
     regenerateInvoicePdf,
   };
 }

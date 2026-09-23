@@ -261,6 +261,7 @@ export function InvoiceStatusChip({ status }: { status: InvoiceStatus }) {
   }
   if (status === 'QUOTE_DRAFT') return <Chip tone="amber">Cotización borrador</Chip>;
   if (status === 'QUOTE_ISSUED') return <Chip tone="brand">Cotización emitida</Chip>;
+  if (status === 'CONDUCE') return <Chip tone="brand">Conduce</Chip>;
   return <Chip tone="success">Completada</Chip>;
 }
 

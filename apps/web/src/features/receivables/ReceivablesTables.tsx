@@ -22,8 +22,8 @@ export function CustomerOutstandingTable({
         title={hasQuery ? 'Sin resultados' : 'No hay saldos abiertos'}
         description={
           hasQuery
-            ? 'Pruebe otro cliente o número de factura.'
-            : 'Las facturas completadas con saldo pendiente aparecerán agrupadas por cliente y moneda.'
+            ? 'Pruebe otro cliente o número FAC- / CON-.'
+            : 'Las facturas y conduces con saldo pendiente aparecerán agrupadas por cliente y moneda.'
         }
       />
     );
@@ -51,7 +51,7 @@ export function CustomerOutstandingTable({
         <tr>
           <th className="px-4 py-3 font-medium">Cliente</th>
           <th className="px-4 py-3 font-medium">Moneda</th>
-          <th className="px-4 py-3 font-medium text-right">Facturas</th>
+          <th className="px-4 py-3 font-medium text-right">Documentos</th>
           <th className="px-4 py-3 font-medium text-right">Facturado</th>
           <th className="px-4 py-3 font-medium text-right">Cobrado</th>
           <th className="px-4 py-3 font-medium text-right">Saldo</th>
@@ -97,11 +97,11 @@ export function OpenReceivablesTable({
   if (rows.length === 0) {
     return (
       <Empty
-        title={hasQuery ? 'Sin resultados' : 'No hay facturas abiertas'}
+        title={hasQuery ? 'Sin resultados' : 'No hay documentos abiertos'}
         description={
           hasQuery
-            ? 'Pruebe otro cliente o número de factura.'
-            : 'Las facturas completadas con saldo pendiente aparecerán aquí.'
+            ? 'Pruebe otro cliente o número FAC- / CON-.'
+            : 'Las facturas y conduces con saldo pendiente aparecerán aquí.'
         }
       />
     );
@@ -111,7 +111,7 @@ export function OpenReceivablesTable({
     <TableShell>
       <thead className="border-b border-navy-100 bg-navy-50 text-navy-400">
         <tr>
-          <th className="px-4 py-3 font-medium">Factura</th>
+          <th className="px-4 py-3 font-medium">Documento</th>
           <th className="px-4 py-3 font-medium">Cliente</th>
           <th className="px-4 py-3 font-medium">Estado</th>
           <th className="px-4 py-3 font-medium">Fecha emitida</th>

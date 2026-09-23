@@ -118,6 +118,27 @@ describe('buildProfitabilitySeries', () => {
     expect(omitted.charts?.invoicedCashByDay.find((point) => point.key === '2026-09-01')?.amount).toBe(0);
   });
 
+  it('counts CONDUCE sales once without inventing a second row after status is still CONDUCE', () => {
+    const series = buildProfitabilitySeries(
+      [
+        invoice({
+          status: 'CONDUCE',
+          confirmedAt: '2026-09-01T12:00:00.000Z',
+          saleCondition: 'CREDIT',
+          gross: 1000,
+          profit: 400,
+        }),
+      ],
+      '2026-09-01',
+    );
+
+    expect(series.invoicesMissingProfitCount).toBe(0);
+    expect(series.charts?.invoicedCreditByDay.find((point) => point.key === '2026-09-01')?.amount).toBe(
+      1000,
+    );
+    expect(series.charts?.profitByDay.find((point) => point.key === '2026-09-01')?.amount).toBe(400);
+  });
+
   it('excludes cancelled invoices from profit, invoiced, and collected KPIs', () => {
     const series = buildProfitabilitySeries(
       [

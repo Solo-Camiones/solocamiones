@@ -167,10 +167,10 @@ export function ReceivablesPage() {
         </Field>
         <form className="flex items-end gap-2" onSubmit={submitInvoice}>
           <div className="min-w-0 flex-1">
-            <Field label="Factura" htmlFor="receivables-invoice" error={invoiceError}>
+            <Field label="Documento" htmlFor="receivables-invoice" error={invoiceError}>
               <Input
                 id="receivables-invoice"
-                placeholder="FAC-000123"
+                placeholder="FAC-000123 o CON-000123"
                 value={invoiceInput}
                 onChange={(event) => {
                   setInvoiceInput(event.target.value);
@@ -225,7 +225,7 @@ export function ReceivablesPage() {
         </section>
         {showInvoices && (
           <section>
-            <SectionTitle title="Facturas" />
+            <SectionTitle title="Documentos abiertos" />
             <OpenReceivablesTable rows={result.snapshot.invoices} hasQuery={hasAppliedFilters} />
             <PaginationBar
               page={result.snapshot.page}

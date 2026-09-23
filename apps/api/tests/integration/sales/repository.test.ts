@@ -23,6 +23,10 @@ async function cleanupSales() {
     where: { name: 'FAC' },
     data: { nextValue: 1 },
   });
+  await prisma.invoiceSequence.update({
+    where: { name: 'CON' },
+    data: { nextValue: 1 },
+  });
 }
 
 describe('SalesRepository (PostgreSQL)', () => {
@@ -65,6 +69,7 @@ describe('SalesRepository (PostgreSQL)', () => {
 
   it('seeds the FAC sequence at nextValue 1 and can lock it without consuming', async () => {
     expect(await sales.findSequence()).toMatchObject({ name: 'FAC', nextValue: 1 });
+    expect(await sales.findSequence('CON')).toMatchObject({ name: 'CON', nextValue: 1 });
 
     await prisma.$transaction(async (tx) => {
       const locked = await new SalesRepository(tx).lockSequenceForUpdate();
@@ -127,6 +132,7 @@ describe('SalesRepository (PostgreSQL)', () => {
       customerRnc: null,
     });
     expect(completed.confirmedAt?.toISOString()).toBe('2026-09-08T18:00:00.000Z');
+    expect(completed.invoiceIssuedAt?.toISOString()).toBe('2026-09-08T18:00:00.000Z');
     expect(Number(completed.gross)).toBe(118);
     expect(Number(completed.lines[0]?.gross)).toBe(118);
     expect(await sales.findSequence()).toMatchObject({ name: 'FAC', nextValue: 2 });

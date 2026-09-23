@@ -53,6 +53,7 @@ const RETIRED_CONTACT_STRINGS = ['809-212-7751', 'jmvargas24@gmail.com', 'Av. Pt
 const invoiceBase: InvoicePdfFacts = {
   status: 'COMPLETED',
   number: 'FAC-000101',
+  originConduceNumber: null,
   originQuoteNumber: null,
   currency: 'DOP',
   fiscal: false,
@@ -61,7 +62,7 @@ const invoiceBase: InvoicePdfFacts = {
   customerRnc: null,
   customerPhone: '809-555-0101',
   sellerName: 'María Pérez',
-  confirmedAt: new Date('2026-09-08T18:00:00.000Z'),
+  invoiceIssuedAt: new Date('2026-09-08T18:00:00.000Z'),
   dueDate: new Date('2026-10-08T00:00:00.000Z'),
   cancelledAt: null,
   cancelReason: null,

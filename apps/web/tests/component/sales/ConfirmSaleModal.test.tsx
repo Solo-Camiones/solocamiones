@@ -106,7 +106,7 @@ describe('ConfirmSaleModal', () => {
     await user.type(screen.getByLabelText('Monto'), '40');
     await user.click(within(dialog).getByRole('button', { name: 'Confirmar venta' }));
     expect(onConfirm).toHaveBeenCalledWith(
-      expect.objectContaining({ amount: 40, method: 'CASH' }),
+      expect.objectContaining({ payment: expect.objectContaining({ amount: 40, method: 'CASH' }) }),
     );
   });
 
@@ -124,7 +124,9 @@ describe('ConfirmSaleModal', () => {
     const dialog = screen.getByRole('dialog', { name: 'Confirmar venta' });
     await user.click(within(dialog).getByRole('button', { name: 'Confirmar venta' }));
     expect(onConfirm).toHaveBeenCalledWith(
-      expect.objectContaining({ amount: 100, method: 'CASH' }),
+      expect.objectContaining({
+        payment: expect.objectContaining({ amount: 100, method: 'CASH' }),
+      }),
     );
   });
 
@@ -135,6 +137,40 @@ describe('ConfirmSaleModal', () => {
     expect(screen.getByLabelText('Monto')).toBeDisabled();
     const dialog = screen.getByRole('dialog', { name: 'Confirmar venta' });
     await user.click(within(dialog).getByRole('button', { name: 'Confirmar venta' }));
-    expect(onConfirm).toHaveBeenCalledWith(expect.objectContaining({ amount: 100 }));
+    expect(onConfirm).toHaveBeenCalledWith(
+      expect.objectContaining({ payment: expect.objectContaining({ amount: 100 }) }),
+    );
+  });
+
+  it('lets an administrator leave named-CASH balance on conduce with due date', async () => {
+    const user = userEvent.setup();
+    const onConfirm = vi.fn();
+    renderWithProviders(
+      <ConfirmSaleModal
+        open
+        mode="conduce"
+        draft={cashDraft}
+        isConfirming={false}
+        error={null}
+        onClose={vi.fn()}
+        onConfirm={onConfirm}
+      />,
+      { auth: createAuthValue('ADMINISTRATOR') },
+    );
+
+    expect(screen.getByText(/Documento no fiscal/)).toBeVisible();
+    const dialog = screen.getByRole('dialog', { name: 'Emitir conduce' });
+    await user.click(screen.getByLabelText('Pago inicial'));
+    await user.clear(screen.getByLabelText('Monto'));
+    await user.type(screen.getByLabelText('Monto'), '40');
+    await user.type(screen.getByLabelText('Fecha de vencimiento'), '2026-09-30');
+    await user.click(within(dialog).getByRole('button', { name: 'Emitir conduce' }));
+
+    expect(onConfirm).toHaveBeenCalledWith(
+      expect.objectContaining({
+        payment: expect.objectContaining({ amount: 40 }),
+        dueDate: '2026-09-30',
+      }),
+    );
   });
 });

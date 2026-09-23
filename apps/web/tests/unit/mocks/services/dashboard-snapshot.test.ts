@@ -51,7 +51,7 @@ describe('buildDashboardSnapshot', () => {
     expect(snapshot.kpis).toEqual({
       availableInventory: 78,
       invoicesToday: 2,
-      outstandingDop: 23100,
+      outstandingDop: 31_100,
       outstandingUsd: 0,
       draftCount: 1,
       pendingDismantling: 1,

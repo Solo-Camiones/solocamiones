@@ -54,6 +54,26 @@ export async function postConvertQuote(req: Request, res: Response) {
   res.json(await salesServiceOf(req).convertQuote(actor(req), id(req), req.validated?.body ?? {}));
 }
 
+export async function postIssueConduce(req: Request, res: Response) {
+  res.json(await salesServiceOf(req).issueConduce(actor(req), id(req), req.validated?.body ?? {}));
+}
+
+export async function postConvertQuoteToConduce(req: Request, res: Response) {
+  res.json(
+    await salesServiceOf(req).convertQuoteToConduce(actor(req), id(req), req.validated?.body ?? {}),
+  );
+}
+
+export async function postConvertConduceToInvoice(req: Request, res: Response) {
+  res.json(
+    await salesServiceOf(req).convertConduceToInvoice(
+      actor(req),
+      id(req),
+      req.validated?.body ?? {},
+    ),
+  );
+}
+
 export async function getInvoices(req: Request, res: Response) {
   res.json(await salesServiceOf(req).list(actor(req), req.validated?.query));
 }
@@ -97,6 +117,14 @@ export async function postConfirmInvoice(req: Request, res: Response) {
 
 export async function getInvoicePdf(req: Request, res: Response) {
   const file = await salesServiceOf(req).getPdf(actor(req), id(req));
+  res.status(200);
+  res.setHeader('Content-Type', file.contentType);
+  res.setHeader('Content-Disposition', `attachment; filename="${file.filename}"`);
+  res.send(file.body);
+}
+
+export async function getConducePdf(req: Request, res: Response) {
+  const file = await salesServiceOf(req).getConducePdf(actor(req), id(req));
   res.status(200);
   res.setHeader('Content-Type', file.contentType);
   res.setHeader('Content-Disposition', `attachment; filename="${file.filename}"`);

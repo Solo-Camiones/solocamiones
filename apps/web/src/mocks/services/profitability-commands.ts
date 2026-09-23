@@ -100,17 +100,20 @@ export function retryUsdProfitability(
     return err({ code: 'NOT_FOUND', message: 'Factura no encontrada' });
   }
 
-  if (invoice.status !== 'COMPLETED' || invoice.currency !== 'USD') {
+  if (
+    (invoice.status !== 'COMPLETED' && invoice.status !== 'CONDUCE') ||
+    invoice.currency !== 'USD'
+  ) {
     return err({
       code: 'VALIDATION',
-      message: 'Solo se puede reintentar rentabilidad en facturas en dólares completadas',
+      message: 'Solo se puede reintentar rentabilidad en ventas en dólares reconocidas',
     });
   }
 
   if (invoice.profitabilityPendingFx !== true) {
     return err({
       code: 'CONFLICT',
-      message: 'Esta factura no tiene rentabilidad pendiente de tasa de cambio',
+      message: 'Esta venta no tiene rentabilidad pendiente de tasa de cambio',
     });
   }
 
@@ -133,7 +136,7 @@ export function retryUsdProfitability(
     });
   }
 
-  const number = invoice.number ?? invoice.id;
+  const number = invoice.number ?? invoice.conduceNumber ?? invoice.id;
 
   appendEvent(
     state,
@@ -176,10 +179,10 @@ export function recordManualGrossProfit(
     return err({ code: 'NOT_FOUND', message: 'Factura no encontrada' });
   }
 
-  if (invoice.status !== 'COMPLETED') {
+  if (invoice.status !== 'COMPLETED' && invoice.status !== 'CONDUCE') {
     return err({
       code: 'VALIDATION',
-      message: 'Solo se puede registrar ganancia bruta en facturas completadas',
+      message: 'Solo se puede registrar ganancia bruta en ventas reconocidas',
     });
   }
 
@@ -219,7 +222,7 @@ export function recordManualGrossProfit(
     });
   }
 
-  const number = invoice.number ?? invoice.id;
+  const number = invoice.number ?? invoice.conduceNumber ?? invoice.id;
   appendEvent(
     state,
     'GROSS_PROFIT_RECORDED',

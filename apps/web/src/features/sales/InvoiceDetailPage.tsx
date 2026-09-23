@@ -10,6 +10,7 @@ import { Button, Card, Chip, Info, money, Mono, useObjectUrlState } from '../../
 import { PageHeader } from '../../shared/layout/PageHeader';
 import { BackToSalesLink } from './BackToSalesLink';
 import { CancelInvoiceModal } from './CancelInvoiceModal';
+import { ConvertConduceModal } from './ConvertConduceModal';
 import { CurrencyCorrectionModal } from './CurrencyCorrectionModal';
 import { InvoiceHistory } from './InvoiceHistory';
 import { InvoiceLinesTable } from './InvoiceLinesTable';
@@ -77,13 +78,17 @@ export function InvoiceDetailPage() {
     addPayment,
     cancelInvoice,
     correctCurrency,
+    convertConduceToInvoice,
     getInvoicePdf,
+    getConducePdf,
     regenerateInvoicePdf,
   } = useInvoiceDetail(id);
   const [payOpen, setPayOpen] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
+  const [convertOpen, setConvertOpen] = useState(false);
   const [currencyOpen, setCurrencyOpen] = useState(false);
   const [pdfOpen, setPdfOpen] = useState(false);
+  const [pdfKind, setPdfKind] = useState<'invoice' | 'conduce'>('invoice');
   const {
     value: pdfFile,
     setValue: setPdfFile,
@@ -107,9 +112,17 @@ export function InvoiceDetailPage() {
   const canViewProfit = can(user, 'profit.view');
   const canManageWorkOrders = can(user, 'workOrders.manage');
   const isAdministrator = user?.role === 'ADMINISTRATOR';
+  const isConduce = detail.status === 'CONDUCE';
+  const primaryNumber =
+    detail.number ?? detail.conduceNumber ?? (isConduce ? 'Conduce' : 'Factura');
+  const originParts = [
+    detail.conduceNumber && detail.number ? `Origen ${detail.conduceNumber}` : null,
+    detail.quoteNumber ? `Origen ${detail.quoteNumber}` : null,
+  ].filter(Boolean);
   const canRegisterPayment =
     isAdministrator && capabilities.payments && detail.actions.canPay && can(user, 'sales.manage');
   const canViewPaymentSettlement = isAdministrator;
+  const documentLabel = isConduce ? 'conduce' : 'factura';
 
   return (
     <>
@@ -117,14 +130,37 @@ export function InvoiceDetailPage() {
         leading={<BackToSalesLink />}
         breadcrumbs={[
           { label: 'Ventas', to: '/sales' },
-          { label: detail.number ?? 'Factura' },
+          { label: primaryNumber },
         ]}
-        title={detail.number ?? 'Factura'}
+        title={primaryNumber}
         description={`${detail.customerName}${detail.customerRnc ? ` · ${formatFiscalId(detail.customerRnc)}` : ''}${
-          detail.quoteNumber ? ` · Origen ${detail.quoteNumber}` : ''
+          originParts.length > 0 ? ` · ${originParts.join(' · ')}` : ''
         }`}
         actions={
           <div className="flex flex-wrap gap-2">
+            {detail.actions.canViewConducePdf && (
+              <Button
+                variant="secondary"
+                disabled={isMutating}
+                onClick={async () => {
+                  setActionError(null);
+                  const response = await getConducePdf(detail.id);
+                  if (!response.ok) {
+                    setActionError(response.error.message);
+                    return;
+                  }
+                  revokePdfFile();
+                  setPdfFile({
+                    url: URL.createObjectURL(response.value.blob),
+                    filename: response.value.filename,
+                  });
+                  setPdfKind('conduce');
+                  setPdfOpen(true);
+                }}
+              >
+                Ver conduce
+              </Button>
+            )}
             {detail.actions.canViewPdf && (
               <Button
                 variant="secondary"
@@ -143,10 +179,22 @@ export function InvoiceDetailPage() {
                       filename: response.value.filename,
                     });
                   }
+                  setPdfKind('invoice');
                   setPdfOpen(true);
                 }}
               >
                 Ver factura
+              </Button>
+            )}
+            {detail.actions.canConvertToInvoice && can(user, 'sales.manage') && (
+              <Button
+                disabled={isMutating}
+                onClick={() => {
+                  setActionError(null);
+                  setConvertOpen(true);
+                }}
+              >
+                Facturar
               </Button>
             )}
             {detail.actions.canRegeneratePdf && can(user, 'recovery.manage') && (
@@ -171,7 +219,7 @@ export function InvoiceDetailPage() {
                   setPayOpen(true);
                 }}
               >
-                Confirmar pago
+                Registrar pago
               </Button>
             )}
             {detail.actions.canCorrectCurrency && can(user, 'sales.correctCurrency') && (
@@ -195,7 +243,7 @@ export function InvoiceDetailPage() {
                     setCancelOpen(true);
                   }}
                 >
-                  Cancelar factura
+                  Cancelar {documentLabel}
                 </Button>
               )}
           </div>
@@ -205,19 +253,40 @@ export function InvoiceDetailPage() {
       <div className="mb-6 flex flex-wrap items-center gap-2">
         <InvoiceStatusChip status={detail.status} />
         {canViewPaymentSettlement &&
-          detail.status === 'COMPLETED' &&
+          (detail.status === 'COMPLETED' || detail.status === 'CONDUCE') &&
           capabilities.payments &&
           detail.paymentState && <PaymentChip state={detail.paymentState} />}
         <FiscalChip fiscal={detail.fiscal} />
+        {detail.conduceNumber && detail.number ? (
+          <Chip>Origen {detail.conduceNumber}</Chip>
+        ) : null}
         {detail.quoteNumber ? <Chip>Origen {detail.quoteNumber}</Chip> : null}
         <Chip>{detail.currency}</Chip>
       </div>
 
-      <div className={`mb-8 grid gap-4 ${canViewPaymentSettlement ? 'sm:grid-cols-3' : ''}`}>
+      <div
+        className={`mb-8 grid gap-4 ${
+          canViewPaymentSettlement
+            ? detail.discount > 0
+              ? 'sm:grid-cols-2 lg:grid-cols-4'
+              : 'sm:grid-cols-3'
+            : detail.discount > 0
+              ? 'sm:grid-cols-2'
+              : ''
+        }`}
+      >
         <Card>
           <p className="text-xs font-medium uppercase tracking-wide text-navy-400">Total</p>
           <p className="mt-1 font-mono text-xl text-navy">{money(detail.total, detail.currency)}</p>
         </Card>
+        {detail.discount > 0 ? (
+          <Card>
+            <p className="text-xs font-medium uppercase tracking-wide text-navy-400">Descuento</p>
+            <p className="mt-1 font-mono text-xl text-navy">
+              {detail.discountPercent}% (−{money(detail.discount, detail.currency)})
+            </p>
+          </Card>
+        ) : null}
         {canViewPaymentSettlement ? (
           <>
             <Card>
@@ -350,6 +419,7 @@ export function InvoiceDetailPage() {
         open={cancelOpen}
         paid={(detail.paid ?? 0) - (detail.refunded ?? 0)}
         currency={detail.currency}
+        documentLabel={documentLabel}
         workOrders={detail.linkedWorkOrders}
         isSaving={isMutating}
         error={cancelOpen ? actionError : null}
@@ -366,6 +436,28 @@ export function InvoiceDetailPage() {
             return;
           }
           setCancelOpen(false);
+        }}
+      />
+
+      <ConvertConduceModal
+        open={convertOpen}
+        conduceNumber={detail.conduceNumber}
+        customerHasFiscalId={Boolean(detail.customerRnc?.trim())}
+        isSaving={isMutating}
+        error={convertOpen ? actionError : null}
+        onClose={() => {
+          if (!isMutating) {
+            setConvertOpen(false);
+            setActionError(null);
+          }
+        }}
+        onSubmit={async (fiscal) => {
+          const response = await convertConduceToInvoice(detail.id, { fiscal });
+          if (!response.ok) {
+            setActionError(response.error.message);
+            return;
+          }
+          setConvertOpen(false);
         }}
       />
 
@@ -392,7 +484,7 @@ export function InvoiceDetailPage() {
 
       <PdfPreviewModal
         open={pdfOpen}
-        kind="invoice"
+        kind={pdfKind}
         detail={detail}
         pdfFile={pdfFile ?? undefined}
         onClose={() => {

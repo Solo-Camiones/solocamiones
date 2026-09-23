@@ -17,6 +17,7 @@ export const invoiceStatusSchema = z.enum([
   'DRAFT',
   'QUOTE_DRAFT',
   'QUOTE_ISSUED',
+  'CONDUCE',
   'COMPLETED',
   'CANCELLED',
 ]);
@@ -74,10 +75,11 @@ export const listInvoicesSchema = paginationSchema
 export const listReceivablesSchema = paginationSchema
   .extend({
     customerId: z.uuid().optional(),
+    /** Document lookup: FAC- or CON- (CON-002 / PAY-007). */
     invoice: z
       .string()
       .trim()
-      .regex(/^FAC-\d{6}$/i, 'Must be a FAC- number')
+      .regex(/^(FAC|CON)-\d{6}$/i, 'Must be a FAC- or CON- number')
       .transform((value) => value.toUpperCase())
       .optional(),
   })
@@ -223,6 +225,21 @@ export const confirmInvoiceSchema = z.strictObject({
     .optional(),
 });
 
+/**
+ * Conduce emission/convert-quote-to-conduce: same payment body as confirm, plus optional
+ * actor dueDate for Admin named-CASH with remaining balance (CON-002).
+ */
+export const issueConduceSchema = confirmInvoiceSchema
+  .extend({
+    dueDate: z.iso.date().optional(),
+  })
+  .strict();
+
+/** Convert conduce → invoice: fiscal choice is made here, not at conduce emission (CON-003). */
+export const convertConduceToInvoiceSchema = z.strictObject({
+  fiscal: z.boolean(),
+});
+
 export const addPaymentSchema = z.strictObject({
   amount: positiveDecimal12x2StringSchema,
   method: paymentMethodSchema,
@@ -231,8 +248,10 @@ export const addPaymentSchema = z.strictObject({
   idempotencyKey: z.string().trim().min(1).max(100),
 });
 
+/** CANCEL-002: refundAmount is 0..net (service enforces bounds); method required when amount > 0. */
 export const cancelInvoiceSchema = z.strictObject({
   reason: z.string().trim().min(1).max(500),
+  refundAmount: decimal12x2StringSchema.optional(),
   refundMethod: paymentMethodSchema.optional(),
   refundReference: z.string().trim().min(1).max(100).nullable().optional(),
   idempotencyKey: z.string().trim().min(1).max(100),

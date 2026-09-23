@@ -12,6 +12,12 @@ The old consolidated requirements/validation files are intentionally no longer r
 
 **Implementation (2026-09-10):** Early financial slice **pulled forward** — production API + HTTP UI (`POST /api/sales/:id/cancel`, additive refund, Cancelled PDF). Inventory and Work-Order checklist `[x]` items below are **prototype mock only**; there is no Item/Work-Order persistence. Future Releases 5/7 must implement those branches in the API, not treat the mock as done.
 
+**Refund policy amendment (2026-09-20, documentation):** Owner confirmed a **global** cancellation refund rule for Feature 16 / pre-production conduces work: Administrator indicates the actual money returned from **zero through net collected** (reject above net). Outstanding balance is extinguished on cancel. This supersedes the earlier “mandatory full-net refund” wording for all cancellable commercial operations (invoice-only and conduce / `CON-+FAC-`).
+
+**Runtime (2026-09-20, M4):** `POST /api/sales/:id/cancel` accepts optional `refundAmount` (required when net collected &gt; 0), rejects amounts above net, requires `refundMethod` when refund &gt; 0, and cancels `COMPLETED` or `CONDUCE`.
+
+**UI (2026-09-21, M7):** `CancelInvoiceModal` defaults the refund amount to net collected and lets the Administrator edit 0…neto before submit; HTTP client sends `refundAmount`.
+
 ## What this feature does
 
 Cancel completed invoices without deletion, register actual refunds additively, restore eligible commercial inventory exactly once, and coordinate validated branches with linked Dismantling state.
@@ -40,9 +46,9 @@ Controllers translate HTTP only. Business rules belong in services. Prisma/datab
 
 Cancellation is an Administrator-only compensating business operation, never destructive edit/delete. The cancellation service must reread current invoice/payment/inventory/Work-Order state, preview the applicable effects, require a reason, and commit one valid branch atomically.
 
-Refunds are additive money-returned records in the invoice currency. They never erase original payments. For the validated non-inventory flow, cancellation and refund are one atomic, idempotent operation: if net money was received, the complete net amount must be refunded using cash, transfer, or cheque; there is no partial or deferred cancellation refund. A cancelled invoice has zero outstanding balance.
+Refunds are additive money-returned records in the invoice currency. They never erase original payments. Cancellation and refund are one atomic, idempotent operation: Administrator indicates the **actual** refund amount from **zero through net collected** (cash, transfer, or cheque when amount &gt; 0); amounts above net collected are rejected. A payment of refund 0 is valid when nothing is returned. A cancelled operation has zero outstanding balance. **Amended 2026-09-20:** this replaces the prior mandatory full-net refund rule globally (CANCEL-002), including future conduce cancellations (CON-005).
 
-A cancelled PDF remains downloadable. It preserves the original lines, prices, tax and total while adding a prominent `CANCELADA` mark plus cancellation date, reason and Administrator name.
+A cancelled PDF remains downloadable. It preserves the original lines, prices, tax and total while adding a prominent `CANCELADA` mark plus cancellation date, reason and Administrator name. When Feature 16 is implemented, cancelling after `FAC-` exists for a conduce-originated operation cancels the whole `CON-/FAC-` pair (CON-005).
 
 For non-inventory invoices, cancellation can be delivered early because there is no stock/physical branch. Once inventory is enabled, cancellation restores eligible commercial availability exactly once. Once Work Orders are enabled, choose the validated branch based on linked Dismantling state:
 
@@ -56,7 +62,7 @@ Use transaction/version checks for races between cancellation, payment, Work-Ord
 
 - Only Administrator can cancel a Completed invoice or register cancellation refund.
 - Original invoice/payment/history is preserved.
-- Refund amount/history represents money actually returned.
+- Refund amount/history represents money actually returned (zero through net collected).
 - Inventory restoration occurs at most once and follows the valid branch.
 - Pending/In-Progress/Completed linked Dismantling cases produce their specified physical/commercial outcomes.
 - Completed physical work is not erased by invoice cancellation.
@@ -70,7 +76,8 @@ Use transaction/version checks for races between cancellation, payment, Work-Ord
 - [x] Non-inventory invoice cancellation.
 - [x] Additive same-currency refund record.
 - [x] Cancellation/refund history and idempotency.
-- [x] Mandatory full-net refund in the same cancellation transaction.
+- [x] Mandatory full-net refund in the same cancellation transaction. _(historical implementation note; **rule superseded 2026-09-20** by CANCEL-002 zero..net)_
+- [x] Administrator-indicated cancellation refund from zero through net collected; reject above net; extinguish open balance (CANCEL-002 amended 2026-09-20). _(API runtime Feature 16 / plan M4, 2026-09-20: `refundAmount` on `POST /api/sales/:id/cancel`; also cancels `CONDUCE`)_
 - [x] Downloadable Cancelled PDF with preserved invoice facts and cancellation attribution.
 
 ### Inventory slice (prototype mock only — production API not started; Release 5)
@@ -97,13 +104,13 @@ The blocks below are the final reconciled requirements retained from the previou
 **Name:** Cancel completed invoice without deletion  
 **Status:** CONFIRMED  
 **Actors:** Administrator  
-**Requirement:** Only an Administrator may cancel a completed invoice, recording reason, date, and actor while preserving its original contents.  
+**Requirement:** Only an Administrator may cancel a completed invoice (and, when Feature 16 is implemented, an active conduce or `CON-/FAC-` operation per CON-005), recording reason, date, and actor while preserving its original contents.  
 **Business Reason:** Cancellation is a sensitive reversal and must remain auditable.  
-**Preconditions:** The invoice is Completed and not already Cancelled.  
+**Preconditions:** The operation is commercially recognized (`COMPLETED` invoice today; `CONDUCE` or converted invoice when Feature 16 lands) and not already Cancelled.  
 **Main Flow:** Administrator reviews effects, supplies a reason, and confirms the cancellation transaction.  
-**Business Rules:** Cancellation is not editing or deleting the invoice.  
+**Business Rules:** Cancellation is not editing or deleting the invoice. Cancelling a factura that originated from a conduce cancels the whole operation (CON-005).  
 **Important Exceptions/Edge Cases:** Concurrent payment or stock changes must be revalidated.  
-**Dependencies:** AUTH-005, SALE-001, HIST-003.  
+**Dependencies:** AUTH-005, SALE-001, HIST-003, CON-005.  
 **Acceptance Notes:** Seller and Mechanic are denied; successful cancellation preserves the document and reason.
 
 ---
@@ -113,14 +120,16 @@ The blocks below are the final reconciled requirements retained from the previou
 **Name:** Record money returned on cancellation  
 **Status:** CONFIRMED  
 **Actors:** Administrator  
-**Requirement:** Cancelling a paid or partially paid invoice must also record the applicable refund because the business normally returns received money.  
-**Business Reason:** Cancellation alone would leave financial records inconsistent with actual cash returned.  
-**Preconditions:** The invoice has recorded payments.  
-**Main Flow:** Administrator records refund amount and method as part of the cancellation process; the ledger preserves both payment and refund.  
-**Business Rules:** Refund cannot silently erase payments and must use the invoice currency.  
-**Important Exceptions/Edge Cases:** Exact method restrictions and staged-refund mechanics are non-blocking policy/implementation details; cross-currency refunds are denied.  
-**Dependencies:** CANCEL-001, PAY-005.  
-**Acceptance Notes:** Paid and partially paid examples show both original receipts and returned amount.
+**Requirement:** Cancelling a paid, partially paid, or unpaid recognized sale must record the **actual** refund amount the Administrator indicates, from **zero through net collected** in the operation currency. Outstanding balance is extinguished. Amounts above net collected are rejected.  
+**Business Reason:** Cancellation alone would leave financial records inconsistent with money actually returned; the business may return less than net collected.  
+**Preconditions:** The operation is being cancelled by an Administrator.  
+**Main Flow:** Administrator records refund amount (including 0) and method when amount &gt; 0 as part of the cancellation process; the ledger preserves both payment and refund.  
+**Business Rules:** Refund cannot silently erase payments and must use the operation currency. This rule is **global** for invoice-only cancellations and for conduce / `CON-/FAC-` cancellations (CON-005).  
+**Important Exceptions/Edge Cases:** Cross-currency refunds are denied. Refund 0 with prior payments leaves payment history intact and balance zero after cancel.  
+**Dependencies:** CANCEL-001, PAY-005, CON-005.  
+**Acceptance Notes:** Paid and partially paid examples show original receipts plus returned amount (including return less than net). Unpaid cancel with refund 0 succeeds.
+
+**Amended 2026-09-20:** Replaced mandatory full-net refund with Administrator-indicated zero..net (global).
 
 ---
 

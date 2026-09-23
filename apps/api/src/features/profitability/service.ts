@@ -25,8 +25,12 @@ import {
 } from './constants.js';
 import { profitabilityInvoiceIdSchema, recordManualGrossProfitSchema } from './validation.js';
 
+function isRecognizedSaleStatus(status: InvoiceRecord['status']): boolean {
+  return status === 'COMPLETED' || status === 'CONDUCE';
+}
+
 function assertPendingUsdFx(invoice: InvoiceRecord): Date {
-  if (invoice.status !== 'COMPLETED' || invoice.currency !== 'USD') {
+  if (!isRecognizedSaleStatus(invoice.status) || invoice.currency !== 'USD') {
     throw AppError.conflict(FX_RETRY_COMPLETED_USD_ONLY_MESSAGE);
   }
   if (invoice.confirmedAt == null) {
@@ -142,7 +146,11 @@ export class ProfitabilityService {
         });
       };
 
-      if (existing.status !== 'COMPLETED' || existing.currency !== 'USD' || existing.confirmedAt == null) {
+      if (
+        !isRecognizedSaleStatus(existing.status) ||
+        existing.currency !== 'USD' ||
+        existing.confirmedAt == null
+      ) {
         await appendRetry('UNAVAILABLE', 'not-completed-usd', null);
         return { kind: 'conflict' as const, message: FX_RETRY_COMPLETED_USD_ONLY_MESSAGE };
       }

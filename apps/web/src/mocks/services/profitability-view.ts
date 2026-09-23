@@ -9,7 +9,7 @@ import { completedUsdProfitDop } from './usd-profitability';
  * Returns null when cost is unknown or USD FX is still pending.
  */
 export function calculatedInvoiceProfitDop(invoice: Invoice, state: AppState): number | null {
-  if (invoice.status !== 'COMPLETED') {
+  if (invoice.status !== 'COMPLETED' && invoice.status !== 'CONDUCE') {
     return null;
   }
 
@@ -29,7 +29,10 @@ export function reportedInvoiceProfitDop(invoice: Invoice, state: AppState): num
     return calculated;
   }
 
-  if (invoice.status !== 'COMPLETED' || invoice.profitabilityPendingFx === true) {
+  if (
+    (invoice.status !== 'COMPLETED' && invoice.status !== 'CONDUCE') ||
+    invoice.profitabilityPendingFx === true
+  ) {
     return null;
   }
 
@@ -38,7 +41,7 @@ export function reportedInvoiceProfitDop(invoice: Invoice, state: AppState): num
 
 export function canRecordManualGrossProfit(invoice: Invoice, state: AppState): boolean {
   return (
-    invoice.status === 'COMPLETED' &&
+    (invoice.status === 'COMPLETED' || invoice.status === 'CONDUCE') &&
     invoice.profitabilityPendingFx !== true &&
     calculatedInvoiceProfitDop(invoice, state) == null
   );
@@ -66,7 +69,11 @@ export function profitabilityForInvoice(
     return undefined;
   }
 
-  if (invoice.status !== 'COMPLETED' && invoice.status !== 'CANCELLED') {
+  if (
+    invoice.status !== 'COMPLETED' &&
+    invoice.status !== 'CONDUCE' &&
+    invoice.status !== 'CANCELLED'
+  ) {
     return undefined;
   }
 

@@ -52,7 +52,7 @@ describe('ReceivablesPage', () => {
       .getByRole('heading', { name: 'Resumen de saldos abiertos' })
       .closest('section');
     expect(summary).not.toBeNull();
-    expect(within(summary!).getByText('Logística Norte SA')).toBeVisible();
+    expect(within(summary!).getAllByText('Logística Norte SA').length).toBeGreaterThan(0);
     expect(within(summary!).queryByText('Transportes del Caribe SRL')).not.toBeInTheDocument();
 
     await user.click(screen.getByLabelText('Cliente'));
@@ -63,7 +63,7 @@ describe('ReceivablesPage', () => {
     expect(screen.queryByText('FAC-000096')).not.toBeInTheDocument();
   });
 
-  it('only offers customer and invoice filters', async () => {
+  it('only offers customer and document filters', async () => {
     renderWithProviders(<ReceivablesPage />, {
       route: '/receivables',
       auth: createAuthValue('ADMINISTRATOR'),
@@ -72,7 +72,7 @@ describe('ReceivablesPage', () => {
     await screen.findByText('FAC-000098');
 
     expect(screen.getByLabelText('Cliente')).toBeVisible();
-    expect(screen.getByPlaceholderText('FAC-000123')).toBeVisible();
+    expect(screen.getByPlaceholderText('FAC-000123 o CON-000123')).toBeVisible();
     expect(screen.queryByLabelText('Estado de pago')).not.toBeInTheDocument();
     expect(screen.queryByLabelText('Moneda')).not.toBeInTheDocument();
     expect(screen.queryByLabelText('Emitida desde')).not.toBeInTheDocument();
@@ -88,14 +88,29 @@ describe('ReceivablesPage', () => {
     });
     await screen.findByText('FAC-000098');
 
-    await user.type(screen.getByLabelText('Factura'), 'fac-000099');
+    await user.type(screen.getByLabelText('Documento'), 'fac-000099');
     await user.click(screen.getByRole('button', { name: 'Buscar' }));
 
     expect(await screen.findByText('FAC-000099')).toBeVisible();
     expect(screen.queryByText('FAC-000098')).not.toBeInTheDocument();
   });
 
-  it('keeps the list visible when the invoice lookup is invalid', async () => {
+  it('finds an open conduce by CON- number through the repository filter', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<ReceivablesPage />, {
+      route: '/receivables',
+      auth: createAuthValue('ADMINISTRATOR'),
+    });
+    await screen.findByText('FAC-000098');
+
+    await user.type(screen.getByLabelText('Documento'), 'con-000001');
+    await user.click(screen.getByRole('button', { name: 'Buscar' }));
+
+    expect(await screen.findByText('CON-000001')).toBeVisible();
+    expect(screen.queryByText('FAC-000098')).not.toBeInTheDocument();
+  });
+
+  it('keeps the list visible when the document lookup is invalid', async () => {
     const user = userEvent.setup();
     renderWithProviders(<ReceivablesPage />, {
       route: '/receivables',
@@ -103,11 +118,11 @@ describe('ReceivablesPage', () => {
     });
     expect(await screen.findByText('FAC-000098')).toBeVisible();
 
-    await user.type(screen.getByLabelText('Factura'), '123');
+    await user.type(screen.getByLabelText('Documento'), '123');
     await user.click(screen.getByRole('button', { name: 'Buscar' }));
 
     expect(screen.getByRole('heading', { name: 'Cuentas por cobrar' })).toBeVisible();
-    expect(screen.getByText('Debe ser un número de factura FAC-000123.')).toBeVisible();
+    expect(screen.getByText('Debe ser un número FAC-000123 o CON-000123.')).toBeVisible();
     expect(screen.getByText('FAC-000098')).toBeVisible();
     expect(screen.queryByText('No se pudo cargar cuentas por cobrar')).not.toBeInTheDocument();
   });

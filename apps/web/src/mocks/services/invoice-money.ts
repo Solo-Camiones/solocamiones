@@ -139,12 +139,16 @@ export function hasRecordedReceipts(invoice: Invoice): boolean {
 }
 
 /**
- * Remaining customer balance for a completed invoice.
+ * Remaining customer balance for a recognized sale (COMPLETED or CONDUCE).
  * Relies on `paymentState` so a seed marked PAID without payment rows is not treated as CxC.
  */
 export function invoiceBalance(invoice: Invoice): number {
   const state = derivePaymentState(invoice);
-  if (invoice.status !== 'COMPLETED' || state === 'PAID' || state === 'PAID_LATE') {
+  if (
+    (invoice.status !== 'COMPLETED' && invoice.status !== 'CONDUCE') ||
+    state === 'PAID' ||
+    state === 'PAID_LATE'
+  ) {
     return 0;
   }
 
