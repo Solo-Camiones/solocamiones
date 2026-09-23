@@ -149,24 +149,27 @@ Never invent business rules.
 
 Never silently choose between multiple meaningful interpretations.
 
-Classify uncertainties as:
+Never invent or assume requirements, business rules, technical decisions, expected behavior, or user intent.
 
-### Blocking
+If ANY uncertainty, ambiguity, missing information, conflicting information, or multiple reasonable implementation options exist, ask the user before proceeding.
 
-Implementation should not continue without clarification.
+This applies even when the uncertainty would not technically block implementation.
 
-### Non-blocking
+Do not silently choose an option simply because one appears reasonable or follows a common pattern.
 
-A safe implementation can be inferred from an established project pattern.
+You may infer implementation details only when they are clearly established by the existing project structure or conventions and there is no meaningful alternative.
 
-For blocking uncertainty, ask the user.
-
-Questions must:
+For every uncertainty:
 
 - explain what is unclear;
 - explain why it matters;
-- provide the relevant alternatives when possible;
-- avoid unnecessary questions whose answers already exist in the repository.
+- provide the relevant options when possible;
+- explain important trade-offs when useful;
+- ask the user which behavior or approach is intended.
+
+Do not ask questions whose answers can be reliably determined by inspecting the repository or existing documentation.
+
+If any unresolved question remains, STOP and wait for the user's answer before implementation.
 
 ---
 
@@ -175,27 +178,30 @@ Questions must:
 Before editing, briefly report:
 
 ### Milestone
+
 What is being implemented.
 
 ### Current state
+
 How the project currently handles the area.
 
 ### Required changes
+
 Main changes necessary.
 
 ### Files/areas likely affected
+
 Relevant parts of the repository.
 
 ### Questions
-Only unresolved blocking questions.
 
-If blocking questions exist:
+All unresolved questions, uncertainties, ambiguities, conflicts, or decisions that require user confirmation.
+
+If any unresolved question exists:
 
 STOP.
 
-Do not implement until the user answers.
-
-If no blocking questions remain, continue.
+Do not implement until the user has answered or explicitly resolved every question.
 
 ---
 
@@ -309,21 +315,27 @@ If you cannot determine where the information belongs, ask the user.
 Return:
 
 ## Implemented
+
 Short description.
 
 ## Main changes
+
 Important technical changes.
 
 ## Files changed
+
 Relevant files and purpose.
 
 ## Validation
+
 Tests/checks executed and results.
 
 ## Documentation impact
+
 What documentation was updated, or explicitly state that no documentation change was necessary.
 
 ## Remaining considerations
+
 Anything intentionally left outside the milestone.
 
 Do not mark requirements as completed unless they were actually implemented.

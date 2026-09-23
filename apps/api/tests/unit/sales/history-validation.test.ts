@@ -179,6 +179,69 @@ describe('invoice draft history validation', () => {
     ).toBe(false);
   });
 
+  it('accepts CONDUCE_ISSUED, QUOTE_CONVERTED_TO_CONDUCE, and CONDUCE_INVOICED without extras', () => {
+    const actor = { actorType: 'USER' as const, actorUserId: id };
+    const issued = {
+      actor,
+      subjectType: 'INVOICE' as const,
+      subjectId: id,
+      eventType: 'CONDUCE_ISSUED' as const,
+      payload: {
+        conduceNumber: 'CON-000001',
+        currency: 'DOP' as const,
+        customerId: id,
+        customerSnapshot: { name: 'Cliente crédito', rnc: '101000001', phone: null },
+        totals: { gross: '1180.00', base: '1000.00', itbis: '180.00', discount: '0.00' },
+        issuedAt: '2026-09-08T18:00:00.000Z',
+        dueDate: '2026-09-22',
+        confirmedByUserId: id,
+        confirmedByName: 'Ana Pérez',
+      },
+    };
+    expect(historyEventSchema.parse(issued)).toEqual(issued);
+
+    const quoteConverted = {
+      actor,
+      subjectType: 'INVOICE' as const,
+      subjectId: id,
+      eventType: 'QUOTE_CONVERTED_TO_CONDUCE' as const,
+      payload: {
+        quoteNumber: 'COT-000001',
+        conduceNumber: 'CON-000002',
+        issuedAt: '2026-09-01T12:00:00.000Z',
+        convertedAt: '2026-09-08T18:00:00.000Z',
+      },
+    };
+    expect(historyEventSchema.parse(quoteConverted)).toEqual(quoteConverted);
+
+    const invoiced = {
+      actor,
+      subjectType: 'INVOICE' as const,
+      subjectId: id,
+      eventType: 'CONDUCE_INVOICED' as const,
+      payload: {
+        conduceNumber: 'CON-000001',
+        invoiceNumber: 'FAC-000050',
+        fiscal: false,
+        invoicedAt: '2026-09-10T15:00:00.000Z',
+      },
+    };
+    expect(historyEventSchema.parse(invoiced)).toEqual(invoiced);
+
+    expect(
+      historyEventSchema.safeParse({
+        ...issued,
+        payload: { ...issued.payload, fiscal: false },
+      }).success,
+    ).toBe(false);
+    expect(
+      historyEventSchema.safeParse({
+        ...invoiced,
+        payload: { ...invoiced.payload, passwordHash: 'secret' },
+      }).success,
+    ).toBe(false);
+  });
+
   it('accepts INVOICE_GROSS_PROFIT_RECORDED with before/after amounts', () => {
     const event = {
       actor: { actorType: 'USER' as const, actorUserId: id },

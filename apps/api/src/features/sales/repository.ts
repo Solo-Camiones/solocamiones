@@ -2,13 +2,15 @@ import { Prisma, type Invoice, type InvoiceSequence } from '@prisma/client';
 
 import { prisma } from '../../infrastructure/database/index.js';
 import { businessDayRange } from '../payments/dates.js';
-import { formatInvoiceNumber, formatQuoteNumber } from './constants.js';
+import { formatConduceNumber, formatInvoiceNumber, formatQuoteNumber } from './constants.js';
 import type {
   CompleteInvoiceRecord,
+  ConvertConduceToInvoiceRecord,
   CreateDraftInvoiceRecord,
   CreateInvoiceLineRecord,
   InvoiceListRecord,
   InvoiceRecord,
+  IssueConduceRecord,
   IssueQuoteRecord,
   InvoiceSequenceRecord,
   ListInvoicesQuery,
@@ -23,6 +25,7 @@ import type {
 
 export const INVOICE_SEQUENCE_NAME = 'FAC';
 export const QUOTE_SEQUENCE_NAME = 'COT';
+export const CONDUCE_SEQUENCE_NAME = 'CON';
 
 type SalesDatabase = Pick<Prisma.TransactionClient, 'invoice' | 'invoiceSequence' | '$queryRaw'>;
 
@@ -57,6 +60,7 @@ function listInvoiceWhere(query: ListInvoicesQuery): Prisma.InvoiceWhereInput {
       OR: [
         { number: { contains: q, mode: 'insensitive' } },
         { quoteNumber: { contains: q, mode: 'insensitive' } },
+        { conduceNumber: { contains: q, mode: 'insensitive' } },
         { customerName: { contains: q, mode: 'insensitive' } },
         { customer: { name: { contains: q, mode: 'insensitive' } } },
       ],
@@ -70,7 +74,7 @@ function listInvoiceWhere(query: ListInvoicesQuery): Prisma.InvoiceWhereInput {
     // list useful without treating a draft creation date as an invoice issue date.
     clauses.push({
       OR: [
-        { status: { in: ['COMPLETED', 'CANCELLED'] }, confirmedAt: range },
+        { status: { in: ['COMPLETED', 'CANCELLED', 'CONDUCE'] }, confirmedAt: range },
         { status: 'QUOTE_ISSUED', quoteIssuedAt: range },
         { status: { in: ['DRAFT', 'QUOTE_DRAFT'] }, createdAt: range },
       ],
@@ -92,7 +96,7 @@ function receivableBalances(query: ListReceivablesQuery): Prisma.Sql {
     ? Prisma.sql`AND i."customerId" = ${query.customerId}::uuid`
     : Prisma.empty;
   const invoiceFilter = query.invoice
-    ? Prisma.sql`AND i."number" = ${query.invoice}`
+    ? Prisma.sql`AND (i."number" = ${query.invoice} OR i."conduceNumber" = ${query.invoice})`
     : Prisma.empty;
   return Prisma.sql`
     WITH "paymentTotals" AS (
@@ -116,7 +120,7 @@ function receivableBalances(query: ListReceivablesQuery): Prisma.Sql {
       FROM "Invoice" i
       INNER JOIN "Customer" c ON c."id" = i."customerId"
       LEFT JOIN "paymentTotals" p ON p."invoiceId" = i."id"
-      WHERE i."status" = 'COMPLETED'
+      WHERE i."status" IN ('COMPLETED', 'CONDUCE')
         AND i."gross" > COALESCE(p."paid", 0)
         ${customerFilter}
         ${invoiceFilter}
@@ -208,7 +212,7 @@ export class SalesRepository {
         ${balances}
         SELECT "id"
         FROM "receivableBalances"
-        ORDER BY "dueDate" ASC, "confirmedAt" ASC, "id" ASC
+        ORDER BY "confirmedAt" DESC, "id" DESC
         LIMIT ${query.pageSize} OFFSET ${offset}
       `,
       this.database.$queryRaw<ReceivableCountRow[]>`
@@ -264,6 +268,7 @@ export class SalesRepository {
       select: {
         id: true,
         number: true,
+        conduceNumber: true,
         confirmedAt: true,
         dueDate: true,
         status: true,
@@ -410,6 +415,16 @@ export class SalesRepository {
     return number;
   }
 
+  async allocateNextConduceNumber(): Promise<string> {
+    const sequence = await this.lockSequenceForUpdate(CONDUCE_SEQUENCE_NAME);
+    const number = formatConduceNumber(sequence.nextValue);
+    await this.database.invoiceSequence.update({
+      where: { name: CONDUCE_SEQUENCE_NAME },
+      data: { nextValue: sequence.nextValue + 1 },
+    });
+    return number;
+  }
+
   issueQuote(input: IssueQuoteRecord): Promise<InvoiceRecord> {
     return this.database.invoice.update({
       where: { id: input.id },
@@ -443,6 +458,41 @@ export class SalesRepository {
       data: {
         status: 'COMPLETED',
         number: input.number,
+        // Direct confirm: documentary invoice date matches commercial recognition.
+        // Conduce→invoice conversion (M3) will set invoiceIssuedAt independently.
+        confirmedAt: input.confirmedAt,
+        invoiceIssuedAt: input.confirmedAt,
+        dueDate: input.dueDate,
+        customerName: input.customerName,
+        customerRnc: input.customerRnc,
+        customerPhone: input.customerPhone,
+        snapshotCustomerType: input.snapshotCustomerType,
+        snapshotCreditTermDays: input.snapshotCreditTermDays,
+        confirmedByUserId: input.confirmedByUserId,
+        confirmedByName: input.confirmedByName,
+        gross: input.gross,
+        base: input.base,
+        itbis: input.itbis,
+        lines: {
+          update: input.lines.map((line) => ({
+            where: { id: line.id },
+            data: { gross: line.gross, base: line.base, itbis: line.itbis },
+          })),
+        },
+      },
+      include: invoiceDetailInclude,
+    });
+  }
+
+  issueConduce(input: IssueConduceRecord): Promise<InvoiceRecord> {
+    return this.database.invoice.update({
+      where: { id: input.id },
+      data: {
+        status: 'CONDUCE',
+        // Conduce documents are never fiscal; fiscal is chosen again at invoice conversion.
+        fiscal: false,
+        conduceNumber: input.conduceNumber,
+        conduceIssuedAt: input.confirmedAt,
         confirmedAt: input.confirmedAt,
         dueDate: input.dueDate,
         customerName: input.customerName,
@@ -461,6 +511,19 @@ export class SalesRepository {
             data: { gross: line.gross, base: line.base, itbis: line.itbis },
           })),
         },
+      },
+      include: invoiceDetailInclude,
+    });
+  }
+
+  convertConduceToInvoice(input: ConvertConduceToInvoiceRecord): Promise<InvoiceRecord> {
+    return this.database.invoice.update({
+      where: { id: input.id },
+      data: {
+        status: 'COMPLETED',
+        number: input.number,
+        invoiceIssuedAt: input.invoiceIssuedAt,
+        fiscal: input.fiscal,
       },
       include: invoiceDetailInclude,
     });
@@ -505,7 +568,7 @@ export class SalesRepository {
     const result = await this.database.invoice.updateMany({
       where: {
         id: input.id,
-        status: 'COMPLETED',
+        status: { in: ['COMPLETED', 'CONDUCE'] },
         currency: 'USD',
         exchangeRateDopPerUsd: null,
       },

@@ -89,6 +89,20 @@ function describeInvoiceHistoryEvent(row: InvoiceHistoryRow): string | null {
       const number = stringField(payload, 'invoiceNumber');
       return number ? `Cotización convertida en factura ${number}` : 'Cotización convertida';
     }
+    case 'CONDUCE_ISSUED': {
+      const number = stringField(payload, 'conduceNumber');
+      return number ? `Conduce ${number} emitido` : 'Conduce emitido';
+    }
+    case 'QUOTE_CONVERTED_TO_CONDUCE': {
+      const number = stringField(payload, 'conduceNumber');
+      return number
+        ? `Cotización convertida en conduce ${number}`
+        : 'Cotización convertida en conduce';
+    }
+    case 'CONDUCE_INVOICED': {
+      const number = stringField(payload, 'invoiceNumber');
+      return number ? `Conduce facturado como ${number}` : 'Conduce facturado';
+    }
     case 'INVOICE_CONFIRMED': {
       const number = stringField(payload, 'number');
       return number ? `Factura ${number} confirmada` : 'Factura confirmada';

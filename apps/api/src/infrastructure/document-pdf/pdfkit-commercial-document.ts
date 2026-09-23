@@ -47,6 +47,8 @@ export type CommercialDocumentFacts = {
     /** Applied commercial percent (0–100), shown in the Descuento label. */
     discountPercent: string;
   };
+  /** Prefer CON- before COT- when both apply (converted invoice from quote→conduce). */
+  originConduceNumber?: string | null;
   originQuoteNumber?: string | null;
   cancellation?: {
     cancelledAt: Date | null;
@@ -251,23 +253,36 @@ function drawHeader(
     .fillColor(BRAND_NAVY)
     .fontSize(12)
     .text(facts.number, 405, 67, { width: right - 405, align: 'right' });
+  // Right-column meta stacks under the document number: optional NCF, then origins
+  // (CON- before COT-), then CANCELADA. Y positions stay absolute so contact rows
+  // on the left still own the separator height.
+  let metaY = 88;
   if (options.ncfField) {
     document
       .fillColor(MUTED)
       .font('Helvetica')
       .fontSize(8)
-      .text(options.ncfField, 390, 88, { width: right - 390, align: 'right' });
+      .text(options.ncfField, 390, metaY, { width: right - 390, align: 'right' });
+    metaY += 14;
   }
-  if (facts.originQuoteNumber) {
-    document.text(facts.originQuoteNumber, 405, 102, { width: right - 405, align: 'right' });
+  const originNumbers = [facts.originConduceNumber, facts.originQuoteNumber].filter(
+    (value): value is string => value != null && value.length > 0,
+  );
+  for (const originNumber of originNumbers) {
+    document
+      .fillColor(MUTED)
+      .font('Helvetica')
+      .fontSize(8)
+      .text(originNumber, 405, metaY, { width: right - 405, align: 'right' });
+    metaY += 12;
   }
   if (facts.cancellation) {
-    document.roundedRect(405, 116, right - 405, 22, 4).fill('#b42318');
+    document.roundedRect(405, metaY, right - 405, 22, 4).fill('#b42318');
     document
       .fillColor('#ffffff')
       .font('Helvetica-Bold')
       .fontSize(8)
-      .text('CANCELADA', 405, 123, { width: right - 405, align: 'center' });
+      .text('CANCELADA', 405, metaY + 7, { width: right - 405, align: 'center' });
   }
   const separatorY = rowY(4) + 6;
   document

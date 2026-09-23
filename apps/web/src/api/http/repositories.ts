@@ -12,7 +12,7 @@ import type {
   UserRepository,
   WorkOrderRepository,
 } from '../contracts/repositories';
-import type { ConfirmInvoicePayment } from '../contracts/sales';
+import type { ConfirmInvoicePayment, ConvertConduceToInvoiceInput, IssueConduceInput } from '../contracts/sales';
 import type { UpdateOwnProfileInput } from '../contracts/profile';
 import {
   loginWithHttp,
@@ -34,12 +34,15 @@ import {
   addPaymentWithHttp,
   cancelInvoiceWithHttp,
   confirmInvoiceWithHttp,
+  convertConduceToInvoiceWithHttp,
+  convertQuoteToConduceWithHttp,
   convertQuoteWithHttp,
   correctCurrencyWithHttp,
   createDraftWithHttp,
   createQuoteWithHttp,
   duplicateQuoteWithHttp,
   discardDraftWithHttp,
+  getConducePdfWithHttp,
   getDraftWithHttp,
   getInvoiceWithHttp,
   getInvoicePdfWithHttp,
@@ -49,6 +52,7 @@ import {
   listReceivablesWithHttp,
   listSellerSalesReportWithHttp,
   getSellerSalesReportPdfWithHttp,
+  issueConduceWithHttp,
   issueQuoteWithHttp,
   regenerateInvoicePdfWithHttp,
   removeDraftLineWithHttp,
@@ -240,6 +244,10 @@ export class HttpSalesRepository implements SalesRepository {
     return getQuotePdfWithHttp(id);
   }
 
+  async getConducePdf(id: string) {
+    return getConducePdfWithHttp(id);
+  }
+
   async getAccountStatementPdf(customerId: string) {
     return getAccountStatementPdfWithHttp(customerId);
   }
@@ -304,6 +312,10 @@ export class HttpSalesRepository implements SalesRepository {
     return confirmInvoiceWithHttp(draftId, payment);
   }
 
+  async issueConduce(draftId: string, input?: IssueConduceInput) {
+    return issueConduceWithHttp(draftId, input);
+  }
+
   async issueQuote(draftId: string) {
     return issueQuoteWithHttp(draftId);
   }
@@ -314,6 +326,14 @@ export class HttpSalesRepository implements SalesRepository {
 
   async convertQuote(quoteId: string, payment?: ConfirmInvoicePayment) {
     return convertQuoteWithHttp(quoteId, payment);
+  }
+
+  async convertQuoteToConduce(quoteId: string, input?: IssueConduceInput) {
+    return convertQuoteToConduceWithHttp(quoteId, input);
+  }
+
+  async convertConduceToInvoice(invoiceId: string, input: ConvertConduceToInvoiceInput) {
+    return convertConduceToInvoiceWithHttp(invoiceId, input);
   }
 
   async discardDraft(draftId: string) {

@@ -146,6 +146,7 @@ enum InvoiceStatus {
   DRAFT
   QUOTE_DRAFT
   QUOTE_ISSUED
+  CONDUCE
   COMPLETED
   CANCELLED
 }
@@ -200,6 +201,9 @@ model Invoice {
   quoteExpiresAt DateTime?     @db.Timestamptz(3)
   quoteIssuedByUserId String?  @db.Uuid
   quoteIssuedByName   String?
+  conduceNumber   String?      @unique
+  conduceIssuedAt DateTime?    @db.Timestamptz(3)
+  invoiceIssuedAt DateTime?    @db.Timestamptz(3)
   confirmedAt  DateTime?       @db.Timestamptz(3)
   dueDate      DateTime?       @db.Date
   customerName String?
@@ -243,8 +247,9 @@ model Invoice {
   @@index([cancelledByUserId])
   @@index([dueDate])
   @@index([quoteExpiresAt])
-  // Invoice_number_status_check quote/snapshot branches and
-  // Invoice_completed_customer_currency_idx are defined in SQL.
+  @@index([status, confirmedAt])
+  // Invoice_number_status_check quote/conduce/snapshot branches and
+  // Invoice_recognized_customer_currency_idx are defined in SQL.
 }
 
 model InvoicePayment {

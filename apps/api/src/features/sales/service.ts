@@ -22,6 +22,7 @@ import {
   DRAFT_ONLY_CONFIRM_MESSAGE,
   DRAFT_ONLY_DISCARD_MESSAGE,
   DRAFT_ONLY_EDIT_MESSAGE,
+  DRAFT_ONLY_ISSUE_CONDUCE_MESSAGE,
   DUPLICATE_DELIVERY_LINE_MESSAGE,
   EMPTY_DRAFT_CONFIRM_MESSAGE,
   FISCAL_IDENTITY_REQUIRED_MESSAGE,
@@ -33,20 +34,26 @@ import {
   PAYMENT_EXCEEDS_BALANCE_MESSAGE,
   PAYMENT_IDEMPOTENCY_MISMATCH_MESSAGE,
   CANCELLATION_COMPLETED_ONLY_MESSAGE,
+  CANCELLATION_IDEMPOTENCY_MISMATCH_MESSAGE,
   CANCELLATION_REASON_REQUIRED_MESSAGE,
-  EXPIRED_QUOTE_CONVERT_MESSAGE,
+  CANCELLATION_REFUND_AMOUNT_REQUIRED_MESSAGE,
+  CANCELLATION_REFUND_EXCEEDS_NET_MESSAGE,
+  CANCELLATION_REFUND_METHOD_REQUIRED_MESSAGE,
+  CONDUCE_FISCAL_RETRY_MISMATCH_MESSAGE,
+  CONDUCE_ONLY_CONVERT_TO_INVOICE_MESSAGE,
   QUOTE_DRAFT_ONLY_ISSUE_MESSAGE,
   QUOTE_ISSUED_ONLY_CONVERT_MESSAGE,
+  QUOTE_ISSUED_ONLY_CONVERT_TO_CONDUCE_MESSAGE,
   QUOTE_ISSUED_ONLY_DUPLICATE_MESSAGE,
 } from './constants.js';
 import { DEFAULT_LINE_QUANTITY } from './money/constants.js';
-import { calculateLineMoney, parsePositiveDecimal, applyInvoiceDiscount, isTaxableLineType } from './money/index.js';
+import { calculateLineMoney, parsePositiveDecimal } from './money/index.js';
 import {
-  assertCreditExposureWithinLimit,
+  assertConduceInitialPaymentPolicy,
+  assertConduceRetryMatches,
   assertInitialPaymentPolicy,
   confirmationDueTermDays,
-  confirmationPaymentIdempotencyKey,
-  invoiceNewBalance,
+  resolveConduceDueDate,
 } from './credit-confirmation.js';
 import {
   assertDraftLineDescriptionEditable,
@@ -56,6 +63,7 @@ import {
 } from './policies.js';
 import {
   toConfirmedHistorySnapshot,
+  toConduceIssuedHistorySnapshot,
   toDraftHistorySnapshot,
   toPublicInvoice,
   toPublicInvoiceListItem,
@@ -63,7 +71,16 @@ import {
   toUsdFxRecordedHistorySnapshot,
 } from './projection.js';
 import { SalesRepository } from './repository.js';
-import { isQuoteExpired, quoteExpirationDate } from './quote-dates.js';
+import { quoteExpirationDate } from './quote-dates.js';
+import {
+  assertRecognitionCreditExposure,
+  assertRecognitionSourceReady,
+  parseInitialPaymentAmount,
+  recognitionCustomerSnapshot,
+  recognitionPersistedLineMoney,
+  recordInitialRecognitionPayment,
+  resolveSaleLineMoneyAndTotals,
+} from './sale-recognition.js';
 import { salesTransaction, type SalesTransaction } from './transaction.js';
 import type { CreateInvoiceLineRecord, InvoiceRecord } from './types.js';
 import {
@@ -71,12 +88,14 @@ import {
   addPaymentSchema,
   cancelInvoiceSchema,
   confirmInvoiceSchema,
+  convertConduceToInvoiceSchema,
   createDraftSchema,
   deliveryDraftLineSchema,
   externalDraftLineSchema,
   genericDraftLineSchema,
   invoiceIdSchema,
   invoiceLineIdSchema,
+  issueConduceSchema,
   listInvoicesSchema,
   listReceivablesSchema,
   serviceDraftLineSchema,
@@ -447,22 +466,11 @@ export class SalesService {
       const customer = await customers.findById(existing.customerId);
       if (!customer) throw AppError.notFound('Customer not found');
       assertFiscalCustomer(customer, existing.fiscal);
-      const lineMoney = existing.lines.map((line) => ({
-        line,
-        money: calculateLineMoney({
-          type: line.type,
-          unitPrice: line.unitPrice,
-          quantity: line.quantity,
-          applyItbis: existing.applyItbis,
-        }),
-      }));
-      const totals = applyInvoiceDiscount({
-        lines: lineMoney.map(({ line, money }) => ({
-          ...money,
-          taxable: isTaxableLineType(line.type),
-        })),
-        discountPercent: existing.discountPercent,
+      const { lineMoney, totals } = resolveSaleLineMoneyAndTotals({
+        lines: existing.lines,
         applyItbis: existing.applyItbis,
+        discountPercent: existing.discountPercent,
+        preferFrozenLineMoney: false,
       });
       const issuedAt = new Date();
       const issued = await sales.issueQuote({
@@ -479,7 +487,7 @@ export class SalesService {
         gross: totals.gross,
         base: totals.base,
         itbis: totals.itbis,
-        lines: lineMoney.map(({ line, money }) => ({ id: line.id, ...money })),
+        lines: recognitionPersistedLineMoney(lineMoney),
       });
       await history.append({
         actor: { actorType: 'USER', actorUserId: actorId },
@@ -555,6 +563,203 @@ export class SalesService {
     return this.completeSale(actorId, id, input, 'QUOTE_ISSUED');
   }
 
+  async issueConduce(actorId: string, id: string, input: unknown) {
+    return this.issueConduceSale(actorId, id, input, 'DRAFT');
+  }
+
+  async convertQuoteToConduce(actorId: string, id: string, input: unknown) {
+    return this.issueConduceSale(actorId, id, input, 'QUOTE_ISSUED');
+  }
+
+  async convertConduceToInvoice(actorId: string, id: string, input: unknown) {
+    invoiceIdSchema.parse({ id });
+    const profile = convertConduceToInvoiceSchema.parse(input ?? {});
+    const { invoice, actor, alreadyCompleted } = await this.transaction(
+      async ({ sales, users, history }) => {
+        const actor = requireInvoiceManager(await users.findById(actorId));
+        await sales.lockById(id);
+        const existing = await sales.findById(id);
+        if (!existing) throw AppError.notFound('Invoice not found');
+
+        if (existing.status === 'COMPLETED' && existing.conduceNumber != null) {
+          if (existing.fiscal !== profile.fiscal) {
+            throw AppError.conflict(CONDUCE_FISCAL_RETRY_MISMATCH_MESSAGE);
+          }
+          return { invoice: existing, actor, alreadyCompleted: true };
+        }
+        if (existing.status !== 'CONDUCE') {
+          throw AppError.conflict(CONDUCE_ONLY_CONVERT_TO_INVOICE_MESSAGE);
+        }
+
+        // Fiscal identity is validated against the frozen conduce snapshot (CON-003).
+        assertFiscalCustomer(
+          { isDefault: existing.customer.isDefault, rnc: existing.customerRnc },
+          profile.fiscal,
+        );
+
+        const number = await sales.allocateNextNumber();
+        const invoiceIssuedAt = new Date();
+        const converted = await sales.convertConduceToInvoice({
+          id,
+          number,
+          invoiceIssuedAt,
+          fiscal: profile.fiscal,
+        });
+        await history.append({
+          actor: { actorType: 'USER', actorUserId: actorId },
+          subjectType: 'INVOICE',
+          subjectId: id,
+          eventType: 'CONDUCE_INVOICED',
+          payload: {
+            conduceNumber: existing.conduceNumber!,
+            invoiceNumber: converted.number!,
+            fiscal: profile.fiscal,
+            invoicedAt: invoiceIssuedAt.toISOString(),
+          },
+        });
+        return { invoice: converted, actor, alreadyCompleted: false };
+      },
+    );
+    const withDocument = alreadyCompleted
+      ? invoice
+      : await this.generateInvoicePdf(actorId, invoice);
+    return toPublicInvoice(withDocument, actor);
+  }
+
+  /**
+   * Recognizes a sale as CONDUCE (no FAC-). Payment/dueDate follow CON-002
+   * (Admin named-CASH balance exception; default Cliente contado always full).
+   */
+  private async issueConduceSale(
+    actorId: string,
+    id: string,
+    input: unknown,
+    sourceStatus: 'DRAFT' | 'QUOTE_ISSUED',
+  ) {
+    invoiceIdSchema.parse({ id });
+    const profile = issueConduceSchema.parse(input ?? {});
+    const { invoice, actor } = await this.transaction(
+      async ({ sales, customers, payments, users, history }) => {
+        const actor = requireInvoiceManager(await users.findById(actorId));
+        await sales.lockById(id);
+        const existing = await sales.findById(id);
+        if (!existing) throw AppError.notFound('Invoice not found');
+        if (existing.status === 'CONDUCE') {
+          assertConduceRetryMatches({
+            invoice: existing,
+            sourceStatus,
+            payment: profile.payment,
+            dueDate: profile.dueDate,
+          });
+          return { invoice: existing, actor };
+        }
+        if (existing.status !== sourceStatus) {
+          throw AppError.conflict(
+            sourceStatus === 'DRAFT'
+              ? DRAFT_ONLY_ISSUE_CONDUCE_MESSAGE
+              : QUOTE_ISSUED_ONLY_CONVERT_TO_CONDUCE_MESSAGE,
+          );
+        }
+        assertRecognitionSourceReady(existing, sourceStatus);
+
+        await customers.lockById(existing.customerId);
+        const customer = await customers.findById(existing.customerId);
+        if (!customer) throw AppError.notFound('Customer not found');
+
+        const { lineMoney, totals } = resolveSaleLineMoneyAndTotals({
+          lines: existing.lines,
+          applyItbis: existing.applyItbis,
+          discountPercent: existing.discountPercent,
+          preferFrozenLineMoney: sourceStatus === 'QUOTE_ISSUED',
+        });
+        const initialPaymentAmount = parseInitialPaymentAmount(profile.payment, totals.gross);
+        assertConduceInitialPaymentPolicy({
+          customer,
+          currency: existing.currency,
+          actorRole: actor.role,
+          invoiceGross: totals.gross,
+          initialPaymentAmount,
+        });
+        const newBalance = await assertRecognitionCreditExposure({
+          customers,
+          customer,
+          currency: existing.currency,
+          invoiceGross: totals.gross,
+          initialPaymentAmount,
+        });
+        const conduceNumber = await sales.allocateNextConduceNumber();
+        const confirmedAt = new Date();
+        const dueDate = resolveConduceDueDate({
+          customer,
+          currency: existing.currency,
+          actorRole: actor.role,
+          confirmedAt,
+          newBalance,
+          actorDueDate: profile.dueDate,
+        });
+        const customerSnapshot = recognitionCustomerSnapshot({
+          sourceStatus,
+          invoice: existing,
+          customer,
+        });
+        let issued = await sales.issueConduce({
+          id,
+          conduceNumber,
+          confirmedAt,
+          dueDate,
+          ...customerSnapshot,
+          snapshotCustomerType: customer.customerType,
+          snapshotCreditTermDays: customer.creditTermDays,
+          confirmedByUserId: actorId,
+          confirmedByName: actor.name,
+          gross: totals.gross,
+          base: totals.base,
+          itbis: totals.itbis,
+          lines: recognitionPersistedLineMoney(lineMoney),
+        });
+        if (sourceStatus === 'QUOTE_ISSUED') {
+          await history.append({
+            actor: { actorType: 'USER', actorUserId: actorId },
+            subjectType: 'INVOICE',
+            subjectId: id,
+            eventType: 'QUOTE_CONVERTED_TO_CONDUCE',
+            payload: {
+              quoteNumber: existing.quoteNumber!,
+              conduceNumber: issued.conduceNumber!,
+              issuedAt: existing.quoteIssuedAt!.toISOString(),
+              convertedAt: issued.confirmedAt!.toISOString(),
+            },
+          });
+        } else {
+          await history.append({
+            actor: { actorType: 'USER', actorUserId: actorId },
+            subjectType: 'INVOICE',
+            subjectId: id,
+            eventType: 'CONDUCE_ISSUED',
+            payload: toConduceIssuedHistorySnapshot(issued),
+          });
+        }
+        if (profile.payment && initialPaymentAmount) {
+          issued = await recordInitialRecognitionPayment({
+            invoiceId: id,
+            actorId,
+            currency: issued.currency,
+            confirmedAt,
+            payment: profile.payment,
+            initialPaymentAmount,
+            payments,
+            history,
+            sales,
+          });
+        }
+        return { invoice: issued, actor };
+      },
+    );
+    // CON-006: USD FX/profitability runs at conduce emission (same as direct confirmation).
+    const enriched = await this.enrichUsdProfitability(actorId, invoice);
+    return toPublicInvoice(enriched, actor);
+  }
+
   private async completeSale(
     actorId: string,
     id: string,
@@ -582,14 +787,7 @@ export class SalesService {
               : QUOTE_ISSUED_ONLY_CONVERT_MESSAGE,
           );
         }
-        if (sourceStatus === 'QUOTE_ISSUED' && isQuoteExpired(existing.quoteExpiresAt)) {
-          throw AppError.conflict(EXPIRED_QUOTE_CONVERT_MESSAGE);
-        }
-        if (existing.lines.length === 0) throw AppError.conflict(EMPTY_DRAFT_CONFIRM_MESSAGE);
-
-        for (const line of existing.lines) {
-          assertDraftLineTypeEnabled(line.type);
-        }
+        assertRecognitionSourceReady(existing, sourceStatus);
 
         await customers.lockById(existing.customerId);
         const customer = await customers.findById(existing.customerId);
@@ -598,37 +796,13 @@ export class SalesService {
         // revalidates the customer's current credit classification, limit and term.
         if (sourceStatus === 'DRAFT') assertFiscalCustomer(customer, existing.fiscal);
 
-        const lineMoney = existing.lines.map((line) => ({
-          line,
-          money:
-            sourceStatus === 'QUOTE_ISSUED'
-              ? (() => {
-                  if (line.gross == null || line.base == null || line.itbis == null) {
-                    throw AppError.internal('Issued quote line is missing frozen money');
-                  }
-                  return { gross: line.gross, base: line.base, itbis: line.itbis };
-                })()
-              : calculateLineMoney({
-                  type: line.type,
-                  unitPrice: line.unitPrice,
-                  quantity: line.quantity,
-                  applyItbis: existing.applyItbis,
-                }),
-        }));
-        const totals = applyInvoiceDiscount({
-          lines: lineMoney.map(({ line, money }) => ({
-            ...money,
-            taxable: isTaxableLineType(line.type),
-          })),
-          discountPercent: existing.discountPercent,
+        const { lineMoney, totals } = resolveSaleLineMoneyAndTotals({
+          lines: existing.lines,
           applyItbis: existing.applyItbis,
+          discountPercent: existing.discountPercent,
+          preferFrozenLineMoney: sourceStatus === 'QUOTE_ISSUED',
         });
-        const initialPaymentAmount = profile.payment
-          ? new Prisma.Decimal(profile.payment.amount)
-          : null;
-        if (initialPaymentAmount?.greaterThan(totals.gross)) {
-          throw AppError.conflict(PAYMENT_EXCEEDS_BALANCE_MESSAGE);
-        }
+        const initialPaymentAmount = parseInitialPaymentAmount(profile.payment, totals.gross);
         assertInitialPaymentPolicy({
           customer,
           currency: existing.currency,
@@ -636,21 +810,20 @@ export class SalesService {
           invoiceGross: totals.gross,
           initialPaymentAmount,
         });
-        const newBalance = invoiceNewBalance(totals.gross, initialPaymentAmount);
-        const openInvoices = await customers.findCompletedInvoicesWithPayments(customer.id);
-        const openExposure = openInvoices.reduce(
-          (sum, invoice) => sum.plus(summarizePayments(invoice).balance),
-          new Prisma.Decimal(0),
-        );
-        assertCreditExposureWithinLimit({
+        await assertRecognitionCreditExposure({
+          customers,
           customer,
           currency: existing.currency,
-          openExposure,
-          newBalance,
+          invoiceGross: totals.gross,
+          initialPaymentAmount,
         });
         const number = await sales.allocateNextNumber();
         const confirmedAt = new Date();
-        const primaryPhone = customer.contacts.find((contact) => contact.isPrimary)?.phone ?? null;
+        const customerSnapshot = recognitionCustomerSnapshot({
+          sourceStatus,
+          invoice: existing,
+          customer,
+        });
         let completed = await sales.completeInvoice({
           id,
           number,
@@ -659,9 +832,7 @@ export class SalesService {
             confirmedAt,
             confirmationDueTermDays(customer, existing.currency),
           ),
-          customerName: sourceStatus === 'QUOTE_ISSUED' ? existing.customerName! : customer.name,
-          customerRnc: sourceStatus === 'QUOTE_ISSUED' ? existing.customerRnc : customer.rnc,
-          customerPhone: sourceStatus === 'QUOTE_ISSUED' ? existing.customerPhone : primaryPhone,
+          ...customerSnapshot,
           snapshotCustomerType: customer.customerType,
           snapshotCreditTermDays: customer.creditTermDays,
           confirmedByUserId: actorId,
@@ -669,12 +840,7 @@ export class SalesService {
           gross: totals.gross,
           base: totals.base,
           itbis: totals.itbis,
-          lines: lineMoney.map(({ line, money }) => ({
-            id: line.id,
-            gross: money.gross,
-            base: money.base,
-            itbis: money.itbis,
-          })),
+          lines: recognitionPersistedLineMoney(lineMoney),
         });
         if (sourceStatus === 'QUOTE_ISSUED') {
           await history.append({
@@ -699,32 +865,17 @@ export class SalesService {
           });
         }
         if (profile.payment && initialPaymentAmount) {
-          const payment = await payments.createPayment({
+          completed = await recordInitialRecognitionPayment({
             invoiceId: id,
-            amount: initialPaymentAmount,
+            actorId,
             currency: completed.currency,
-            method: profile.payment.method,
-            effectiveDate: todayBusinessDate(confirmedAt),
-            reference: profile.payment.reference ?? null,
-            actorUserId: actorId,
-            // Always confirm:{id} so saleCondition reconstruction ignores nearby CxC payments.
-            idempotencyKey: confirmationPaymentIdempotencyKey(id),
+            confirmedAt,
+            payment: profile.payment,
+            initialPaymentAmount,
+            payments,
+            history,
+            sales,
           });
-          await history.append({
-            actor: { actorType: 'USER', actorUserId: actorId },
-            subjectType: 'INVOICE',
-            subjectId: id,
-            eventType: 'PAYMENT_RECORDED',
-            payload: {
-              paymentId: payment.id,
-              amount: payment.amount.toFixed(2),
-              currency: payment.currency,
-              method: payment.method,
-              effectiveDate: databaseDateString(payment.effectiveDate),
-              reference: payment.reference,
-            },
-          });
-          completed = (await sales.findById(id))!;
         }
         return { invoice: completed, actor, alreadyCompleted: false };
       },
@@ -747,7 +898,10 @@ export class SalesService {
       await sales.lockById(id);
       let invoice = await sales.findById(id);
       if (!invoice) throw AppError.notFound('Invoice not found');
-      if (invoice.status !== 'COMPLETED' || invoice.confirmedAt == null) {
+      if (invoice.status !== 'COMPLETED' && invoice.status !== 'CONDUCE') {
+        throw AppError.conflict(PAYMENT_COMPLETED_ONLY_MESSAGE);
+      }
+      if (invoice.confirmedAt == null) {
         throw AppError.conflict(PAYMENT_COMPLETED_ONLY_MESSAGE);
       }
 
@@ -818,24 +972,53 @@ export class SalesService {
         invoice.status === 'CANCELLED' &&
         invoice.cancellationIdempotencyKey === profile.idempotencyKey
       ) {
+        // Same pattern as addPayment: key reuse is only idempotent when the command matches
+        // what was already persisted (reason + refund amount/method/reference).
+        const existingRefund = await payments.findByIdempotencyKey(id, profile.idempotencyKey);
+        const requestedRefundAmount =
+          profile.refundAmount != null ? new Prisma.Decimal(profile.refundAmount) : null;
+        const sameCancellation =
+          invoice.cancelReason === profile.reason &&
+          (existingRefund
+            ? existingRefund.kind === 'REFUND' &&
+              requestedRefundAmount != null &&
+              existingRefund.amount.equals(requestedRefundAmount) &&
+              existingRefund.method === profile.refundMethod &&
+              existingRefund.reference === (profile.refundReference ?? null)
+            : requestedRefundAmount == null || requestedRefundAmount.isZero());
+        if (!sameCancellation) {
+          throw AppError.conflict(CANCELLATION_IDEMPOTENCY_MISMATCH_MESSAGE);
+        }
         return toPublicInvoice(invoice, actor);
       }
-      if (invoice.status !== 'COMPLETED') {
+      if (invoice.status !== 'COMPLETED' && invoice.status !== 'CONDUCE') {
         throw AppError.conflict(CANCELLATION_COMPLETED_ONLY_MESSAGE);
       }
       if (!profile.reason) throw AppError.conflict(CANCELLATION_REASON_REQUIRED_MESSAGE);
 
       const summary = summarizePayments(invoice);
       const netReceived = summary.paid.minus(summary.refunded);
-      if (netReceived.greaterThan(0) && !profile.refundMethod) {
-        throw AppError.conflict('La cancelación requiere el método del reembolso neto total');
+      const refundAmount =
+        profile.refundAmount != null
+          ? new Prisma.Decimal(profile.refundAmount)
+          : netReceived.isZero()
+            ? new Prisma.Decimal(0)
+            : null;
+      if (refundAmount == null) {
+        throw AppError.conflict(CANCELLATION_REFUND_AMOUNT_REQUIRED_MESSAGE);
+      }
+      if (refundAmount.greaterThan(netReceived)) {
+        throw AppError.conflict(CANCELLATION_REFUND_EXCEEDS_NET_MESSAGE);
+      }
+      if (refundAmount.greaterThan(0) && !profile.refundMethod) {
+        throw AppError.conflict(CANCELLATION_REFUND_METHOD_REQUIRED_MESSAGE);
       }
 
       const cancelledAt = new Date();
-      const refund = netReceived.greaterThan(0)
+      const refund = refundAmount.greaterThan(0)
         ? await payments.createRefund({
             invoiceId: id,
-            amount: netReceived,
+            amount: refundAmount,
             currency: invoice.currency,
             method: profile.refundMethod!,
             effectiveDate: todayBusinessDate(cancelledAt),
@@ -862,7 +1045,7 @@ export class SalesService {
           cancelledAt: cancelledAt.toISOString(),
           cancelledByName: actor.name,
           refundId: refund?.id ?? null,
-          refundAmount: netReceived.toFixed(2),
+          refundAmount: refundAmount.toFixed(2),
           refundMethod: refund?.method ?? null,
         },
       });
@@ -872,6 +1055,10 @@ export class SalesService {
 
   async getPdf(actorId: string, id: string) {
     return this.invoiceDocuments.download(actorId, id);
+  }
+
+  async getConducePdf(actorId: string, id: string) {
+    return this.invoiceDocuments.downloadConduce(actorId, id);
   }
 
   async regeneratePdf(actorId: string, id: string) {
@@ -924,9 +1111,11 @@ export class SalesService {
       return await this.transaction(async ({ sales, history }) => {
         await sales.lockById(invoice.id);
         const existing = await sales.findById(invoice.id);
+        const recognized =
+          existing?.status === 'COMPLETED' || existing?.status === 'CONDUCE';
         if (
           existing == null ||
-          existing.status !== 'COMPLETED' ||
+          !recognized ||
           existing.currency !== 'USD' ||
           existing.exchangeRateDopPerUsd != null
         ) {

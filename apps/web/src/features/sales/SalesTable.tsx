@@ -8,6 +8,15 @@ export type SalesTableProps = {
   showPaymentSettlement?: boolean;
 };
 
+/** Same recognized documents as InvoiceDetailPage admin settlement (PAY/CON). */
+function showsPaymentState(status: SalesListRow['status']): boolean {
+  return status === 'COMPLETED' || status === 'CONDUCE';
+}
+
+function showsBalance(status: SalesListRow['status']): boolean {
+  return status === 'COMPLETED' || status === 'CONDUCE' || status === 'CANCELLED';
+}
+
 export function SalesTable({
   rows,
   hasQuery = false,
@@ -51,6 +60,10 @@ export function SalesTable({
                 <EntityLink to={row.href}>
                   <Mono>{row.number}</Mono>
                 </EntityLink>
+                {/* Same origin order as invoice detail: CON- then COT- when both apply. */}
+                {row.conduceNumber && row.conduceNumber !== row.number ? (
+                  <p className="mt-0.5 text-xs text-navy-400">Origen {row.conduceNumber}</p>
+                ) : null}
                 {row.quoteNumber && row.quoteNumber !== row.number ? (
                   <p className="mt-0.5 text-xs text-navy-400">Origen {row.quoteNumber}</p>
                 ) : null}
@@ -65,7 +78,7 @@ export function SalesTable({
               </td>
               {showPaymentSettlement ? (
                 <td className="px-4 py-3">
-                  {row.status === 'COMPLETED' && row.paymentState ? (
+                  {showsPaymentState(row.status) && row.paymentState ? (
                     <PaymentChip state={row.paymentState} />
                   ) : (
                     <span className="text-navy-400">—</span>
@@ -75,7 +88,7 @@ export function SalesTable({
               <td className="px-4 py-3 text-right font-mono">{money(row.total, row.currency)}</td>
               {showPaymentSettlement ? (
                 <td className="px-4 py-3 text-right font-mono">
-                  {(row.status === 'COMPLETED' || row.status === 'CANCELLED') && row.balance != null
+                  {showsBalance(row.status) && row.balance != null
                     ? money(row.balance, row.currency)
                     : '—'}
                 </td>

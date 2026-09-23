@@ -15,6 +15,7 @@ import {
 import { UserRepository } from '../../../src/features/users/repository.js';
 import {
   CANCELLATION_COMPLETED_ONLY_MESSAGE,
+  CANCELLATION_IDEMPOTENCY_MISMATCH_MESSAGE,
   CASH_CUSTOMER_CREDIT_FORBIDDEN_MESSAGE,
   PAYMENT_COMPLETED_ONLY_MESSAGE,
   PAYMENT_DATE_RANGE_MESSAGE,
@@ -390,6 +391,7 @@ describe('payments, due date, and cancellation HTTP', () => {
 
     const denied = await seller.agent.post(`${SALES}/${invoice.id}/cancel`).set(CSRF).send({
       reason: 'Solicitud del cliente',
+      refundAmount: '400.00',
       refundMethod: 'CASH',
       idempotencyKey: randomUUID(),
     });
@@ -397,6 +399,7 @@ describe('payments, due date, and cancellation HTTP', () => {
 
     const cancellation = {
       reason: 'Solicitud del cliente',
+      refundAmount: '400.00',
       refundMethod: 'TRANSFER',
       idempotencyKey: randomUUID(),
     };
@@ -460,7 +463,7 @@ describe('payments, due date, and cancellation HTTP', () => {
     });
   });
 
-  it('requires a refund method when cancelling an invoice with net money received', async () => {
+  it('requires a refund amount and method when cancelling an invoice with net money received', async () => {
     const app = createTestApp();
     const seller = await fixture(request.agent(app), 'SELLER');
     const admin = await fixture(request.agent(app), 'ADMINISTRATOR');
@@ -475,15 +478,25 @@ describe('payments, due date, and cancellation HTTP', () => {
         idempotencyKey: randomUUID(),
       });
 
-    const cancellation = await admin.agent.post(`${SALES}/${invoice.id}/cancel`).set(CSRF).send({
+    const missingAmount = await admin.agent.post(`${SALES}/${invoice.id}/cancel`).set(CSRF).send({
       reason: 'Venta anulada',
       idempotencyKey: randomUUID(),
     });
-
-    expect(cancellation.status).toBe(409);
-    expect(cancellation.body.error.message).toBe(
-      'La cancelación requiere el método del reembolso neto total',
+    expect(missingAmount.status).toBe(409);
+    expect(missingAmount.body.error.message).toBe(
+      'La cancelación requiere el monto de reembolso cuando hay neto cobrado',
     );
+
+    const missingMethod = await admin.agent.post(`${SALES}/${invoice.id}/cancel`).set(CSRF).send({
+      reason: 'Venta anulada',
+      refundAmount: '300.00',
+      idempotencyKey: randomUUID(),
+    });
+    expect(missingMethod.status).toBe(409);
+    expect(missingMethod.body.error.message).toBe(
+      'La cancelación requiere el método del reembolso cuando el monto es mayor que cero',
+    );
+
     await expect(prisma.invoice.findUnique({ where: { id: invoice.id } })).resolves.toMatchObject({
       status: 'COMPLETED',
     });
@@ -532,6 +545,65 @@ describe('payments, due date, and cancellation HTTP', () => {
     expect(first.status).toBe(200);
     expect(retry.status).toBe(409);
     expect(retry.body.error.message).toBe(CANCELLATION_COMPLETED_ONLY_MESSAGE);
+  });
+
+  it.each([
+    ['reason', { reason: 'Otro motivo' }],
+    ['refund amount', { refundAmount: '300.00' }],
+    ['refund method', { refundMethod: 'CASH' }],
+    ['refund reference', { refundReference: 'REF-DIFFERENT' }],
+  ])(
+    'rejects reuse of a cancellation idempotency key with a different %s',
+    async (_field, change) => {
+      const admin = await fixture(request.agent(createTestApp()), 'ADMINISTRATOR');
+      const invoice = await confirmInvoice(admin.agent);
+      await admin.agent.post(`${SALES}/${invoice.id}/payments`).set(CSRF).send({
+        amount: '400.00',
+        method: 'CHECK',
+        effectiveDate: businessDateString(new Date(invoice.confirmedAt)),
+        idempotencyKey: randomUUID(),
+      });
+      const body = {
+        reason: 'Solicitud del cliente',
+        refundAmount: '400.00',
+        refundMethod: 'TRANSFER',
+        refundReference: 'REF-ORIGINAL',
+        idempotencyKey: randomUUID(),
+      };
+      const first = await admin.agent.post(`${SALES}/${invoice.id}/cancel`).set(CSRF).send(body);
+
+      const mismatch = await admin.agent
+        .post(`${SALES}/${invoice.id}/cancel`)
+        .set(CSRF)
+        .send({ ...body, ...change });
+
+      expect(first.status).toBe(200);
+      expect(mismatch.status).toBe(409);
+      expect(mismatch.body.error.message).toBe(CANCELLATION_IDEMPOTENCY_MISMATCH_MESSAGE);
+      await expect(
+        prisma.invoicePayment.count({ where: { invoiceId: invoice.id, kind: 'REFUND' } }),
+      ).resolves.toBe(1);
+    },
+  );
+
+  it('rejects reuse of a zero-refund cancellation idempotency key with a different reason', async () => {
+    const admin = await fixture(request.agent(createTestApp()), 'ADMINISTRATOR');
+    const invoice = await confirmInvoice(admin.agent);
+    const body = {
+      reason: 'Cliente desistió',
+      idempotencyKey: randomUUID(),
+    };
+    const first = await admin.agent.post(`${SALES}/${invoice.id}/cancel`).set(CSRF).send(body);
+
+    const mismatch = await admin.agent
+      .post(`${SALES}/${invoice.id}/cancel`)
+      .set(CSRF)
+      .send({ ...body, reason: 'Otro motivo' });
+
+    expect(first.status).toBe(200);
+    expect(mismatch.status).toBe(409);
+    expect(mismatch.body.error.message).toBe(CANCELLATION_IDEMPOTENCY_MISMATCH_MESSAGE);
+    await expect(prisma.invoicePayment.count({ where: { invoiceId: invoice.id } })).resolves.toBe(0);
   });
 
   it('rejects cancellation while the invoice is still a draft', async () => {
@@ -633,7 +705,7 @@ describe('payments, due date, and cancellation HTTP', () => {
     expect(retiredIssuedFrom.status).toBe(400);
   });
 
-  it('paginates open receivables while keeping the complete customer aggregate', async () => {
+  it('paginates open receivables newest-first while keeping the complete customer aggregate', async () => {
     const seller = await fixture(request.agent(createTestApp()), 'ADMINISTRATOR');
     const first = await confirmInvoice(seller.agent);
     const second = await confirmInvoice(seller.agent, {}, first.customer.id);
@@ -645,9 +717,9 @@ describe('payments, due date, and cancellation HTTP', () => {
     expect(secondPage.status).toBe(200);
     expect(firstPage.body).toMatchObject({ total: 2, page: 1, pageSize: 1 });
     expect(secondPage.body).toMatchObject({ total: 2, page: 2, pageSize: 1 });
-    expect([firstPage.body.invoices[0].id, secondPage.body.invoices[0].id].sort()).toEqual(
-      [first.id, second.id].sort(),
-    );
+    // Most recently confirmed invoice appears on page 1.
+    expect(firstPage.body.invoices[0].id).toBe(second.id);
+    expect(secondPage.body.invoices[0].id).toBe(first.id);
     expect(firstPage.body.customers).toEqual([
       expect.objectContaining({
         invoiceCount: 2,

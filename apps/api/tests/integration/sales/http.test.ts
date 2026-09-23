@@ -24,7 +24,7 @@ import { UserRepository } from '../../../src/features/users/repository.js';
 import { disconnectPrisma, prisma } from '../../../src/infrastructure/database/index.js';
 import { createTestApp } from '../../helpers/app.js';
 import { clearTestHistory } from '../../helpers/history.js';
-import { assignNamedCustomerForCredit, cashSaleFullPayment, COMPLETED_CASH_SNAPSHOT, seedKnownLineCost } from '../../helpers/sales.js';
+import { assignNamedCustomerForCredit, cashSaleFullPayment, COMPLETED_CASH_SNAPSHOT, invoiceIssuedAtFrom, seedKnownLineCost } from '../../helpers/sales.js';
 
 const app = createTestApp();
 const users = new UserRepository();
@@ -199,6 +199,7 @@ describe('M7 draft HTTP shell (SALE-001 draft)', () => {
     ).not.toBeNull();
     expect(await prisma.invoice.findUnique({ where: { id: draft.body.id } })).toBeNull();
 
+    const completedAt = new Date();
     const completed = await prisma.invoice.create({
       data: {
         status: 'COMPLETED',
@@ -206,7 +207,7 @@ describe('M7 draft HTTP shell (SALE-001 draft)', () => {
         fiscal: false,
         customerId: generic!.id,
         number: `FAC-${randomUUID().slice(0, 6)}`,
-        confirmedAt: new Date(),
+        ...invoiceIssuedAtFrom(completedAt),
         dueDate: new Date('2026-10-10T00:00:00.000Z'),
         customerName: generic!.name,
         customerRnc: generic!.rnc,
@@ -271,7 +272,7 @@ describe('M7 draft HTTP shell (SALE-001 draft)', () => {
         fiscal: false,
         customerId: generic!.id,
         number: 'FAC-000881',
-        confirmedAt: new Date('2026-01-01T00:00:00.000Z'),
+        ...invoiceIssuedAtFrom(new Date('2026-01-01T00:00:00.000Z')),
         dueDate: new Date('2026-01-15T00:00:00.000Z'),
         customerName: 'Taller Alpha',
         gross: '100.00',
@@ -288,7 +289,7 @@ describe('M7 draft HTTP shell (SALE-001 draft)', () => {
         fiscal: false,
         customerId: generic!.id,
         number: 'FAC-000882',
-        confirmedAt: new Date('2026-02-01T00:00:00.000Z'),
+        ...invoiceIssuedAtFrom(new Date('2026-02-01T00:00:00.000Z')),
         dueDate: new Date('2026-02-15T00:00:00.000Z'),
         customerName: 'Flota Beta',
         gross: '200.00',
@@ -605,7 +606,7 @@ describe('M8 draft GENERIC lines (LINE-003)', () => {
         fiscal: false,
         customerId: generic!.id,
         number: `FAC-${randomUUID().slice(0, 6)}`,
-        confirmedAt: new Date(),
+        ...invoiceIssuedAtFrom(new Date()),
         dueDate: new Date('2026-10-10T00:00:00.000Z'),
         customerName: generic!.name,
         customerRnc: generic!.rnc,

@@ -139,6 +139,7 @@ export function manualProfitability(
   };
 }
 
+/** COST-003 for a commercially recognized sale (CONDUCE or COMPLETED). */
 export function calculatedCompletedProfitability(
   invoice: {
     status: string;
@@ -148,7 +149,8 @@ export function calculatedCompletedProfitability(
     exchangeRateDopPerUsd?: Prisma.Decimal | null;
   },
 ): Profitability | null {
-  if (invoice.status !== 'COMPLETED') return null;
+  // CON-006: profitability is recognized at conduce emission, not only at FAC-.
+  if (invoice.status !== 'COMPLETED' && invoice.status !== 'CONDUCE') return null;
   if (invoice.currency === 'USD') {
     if (!isPositiveRate(invoice.exchangeRateDopPerUsd)) return pendingFxProfitability();
     const rate = invoice.exchangeRateDopPerUsd;

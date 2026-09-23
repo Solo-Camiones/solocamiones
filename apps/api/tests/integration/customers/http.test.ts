@@ -51,6 +51,7 @@ async function createCompletedInvoice(input: {
   actorUserId: string;
   payments?: Array<{ amount: string }>;
 }) {
+  const confirmedAt = new Date();
   const invoice = await prisma.invoice.create({
     data: {
       status: 'COMPLETED',
@@ -58,7 +59,8 @@ async function createCompletedInvoice(input: {
       fiscal: false,
       customerId: input.customerId,
       number: `FAC-${randomUUID().slice(0, 8)}`,
-      confirmedAt: new Date(),
+      confirmedAt,
+      invoiceIssuedAt: confirmedAt,
       dueDate: new Date('2026-10-10T00:00:00.000Z'),
       customerName: 'Snapshot',
       gross: input.gross,

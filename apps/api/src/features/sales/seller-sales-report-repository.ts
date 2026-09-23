@@ -10,6 +10,7 @@ type SellerSalesInvoiceRecord = {
   status: InvoiceStatus;
   number: string | null;
   quoteNumber: string | null;
+  conduceNumber: string | null;
   confirmedAt: Date | null;
   quoteIssuedAt: Date | null;
   confirmedByUserId: string | null;
@@ -29,12 +30,18 @@ function sellerSalesWhere(query: SellerSalesReportFilters): Prisma.InvoiceWhereI
     confirmedAt: range,
     ...(query.sellerUserId ? { confirmedByUserId: query.sellerUserId } : {}),
   };
+  // CON-006: emitted conduces count as sales once; conversion later becomes COMPLETED above.
+  const conduce: Prisma.InvoiceWhereInput = {
+    status: 'CONDUCE',
+    confirmedAt: range,
+    ...(query.sellerUserId ? { confirmedByUserId: query.sellerUserId } : {}),
+  };
   const quoteIssued: Prisma.InvoiceWhereInput = {
     status: 'QUOTE_ISSUED',
     quoteIssuedAt: range,
     ...(query.sellerUserId ? { quoteIssuedByUserId: query.sellerUserId } : {}),
   };
-  return { OR: [completed, quoteIssued] };
+  return { OR: [completed, conduce, quoteIssued] };
 }
 
 function toSellerSalesRow(invoice: SellerSalesInvoiceRecord): SellerSalesReportRow | null {
@@ -53,6 +60,30 @@ function toSellerSalesRow(invoice: SellerSalesInvoiceRecord): SellerSalesReportR
     return {
       documentType: 'INVOICE',
       number: invoice.number,
+      originNumber: invoice.conduceNumber,
+      documentDate: invoice.confirmedAt,
+      sellerUserId: invoice.confirmedByUserId,
+      sellerName: invoice.confirmedByName,
+      customerName,
+      currency: invoice.currency,
+      gross: invoice.gross,
+    };
+  }
+
+  if (invoice.status === 'CONDUCE') {
+    if (
+      !invoice.conduceNumber ||
+      !invoice.confirmedAt ||
+      !invoice.confirmedByUserId ||
+      !invoice.confirmedByName ||
+      invoice.gross == null
+    ) {
+      return null;
+    }
+    return {
+      documentType: 'CONDUCE',
+      number: invoice.conduceNumber,
+      originNumber: null,
       documentDate: invoice.confirmedAt,
       sellerUserId: invoice.confirmedByUserId,
       sellerName: invoice.confirmedByName,
@@ -75,6 +106,7 @@ function toSellerSalesRow(invoice: SellerSalesInvoiceRecord): SellerSalesReportR
     return {
       documentType: 'QUOTE',
       number: invoice.quoteNumber,
+      originNumber: null,
       documentDate: invoice.quoteIssuedAt,
       sellerUserId: invoice.quoteIssuedByUserId,
       sellerName: invoice.quoteIssuedByName,
@@ -110,6 +142,7 @@ export class SellerSalesReportRepository {
         status: true,
         number: true,
         quoteNumber: true,
+        conduceNumber: true,
         confirmedAt: true,
         quoteIssuedAt: true,
         confirmedByUserId: true,

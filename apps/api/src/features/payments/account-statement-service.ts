@@ -80,7 +80,8 @@ export class AccountStatementService {
       customerRnc: formatFiscalId(loaded.customer.rnc) || null,
       generatedAt,
       rows: rows.map((row) => ({
-        number: row.invoice.number!,
+        // While no FAC- exists, CON- is the primary document on the statement (CON-006).
+        number: row.invoice.number ?? row.invoice.conduceNumber!,
         issuedAt: row.invoice.confirmedAt!,
         dueDate: row.invoice.dueDate!,
         paymentState: row.state,

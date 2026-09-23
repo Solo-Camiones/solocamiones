@@ -1,4 +1,5 @@
-import type { AppState, Currency, Customer, WorkOrder } from '../../api/contracts/entities';
+import type { AppState, Currency, Customer, User, WorkOrder } from '../../api/contracts/entities';
+import { err, ok, type Result } from '../../shared/auth/types';
 import { businessDateString } from '../../shared/domain/business-date';
 import { collectSubtree } from './inventory-helpers';
 
@@ -49,6 +50,69 @@ export function confirmationRequiresFullPayment(
   currency: Currency,
 ): boolean {
   return customer.customerType === 'CASH' || Boolean(customer.isDefault) || currency === 'USD';
+}
+
+/** Named CASH (not default Cliente contado) — Admin conduce balance exception (CON-002). */
+export function isNamedCashCustomer(
+  customer: Pick<Customer, 'customerType' | 'isDefault'>,
+): boolean {
+  return customer.customerType === 'CASH' && !customer.isDefault;
+}
+
+/**
+ * CON-002: Admin may leave balance on named CASH DOP/USD conduces only.
+ * Default Cliente contado, Seller, and CREDIT USD still require full settlement.
+ */
+export function conduceRequiresFullPayment(
+  customer: Pick<Customer, 'customerType' | 'isDefault'>,
+  currency: Currency,
+  actorRole: User['role'],
+): boolean {
+  if (actorRole === 'ADMINISTRATOR' && isNamedCashCustomer(customer)) {
+    return false;
+  }
+  return confirmationRequiresFullPayment(customer, currency);
+}
+
+export const CONDUCE_DUE_DATE_REQUIRED_MESSAGE =
+  'Indique la fecha de vencimiento cuando el conduce de contado queda con saldo';
+export const CONDUCE_DUE_DATE_BEFORE_EMISSION_MESSAGE =
+  'La fecha de vencimiento no puede ser anterior al día de emisión';
+export const CONDUCE_DUE_DATE_NOT_ALLOWED_MESSAGE =
+  'La fecha de vencimiento solo aplica cuando el Administrador deja saldo en un cliente de contado nombrado';
+
+/**
+ * Resolves dueDate for conduce emission (mock mirror of API CON-002).
+ * Admin named-CASH with open balance: actor-supplied calendar day ≥ emission day.
+ */
+export function resolveConduceDueDate(input: {
+  customer: Pick<Customer, 'customerType' | 'isDefault' | 'creditTermDays'>;
+  currency: Currency;
+  actorRole: User['role'];
+  confirmedAtIso: string;
+  newBalance: number;
+  actorDueDate: string | undefined;
+}): Result<string> {
+  const { customer, currency, actorRole, confirmedAtIso, newBalance, actorDueDate } = input;
+  const needsActorDueDate =
+    actorRole === 'ADMINISTRATOR' && isNamedCashCustomer(customer) && newBalance > 0;
+
+  if (needsActorDueDate) {
+    if (actorDueDate == null || actorDueDate.trim() === '') {
+      return err({ code: 'CONFLICT', message: CONDUCE_DUE_DATE_REQUIRED_MESSAGE });
+    }
+    const emissionDay = businessDateString(new Date(confirmedAtIso));
+    if (actorDueDate < emissionDay) {
+      return err({ code: 'CONFLICT', message: CONDUCE_DUE_DATE_BEFORE_EMISSION_MESSAGE });
+    }
+    return ok(actorDueDate);
+  }
+
+  if (actorDueDate != null && actorDueDate.trim() !== '') {
+    return err({ code: 'CONFLICT', message: CONDUCE_DUE_DATE_NOT_ALLOWED_MESSAGE });
+  }
+
+  return ok(confirmationDueDate(customer, currency, confirmedAtIso));
 }
 
 export function isCreditDopConfirmation(

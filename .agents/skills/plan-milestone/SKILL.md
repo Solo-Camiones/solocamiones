@@ -123,16 +123,31 @@ Never invent business rules.
 
 Never silently choose between meaningful alternatives.
 
-Ask only questions that materially affect implementation.
+Identify anything that cannot be determined explicitly and confidently from the milestone, repository, documentation, tests, or established project conventions.
 
-For each important question explain:
+Never invent or assume requirements, business rules, technical decisions, expected behavior, or user intent.
 
-- what is unclear;
-- why it matters;
-- possible options;
-- technical consequences when relevant.
+Ask about ANY uncertainty, ambiguity, missing information, conflicting information, or situation where multiple reasonable approaches exist.
 
-STOP and wait for answers when blocking uncertainty exists.
+Do not limit questions only to issues that block implementation.
+
+If you have a genuine doubt, ask.
+
+Do not silently choose between multiple reasonable alternatives.
+
+For every question:
+
+- explain what is unclear;
+- explain why it matters;
+- provide the relevant options when possible;
+- explain technical or business trade-offs when useful;
+- state which existing evidence led to the question.
+
+Do not ask questions whose answers can be reliably determined by inspecting the repository or existing documentation.
+
+If ANY unresolved question remains:
+
+STOP and wait for the user's answer before continuing with the final implementation plan.
 
 ---
 
@@ -236,6 +251,10 @@ After explicit approval:
 6. update canonical documentation when required;
 7. report the result.
 
-If implementation reveals a new blocking business decision that was not visible during analysis:
+If implementation reveals ANY new uncertainty, ambiguity, missing requirement, conflicting information, or decision that was not identified during analysis:
 
-STOP and ask before making that decision.
+STOP.
+
+Explain the newly discovered uncertainty and ask the user before continuing.
+
+Never resolve a newly discovered uncertainty by assumption, even if one option appears more likely or easier to implement.

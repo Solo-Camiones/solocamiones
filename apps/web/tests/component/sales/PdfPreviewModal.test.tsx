@@ -23,6 +23,7 @@ const detail: InvoiceDetailView = {
   discountPercent: 0,
   lines: [],
   payments: [],
+  discount: 0,
   total: 100,
   paid: 0,
   refunded: 0,
@@ -35,6 +36,8 @@ const detail: InvoiceDetailView = {
     canCancel: false,
     canCorrectCurrency: false,
     canViewPdf: true,
+    canViewConducePdf: false,
+    canConvertToInvoice: false,
     canRegeneratePdf: false,
   },
 };

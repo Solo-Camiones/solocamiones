@@ -37,16 +37,20 @@ function invoice(
     status?: 'DRAFT' | 'COMPLETED' | 'CANCELLED';
     gross?: string | null;
     dueDate?: string | null;
+    confirmedAt?: string | null;
     payments?: InvoicePayment[];
     currency?: 'DOP' | 'USD';
   } = {},
 ): InvoiceListRecord {
   const dueDate = options.dueDate === undefined ? '2099-01-01' : options.dueDate;
+  const confirmedAt =
+    options.confirmedAt === undefined ? '2026-01-01T12:00:00.000Z' : options.confirmedAt;
   return {
     id,
     status: options.status ?? 'COMPLETED',
     gross: options.gross === null ? null : new Prisma.Decimal(options.gross ?? '100.00'),
     dueDate: dueDate === null ? null : databaseDate(dueDate),
+    confirmedAt: confirmedAt === null ? null : new Date(confirmedAt),
     payments: options.payments ?? [],
     currency: options.currency ?? 'DOP',
     customerId: `customer-${id}`,
@@ -136,15 +140,17 @@ describe('customer outstanding summary', () => {
 });
 
 describe('open receivables', () => {
-  it('keeps pending and overdue balances and sorts null or equal due dates by id', () => {
+  it('keeps pending and overdue balances and sorts newest issued first', () => {
     const rows = openReceivables([
-      invoice('dated-b', { dueDate: '2099-01-01' }),
+      invoice('older', { confirmedAt: '2026-01-01T12:00:00.000Z', dueDate: '2099-01-01' }),
       invoice('overdue', {
+        confirmedAt: '2026-02-01T12:00:00.000Z',
         dueDate: '2000-01-01',
         payments: [payment('partial', '25.00', '2000-01-01')],
       }),
-      invoice('no-date', { dueDate: null }),
-      invoice('dated-a', { dueDate: '2099-01-01' }),
+      invoice('newest', { confirmedAt: '2026-03-01T12:00:00.000Z', dueDate: null }),
+      invoice('tie-b', { confirmedAt: '2026-02-15T12:00:00.000Z', dueDate: '2099-01-01' }),
+      invoice('tie-a', { confirmedAt: '2026-02-15T12:00:00.000Z', dueDate: '2099-01-01' }),
     ]);
 
     expect(
@@ -156,7 +162,9 @@ describe('open receivables', () => {
         balance: row.balance.toFixed(2),
       })),
     ).toEqual([
-      { id: 'no-date', state: 'PENDING', invoiced: '100.00', paid: '0.00', balance: '100.00' },
+      { id: 'newest', state: 'PENDING', invoiced: '100.00', paid: '0.00', balance: '100.00' },
+      { id: 'tie-b', state: 'PENDING', invoiced: '100.00', paid: '0.00', balance: '100.00' },
+      { id: 'tie-a', state: 'PENDING', invoiced: '100.00', paid: '0.00', balance: '100.00' },
       {
         id: 'overdue',
         state: 'PARTIALLY_PAID_OVERDUE',
@@ -164,8 +172,7 @@ describe('open receivables', () => {
         paid: '25.00',
         balance: '75.00',
       },
-      { id: 'dated-a', state: 'PENDING', invoiced: '100.00', paid: '0.00', balance: '100.00' },
-      { id: 'dated-b', state: 'PENDING', invoiced: '100.00', paid: '0.00', balance: '100.00' },
+      { id: 'older', state: 'PENDING', invoiced: '100.00', paid: '0.00', balance: '100.00' },
     ]);
   });
 
@@ -193,9 +200,10 @@ describe('open receivables', () => {
       invoice('usd-open', { currency: 'USD', dueDate: '2099-01-01' }),
     ]);
 
-    expect(rows.map((row) => [row.invoice.id, row.invoice.currency, row.state])).toEqual([
-      ['dop-open', 'DOP', 'PENDING'],
-      ['usd-open', 'USD', 'PENDING'],
+    expect(rows).toHaveLength(2);
+    expect(rows.map((row) => [row.invoice.currency, row.state]).sort()).toEqual([
+      ['DOP', 'PENDING'],
+      ['USD', 'PENDING'],
     ]);
     expect(moneyString(rows[0]!.balance)).toBe('100.00');
   });

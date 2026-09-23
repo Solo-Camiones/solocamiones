@@ -13,7 +13,13 @@ import type {
 import type { HierarchyNode } from './inventory';
 
 export type SalesListTab =
-  'ALL' | 'DRAFT' | 'QUOTE_DRAFT' | 'QUOTE_ISSUED' | 'COMPLETED' | 'CANCELLED';
+  | 'ALL'
+  | 'DRAFT'
+  | 'QUOTE_DRAFT'
+  | 'QUOTE_ISSUED'
+  | 'CONDUCE'
+  | 'COMPLETED'
+  | 'CANCELLED';
 
 export type SalesListFilters = {
   dateFrom?: string;
@@ -24,6 +30,7 @@ export type SalesListRow = {
   id: string;
   number: string;
   quoteNumber?: string;
+  conduceNumber?: string;
   status: InvoiceStatus;
   paymentState?: PaymentState;
   customerId: string;
@@ -128,10 +135,11 @@ export type SalesDocumentPdfDownload = {
 
 export type InvoicePdfDownload = SalesDocumentPdfDownload;
 export type QuotePdfDownload = SalesDocumentPdfDownload;
+export type ConducePdfDownload = SalesDocumentPdfDownload;
 export type AccountStatementPdfDownload = SalesDocumentPdfDownload;
 export type SellerSalesReportPdfDownload = SalesDocumentPdfDownload;
 
-export type SellerSalesDocumentType = 'INVOICE' | 'QUOTE';
+export type SellerSalesDocumentType = 'INVOICE' | 'CONDUCE' | 'QUOTE';
 
 export type SellerSalesReportFilters = {
   dateFrom: string;
@@ -143,6 +151,7 @@ export type SellerSalesReportFilters = {
 export type SellerSalesReportRow = {
   documentType: SellerSalesDocumentType;
   number: string;
+  originNumber: string | null;
   documentDate: string;
   sellerUserId: string;
   sellerName: string;
@@ -174,6 +183,8 @@ export type InvoiceDetailActions = {
   canCancel: boolean;
   canCorrectCurrency: boolean;
   canViewPdf: boolean;
+  canViewConducePdf: boolean;
+  canConvertToInvoice: boolean;
   canRegeneratePdf: boolean;
 };
 
@@ -181,6 +192,9 @@ export type InvoiceDetailView = {
   id: string;
   number?: string;
   quoteNumber?: string;
+  conduceNumber?: string;
+  conduceIssuedAt?: string;
+  invoiceIssuedAt?: string;
   status: InvoiceStatus;
   paymentState?: PaymentState;
   customerId: string;
@@ -193,6 +207,8 @@ export type InvoiceDetailView = {
   discountPercent: number;
   lines: InvoiceLineView[];
   payments: PaymentView[];
+  /** Invoice-level discount amount applied to all line bases. */
+  discount: number;
   total: number;
   paid?: number;
   refunded?: number;
@@ -228,6 +244,19 @@ export type ConfirmInvoicePayment = {
   method: PaymentMethod;
   reference?: string;
   idempotencyKey?: string;
+};
+
+/**
+ * Conduce emission / quote→conduce: same payment shape as confirm, plus optional
+ * actor dueDate when Administrator leaves named-CASH balance (CON-002).
+ */
+export type IssueConduceInput = {
+  payment?: ConfirmInvoicePayment;
+  dueDate?: string;
+};
+
+export type ConvertConduceToInvoiceInput = {
+  fiscal: boolean;
 };
 
 export type InProgressCancelDecision = 'STOP' | 'CONTINUE';

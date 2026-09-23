@@ -547,7 +547,7 @@ async function addGenericLine(
 }
 
 async function confirmOpenSale(user: ReturnType<typeof userEvent.setup>) {
-  await user.click(screen.getByRole('button', { name: 'Confirmar venta' }));
+  await user.click(screen.getByRole('button', { name: 'Confirmar factura' }));
   const dialog = await screen.findByRole('dialog', { name: 'Confirmar venta' });
   expect(within(dialog).getByText('Pago inicial')).toBeVisible();
   await user.click(within(dialog).getByRole('button', { name: 'Confirmar venta' }));

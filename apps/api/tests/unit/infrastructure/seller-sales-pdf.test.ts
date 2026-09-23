@@ -18,6 +18,7 @@ function facts(rowCount = 2, overrides: Partial<SellerSalesPdfFacts> = {}): Sell
       index % 2 === 0
         ? `FAC-${String(index + 1).padStart(6, '0')}`
         : `COT-${String(index + 1).padStart(6, '0')}`,
+    originNumber: index % 2 === 0 ? `CON-${String(index + 1).padStart(6, '0')}` : null,
     documentDateLabel: '18/09/2026',
     sellerName: index < 2 ? 'Sara Vendedora' : 'Pedro Vendedor',
     customerName: `Cliente ${index + 1}`,
@@ -55,7 +56,9 @@ describe('seller sales PDF renderer', () => {
     expect(text.slice(0, 5)).toBe('%PDF-');
     expect(hexText).toContain(Buffer.from('VENTAS POR VENDEDOR').toString('hex'));
     expect(hexText).toContain(Buffer.from('FAC-000001').toString('hex'));
+    expect(hexText).toContain(Buffer.from('CON-000001').toString('hex'));
     expect(hexText).toContain(Buffer.from('COT-000002').toString('hex'));
+    expect(hexText).toContain(Buffer.from('ORIGEN').toString('hex'));
     expect(hexText).toContain(Buffer.from('Sara Vendedora').toString('hex'));
     expect(hexText).toContain(Buffer.from('Totales por vendedor').toString('hex'));
     expect(hexText).toContain(Buffer.from('RD$3,000.00').toString('hex'));

@@ -5,6 +5,7 @@ import type { Currency } from '../../api/contracts/entities';
 import type {
   AddDraftLineInput,
   ConfirmInvoicePayment,
+  IssueConduceInput,
   PosDraftView,
   PosLineView,
   QuotePdfDownload,
@@ -353,6 +354,23 @@ export function usePos(draftId: string | undefined, creationKind: 'sale' | 'quot
     [draftId, reload, runExclusive],
   );
 
+  const issueConduce = useCallback(
+    async (input?: IssueConduceInput): Promise<Result<void>> => {
+      if (!draftId || draftId === 'new') {
+        return { ok: false, error: { code: 'VALIDATION', message: 'Borrador no listo' } };
+      }
+      return runExclusive(async () => {
+        const response = await salesRepository.issueConduce(draftId, input);
+        if (!response.ok) {
+          return response;
+        }
+        navigate(`/sales/${draftId}`, { replace: true });
+        return { ok: true, value: undefined };
+      });
+    },
+    [draftId, navigate, runExclusive],
+  );
+
   const issueQuote = useCallback(async (): Promise<Result<void>> => {
     if (!draftId || draftId === 'new') {
       return { ok: false, error: { code: 'VALIDATION', message: 'Cotización no lista' } };
@@ -379,6 +397,21 @@ export function usePos(draftId: string | undefined, creationKind: 'sale' | 'quot
       }
       return runExclusive(async () => {
         const response = await salesRepository.convertQuote(draftId, payment);
+        if (!response.ok) return response;
+        navigate(`/sales/${draftId}`, { replace: true });
+        return { ok: true, value: undefined };
+      });
+    },
+    [draftId, navigate, runExclusive],
+  );
+
+  const convertQuoteToConduce = useCallback(
+    async (input?: IssueConduceInput): Promise<Result<void>> => {
+      if (!draftId || draftId === 'new') {
+        return { ok: false, error: { code: 'VALIDATION', message: 'Cotización no lista' } };
+      }
+      return runExclusive(async () => {
+        const response = await salesRepository.convertQuoteToConduce(draftId, input);
         if (!response.ok) return response;
         navigate(`/sales/${draftId}`, { replace: true });
         return { ok: true, value: undefined };
@@ -428,9 +461,11 @@ export function usePos(draftId: string | undefined, creationKind: 'sale' | 'quot
     updateLine,
     setMeta,
     confirm,
+    issueConduce,
     issueQuote,
     duplicateQuote,
     convertQuote,
+    convertQuoteToConduce,
     getQuotePdf,
     discard,
     restoreRemovedLine,

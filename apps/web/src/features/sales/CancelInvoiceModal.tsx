@@ -9,6 +9,7 @@ import {
   Field,
   GuardedModal,
   Info,
+  Input,
   Select,
   Textarea,
   money,
@@ -18,14 +19,17 @@ import { PAYMENT_METHOD_LABELS } from './labels';
 
 export type CancelInvoiceModalProps = {
   open: boolean;
+  /** Net collected (paid − refunded). Default refund amount when opening. */
   paid: number;
   currency: 'DOP' | 'USD';
+  documentLabel?: string;
   workOrders: LinkedWorkOrderView[];
   isSaving: boolean;
   error: string | null;
   onClose: () => void;
   onSubmit: (input: {
     reason: string;
+    refundAmount?: number;
     refundMethod?: PaymentMethod;
     idempotencyKey: string;
     inProgressDecision?: InProgressCancelDecision;
@@ -38,6 +42,7 @@ export function CancelInvoiceModal({
   open,
   paid,
   currency,
+  documentLabel = 'factura',
   workOrders,
   isSaving,
   error,
@@ -46,49 +51,72 @@ export function CancelInvoiceModal({
 }: CancelInvoiceModalProps) {
   const { workOrders: workOrdersEnabled } = useAppCapabilities();
   const [reason, setReason] = useState('');
+  const [refundAmount, setRefundAmount] = useState('');
   const [refundMethod, setRefundMethod] = useState<PaymentMethod>('CASH');
   const [idempotencyKey, setIdempotencyKey] = useState('');
   const [inProgressDecision, setInProgressDecision] = useState<InProgressCancelDecision>('STOP');
   const [awaitingConfirm, setAwaitingConfirm] = useState(false);
-  const fields = { reason, refundMethod, inProgressDecision };
+  const [localError, setLocalError] = useState<string | null>(null);
+  const fields = { reason, refundAmount, refundMethod, inProgressDecision };
   const [baseline, setBaseline] = useState(fields);
   const showWorkOrders = workOrdersEnabled && workOrders.length > 0;
   const hasInProgress = showWorkOrders && workOrders.some((order) => order.status === 'IN_PROGRESS');
+  const netCollected = Math.round(paid * 100) / 100;
 
   useEffect(() => {
     if (open) {
       const next = {
         reason: '',
+        refundAmount: netCollected > 0 ? netCollected.toFixed(2) : '0',
         refundMethod: 'CASH' as PaymentMethod,
         inProgressDecision: 'STOP' as InProgressCancelDecision,
       };
       setReason(next.reason);
+      setRefundAmount(next.refundAmount);
       setRefundMethod(next.refundMethod);
       setIdempotencyKey(`cancel-${Date.now()}`);
       setInProgressDecision(next.inProgressDecision);
       setAwaitingConfirm(false);
+      setLocalError(null);
       setBaseline(next);
     }
-  }, [open, paid]);
+  }, [open, netCollected]);
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    setLocalError(null);
+
+    let parsedRefund = 0;
+    if (netCollected > 0) {
+      parsedRefund = Number(refundAmount.trim());
+      if (!Number.isFinite(parsedRefund) || parsedRefund < 0 || parsedRefund > netCollected) {
+        setLocalError('El reembolso debe estar entre 0 y el neto cobrado.');
+        return;
+      }
+      parsedRefund = Math.round(parsedRefund * 100) / 100;
+    }
+
     if (!awaitingConfirm) {
       setAwaitingConfirm(true);
       return;
     }
+
     onSubmit({
       reason,
-      refundMethod: paid > 0 ? refundMethod : undefined,
+      refundAmount: netCollected > 0 ? parsedRefund : 0,
+      refundMethod: parsedRefund > 0 ? refundMethod : undefined,
       idempotencyKey,
       inProgressDecision: hasInProgress ? inProgressDecision : undefined,
     });
   }
 
+  const displayedError = localError ?? error;
+  const titleCase = documentLabel.charAt(0).toUpperCase() + documentLabel.slice(1);
+
   return (
     <GuardedModal
       open={open}
-      title={awaitingConfirm ? 'Confirmar cancelación' : 'Cancelar factura'}
+      title={awaitingConfirm ? 'Confirmar cancelación' : `Cancelar ${documentLabel}`}
       onClose={onClose}
       hasUnsavedChanges={isFormDirty(fields, baseline)}
       isBusy={isSaving}
@@ -97,13 +125,13 @@ export function CancelInvoiceModal({
         <form onSubmit={handleSubmit} className="space-y-4">
           {awaitingConfirm ? (
             <>
-              <Info tone="warning" title="La factura quedará cancelada">
-                Esta operación no se puede deshacer. Se conserva el historial y, si hubo dinero
-                recibido, se registra el reembolso neto total.
+              <Info tone="warning" title={`${titleCase} quedará cancelada`}>
+                Esta operación no se puede deshacer. Se conserva el historial y se registra el
+                reembolso indicado (0 hasta el neto cobrado).
               </Info>
-              {error && (
+              {displayedError && (
                 <Info tone="error" title="No se pudo cancelar">
-                  {error}
+                  {displayedError}
                 </Info>
               )}
               <div className="flex justify-end gap-2 pt-2">
@@ -123,8 +151,8 @@ export function CancelInvoiceModal({
           ) : (
             <>
               <Info tone="warning" title="La cancelación no borra el documento">
-                Se conserva el historial de la factura y de sus pagos. Si hubo dinero recibido, esta
-                operación registra el reembolso neto total.
+                Se conserva el historial y de sus pagos. Indique el monto real reembolsado (0 hasta
+                el neto cobrado). El saldo pendiente se extingue.
               </Info>
 
               {showWorkOrders && (
@@ -135,7 +163,7 @@ export function CancelInvoiceModal({
                       {order.status === 'PENDING'
                         ? 'Pendiente (se cancela la orden)'
                         : order.status === 'IN_PROGRESS'
-                          ? 'En proceso'
+                          ? 'En progreso'
                           : order.status === 'COMPLETED'
                             ? 'Completada (queda independiente)'
                             : order.status}
@@ -145,7 +173,7 @@ export function CancelInvoiceModal({
               )}
 
               {hasInProgress && (
-                <Field label={`${UX_TERMS.dismantling} en proceso`} htmlFor="cancel-wo-decision">
+                <Field label={`${UX_TERMS.dismantling} en progreso`} htmlFor="cancel-wo-decision">
                   <Select
                     id="cancel-wo-decision"
                     value={inProgressDecision}
@@ -170,21 +198,31 @@ export function CancelInvoiceModal({
                 />
               </Field>
 
-              {paid > 0 && (
+              {netCollected > 0 && (
                 <>
                   <Field
-                    label="Reembolso neto"
-                    htmlFor="cancel-refund-method"
-                    hint="El monto lo calcula el sistema. Solo se elige el método."
+                    label="Monto a reembolsar"
+                    htmlFor="cancel-refund-amount"
+                    hint={`Neto cobrado: ${money(netCollected, currency)}. Puede ser 0.`}
                   >
-                    <p className="font-mono text-sm text-navy">{money(paid, currency)}</p>
+                    <Input
+                      id="cancel-refund-amount"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      max={netCollected}
+                      value={refundAmount}
+                      onChange={(event) => setRefundAmount(event.target.value)}
+                      required
+                    />
                   </Field>
                   <Field label="Método de reembolso" htmlFor="cancel-refund-method">
                     <Select
                       id="cancel-refund-method"
                       value={refundMethod}
                       onChange={(event) => setRefundMethod(event.target.value as PaymentMethod)}
-                      required
+                      required={Number(refundAmount) > 0}
+                      disabled={Number(refundAmount) <= 0}
                     >
                       {METHODS.map((entry) => (
                         <option key={entry} value={entry}>
@@ -196,9 +234,9 @@ export function CancelInvoiceModal({
                 </>
               )}
 
-              {error && (
+              {displayedError && (
                 <Info tone="error" title="No se pudo cancelar">
-                  {error}
+                  {displayedError}
                 </Info>
               )}
 
@@ -207,7 +245,7 @@ export function CancelInvoiceModal({
                   Cerrar
                 </Button>
                 <Button type="submit" variant="danger" disabled={isSaving}>
-                  Cancelar factura
+                  Cancelar {documentLabel}
                 </Button>
               </div>
             </>

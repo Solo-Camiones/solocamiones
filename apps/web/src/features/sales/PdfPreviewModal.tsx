@@ -6,7 +6,7 @@ import { formatFiscalId } from '../../shared/domain/fiscal-id';
 import { Button, currencyLabel, Modal, money, Mono } from '../../shared/ui';
 import { InvoiceLinesTable } from './InvoiceLinesTable';
 
-export type SalesDocumentKind = 'invoice' | 'quote';
+export type SalesDocumentKind = 'invoice' | 'quote' | 'conduce';
 
 export type DocumentPdfPreviewFile = {
   url: string;
@@ -24,7 +24,9 @@ export type PdfPreviewModalProps = {
 const BLANK_NCF = 'NCF: ______________________';
 
 function previewTitle(kind: SalesDocumentKind): string {
-  return kind === 'quote' ? 'Vista previa de cotización' : 'Vista previa de factura';
+  if (kind === 'quote') return 'Vista previa de cotización';
+  if (kind === 'conduce') return 'Vista previa de conduce';
+  return 'Vista previa de factura';
 }
 
 export function PdfPreviewModal({

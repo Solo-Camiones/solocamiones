@@ -478,6 +478,16 @@ describe('USD profitability COST-003', () => {
     expectMoney(dop!.profitDop as Prisma.Decimal, '38.00');
   });
 
+  it('recognizes CONDUCE the same as COMPLETED for COST-003', () => {
+    const conduce = calculatedCompletedProfitability({
+      status: 'CONDUCE',
+      currency: 'DOP',
+      applyItbis: false,
+      lines: [generic],
+    });
+    expectMoney(conduce!.profitDop as Prisma.Decimal, '38.00');
+  });
+
   it('uses UNKNOWN_COST after a rate is present rather than pending FX', () => {
     const unknown = calculatedCompletedProfitability({
       status: 'COMPLETED',

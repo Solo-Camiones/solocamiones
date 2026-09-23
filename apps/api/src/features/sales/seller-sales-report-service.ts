@@ -41,6 +41,8 @@ const DOCUMENT_TYPE_LABEL = {
 
   INVOICE: 'Factura',
 
+  CONDUCE: 'Conduce',
+
   QUOTE: 'Cotización',
 
 } as const;
@@ -146,6 +148,8 @@ function toPublicReport(
       documentType: row.documentType,
 
       number: row.number,
+
+      originNumber: row.originNumber,
 
       documentDate: row.documentDate.toISOString(),
 
@@ -256,6 +260,8 @@ export class SellerSalesReportService {
         documentTypeLabel: DOCUMENT_TYPE_LABEL[row.documentType],
 
         number: row.number,
+
+        originNumber: row.originNumber,
 
         documentDateLabel: formatBusinessDate(row.documentDate),
 

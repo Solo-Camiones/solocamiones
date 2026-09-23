@@ -128,6 +128,9 @@ beforeEach(() => {
     if (url.startsWith('/api/sales?status=CANCELLED') && !init?.method) {
       return json({ items: [], total: 0, page: 1, pageSize: 10 });
     }
+    if (url.startsWith('/api/sales?status=CONDUCE') && !init?.method) {
+      return json({ items: [], total: 0, page: 1, pageSize: 10 });
+    }
     if (url.startsWith('/api/sales?status=COMPLETED') && !init?.method) {
       const items = role === 'ADMINISTRATOR' ? invoices : invoices.map(({ profitability: _, ...rest }) => rest);
       return json({ items, total: items.length, page: 1, pageSize: 10 });
@@ -199,9 +202,9 @@ describe('HTTP profitability flow', () => {
     await chooseSelectOption(user, 'Período', '30 días');
     expect(screen.getAllByText('Cobrado neto').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Cuentas por cobrar').length).toBeGreaterThan(0);
-    expect(screen.getByText('Facturado al contado')).toBeVisible();
-    expect(screen.getByText('Facturado a crédito')).toBeVisible();
-    expect(screen.getByText('Total facturado')).toBeVisible();
+    expect(screen.getByText('Ventas al contado')).toBeVisible();
+    expect(screen.getByText('Ventas a crédito')).toBeVisible();
+    expect(screen.getByText('Total ventas')).toBeVisible();
     expect(screen.getAllByText(money(18_000, 'DOP')).length).toBeGreaterThan(0);
     expect(screen.getAllByText(money(2_000, 'DOP')).length).toBeGreaterThan(0);
     expect(screen.getByText('Cobrado efectivo')).toBeVisible();

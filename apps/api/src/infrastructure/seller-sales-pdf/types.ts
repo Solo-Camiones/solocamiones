@@ -1,6 +1,7 @@
 export type SellerSalesPdfRow = {
   documentTypeLabel: string;
   number: string;
+  originNumber: string | null;
   documentDateLabel: string;
   sellerName: string;
   customerName: string;

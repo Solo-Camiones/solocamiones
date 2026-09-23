@@ -285,12 +285,26 @@ describe('cancelInvoice', () => {
     );
   });
 
-  it('records the full net refund and ignores a larger requested amount', () => {
+  it('rejects refund above net collected (CANCEL-002)', () => {
     const state = createInitialState();
     const cancelled = cancelInvoice(state, admin, {
       invoiceId: 'INV-099',
       reason: 'Devolución',
       refundAmount: 8_000,
+      refundMethod: 'CASH',
+    });
+    expect(cancelled.ok).toBe(false);
+    if (!cancelled.ok) {
+      expect(cancelled.error.message).toMatch(/entre 0 y el neto cobrado/);
+    }
+  });
+
+  it('records an indicated refund within net collected', () => {
+    const state = createInitialState();
+    const cancelled = cancelInvoice(state, admin, {
+      invoiceId: 'INV-099',
+      reason: 'Devolución',
+      refundAmount: 3_600,
       refundMethod: 'CASH',
     });
     expect(cancelled.ok).toBe(true);
@@ -357,7 +371,7 @@ describe('cancelInvoice', () => {
     if (!missingPaid.ok) {
       expect(missingPaid.error.code).toBe('VALIDATION');
       expect(missingPaid.error.message).toBe(
-        'La cancelación requiere el método del reembolso neto total',
+        'Indique el monto de reembolso (0 hasta el neto cobrado)',
       );
     }
     expect(paidState.invoices.find((entry) => entry.id === 'INV-097')?.status).toBe('COMPLETED');
