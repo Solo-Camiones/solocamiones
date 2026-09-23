@@ -1,5 +1,7 @@
 # Plan detallado de implementación — Asistente híbrido RAG para Solo Camiones
 
+> **Autoridad:** la especificación canónica es `docs/FEATURES/17_AI_ASSISTANT.md` (`AI-001`–`AI-010`). Este archivo es solo secuencia técnica y progreso. **No implementes comportamiento desde este plan cuando exista un ID AI-* en Feature 17.**
+
 ## 1. Propósito y alcance
 
 Implementar, después de cerrar la estabilización preproducción actual, un asistente conversacional exclusivo para `ADMINISTRATOR`, accesible mediante un panel lateral global y limitado a operaciones de consulta.
@@ -15,20 +17,20 @@ No indexará transacciones en vectores, no tendrá herramientas de escritura y n
 
 ## 2. Decisiones confirmadas
 
-| Área | Decisión |
-|---|---|
-| Entrega | Piloto posterior a la estabilización actual; no bloquea el primer despliegue |
-| Usuarios | Solo `ADMINISTRATOR` |
-| Operaciones | Solo lectura; crear/eliminar conversaciones sí está permitido |
-| Conocimiento | Base documental curada + datos comerciales vivos |
-| Datos vivos | Clientes, cotizaciones, conduces, facturas, pagos, CxC y rentabilidad |
-| Exclusiones | Usuarios, sesiones, credenciales, auditoría general, inventario/WO mock |
-| Proveedor | OpenAI detrás de interfaces propias |
-| UI | Panel lateral global montado en `AppShell` |
-| Historial | PostgreSQL, auditable, retención de 90 días |
-| Privacidad | Solo campos mínimos; sin RNC, contacto, dirección o notas |
-| Corpus | Markdown versionado en Git y aprobado mediante manifest |
-| Consumo | Límites configurables por usuario, respuesta, retrieval y tools |
+| Área         | Decisión                                                                     |
+| ------------ | ---------------------------------------------------------------------------- |
+| Entrega      | Piloto posterior a la estabilización actual; no bloquea el primer despliegue |
+| Usuarios     | Solo `ADMINISTRATOR`                                                         |
+| Operaciones  | Solo lectura; crear/eliminar conversaciones sí está permitido                |
+| Conocimiento | Base documental curada + datos comerciales vivos                             |
+| Datos vivos  | Clientes, cotizaciones, conduces, facturas, pagos, CxC y rentabilidad        |
+| Exclusiones  | Usuarios, sesiones, credenciales, auditoría general, inventario/WO mock      |
+| Proveedor    | OpenAI detrás de interfaces propias                                          |
+| UI           | Panel lateral global montado en `AppShell`                                   |
+| Historial    | PostgreSQL, auditable, retención de 90 días                                  |
+| Privacidad   | Solo campos mínimos; sin RNC, contacto, dirección o notas                    |
+| Corpus       | Markdown versionado en Git y aprobado mediante manifest                      |
+| Consumo      | Límites configurables por usuario, respuesta, retrieval y tools              |
 
 ## 3. Estado actual y brecha
 
@@ -85,20 +87,20 @@ Reglas estructurales:
 
 ### 5.1 Configuración
 
-| Variable | Default | Validación |
-|---|---:|---|
-| `ASSISTANT_ENABLED` | `false` | Feature apagada por defecto |
-| `OPENAI_API_KEY` | — | Requerida solo si está habilitado |
-| `OPENAI_CHAT_MODEL` | `gpt-5.4-mini-2026-03-17` | Inyectada, nunca hardcoded en servicios |
-| `OPENAI_VECTOR_STORE_ID` | — | Requerida solo si está habilitado |
-| `ASSISTANT_RETENTION_DAYS` | `90` | 1–365 |
-| `ASSISTANT_DAILY_MESSAGE_LIMIT` | `50` | Mayor que cero |
-| `ASSISTANT_MAX_INPUT_CHARS` | `2000` | Validación HTTP y servicio |
-| `ASSISTANT_MAX_OUTPUT_TOKENS` | `1200` | Enviado al proveedor |
-| `ASSISTANT_MAX_TOOL_CALLS` | `3` | Total por run |
-| `ASSISTANT_MAX_RETRIEVAL_RESULTS` | `6` | Total por pregunta |
-| `ASSISTANT_RETRIEVAL_SCORE_THRESHOLD` | `0.55` | Ajustable tras evaluación |
-| `ASSISTANT_REQUEST_TIMEOUT_MS` | `45000` | Timeout externo total |
+| Variable                              |                   Default | Validación                              |
+| ------------------------------------- | ------------------------: | --------------------------------------- |
+| `ASSISTANT_ENABLED`                   |                   `false` | Feature apagada por defecto             |
+| `OPENAI_API_KEY`                      |                         — | Requerida solo si está habilitado       |
+| `OPENAI_CHAT_MODEL`                   | `gpt-5.4-mini-2026-03-17` | Inyectada, nunca hardcoded en servicios |
+| `OPENAI_VECTOR_STORE_ID`              |                         — | Requerida solo si está habilitado       |
+| `ASSISTANT_RETENTION_DAYS`            |                      `90` | 1–365                                   |
+| `ASSISTANT_DAILY_MESSAGE_LIMIT`       |                      `50` | Mayor que cero                          |
+| `ASSISTANT_MAX_INPUT_CHARS`           |                    `2000` | Validación HTTP y servicio              |
+| `ASSISTANT_MAX_OUTPUT_TOKENS`         |                    `1200` | Enviado al proveedor                    |
+| `ASSISTANT_MAX_TOOL_CALLS`            |                       `3` | Total por run                           |
+| `ASSISTANT_MAX_RETRIEVAL_RESULTS`     |                       `6` | Total por pregunta                      |
+| `ASSISTANT_RETRIEVAL_SCORE_THRESHOLD` |                    `0.55` | Ajustable tras evaluación               |
+| `ASSISTANT_REQUEST_TIMEOUT_MS`        |                   `45000` | Timeout externo total                   |
 
 Si la feature está apagada, credenciales ausentes no deben impedir que la aplicación arranque.
 
@@ -143,13 +145,13 @@ Las relaciones internas usan cascade desde conversación; ninguna eliminación d
 
 Todas las rutas usan `requireAuth`, `requireAdministrator`, `Cache-Control: no-store`, rate limit dedicado y CSRF en POST/DELETE.
 
-| Método | Endpoint | Resultado |
-|---|---|---|
-| `POST` | `/api/assistant/conversations` | Crea conversación; `201` |
-| `GET` | `/api/assistant/conversations?page=1` | 20 conversaciones propias por página |
-| `GET` | `/api/assistant/conversations/:id/messages?page=1` | 50 mensajes propios por página |
-| `POST` | `/api/assistant/conversations/:id/messages` | Persiste pregunta y responde por SSE |
-| `DELETE` | `/api/assistant/conversations/:id` | Elimina conversación propia; `204` |
+| Método   | Endpoint                                           | Resultado                            |
+| -------- | -------------------------------------------------- | ------------------------------------ |
+| `POST`   | `/api/assistant/conversations`                     | Crea conversación; `201`             |
+| `GET`    | `/api/assistant/conversations?page=1`              | 20 conversaciones propias por página |
+| `GET`    | `/api/assistant/conversations/:id/messages?page=1` | 50 mensajes propios por página       |
+| `POST`   | `/api/assistant/conversations/:id/messages`        | Persiste pregunta y responde por SSE |
+| `DELETE` | `/api/assistant/conversations/:id`                 | Elimina conversación propia; `204`   |
 
 Body de mensaje:
 
@@ -172,14 +174,14 @@ Antes de iniciar el stream se usa el contrato HTTP normal. Después se usa `even
 
 ### 5.4 Herramientas permitidas
 
-| Tool | Entrada | Salida permitida |
-|---|---|---|
-| `searchCustomers` | query, tipo opcional, limit <= 20 | ID, nombre, tipo, estado y ruta |
-| `getCustomerCommercialSummary` | customerId | Nombre, condición comercial y agregados permitidos |
-| `searchSalesDocuments` | texto/número, estado, cliente, fechas, limit | ID, COT/CON/FAC, estado, fecha, moneda, total y ruta |
-| `getSalesDocumentDetail` | documentId | Líneas resumidas, totales, pagos y balance |
-| `getReceivablesSummary` | cliente, vencidos, tipo, fecha de corte | Agregados y hasta 20 documentos |
-| `getProfitabilitySummary` | dateFrom/dateTo, moneda | Agregados; rango máximo de 366 días |
+| Tool                           | Entrada                                      | Salida permitida                                     |
+| ------------------------------ | -------------------------------------------- | ---------------------------------------------------- |
+| `searchCustomers`              | query, tipo opcional, limit <= 20            | ID, nombre, tipo, estado y ruta                      |
+| `getCustomerCommercialSummary` | customerId                                   | Nombre, condición comercial y agregados permitidos   |
+| `searchSalesDocuments`         | texto/número, estado, cliente, fechas, limit | ID, COT/CON/FAC, estado, fecha, moneda, total y ruta |
+| `getSalesDocumentDetail`       | documentId                                   | Líneas resumidas, totales, pagos y balance           |
+| `getReceivablesSummary`        | cliente, vencidos, tipo, fecha de corte      | Agregados y hasta 20 documentos                      |
+| `getProfitabilitySummary`      | dateFrom/dateTo, moneda                      | Agregados; rango máximo de 366 días                  |
 
 Todas validan con Zod, repiten autorización en servicio, aplican queries acotadas, devuelven `asOf`/`sourceKey` y excluyen RNC, teléfono, email, dirección, notas, credenciales y usuarios.
 
@@ -191,18 +193,18 @@ El repository tendrá `createConversation`, `listConversations`, `listMessages`,
 
 ## 6. Mapa de milestones
 
-| Milestone | Nombre | Dependencias | Entregable |
-|---|---|---|---|
-| M0 | Especificación canónica | — | Feature 17 confirmada y trazable |
-| M1 | Fundaciones OpenAI | M0 | Configuración, ports y adapters aislados |
-| M2 | Persistencia y retención | M0 | Migración, repositorios y purga |
-| M3 | Corpus y sincronización RAG | M1, M2 | Base aprobada e indexación reproducible |
-| M4 | Tools comerciales | M0 | Consultas seguras de datos vivos |
-| M5 | Orquestador híbrido | M1–M4 | RAG + tools + modelo |
-| M6 | API y SSE | M2, M5 | Backend consumible por frontend |
-| M7 | Cliente y panel web | M6 | UX completa para Administrator |
-| M8 | Seguridad y operación | M3–M7 | Feature endurecida y operable |
-| M9 | Evaluación y rollout | M8 | Piloto aprobado y habilitado |
+| Milestone | Nombre                      | Dependencias | Entregable                               |
+| --------- | --------------------------- | ------------ | ---------------------------------------- |
+| M0        | Especificación canónica     | —            | Feature 17 confirmada y trazable         |
+| M1        | Fundaciones OpenAI          | M0           | Configuración, ports y adapters aislados |
+| M2        | Persistencia y retención    | M0           | Migración, repositorios y purga          |
+| M3        | Corpus y sincronización RAG | M1, M2       | Base aprobada e indexación reproducible  |
+| M4        | Tools comerciales           | M0           | Consultas seguras de datos vivos         |
+| M5        | Orquestador híbrido         | M1–M4        | RAG + tools + modelo                     |
+| M6        | API y SSE                   | M2, M5       | Backend consumible por frontend          |
+| M7        | Cliente y panel web         | M6           | UX completa para Administrator           |
+| M8        | Seguridad y operación       | M3–M7        | Feature endurecida y operable            |
+| M9        | Evaluación y rollout        | M8           | Piloto aprobado y habilitado             |
 
 ## 7. Milestones detallados
 
@@ -210,31 +212,33 @@ El repository tendrá `createConversation`, `listConversations`, `listMessages`,
 
 **Objetivo:** convertir el chatbot en una feature oficial antes de escribir código.
 
+**Estado:** Completado (documentación) 2026-09-22.
+
 ### Tareas
 
-- [ ] `M0-T01` Crear `docs/FEATURES/17_AI_ASSISTANT.md`.
-- [ ] `M0-T02` Definir `AI-001` acceso exclusivo de Administrator.
-- [ ] `M0-T03` Definir `AI-002` respuestas documentales con fuentes.
-- [ ] `M0-T04` Definir `AI-003` tools comerciales de solo lectura.
-- [ ] `M0-T05` Definir `AI-004` minimización de datos enviados al proveedor.
-- [ ] `M0-T06` Definir `AI-005` historial/auditoría y retención de 90 días.
-- [ ] `M0-T07` Definir `AI-006` límites de consumo.
-- [ ] `M0-T08` Definir `AI-007` rechazo de mocks/futuro.
-- [ ] `M0-T09` Definir `AI-008` degradación segura ante outage.
-- [ ] `M0-T10` Definir `AI-009` corpus aprobado y sincronización.
-- [ ] `M0-T11` Definir `AI-010` evaluación obligatoria antes de producción.
-- [ ] `M0-T12` Documentar preguntas soportadas/no soportadas.
-- [ ] `M0-T13` Crear matriz de campos permitidos/prohibidos por tool.
-- [ ] `M0-T14` Actualizar índice de features y Development Plan.
-- [ ] `M0-T15` Actualizar Architecture Plan, Roles and Permissions e Infrastructure Plan.
-- [ ] `M0-T16` Crear matriz requisito -> milestone -> pruebas -> aceptación.
-- [ ] `M0-T17` Revisar conflictos con Features 08, 10, 11, 12, 13 y 16.
+- [x] `M0-T01` Crear `docs/FEATURES/17_AI_ASSISTANT.md`.
+- [x] `M0-T02` Definir `AI-001` acceso exclusivo de Administrator.
+- [x] `M0-T03` Definir `AI-002` respuestas documentales con fuentes.
+- [x] `M0-T04` Definir `AI-003` tools comerciales de solo lectura.
+- [x] `M0-T05` Definir `AI-004` minimización de datos enviados al proveedor.
+- [x] `M0-T06` Definir `AI-005` historial/auditoría y retención de 90 días.
+- [x] `M0-T07` Definir `AI-006` límites de consumo.
+- [x] `M0-T08` Definir `AI-007` rechazo de mocks/futuro.
+- [x] `M0-T09` Definir `AI-008` degradación segura ante outage.
+- [x] `M0-T10` Definir `AI-009` corpus aprobado y sincronización.
+- [x] `M0-T11` Definir `AI-010` evaluación obligatoria antes de producción.
+- [x] `M0-T12` Documentar preguntas soportadas/no soportadas.
+- [x] `M0-T13` Crear matriz de campos permitidos/prohibidos por tool.
+- [x] `M0-T14` Actualizar índice de features y Development Plan.
+- [x] `M0-T15` Actualizar Architecture Plan, Roles and Permissions e Infrastructure Plan.
+- [x] `M0-T16` Crear matriz requisito -> milestone -> pruebas -> aceptación.
+- [x] `M0-T17` Revisar conflictos con Features 08, 10, 11, 12, 13 y 16.
 
 ### Criterios de aceptación
 
-- Todas las reglas están en documentación canónica.
-- Cada requisito tiene prueba y criterio verificable.
-- Feature 17 está confirmada y no altera el gate preproducción vigente.
+- [x] Todas las reglas están en documentación canónica.
+- [x] Cada requisito tiene prueba y criterio verificable.
+- [x] Feature 17 está confirmada y no altera el gate preproducción vigente.
 
 ## M1 — Fundaciones y adapters de OpenAI
 
@@ -624,21 +628,21 @@ Los componentes no usan fetch directamente y el panel no pierde la conversación
 
 ## 9. Riesgos y mitigaciones
 
-| Riesgo | Mitigación |
-|---|---|
-| Alucinación | Evidencia obligatoria y respuesta de insuficiencia |
-| Docs futuras | Manifest aprobado; nunca indexar `/docs` completo |
-| Prompt injection | Fuentes como datos, allowlist y tests adversariales |
-| Exposición PII | Selects mínimos y pruebas negativas |
-| Escritura accidental | Ninguna tool mutable registrada |
-| Costos | Cuotas, límites, métricas y kill switch |
-| Outage OpenAI | 503 aislado y readiness independiente |
-| Retry duplicado | clientRequestId idempotente |
-| Stream interrumpido | FAILED/CANCELLED y retry seguro |
-| Crecimiento DB | Retención, índices y purga por lotes |
-| Lock-in | Interfaces propias y SDK confinado |
-| XSS | Markdown sin HTML y links allowlisted |
-| Corpus desactualizado | Checksum, versionado y sync explícito |
+| Riesgo                | Mitigación                                          |
+| --------------------- | --------------------------------------------------- |
+| Alucinación           | Evidencia obligatoria y respuesta de insuficiencia  |
+| Docs futuras          | Manifest aprobado; nunca indexar `/docs` completo   |
+| Prompt injection      | Fuentes como datos, allowlist y tests adversariales |
+| Exposición PII        | Selects mínimos y pruebas negativas                 |
+| Escritura accidental  | Ninguna tool mutable registrada                     |
+| Costos                | Cuotas, límites, métricas y kill switch             |
+| Outage OpenAI         | 503 aislado y readiness independiente               |
+| Retry duplicado       | clientRequestId idempotente                         |
+| Stream interrumpido   | FAILED/CANCELLED y retry seguro                     |
+| Crecimiento DB        | Retención, índices y purga por lotes                |
+| Lock-in               | Interfaces propias y SDK confinado                  |
+| XSS                   | Markdown sin HTML y links allowlisted               |
+| Corpus desactualizado | Checksum, versionado y sync explícito               |
 
 ## 10. Fuera de alcance v1
 

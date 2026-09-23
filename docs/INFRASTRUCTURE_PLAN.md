@@ -14,6 +14,7 @@ This is a direction and decision record only. It does not deploy services, creat
 - A valid sale must survive PDF-rendering or storage failure. The confirmed immutable invoice facts must support deterministic regeneration.
 - Every unexpected error returns a safe error ID correlated with structured logs. Health checks distinguish process liveness from dependency readiness.
 - The MVP may call one external FX-rate provider solely to derive the `USD`-equivalent acquisition cost for profitability on `USD` invoices. That lookup uses a bounded timeout, stores provider credentials as secrets, and logs failures. It is **not** an essential commercial dependency: readiness must not fail merely because the provider is unreachable, and an unavailable rate never makes sale confirmation unavailable.
+- Feature 17 may call OpenAI (Responses API and vector-store search) behind project-owned adapters when `ASSISTANT_ENABLED=true`. That dependency is **optional and non-essential**: missing credentials must not prevent boot when the feature is disabled; readiness must not require OpenAI; provider outage must isolate to assistant errors and must not make sales, payments, CxC, or other commercial APIs unavailable. Store `OPENAI_API_KEY` and related assistant settings as secrets; never expose them to the frontend. Conversation history retention is 90 days with scheduled purge; residual copies may remain in backups per backup retention. A kill switch (`ASSISTANT_ENABLED=false`) must disable the feature without application rollback.
 - Monitor the application, database, and object storage. Backups are incomplete until restoration and cross-store reconciliation have been tested.
 - Infrastructure remains simple: one modular monolith with managed PostgreSQL and private object storage. No microservices, brokers, Kubernetes, event sourcing, workflow engine, or distributed-lock service is required.
 
@@ -243,7 +244,7 @@ Keep reconciliation, cleanup, PDF recovery, and pending-profitability retry as b
 ### Health semantics
 
 - **Liveness** answers only whether the application process can respond. It should not fail merely because a dependency has a brief interruption that the process can recover from.
-- **Readiness** verifies that the instance can safely serve essential requests, including its PostgreSQL connection and critical configuration. Object-storage status should be represented without making unrelated read-only inventory access disappear unnecessarily. The external FX-rate provider is not an essential readiness dependency; a provider outage must not mark the instance unready or make sale confirmation unavailable.
+- **Readiness** verifies that the instance can safely serve essential requests, including its PostgreSQL connection and critical configuration. Object-storage status should be represented without making unrelated read-only inventory access disappear unnecessarily. The external FX-rate provider is not an essential readiness dependency; a provider outage must not mark the instance unready or make sale confirmation unavailable. OpenAI / Feature 17 is likewise not an essential readiness dependency; assistant disablement or provider outage must not mark the instance unready.
 - Health responses expose only a coarse status. Dependency names, credentials, connection strings, stack traces, and provider details stay in protected logs.
 - External checks exercise the public HTTPS path; internal checks support safe process replacement. Repeated readiness failure alerts an operator and includes a correlatable error ID.
 
@@ -320,6 +321,7 @@ Start with a small actionable set:
 - failed login spikes and repeated authorization failures;
 - failed sale confirmations, unexpected reservation/quantity conflicts, Mechanic claim conflicts, duplicate-operation conflicts, Work Order completion/cancellation races, refund failures, and migration failures;
 - FX-rate lookup timeouts or errors and an operator-visible count of unresolved `UNAVAILABLE / PENDING FX RATE` profitability calculations;
+- when Feature 17 is enabled in an environment: assistant run error rate, timeouts, provider 429/5xx, daily quota exhaustion, and knowledge-sync failures—without logging prompts, responses, retrieval chunks, or tool payloads;
 - evidence uploads stuck in staging, repeated mobile retries, missing finalized objects, and PDF generation/regeneration failures;
 - consistency-diagnostic findings for negative stock, orphan reservations, hierarchy violations, duplicate active operations, impossible balances, unresolved profitability calculations, and inconsistent critical state;
 - automated-backup age/failure and overdue restore-test status;
@@ -329,7 +331,7 @@ Alerts should reach at least one primary and one backup business/developer conta
 
 ### Logging
 
-Use structured, centralized application logs with request/error ID, timestamp, severity, operation, duration, outcome, and safe invoice/item/order/upload identifiers. Include enough context to distinguish validation conflicts, expected concurrent conflicts, storage failures, FX-rate lookup timeouts or errors, retries, and unexpected failures without exposing internals to the client. Redact secrets, session values, signed URLs, acquisition cost, FX provider credentials, unnecessary customer identity, and payment-sensitive details. History is not monitoring, and logs are not a financial audit: keep business events in the database and privacy-conscious operational logs for diagnosis.
+Use structured, centralized application logs with request/error ID, timestamp, severity, operation, duration, outcome, and safe invoice/item/order/upload identifiers. Include enough context to distinguish validation conflicts, expected concurrent conflicts, storage failures, FX-rate lookup timeouts or errors, retries, and unexpected failures without exposing internals to the client. Redact secrets, session values, signed URLs, acquisition cost, FX provider credentials, OpenAI API keys, unnecessary customer identity, and payment-sensitive details. Assistant logs may include run/request IDs, model name, latency, token usage counts, tool names/counts, status, and safe `errorCode`/`errorId` only—never prompts, completions, retrieval chunks, or raw provider payloads. History is not monitoring, and logs are not a financial audit: keep business events in the database and privacy-conscious operational logs for diagnosis.
 
 The same error ID returned in a safe client response must locate the corresponding protected log event. Recovery actions and consistency-diagnostic runs log their outcome but preserve their authoritative actor/reason/before-after history in PostgreSQL.
 
@@ -382,7 +384,7 @@ Rollback is not simply deploying old code when a migration changed data. Prefer 
 - Store production/staging secrets in the managed platform's encrypted secret/environment facility.
 - Keep local secrets in ignored files; commit only an `.env.example`-style name list when implementation begins.
 - Use separate values and service accounts for every environment.
-- Never place database URLs, session secrets, object-storage keys, payment credentials, FX-rate provider credentials, or API tokens in Git, logs, screenshots, seeded data, or frontend build variables.
+- Never place database URLs, session secrets, object-storage keys, payment credentials, FX-rate provider credentials, OpenAI API keys, or API tokens in Git, logs, screenshots, seeded data, or frontend build variables.
 - Scope each credential to the minimum resources and operations.
 - Rotate secrets after personnel/access changes or suspected exposure.
 - Document who owns access and how emergency recovery works.

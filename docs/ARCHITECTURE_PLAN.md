@@ -129,8 +129,9 @@ Requirement ranges below refer to the stable IDs preserved inside the correspond
 | Evidence                 | BEFORE/AFTER photo classification, upload state, authorization, and retention linkage                                                                           | `PHOTO-001`, `WO-005`, `WO-010`  |
 | Invoice Documents        | Immutable invoice facts and reproducible internal PDF output                                                                                                    | `SALE-003–SALE-004`, `ADMIN-002` |
 | History                  | Append-only operational events and cross-record traceability                                                                                                    | `HIST-001–HIST-003`              |
+| Assistant                | Administrator-only hybrid RAG conversations, approved corpus retrieval, read-only commercial query tools, provider adapters, retention, and usage limits          | `AI-001–AI-010`                  |
 
-Search is logically separate because it composes read data from inventory, quantity stock, hierarchy, location, photos, and protection state. It should not own those records. Work Orders coordinate physical operations but do not own inventory identity or invoice facts. Evidence owns upload and classification facts but cannot complete an order by itself. History records business evidence but should not decide another module's rules.
+Search is logically separate because it composes read data from inventory, quantity stock, hierarchy, location, photos, and protection state. It should not own those records. Work Orders coordinate physical operations but do not own inventory identity or invoice facts. Evidence owns upload and classification facts but cannot complete an order by itself. History records business evidence but should not decide another module's rules. **Feature 17 Assistant** is an optional read-side module: it owns assistant conversations/runs/sources and coordinates retrieval plus allowlisted projections from customers, sales, payments/receivables, and profitability. It must not call other modules' Prisma repositories, must not register write tools, and must keep OpenAI SDK types inside infrastructure adapters.
 
 ## Code Organization
 
@@ -152,7 +153,7 @@ feature/
 - **Repositories** own database access, query shape, and transaction-aware persistence.
 - **Middleware** handles shared HTTP concerns such as session authentication, authorization, request validation, rate limiting, logging, and error mapping.
 
-Use shared infrastructure only for genuinely cross-cutting concerns: database client, object-storage adapter, a small FX-rate adapter for `USD` profitability, clock/ID abstractions where testing requires them, errors, and logging. Avoid a generic `utils` dumping ground. The FX-rate adapter is not a sales, payments, or conversion module.
+Use shared infrastructure only for genuinely cross-cutting concerns: database client, object-storage adapter, a small FX-rate adapter for `USD` profitability, optional OpenAI client adapters behind Assistant ports (`LanguageModelGateway`, `KnowledgeRetriever`), clock/ID abstractions where testing requires them, errors, and logging. Avoid a generic `utils` dumping ground. The FX-rate adapter is not a sales, payments, or conversion module. OpenAI adapters are not a sales module and must not be imported by non-Assistant domain services.
 
 Do not create an artificial domain layer merely to mirror every service with another class. For this project, focused services plus explicit policies/value checks are enough. A richer domain model would become appropriate only if rules become difficult to express and test without it.
 
@@ -171,6 +172,7 @@ Do not create an artificial domain layer merely to mirror every service with ano
 - Evidence owns durable references and BEFORE/AFTER classification. A completed Work Order must retain its evidence and technical history.
 - Invoice Documents render preserved invoice facts. PDF generation failure does not invalidate an otherwise committed sale.
 - History receives facts from the service executing the transaction. It distinguishes receipt-baseline provenance from Work-Order-generated relationship events and is not a replacement for current state.
+- Assistant owns conversation/message/run/source/knowledge-document persistence and orchestration. It consumes read-only public projections from Customers, Sales, Payments/Receivables, and Costs/Profitability. Assistant deletions cascade only assistant rows. Document chunks and tool outputs are untrusted data. Provider outage must not affect commercial module availability or readiness.
 
 Cross-module workflows should have one coordinating application service that uses the participating repositories within one transaction. Avoid circular module calls.
 
