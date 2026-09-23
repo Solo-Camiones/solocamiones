@@ -1,10 +1,7 @@
 import { type AssistantKnowledgeDocument, Prisma } from '@prisma/client';
 
 import { prisma } from '../../infrastructure/database/index.js';
-import type {
-  UpdateKnowledgeDocumentStatusInput,
-  UpsertKnowledgeDocumentInput,
-} from './types.js';
+import type { UpdateKnowledgeDocumentStatusInput, UpsertKnowledgeDocumentInput } from './types.js';
 
 type KnowledgeDatabase = Pick<Prisma.TransactionClient, 'assistantKnowledgeDocument'>;
 
@@ -55,6 +52,23 @@ export class KnowledgeDocumentRepository {
         updatedAt: now,
       },
     });
+  }
+
+  async findReadyProviderFileIds(providerFileIds: readonly string[]): Promise<Set<string>> {
+    if (providerFileIds.length === 0) return new Set();
+    const rows = await this.database.assistantKnowledgeDocument.findMany({
+      where: { status: 'READY', providerFileId: { in: [...providerFileIds] } },
+      select: { providerFileId: true },
+    });
+    return new Set(rows.flatMap((row) => (row.providerFileId == null ? [] : [row.providerFileId])));
+  }
+
+  async listReferencedProviderFileIds(): Promise<string[]> {
+    const rows = await this.database.assistantKnowledgeDocument.findMany({
+      where: { providerFileId: { not: null } },
+      select: { providerFileId: true },
+    });
+    return rows.flatMap((row) => (row.providerFileId == null ? [] : [row.providerFileId]));
   }
 
   async updateStatus(

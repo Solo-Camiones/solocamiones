@@ -3,13 +3,15 @@ import type { VectorStoreSearchResponse } from 'openai/resources/vector-stores/v
 
 import type { AssistantConfig } from './config.js';
 import { AssistantProviderError } from './errors.js';
+import {
+  KNOWLEDGE_ATTRIBUTE_KEYS,
+  buildApprovedCorpusFilter,
+  parseSourceRequirementsAttribute,
+  type KnowledgeCompoundFilter,
+} from './knowledge-attributes.js';
 import { mapOpenAiError } from './map-error.js';
 import { logger } from '../logging/index.js';
-import type {
-  KnowledgeChunk,
-  KnowledgeRetrieveOptions,
-  KnowledgeRetriever,
-} from './types.js';
+import type { KnowledgeChunk, KnowledgeRetrieveOptions, KnowledgeRetriever } from './types.js';
 
 export type OpenAiVectorStoreSearchClient = {
   vectorStores: {
@@ -19,6 +21,7 @@ export type OpenAiVectorStoreSearchClient = {
         query: string;
         max_num_results?: number;
         ranking_options?: { score_threshold?: number };
+        filters?: KnowledgeCompoundFilter;
       },
       options?: { signal?: AbortSignal },
     ) => Promise<{ data: VectorStoreSearchResponse[] }>;
@@ -64,12 +67,15 @@ export class OpenAiKnowledgeRetriever implements KnowledgeRetriever {
           query,
           max_num_results: maxResults,
           ranking_options: { score_threshold: scoreThreshold },
+          filters: buildApprovedCorpusFilter(),
         },
         { signal },
       );
 
       if (!Array.isArray(page?.data)) {
-        throw AssistantProviderError.invalidResponse('OpenAI vector store search returned invalid data');
+        throw AssistantProviderError.invalidResponse(
+          'OpenAI vector store search returned invalid data',
+        );
       }
 
       return page.data
@@ -78,11 +84,17 @@ export class OpenAiKnowledgeRetriever implements KnowledgeRetriever {
         .map(mapSearchResultToChunk);
     } catch (error) {
       if (error instanceof AssistantProviderError) {
-        logger.warn({ code: error.code, retryable: error.retryable }, 'OpenAI knowledge retrieval failed');
+        logger.warn(
+          { code: error.code, retryable: error.retryable },
+          'OpenAI knowledge retrieval failed',
+        );
         throw error;
       }
       const mapped = mapOpenAiError(error);
-      logger.warn({ code: mapped.code, retryable: mapped.retryable }, 'OpenAI knowledge retrieval failed');
+      logger.warn(
+        { code: mapped.code, retryable: mapped.retryable },
+        'OpenAI knowledge retrieval failed',
+      );
       throw mapped;
     }
   }
@@ -91,13 +103,15 @@ export class OpenAiKnowledgeRetriever implements KnowledgeRetriever {
 function mapSearchResultToChunk(item: VectorStoreSearchResponse): KnowledgeChunk {
   const attributes = item.attributes ?? {};
   const sourceKey =
-    readStringAttribute(attributes, 'sourceKey') ??
+    readStringAttribute(attributes, KNOWLEDGE_ATTRIBUTE_KEYS.sourceKey) ??
     readStringAttribute(attributes, 'source_key') ??
     item.file_id;
   const title =
-    readStringAttribute(attributes, 'title') ?? item.filename ?? sourceKey;
+    readStringAttribute(attributes, KNOWLEDGE_ATTRIBUTE_KEYS.title) ?? item.filename ?? sourceKey;
   const locator =
-    readStringAttribute(attributes, 'locator') ?? item.filename ?? item.file_id;
+    readStringAttribute(attributes, KNOWLEDGE_ATTRIBUTE_KEYS.locator) ??
+    item.filename ??
+    item.file_id;
   const excerpt = item.content
     .map((part) => (part.type === 'text' ? part.text : ''))
     .filter((text) => text.length > 0)
@@ -105,11 +119,16 @@ function mapSearchResultToChunk(item: VectorStoreSearchResponse): KnowledgeChunk
     .trim();
 
   return {
+    providerFileId: item.file_id,
     sourceKey,
     title,
+    version: readStringAttribute(attributes, KNOWLEDGE_ATTRIBUTE_KEYS.version) ?? null,
     locator,
     excerpt,
     score: item.score,
+    sourceRequirements: parseSourceRequirementsAttribute(
+      readStringAttribute(attributes, KNOWLEDGE_ATTRIBUTE_KEYS.sourceRequirements),
+    ),
   };
 }
 

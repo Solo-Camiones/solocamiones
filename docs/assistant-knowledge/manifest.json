@@ -1,0 +1,96 @@
+{
+  "schemaVersion": 1,
+  "documents": [
+    {
+      "sourceKey": "clientes-y-condiciones-comerciales",
+      "title": "Clientes y condiciones comerciales",
+      "version": "1.0.0",
+      "status": "draft",
+      "audience": "ADMINISTRATOR",
+      "sourceRequirements": [
+        "CUST-001",
+        "CUST-002",
+        "CUST-003",
+        "CUST-004",
+        "CUST-005",
+        "CUST-006",
+        "CUST-007"
+      ],
+      "path": "guias/clientes-y-condiciones-comerciales.md",
+      "updatedAt": "2026-09-23"
+    },
+    {
+      "sourceKey": "cotizaciones-conduces-y-facturas",
+      "title": "Cotizaciones, conduces y facturas",
+      "version": "1.0.0",
+      "status": "draft",
+      "audience": "ADMINISTRATOR",
+      "sourceRequirements": [
+        "SALE-001",
+        "SALE-003",
+        "SALE-004",
+        "SALE-005",
+        "SALE-009",
+        "SALE-010",
+        "QUOTE-001",
+        "QUOTE-002",
+        "DOC-001",
+        "CON-001",
+        "CON-003",
+        "CON-004"
+      ],
+      "path": "guias/cotizaciones-conduces-y-facturas.md",
+      "updatedAt": "2026-09-23"
+    },
+    {
+      "sourceKey": "pagos-cxc-y-estados-de-cuenta",
+      "title": "Pagos, cuentas por cobrar y estados de cuenta",
+      "version": "1.0.0",
+      "status": "draft",
+      "audience": "ADMINISTRATOR",
+      "sourceRequirements": [
+        "PAY-001",
+        "PAY-002",
+        "PAY-003",
+        "PAY-004",
+        "PAY-005",
+        "PAY-006",
+        "PAY-007",
+        "STMT-001",
+        "CON-002"
+      ],
+      "path": "guias/pagos-cxc-y-estados-de-cuenta.md",
+      "updatedAt": "2026-09-23"
+    },
+    {
+      "sourceKey": "cancelaciones-y-reembolsos",
+      "title": "Cancelaciones y reembolsos",
+      "version": "1.0.0",
+      "status": "draft",
+      "audience": "ADMINISTRATOR",
+      "sourceRequirements": ["CANCEL-001", "CANCEL-002", "CON-005"],
+      "path": "guias/cancelaciones-y-reembolsos.md",
+      "updatedAt": "2026-09-23"
+    },
+    {
+      "sourceKey": "rentabilidad-y-tasa-de-cambio",
+      "title": "Rentabilidad y tasa de cambio",
+      "version": "1.0.0",
+      "status": "draft",
+      "audience": "ADMINISTRATOR",
+      "sourceRequirements": ["COST-002", "COST-003", "COST-004", "COST-005", "COST-006", "CON-006"],
+      "path": "guias/rentabilidad-y-tasa-de-cambio.md",
+      "updatedAt": "2026-09-23"
+    },
+    {
+      "sourceKey": "capacidades-no-disponibles",
+      "title": "Capacidades todavía no disponibles",
+      "version": "1.0.0",
+      "status": "draft",
+      "audience": "ADMINISTRATOR",
+      "sourceRequirements": ["AI-001", "AI-003", "AI-007", "SALE-004"],
+      "path": "guias/capacidades-no-disponibles.md",
+      "updatedAt": "2026-09-23"
+    }
+  ]
+}

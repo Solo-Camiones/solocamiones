@@ -60,14 +60,20 @@ function parseBoundedNumber(options: {
   if (present == null) return options.defaultValue;
 
   const schema = options.integer
-    ? z.coerce.number().int().min(options.min).max(options.max ?? Number.MAX_SAFE_INTEGER)
-    : z.coerce.number().min(options.min).max(options.max ?? Number.POSITIVE_INFINITY);
+    ? z.coerce
+        .number()
+        .int()
+        .min(options.min)
+        .max(options.max ?? Number.MAX_SAFE_INTEGER)
+    : z.coerce
+        .number()
+        .min(options.min)
+        .max(options.max ?? Number.POSITIVE_INFINITY);
 
   try {
     return schema.parse(present);
   } catch {
-    const range =
-      options.max == null ? `>= ${options.min}` : `${options.min}–${options.max}`;
+    const range = options.max == null ? `>= ${options.min}` : `${options.min}–${options.max}`;
     throw new Error(`Invalid ${options.field}: must be ${range}`);
   }
 }
@@ -89,8 +95,7 @@ export function parseAssistantConfig(
 
   const apiKey = optionalEnvString(environment.OPENAI_API_KEY);
   const vectorStoreId = optionalEnvString(environment.OPENAI_VECTOR_STORE_ID);
-  const chatModel =
-    optionalEnvString(environment.OPENAI_CHAT_MODEL) ?? DEFAULT_OPENAI_CHAT_MODEL;
+  const chatModel = optionalEnvString(environment.OPENAI_CHAT_MODEL) ?? DEFAULT_OPENAI_CHAT_MODEL;
 
   const retentionDays = parseBoundedNumber({
     raw: environment.ASSISTANT_RETENTION_DAYS,
@@ -173,5 +178,32 @@ export function parseAssistantConfig(
     maxRetrievalResults,
     retrievalScoreThreshold,
     requestTimeoutMs,
+  };
+}
+
+export type KnowledgeSyncConfig = {
+  apiKey: string;
+  vectorStoreId: string;
+  requestTimeoutMs: number;
+};
+
+/**
+ * Settings for the explicit corpus sync operation. Independent of
+ * ASSISTANT_ENABLED: the corpus is prepared before Administrators get access.
+ */
+export function parseKnowledgeSyncConfig(
+  environment: NodeJS.ProcessEnv = process.env,
+): KnowledgeSyncConfig {
+  const config = parseAssistantConfig(environment);
+  if (config.apiKey == null) {
+    throw new Error('OPENAI_API_KEY is required to sync assistant knowledge');
+  }
+  if (config.vectorStoreId == null) {
+    throw new Error('OPENAI_VECTOR_STORE_ID is required to sync assistant knowledge');
+  }
+  return {
+    apiKey: config.apiKey,
+    vectorStoreId: config.vectorStoreId,
+    requestTimeoutMs: config.requestTimeoutMs,
   };
 }

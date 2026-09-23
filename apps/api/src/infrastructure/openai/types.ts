@@ -41,11 +41,15 @@ export type LanguageModelGateway = {
 };
 
 export type KnowledgeChunk = {
+  /** Provider file that produced the chunk; used to verify it is the READY version. */
+  providerFileId: string;
   sourceKey: string;
   title: string;
+  version: string | null;
   locator: string;
   excerpt: string;
   score: number;
+  sourceRequirements: string[];
 };
 
 export type KnowledgeRetrieveOptions = {
@@ -59,4 +63,28 @@ export type KnowledgeRetriever = {
     options?: KnowledgeRetrieveOptions,
     signal?: AbortSignal,
   ): Promise<KnowledgeChunk[]>;
+};
+
+export type KnowledgeIndexDocument = {
+  sourceKey: string;
+  title: string;
+  version: string;
+  locator: string;
+  sha256: string;
+  sourceRequirements: string[];
+  /** Normalized Markdown; the uploaded bytes are exactly what was checksummed. */
+  content: string;
+};
+
+export type KnowledgeIndexedFile = {
+  providerFileId: string;
+};
+
+export type KnowledgeIndexWriter = {
+  /** Uploads and attaches a document, resolving only once the provider finished indexing it. */
+  indexDocument(document: KnowledgeIndexDocument): Promise<KnowledgeIndexedFile>;
+  /** Detaches and deletes a provider file. Missing files are treated as already removed. */
+  removeDocument(providerFileId: string): Promise<void>;
+  /** Lists provider files that carry the corpus marker. */
+  listCorpusFileIds(): Promise<string[]>;
 };

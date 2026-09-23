@@ -319,36 +319,50 @@ Notas de implementación: modelos Prisma + migración `20260923000000_assistant_
 
 **Objetivo:** crear conocimiento versionado sin indexar `/docs` completo.
 
+**Estado:** Implementado (local) 2026-09-23. Pendiente: aprobación del dueño de las 6 guías (hoy `draft`) y ejecución de `tests/integration/assistant/knowledge-sync.test.ts` (su setup requiere `prisma migrate reset` de la DB de tests, autorizado solo por el desarrollador).
+
+Notas de implementación (decisiones del dueño 2026-09-23):
+
+- Manifest incluye `sha256` obligatorio para `approved` (AI-009 manda sobre `M3-T02`); un cambio de contenido sin actualizar el hash invalida solo ese documento.
+- Entradas `draft` se permiten, se reportan y nunca se indexan; si estaban indexadas, el sync las retira.
+- Guías en español, redactadas desde Features 08/10/11/12/13/16/17; el dueño las revisa y cambia a `approved` con su hash.
+- `assistant:sync-knowledge` solo requiere `OPENAI_API_KEY` + `OPENAI_VECTOR_STORE_ID`, independiente de `ASSISTANT_ENABLED`. Se ejecuta desde un checkout del repo contra la DB del entorno; un vector store por entorno.
+- Fallo al reemplazar: la versión previa sigue `READY` con `errorCode`/`errorId`; el CLI sale con código ≠ 0.
+- Retrieval: filtro remoto por atributos (`corpus` + `approved`) y decorator `ReadyKnowledgeRetriever` que solo acepta `providerFileId` `READY` en PostgreSQL.
+- Limpieza de huérfanos solo para archivos con el marcador del corpus. `sourceRequirements` deben existir como encabezados en `docs/FEATURES/*.md`.
+- Se extendió `KnowledgeChunk` (`providerFileId`, `version`, `sourceRequirements`) en lugar de crear `RetrievedKnowledgeChunk`.
+- El sync no admite ejecuciones concurrentes; documentarlo en el runbook de M8.
+
 ### Tareas
 
-- [ ] `M3-T01` Crear `docs/assistant-knowledge/manifest.json`.
-- [ ] `M3-T02` Validar manifest con Zod: sourceKey, title, version, status, audience, sourceRequirements, path y updatedAt.
-- [ ] `M3-T03` Rechazar documentos sin `approved` o audiencia distinta de Administrator.
-- [ ] `M3-T04` Crear guía de clientes/condiciones comerciales.
-- [ ] `M3-T05` Crear guía de cotizaciones, conduces y facturas.
-- [ ] `M3-T06` Crear guía de pagos, CxC y estados de cuenta.
-- [ ] `M3-T07` Crear guía de cancelaciones/reembolsos.
-- [ ] `M3-T08` Crear guía de rentabilidad/FX.
-- [ ] `M3-T09` Crear guía explícita de capacidades todavía no disponibles.
-- [ ] `M3-T10` Mantener encabezados estables y secciones pequeñas.
-- [ ] `M3-T11` Calcular SHA-256 normalizando finales de línea.
-- [ ] `M3-T12` Crear `assistant:validate-knowledge` sin red.
-- [ ] `M3-T13` Crear `assistant:sync-knowledge --dry-run`.
-- [ ] `M3-T14` Implementar estados unchanged/upload/replace/remove.
-- [ ] `M3-T15` Esperar indexación antes de marcar `READY`.
-- [ ] `M3-T16` Conservar versión previa hasta que reemplazo esté listo.
-- [ ] `M3-T17` Registrar sourceKey, versión y requisitos como metadata remota.
-- [ ] `M3-T18` Implementar retrieval: max 6, threshold 0.55 y filtros READY/approved.
-- [ ] `M3-T19` Normalizar SDK a `RetrievedKnowledgeChunk`.
+- [x] `M3-T01` Crear `docs/assistant-knowledge/manifest.json`.
+- [x] `M3-T02` Validar manifest con Zod: sourceKey, title, version, status, audience, sourceRequirements, path y updatedAt.
+- [x] `M3-T03` Rechazar documentos sin `approved` o audiencia distinta de Administrator.
+- [x] `M3-T04` Crear guía de clientes/condiciones comerciales.
+- [x] `M3-T05` Crear guía de cotizaciones, conduces y facturas.
+- [x] `M3-T06` Crear guía de pagos, CxC y estados de cuenta.
+- [x] `M3-T07` Crear guía de cancelaciones/reembolsos.
+- [x] `M3-T08` Crear guía de rentabilidad/FX.
+- [x] `M3-T09` Crear guía explícita de capacidades todavía no disponibles.
+- [x] `M3-T10` Mantener encabezados estables y secciones pequeñas.
+- [x] `M3-T11` Calcular SHA-256 normalizando finales de línea.
+- [x] `M3-T12` Crear `assistant:validate-knowledge` sin red.
+- [x] `M3-T13` Crear `assistant:sync-knowledge --dry-run`.
+- [x] `M3-T14` Implementar estados unchanged/upload/replace/remove.
+- [x] `M3-T15` Esperar indexación antes de marcar `READY`.
+- [x] `M3-T16` Conservar versión previa hasta que reemplazo esté listo.
+- [x] `M3-T17` Registrar sourceKey, versión y requisitos como metadata remota.
+- [x] `M3-T18` Implementar retrieval: max 6, threshold 0.55 y filtros READY/approved.
+- [x] `M3-T19` Normalizar SDK a `RetrievedKnowledgeChunk`. _(como `KnowledgeChunk` extendido)_
 
 ### Pruebas
 
-- Manifest duplicado, inválido, archivo faltante y no aprobado.
-- Checksum estable Windows/Linux.
-- Dry-run sin mutaciones.
-- Sync idempotente y reemplazo con rollback.
-- Documento REMOVED no recuperable.
-- Threshold, máximo y metadata de fuente.
+- [x] Manifest duplicado, inválido, archivo faltante y no aprobado. _(unit)_
+- [x] Checksum estable Windows/Linux. _(unit)_
+- [ ] Dry-run sin mutaciones. _(integración escrita; pendiente de ejecutar)_
+- [ ] Sync idempotente y reemplazo con rollback. _(integración escrita; pendiente de ejecutar)_
+- [ ] Documento REMOVED no recuperable. _(integración escrita; pendiente de ejecutar; decorator cubierto en unit)_
+- [x] Threshold, máximo y metadata de fuente. _(unit)_
 
 ### Gate
 

@@ -9,17 +9,43 @@ export {
   DEFAULT_ASSISTANT_RETRIEVAL_SCORE_THRESHOLD,
   DEFAULT_OPENAI_CHAT_MODEL,
   parseAssistantConfig,
+  parseKnowledgeSyncConfig,
 } from './config.js';
-export type { AssistantConfig } from './config.js';
+export type { AssistantConfig, KnowledgeSyncConfig } from './config.js';
 
-export { createOpenAiClient } from './client-factory.js';
+export { createOpenAiClient, createOpenAiKnowledgeSyncClient } from './client-factory.js';
 export type { OpenAiClientFactoryOptions } from './client-factory.js';
 
-export { createKnowledgeRetriever, createLanguageModelGateway } from './create-providers.js';
+export {
+  createKnowledgeIndexWriter,
+  createKnowledgeRetriever,
+  createLanguageModelGateway,
+} from './create-providers.js';
 export type {
+  CreateKnowledgeIndexWriterOptions,
   CreateKnowledgeRetrieverOptions,
   CreateLanguageModelGatewayOptions,
 } from './create-providers.js';
+
+export {
+  KNOWLEDGE_ATTRIBUTE_KEYS,
+  KNOWLEDGE_CORPUS_MARKER,
+  buildApprovedCorpusFilter,
+  buildKnowledgeFileAttributes,
+  isCorpusFile,
+  parseSourceRequirementsAttribute,
+} from './knowledge-attributes.js';
+export type {
+  KnowledgeComparisonFilter,
+  KnowledgeCompoundFilter,
+  KnowledgeFileAttributes,
+} from './knowledge-attributes.js';
+
+export { OpenAiKnowledgeIndexWriter } from './knowledge-index-writer.js';
+export type {
+  OpenAiKnowledgeIndexClient,
+  OpenAiKnowledgeIndexWriterOptions,
+} from './knowledge-index-writer.js';
 
 export {
   ASSISTANT_PROVIDER_ERROR_CODES,
@@ -29,15 +55,13 @@ export {
 export type { AssistantProviderErrorCode } from './errors.js';
 
 export {
+  FakeKnowledgeIndexWriter,
   createDisabledKnowledgeRetriever,
   createDisabledLanguageModelGateway,
   createFakeKnowledgeRetriever,
   createFakeLanguageModelGateway,
 } from './fakes.js';
-export type {
-  FakeKnowledgeRetrieverOptions,
-  FakeLanguageModelGatewayOptions,
-} from './fakes.js';
+export type { FakeKnowledgeRetrieverOptions, FakeLanguageModelGatewayOptions } from './fakes.js';
 
 export { OpenAiKnowledgeRetriever } from './knowledge-retriever.js';
 export type {
@@ -55,6 +79,9 @@ export { mapOpenAiError, redactSecret } from './map-error.js';
 
 export type {
   KnowledgeChunk,
+  KnowledgeIndexDocument,
+  KnowledgeIndexedFile,
+  KnowledgeIndexWriter,
   KnowledgeRetrieveOptions,
   KnowledgeRetriever,
   LanguageModelEvent,

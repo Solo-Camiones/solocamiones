@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { logger } from '../../../src/infrastructure/logging/index.js';
 import {
   AssistantProviderError,
+  KNOWLEDGE_CORPUS_MARKER,
   OpenAiKnowledgeRetriever,
   createFakeKnowledgeRetriever,
   createKnowledgeRetriever,
@@ -22,6 +23,13 @@ describe('OpenAiKnowledgeRetriever', () => {
       expect(body.query).toBe('how to invoice');
       expect(body.max_num_results).toBe(6);
       expect(body.ranking_options).toEqual({ score_threshold: 0.55 });
+      expect(body.filters).toEqual({
+        type: 'and',
+        filters: [
+          { type: 'eq', key: 'corpus', value: KNOWLEDGE_CORPUS_MARKER },
+          { type: 'eq', key: 'approved', value: true },
+        ],
+      });
       return {
         data: [
           {
@@ -35,7 +43,13 @@ describe('OpenAiKnowledgeRetriever', () => {
             file_id: 'file_high',
             filename: 'high.md',
             score: 0.9,
-            attributes: { sourceKey: 'doc-high', title: 'High', locator: 'guides/high.md' },
+            attributes: {
+              sourceKey: 'doc-high',
+              title: 'High',
+              locator: 'guides/high.md',
+              version: '1.2.0',
+              sourceRequirements: 'SALE-005, PAY-001',
+            },
             content: [{ type: 'text', text: 'relevant chunk' }],
           },
         ],
@@ -56,22 +70,52 @@ describe('OpenAiKnowledgeRetriever', () => {
     const chunks = await retriever.retrieve('how to invoice');
     expect(chunks).toEqual([
       {
+        providerFileId: 'file_high',
         sourceKey: 'doc-high',
         title: 'High',
+        version: '1.2.0',
         locator: 'guides/high.md',
         excerpt: 'relevant chunk',
         score: 0.9,
+        sourceRequirements: ['SALE-005', 'PAY-001'],
       },
     ]);
+  });
+
+  it('caps results at maxResults and tolerates missing traceability attributes', async () => {
+    const search = vi.fn(async () => ({
+      data: [0.9, 0.8, 0.7].map((score, index) => ({
+        file_id: `file_${index}`,
+        filename: `doc-${index}.md`,
+        score,
+        attributes: {},
+        content: [{ type: 'text', text: `chunk ${index}` }],
+      })),
+    }));
+    const retriever = new OpenAiKnowledgeRetriever({
+      client: { vectorStores: { search: search as never } },
+      config: {
+        vectorStoreId: 'vs_test',
+        maxRetrievalResults: 2,
+        retrievalScoreThreshold: 0.55,
+        apiKey: undefined,
+      },
+    });
+
+    const chunks = await retriever.retrieve('q');
+    expect(chunks.map((chunk) => chunk.providerFileId)).toEqual(['file_0', 'file_1']);
+    expect(chunks[0]).toMatchObject({ version: null, sourceRequirements: [], locator: 'doc-0.md' });
   });
 
   it('propagates AbortSignal and maps abort to TIMEOUT', async () => {
     const controller = new AbortController();
     controller.abort();
-    const search = vi.fn(async (_id: string, _body: unknown, options?: { signal?: AbortSignal }) => {
-      expect(options?.signal?.aborted).toBe(true);
-      throw new APIUserAbortError();
-    });
+    const search = vi.fn(
+      async (_id: string, _body: unknown, options?: { signal?: AbortSignal }) => {
+        expect(options?.signal?.aborted).toBe(true);
+        throw new APIUserAbortError();
+      },
+    );
 
     const retriever = new OpenAiKnowledgeRetriever({
       client: { vectorStores: { search } },
@@ -129,33 +173,25 @@ describe('OpenAiKnowledgeRetriever', () => {
 
 describe('knowledge retriever fakes and factories', () => {
   it('filters fake chunks deterministically', async () => {
+    const chunkA = {
+      providerFileId: 'file_a',
+      sourceKey: 'a',
+      title: 'A',
+      version: '1',
+      locator: 'a.md',
+      excerpt: 'a',
+      score: 0.9,
+      sourceRequirements: ['SALE-001'],
+    };
     const retriever = createFakeKnowledgeRetriever({
       chunks: [
-        {
-          sourceKey: 'a',
-          title: 'A',
-          locator: 'a.md',
-          excerpt: 'a',
-          score: 0.9,
-        },
-        {
-          sourceKey: 'b',
-          title: 'B',
-          locator: 'b.md',
-          excerpt: 'b',
-          score: 0.2,
-        },
+        chunkA,
+        { ...chunkA, providerFileId: 'file_b', sourceKey: 'b', locator: 'b.md', score: 0.2 },
       ],
     });
 
     await expect(retriever.retrieve('q', { scoreThreshold: 0.5, maxResults: 1 })).resolves.toEqual([
-      {
-        sourceKey: 'a',
-        title: 'A',
-        locator: 'a.md',
-        excerpt: 'a',
-        score: 0.9,
-      },
+      chunkA,
     ]);
   });
 

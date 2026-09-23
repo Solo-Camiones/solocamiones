@@ -1,6 +1,6 @@
 import OpenAI from 'openai';
 
-import type { AssistantConfig } from './config.js';
+import type { AssistantConfig, KnowledgeSyncConfig } from './config.js';
 import { AssistantProviderError } from './errors.js';
 
 export type OpenAiClientFactoryOptions = {
@@ -23,17 +23,29 @@ export function createOpenAiClient(
     throw AssistantProviderError.auth('OPENAI_API_KEY is missing');
   }
 
+  return buildOpenAiClient({ apiKey: config.apiKey, timeoutMs: config.requestTimeoutMs }, options);
+}
+
+/** Client for the explicit knowledge sync, which runs while the feature flag is still off. */
+export function createOpenAiKnowledgeSyncClient(
+  config: KnowledgeSyncConfig,
+  options: OpenAiClientFactoryOptions = {},
+): OpenAI {
+  return buildOpenAiClient({ apiKey: config.apiKey, timeoutMs: config.requestTimeoutMs }, options);
+}
+
+function buildOpenAiClient(
+  clientOptions: { apiKey: string; timeoutMs: number },
+  options: OpenAiClientFactoryOptions,
+): OpenAI {
   const createClient =
     options.createClient ??
-    ((clientOptions: { apiKey: string; timeoutMs: number }) =>
+    ((resolved: { apiKey: string; timeoutMs: number }) =>
       new OpenAI({
-        apiKey: clientOptions.apiKey,
-        timeout: clientOptions.timeoutMs,
+        apiKey: resolved.apiKey,
+        timeout: resolved.timeoutMs,
         maxRetries: 0,
       }));
 
-  return createClient({
-    apiKey: config.apiKey,
-    timeoutMs: config.requestTimeoutMs,
-  });
+  return createClient(clientOptions);
 }

@@ -1,6 +1,9 @@
 import { AssistantProviderError } from './errors.js';
 import type {
   KnowledgeChunk,
+  KnowledgeIndexDocument,
+  KnowledgeIndexedFile,
+  KnowledgeIndexWriter,
   KnowledgeRetrieveOptions,
   KnowledgeRetriever,
   LanguageModelEvent,
@@ -87,4 +90,49 @@ export function createDisabledKnowledgeRetriever(): KnowledgeRetriever {
   return createFakeKnowledgeRetriever({
     error: AssistantProviderError.disabled(),
   });
+}
+
+/**
+ * In-memory vector store double for sync tests. `files` holds corpus files by
+ * provider id; `foreignFileIds` simulates files uploaded outside the sync.
+ */
+export class FakeKnowledgeIndexWriter implements KnowledgeIndexWriter {
+  readonly files = new Map<string, KnowledgeIndexDocument>();
+  readonly foreignFileIds = new Set<string>();
+  readonly failIndexingFor = new Set<string>();
+  readonly failRemovalFor = new Set<string>();
+  indexCalls = 0;
+  removeCalls = 0;
+  private nextFileNumber = 1;
+
+  async indexDocument(document: KnowledgeIndexDocument): Promise<KnowledgeIndexedFile> {
+    this.indexCalls += 1;
+    if (this.failIndexingFor.has(document.sourceKey)) {
+      throw AssistantProviderError.unavailable('Fake indexing failure');
+    }
+    const providerFileId = `file_fake_${this.nextFileNumber}`;
+    this.nextFileNumber += 1;
+    this.files.set(providerFileId, { ...document });
+    return { providerFileId };
+  }
+
+  async removeDocument(providerFileId: string): Promise<void> {
+    this.removeCalls += 1;
+    if (this.failRemovalFor.has(providerFileId)) {
+      throw AssistantProviderError.unavailable('Fake removal failure');
+    }
+    this.files.delete(providerFileId);
+  }
+
+  async listCorpusFileIds(): Promise<string[]> {
+    return [...this.files.keys()];
+  }
+
+  /** Simulates a file left behind by an interrupted sync. */
+  addOrphan(document: KnowledgeIndexDocument): string {
+    const providerFileId = `file_orphan_${this.nextFileNumber}`;
+    this.nextFileNumber += 1;
+    this.files.set(providerFileId, { ...document });
+    return providerFileId;
+  }
 }

@@ -169,7 +169,7 @@ No requirement IDs in Features 08–16 were weakened. No cross-edits to those fi
 
 ### Corpus (M3)
 
-- [ ] Approved Markdown corpus + manifest; sync CLI; checksum/version tracking.
+- [ ] Approved Markdown corpus + manifest; sync CLI; checksum/version tracking. _(2026-09-23: manifest, validate/sync CLIs, checksum, READY retrieval filter implemented locally with unit tests; 6 guides are `draft` pending owner approval; sync integration tests pending execution)_
 
 ### Tools (M4)
 
