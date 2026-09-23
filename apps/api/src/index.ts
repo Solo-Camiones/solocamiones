@@ -4,11 +4,14 @@ import { getInitialPassword } from './features/users/service.js';
 import { createApp } from './app.js';
 import { disconnectPrisma } from './infrastructure/database/index.js';
 import { logger } from './infrastructure/logging/index.js';
+import { parseAssistantConfig } from './infrastructure/openai/index.js';
 
 const DEFAULT_PORT = 3000;
 
 const port = Number(process.env.PORT ?? DEFAULT_PORT);
 
+// Validate assistant env at boot; gateways are not wired into createApp until M5/M6.
+parseAssistantConfig();
 getInitialPassword();
 
 const app = createApp();

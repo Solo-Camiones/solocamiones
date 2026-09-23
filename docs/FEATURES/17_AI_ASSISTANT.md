@@ -161,7 +161,7 @@ No requirement IDs in Features 08–16 were weakened. No cross-edits to those fi
 
 ### Foundations (M1)
 
-- [ ] OpenAI SDK behind ports; typed config; fakes; `.env.example` documented while disabled.
+- [x] OpenAI SDK behind ports; typed config; fakes; `.env.example` documented while disabled. _(2026-09-23)_
 
 ### Persistence (M2)
 

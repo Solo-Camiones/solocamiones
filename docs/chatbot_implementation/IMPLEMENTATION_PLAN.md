@@ -244,33 +244,37 @@ El repository tendrá `createConversation`, `listConversations`, `listMessages`,
 
 **Objetivo:** integrar el proveedor detrás de fronteras sustituibles.
 
+**Estado:** Completado (local) 2026-09-23.
+
+Notas de implementación: ports/adapters viven en `apps/api/src/infrastructure/openai/` (espejo FX). Factories exportadas; `createApp` aún no cablea gateways del assistant (decisión M1). `parseAssistantConfig()` sí corre en el boot de `index.ts` para fallar con env inválido. Streaming vía `AsyncIterable`. Errores tipados `AssistantProviderError`. Solo `.env.example` (sin forward en docker-compose todavía).
+
 ### Tareas
 
-- [ ] `M1-T01` Añadir SDK oficial `openai` al API con lockfile reproducible.
-- [ ] `M1-T02` Crear parser/configuración tipada y validar rangos.
-- [ ] `M1-T03` Inyectar config desde composition root; servicios no leen `process.env`.
-- [ ] `M1-T04` Definir `LanguageModelGateway`.
-- [ ] `M1-T05` Definir `KnowledgeRetriever`.
-- [ ] `M1-T06` Definir tipos internos para mensajes, chunks, tool calls, uso y errores.
-- [ ] `M1-T07` Crear `OpenAiClientFactory` con timeout y API key server-side.
-- [ ] `M1-T08` Implementar gateway de Responses con `store: false` y streaming.
-- [ ] `M1-T09` Implementar retriever de Vector Store Search.
-- [ ] `M1-T10` Traducir 401, 429, timeout, 5xx y respuestas inválidas a errores internos.
-- [ ] `M1-T11` Propagar `AbortSignal` al SDK.
-- [ ] `M1-T12` Redactar key, prompts y payloads en logging.
-- [ ] `M1-T13` Crear fakes deterministas; tests normales no usan Internet.
-- [ ] `M1-T14` Documentar variables en `.env.example` y despliegue, todavía apagadas.
+- [x] `M1-T01` Añadir SDK oficial `openai` al API con lockfile reproducible.
+- [x] `M1-T02` Crear parser/configuración tipada y validar rangos.
+- [x] `M1-T03` Inyectar config desde composition root; servicios no leen `process.env`.
+- [x] `M1-T04` Definir `LanguageModelGateway`.
+- [x] `M1-T05` Definir `KnowledgeRetriever`.
+- [x] `M1-T06` Definir tipos internos para mensajes, chunks, tool calls, uso y errores.
+- [x] `M1-T07` Crear `OpenAiClientFactory` con timeout y API key server-side.
+- [x] `M1-T08` Implementar gateway de Responses con `store: false` y streaming.
+- [x] `M1-T09` Implementar retriever de Vector Store Search.
+- [x] `M1-T10` Traducir 401, 429, timeout, 5xx y respuestas inválidas a errores internos.
+- [x] `M1-T11` Propagar `AbortSignal` al SDK.
+- [x] `M1-T12` Redactar key, prompts y payloads en logging.
+- [x] `M1-T13` Crear fakes deterministas; tests normales no usan Internet.
+- [x] `M1-T14` Documentar variables en `.env.example` y despliegue, todavía apagadas.
 
 ### Pruebas
 
-- Config válida/inválida y feature apagada sin key.
-- `store: false`, modelo y límites enviados correctamente.
-- Streaming, abort y timeout.
-- Traducción de errores y redacción de logs.
+- [x] Config válida/inválida y feature apagada sin key.
+- [x] `store: false`, modelo y límites enviados correctamente.
+- [x] Streaming, abort y timeout.
+- [x] Traducción de errores y redacción de logs.
 
 ### Gate
 
-El dominio no importa el SDK y puede ejecutarse completamente con fakes.
+- [x] El dominio no importa el SDK y puede ejecutarse completamente con fakes.
 
 ## M2 — Persistencia, idempotencia y retención
 
