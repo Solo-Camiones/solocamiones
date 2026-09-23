@@ -280,36 +280,40 @@ Notas de implementación: ports/adapters viven en `apps/api/src/infrastructure/o
 
 **Objetivo:** registrar conversaciones y ejecuciones sin afectar datos comerciales.
 
+**Estado:** Completado (local) 2026-09-23.
+
+Notas de implementación: modelos Prisma + migración `20260923000000_assistant_persistence` con CHECKs e índice único parcial de un run `PENDING` por conversación. Repos en `apps/api/src/features/assistant/`. `expiresAt` sliding al tocar. Idempotencia `(conversationId, clientRequestId)` devolviendo el par existente. CLI `assistant:purge [--dry-run]` (lote 100). Sin API HTTP ni orquestador (M5/M6).
+
 ### Tareas
 
-- [ ] `M2-T01` Añadir enums/modelos Prisma definidos en 5.2.
-- [ ] `M2-T02` Añadir relaciones inversas mínimas en `User`.
-- [ ] `M2-T03` Crear migración nueva; nunca editar migraciones aplicadas.
-- [ ] `M2-T04` Añadir constraints/checks SQL no expresables por Prisma.
-- [ ] `M2-T05` Crear índices de propiedad, cronología, expiración y runs.
-- [ ] `M2-T06` Implementar repository de conversaciones con ownership obligatorio.
-- [ ] `M2-T07` Implementar repository de mensajes con paginación estable.
-- [ ] `M2-T08` Implementar repository de runs con transiciones condicionales.
-- [ ] `M2-T09` Implementar repositories de sources y knowledge documents.
-- [ ] `M2-T10` Hacer atómica la creación de mensaje user + run + touch de conversación.
-- [ ] `M2-T11` Impedir completar/fallar un run dos veces.
-- [ ] `M2-T12` Implementar idempotencia por `(conversationId, clientRequestId)`.
-- [ ] `M2-T13` Implementar purga por lotes usando `expiresAt`.
-- [ ] `M2-T14` Crear `assistant:purge` con `--dry-run`.
-- [ ] `M2-T15` Añadir scripts npm API/root.
+- [x] `M2-T01` Añadir enums/modelos Prisma definidos en 5.2.
+- [x] `M2-T02` Añadir relaciones inversas mínimas en `User`.
+- [x] `M2-T03` Crear migración nueva; nunca editar migraciones aplicadas.
+- [x] `M2-T04` Añadir constraints/checks SQL no expresables por Prisma.
+- [x] `M2-T05` Crear índices de propiedad, cronología, expiración y runs.
+- [x] `M2-T06` Implementar repository de conversaciones con ownership obligatorio.
+- [x] `M2-T07` Implementar repository de mensajes con paginación estable.
+- [x] `M2-T08` Implementar repository de runs con transiciones condicionales.
+- [x] `M2-T09` Implementar repositories de sources y knowledge documents.
+- [x] `M2-T10` Hacer atómica la creación de mensaje user + run + touch de conversación.
+- [x] `M2-T11` Impedir completar/fallar un run dos veces.
+- [x] `M2-T12` Implementar idempotencia por `(conversationId, clientRequestId)`.
+- [x] `M2-T13` Implementar purga por lotes usando `expiresAt`.
+- [x] `M2-T14` Crear `assistant:purge` con `--dry-run`.
+- [x] `M2-T15` Añadir scripts npm API/root.
 
 ### Pruebas
 
-- Migración en DB vacía y con datos.
-- FK, cascade y restricciones negativas.
-- Idempotencia y concurrencia.
-- Conversación ajena indistinguible de inexistente.
-- Paginación determinista.
-- Purga/dry-run y rollback transaccional.
+- [x] Migración en DB vacía y con datos.
+- [x] FK, cascade y restricciones negativas.
+- [x] Idempotencia y concurrencia.
+- [x] Conversación ajena indistinguible de inexistente.
+- [x] Paginación determinista.
+- [x] Purga/dry-run y rollback transaccional.
 
 ### Gate
 
-No se modifica ninguna tabla comercial y toda ejecución queda en estado consistente.
+- [x] No se modifica ninguna tabla comercial y toda ejecución queda en estado consistente.
 
 ## M3 — Corpus aprobado y sincronización RAG
 

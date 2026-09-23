@@ -12,6 +12,7 @@
   ],
   "scripts": {
     "bootstrap:admin": "npm run bootstrap:admin -w @solocamiones/api",
+    "assistant:purge": "npm run assistant:purge -w @solocamiones/api",
     "dev": "concurrently -n api,web -c blue,green \"npm run dev -w @solocamiones/api\" \"npm run dev -w @solocamiones/web\"",
     "build": "npm run build -w @solocamiones/api && npm run build -w @solocamiones/web",
     "lint": "eslint .",

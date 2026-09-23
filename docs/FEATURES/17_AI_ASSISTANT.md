@@ -165,7 +165,7 @@ No requirement IDs in Features 08–16 were weakened. No cross-edits to those fi
 
 ### Persistence (M2)
 
-- [ ] Assistant conversation/message/run/source/knowledge models, migration, ownership, idempotency, purge.
+- [x] Assistant conversation/message/run/source/knowledge models, migration, ownership, idempotency, purge. _(2026-09-23; AI-005 HTTP 404 ownership remains M6)_
 
 ### Corpus (M3)
 
