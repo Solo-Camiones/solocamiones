@@ -40,6 +40,7 @@ function assistantConfig(overrides: Partial<AssistantConfig> = {}): AssistantCon
     vectorStoreId: 'vs_test',
     retentionDays: 90,
     dailyMessageLimit: 50,
+    globalDailyMessageLimit: 100,
     maxInputChars: 2000,
     maxOutputTokens: 1200,
     maxToolCalls: 3,

@@ -68,6 +68,18 @@ export class MessageRepository {
     });
   }
 
+  /** All USER assistant messages created on the business calendar day (global emergency quota). */
+  countUserMessagesOnBusinessDay(now: Date): Promise<number> {
+    const day = businessDateString(now);
+    const range = businessDayRange(day, day);
+    return this.database.assistantMessage.count({
+      where: {
+        role: 'USER',
+        createdAt: { gte: range.gte, lte: range.lte },
+      },
+    });
+  }
+
   findByClientRequestId(
     conversationId: string,
     clientRequestId: string,

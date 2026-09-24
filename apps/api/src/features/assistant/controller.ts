@@ -65,6 +65,7 @@ export async function postMessage(
     userId: actor(req),
     content: body.content,
     clientRequestId: body.clientRequestId,
+    requestId: req.requestId,
   };
 
   let prepared;

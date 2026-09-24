@@ -65,8 +65,11 @@ export class AppError extends Error {
     return new AppError('UNSUPPORTED_MEDIA_TYPE', message);
   }
 
-  static tooManyRequests(message = 'Too many requests'): AppError {
-    return new AppError('TOO_MANY_REQUESTS', message);
+  static tooManyRequests(
+    message = 'Too many requests',
+    details?: Record<string, unknown>,
+  ): AppError {
+    return new AppError('TOO_MANY_REQUESTS', message, details);
   }
 
   static serviceUnavailable(

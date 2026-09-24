@@ -34,4 +34,6 @@ export type StreamMessageInput = {
   clientRequestId: string;
   signal?: AbortSignal;
   now?: Date;
+  /** Correlates structured run logs with the HTTP request (never logged as content). */
+  requestId?: string;
 };

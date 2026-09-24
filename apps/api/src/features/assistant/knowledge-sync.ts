@@ -17,6 +17,7 @@ import type {
   KnowledgeIndexWriter,
 } from '../../infrastructure/openai/types.js';
 import { logger } from '../../infrastructure/logging/index.js';
+import { recordAssistantKnowledgeSyncFailure } from '../../infrastructure/metrics/index.js';
 
 export type KnowledgeSyncDocuments = Pick<
   KnowledgeDocumentRepository,
@@ -301,5 +302,6 @@ function describeFailure(
     : KNOWLEDGE_SYNC_FAILED_ERROR_CODE;
   const errorId = context.createErrorId();
   logger.warn({ action, sourceKey, errorCode, errorId }, 'Assistant knowledge sync step failed');
+  recordAssistantKnowledgeSyncFailure();
   return { action, sourceKey, status: 'failed', errorCode, errorId };
 }

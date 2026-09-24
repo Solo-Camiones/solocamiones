@@ -4,6 +4,8 @@
 
 **CONFIRMED (documentation).** This file is the implementation source of truth for requirement IDs: `AI-001, AI-002, AI-003, AI-004, AI-005, AI-006, AI-007, AI-008, AI-009, AI-010`.
 
+Operational security docs (threat model, runbook, provider privacy checklist, metrics/purge): `docs/assistant-ops/`.
+
 These IDs were added 2026-09-22 for the Administrator-only hybrid assistant sequenced in `docs/chatbot_implementation/IMPLEMENTATION_PLAN.md`. That plan is technical sequencing and progress only. **Do not implement behavior from the plan file when an AI-* ID exists here.**
 
 Owner decisions recorded for documentation confirmation (2026-09-22):
@@ -189,7 +191,7 @@ No requirement IDs in Features 08–16 were weakened. No cross-edits to those fi
 
 ### Security and operations (M8)
 
-- [ ] Threat model, logging/metrics/alerts, purge schedule, kill switch, runbook.
+- [x] Threat model, logging/metrics/alerts, purge schedule, kill switch, runbook. _(2026-09-24 local; ops in `docs/assistant-ops/`; provider privacy **confirmed by owner** 2026-09-24 with documented residuals; Better Stack/DO alert wiring awaits App Specs; AI-010 still gates prod enablement)_
 
 ### Evaluation and rollout (M9)
 

@@ -3,6 +3,7 @@ import { z } from 'zod';
 export const DEFAULT_OPENAI_CHAT_MODEL = 'gpt-5.4-mini-2026-03-17';
 export const DEFAULT_ASSISTANT_RETENTION_DAYS = 90;
 export const DEFAULT_ASSISTANT_DAILY_MESSAGE_LIMIT = 50;
+export const DEFAULT_ASSISTANT_GLOBAL_DAILY_MESSAGE_LIMIT = 100;
 export const DEFAULT_ASSISTANT_MAX_INPUT_CHARS = 2000;
 export const DEFAULT_ASSISTANT_MAX_OUTPUT_TOKENS = 1200;
 export const DEFAULT_ASSISTANT_MAX_TOOL_CALLS = 3;
@@ -17,6 +18,8 @@ export type AssistantConfig = {
   vectorStoreId: string | undefined;
   retentionDays: number;
   dailyMessageLimit: number;
+  /** Emergency ceiling across all Administrators for the business day (AI-006 / M8). */
+  globalDailyMessageLimit: number;
   maxInputChars: number;
   maxOutputTokens: number;
   maxToolCalls: number;
@@ -112,6 +115,13 @@ export function parseAssistantConfig(
     field: 'ASSISTANT_DAILY_MESSAGE_LIMIT',
     integer: true,
   });
+  const globalDailyMessageLimit = parseBoundedNumber({
+    raw: environment.ASSISTANT_GLOBAL_DAILY_MESSAGE_LIMIT,
+    defaultValue: DEFAULT_ASSISTANT_GLOBAL_DAILY_MESSAGE_LIMIT,
+    min: 1,
+    field: 'ASSISTANT_GLOBAL_DAILY_MESSAGE_LIMIT',
+    integer: true,
+  });
   const maxInputChars = parseBoundedNumber({
     raw: environment.ASSISTANT_MAX_INPUT_CHARS,
     defaultValue: DEFAULT_ASSISTANT_MAX_INPUT_CHARS,
@@ -172,6 +182,7 @@ export function parseAssistantConfig(
     vectorStoreId,
     retentionDays,
     dailyMessageLimit,
+    globalDailyMessageLimit,
     maxInputChars,
     maxOutputTokens,
     maxToolCalls,

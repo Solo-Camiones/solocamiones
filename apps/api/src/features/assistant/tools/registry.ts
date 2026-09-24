@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { AppError } from '../../../infrastructure/errors/app-error.js';
 import type { LanguageModelToolDefinition } from '../../../infrastructure/openai/types.js';
 import { logger } from '../../../infrastructure/logging/index.js';
+import { recordAssistantToolCall } from '../../../infrastructure/metrics/index.js';
 import type { AssistantTool, AssistantToolContext, AssistantToolRegistry } from './types.js';
 
 function toParameters(schema: z.ZodType): Record<string, unknown> {
@@ -55,6 +56,7 @@ export function createAssistantToolRegistry(tools: AssistantTool[]): AssistantTo
       const started = Date.now();
       try {
         const result = await tool.execute(parsed.data, context);
+        recordAssistantToolCall(name);
         logger.info(
           {
             tool: name,

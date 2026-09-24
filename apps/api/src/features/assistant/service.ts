@@ -19,10 +19,13 @@ import {
 } from './constants.js';
 import {
   assistantDisabledError,
+  assistantGlobalQuotaExceededError,
   assistantMaxToolCallsError,
   assistantQuotaExceededError,
   classifyAssistantError,
 } from './classify-error.js';
+import { recordAssistantRunObservation } from './run-observability.js';
+import { recordAssistantQuotaRejection } from '../../infrastructure/metrics/index.js';
 import { createUserMessageWithRun } from './create-user-message.js';
 import type { AssistantDomainEvent, StreamMessageInput } from './domain-events.js';
 import {
@@ -234,7 +237,15 @@ export class AssistantService {
         now,
       );
     if (usedToday >= this.config.dailyMessageLimit) {
+      recordAssistantQuotaRejection('user');
       throw assistantQuotaExceededError();
+    }
+
+    const usedGlobally =
+      await this.repositories.messages.countUserMessagesOnBusinessDay(now);
+    if (usedGlobally >= this.config.globalDailyMessageLimit) {
+      recordAssistantQuotaRejection('global');
+      throw assistantGlobalQuotaExceededError();
     }
 
     const pendingRun = await this.repositories.runs.findPendingByConversationId(
@@ -355,6 +366,28 @@ export class AssistantService {
           classified,
           errorId: failErrorId,
           startedAt: created.run.startedAt,
+        });
+        const latencyMs = Math.max(
+          0,
+          Date.now() - created.run.startedAt.getTime(),
+        );
+        recordAssistantRunObservation({
+          requestId: input.requestId,
+          runId: created.run.id,
+          conversationId: input.conversationId,
+          userId: input.userId,
+          model: this.config.chatModel,
+          promptVersion: getAssistantPromptVersion(),
+          status: classified.cancelled ? 'CANCELLED' : 'FAILED',
+          latencyMs,
+          ttftMs: null,
+          inputTokens: 0,
+          outputTokens: 0,
+          totalTokens: 0,
+          toolCallCount: 0,
+          toolNames: [],
+          errorCode: classified.code,
+          errorId: failErrorId,
         });
         yield {
           type: 'error',
@@ -626,7 +659,10 @@ export class AssistantService {
       sourceInputs = [...documents, ...tools];
     }
 
+    let observedTtftMs: number | null = null;
     if (contentToPersist.length > 0) {
+      // First client-visible token (model output is buffered until the evidence gate).
+      observedTtftMs = Math.max(0, Date.now() - run.startedAt.getTime());
       yield { type: 'delta', text: contentToPersist };
     }
 
@@ -659,6 +695,23 @@ export class AssistantService {
       if (!completedRun) {
         throw AppError.conflict('Assistant run is no longer pending');
       }
+    });
+
+    recordAssistantRunObservation({
+      requestId: input.requestId,
+      runId: run.id,
+      conversationId: input.conversationId,
+      userId: input.userId,
+      model: this.config.chatModel,
+      promptVersion: getAssistantPromptVersion(),
+      status: 'COMPLETED',
+      latencyMs,
+      ttftMs: observedTtftMs,
+      inputTokens: usage.inputTokens,
+      outputTokens: usage.outputTokens,
+      totalTokens: usage.totalTokens,
+      toolCallCount,
+      toolNames: sanitizedToolCalls.map((call) => call.name),
     });
 
     yield {

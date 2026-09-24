@@ -24,6 +24,8 @@ export const ASSISTANT_ACTIVE_RUN_CONFLICT_MESSAGE =
 export const ASSISTANT_RUN_NOT_PENDING_MESSAGE = 'Assistant run is not pending';
 export const ASSISTANT_DAILY_QUOTA_EXCEEDED_MESSAGE =
   'Daily assistant message limit reached';
+export const ASSISTANT_GLOBAL_QUOTA_EXCEEDED_MESSAGE =
+  'Global assistant message limit reached';
 export const ASSISTANT_MAX_TOOL_CALLS_EXCEEDED_MESSAGE =
   'Assistant tool-call limit exceeded for this run';
 export const ASSISTANT_DISABLED_MESSAGE = 'Assistant is disabled';
@@ -37,6 +39,7 @@ export const KNOWLEDGE_PROVIDER_ERROR_CODE_PREFIX = 'PROVIDER_';
 export const ASSISTANT_RUN_ERROR_CODES = {
   DISABLED: 'ASSISTANT_DISABLED',
   QUOTA: 'ASSISTANT_QUOTA_EXCEEDED',
+  GLOBAL_QUOTA: 'ASSISTANT_GLOBAL_QUOTA_EXCEEDED',
   MAX_TOOLS: 'ASSISTANT_MAX_TOOL_CALLS',
   PROVIDER_AUTH: 'PROVIDER_AUTH',
   PROVIDER_RATE_LIMIT: 'PROVIDER_RATE_LIMIT',

@@ -1,0 +1,39 @@
+# Fragmento de App Spec — job programado de purge del assistant
+#
+# IMPORTANTE:
+# - Esto NO es un App Spec completo de DigitalOcean App Platform.
+# - Debe fusionarse (merge) en los App Specs futuros de staging/producción
+#   (p. ej. infra/digitalocean/app.*.yaml) cuando existan.
+# - No incluye secretos reales. Referenciar secretos/vars ya definidos en el spec.
+# - Zona horaria: America/Santo_Domingo (AST, sin DST).
+# - Horario objetivo: ~03:00 diario (cron "0 3 * * *").
+#
+# Ajustar name, imagen/source, instance_size_slug y envs al spec real del entorno.
+# El comando asume la misma imagen de aplicación que el servicio API (workspace root).
+
+jobs:
+  - name: assistant-purge
+    kind: SCHEDULED
+    # Ejecutar purga de conversaciones expiradas (retención ASSISTANT_RETENTION_DAYS, default 90).
+    run_command: npm run assistant:purge
+    instance_count: 1
+    instance_size_slug: basic-xxs
+    schedule:
+      cron: "0 3 * * *"
+      time_zone: America/Santo_Domingo
+    envs:
+      # Solo referencias — valores en el secret store de App Platform, nunca en Git.
+      - key: DATABASE_URL
+        scope: RUN_TIME
+        type: SECRET
+        # value: set in App Platform UI / doctl secrets — do not commit
+      - key: ASSISTANT_RETENTION_DAYS
+        scope: RUN_TIME
+        value: "90"
+      - key: NODE_ENV
+        scope: RUN_TIME
+        value: "production"
+      - key: LOG_LEVEL
+        scope: RUN_TIME
+        value: "info"
+    # Opcional: alertar si el job falla (configurar en el App Spec completo / Better Stack).

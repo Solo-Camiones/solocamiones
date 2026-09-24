@@ -970,7 +970,8 @@ Umbrales iniciales:
 - migración/deployment/job fallido: crítico inmediato;
 - certificado: advertir con menos de 30 días si la renovación no está confirmada;
 - login: revisar más de 10 fallos por origen o 25 globales en diez minutos;
-- rentabilidad FX pendiente: alertar si permanece sin resolver durante 30 minutos.
+- rentabilidad FX pendiente: alertar si permanece sin resolver durante 30 minutos;
+- Feature 17 (cuando `ASSISTANT_ENABLED=true`): alertar por tasa de `assistant_errors_total` (5xx/timeout/provider), `PROVIDER_RATE_LIMIT` / 429, rechazo de cuota (`assistant_quota_rejections_total`), y `assistant_knowledge_sync_failures_total`; job `assistant-purge` fallido = crítico. Detalle en `docs/assistant-ops/OPERATIONS.md`. Fragmento de job: `docs/assistant-ops/purge.job.fragment.yaml` (fusionar en App Specs futuros).
 
 Revisiones manuales:
 

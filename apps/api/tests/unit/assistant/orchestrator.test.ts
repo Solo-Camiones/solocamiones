@@ -40,6 +40,7 @@ function baseConfig(overrides: Partial<AssistantConfig> = {}): AssistantConfig {
     vectorStoreId: 'vs_test',
     retentionDays: 90,
     dailyMessageLimit: 50,
+    globalDailyMessageLimit: 100,
     maxInputChars: 2000,
     maxOutputTokens: 1200,
     maxToolCalls: 3,
@@ -170,6 +171,9 @@ function createMemoryRepositories(store: MemoryStore): AssistantRepositories {
         const conversation = store.conversations.get(message.conversationId);
         return conversation?.userId === userId;
       }).length;
+    },
+    async countUserMessagesOnBusinessDay(_now: Date) {
+      return [...store.messages.values()].filter((message) => message.role === 'USER').length;
     },
     async listByConversation() {
       return { items: [], total: 0, page: 1, pageSize: 50 };
@@ -726,6 +730,53 @@ describe('AssistantService', () => {
 
     await expect(eventsPromise).rejects.toMatchObject({
       code: 'TOO_MANY_REQUESTS',
+    });
+    expect(retrieve).not.toHaveBeenCalled();
+  });
+
+  it('enforces global daily quota across actors before creating a message', async () => {
+    const store: MemoryStore = {
+      conversations: new Map(),
+      messages: new Map(),
+      runs: new Map(),
+      sources: new Map(),
+    };
+    const conversation = seedConversation(store);
+    const otherConversationId = randomUUID();
+    store.conversations.set(otherConversationId, {
+      ...conversation,
+      id: otherConversationId,
+      userId: randomUUID(),
+    });
+    const repositories = createMemoryRepositories(store);
+    await repositories.messages.createUserMessage({
+      conversationId: otherConversationId,
+      content: 'other-admin',
+      clientRequestId: randomUUID(),
+    });
+
+    const retrieve = vi.fn();
+    const service = new AssistantService({
+      config: baseConfig({ dailyMessageLimit: 50, globalDailyMessageLimit: 1 }),
+      languageModel: createFakeLanguageModelGateway(),
+      knowledgeRetriever: { retrieve },
+      toolRegistry: createAssistantToolRegistry([]),
+      repositories,
+      runTransaction: async (work) => work(repositories),
+    });
+
+    await expect(
+      collectEvents(
+        service.streamMessage({
+          conversationId: conversation.id,
+          userId: conversation.userId,
+          content: 'pregunta propia',
+          clientRequestId: randomUUID(),
+        }),
+      ),
+    ).rejects.toMatchObject({
+      code: 'TOO_MANY_REQUESTS',
+      message: expect.stringMatching(/Global/i),
     });
     expect(retrieve).not.toHaveBeenCalled();
   });

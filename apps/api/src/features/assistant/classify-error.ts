@@ -8,6 +8,7 @@ import {
   ASSISTANT_ACTIVE_RUN_CONFLICT_MESSAGE,
   ASSISTANT_DAILY_QUOTA_EXCEEDED_MESSAGE,
   ASSISTANT_DISABLED_MESSAGE,
+  ASSISTANT_GLOBAL_QUOTA_EXCEEDED_MESSAGE,
   ASSISTANT_MAX_TOOL_CALLS_EXCEEDED_MESSAGE,
   ASSISTANT_RUN_ERROR_CODES,
 } from './constants.js';
@@ -35,8 +36,12 @@ export function classifyAssistantError(error: unknown): ClassifiedAssistantError
       };
     }
     if (error.code === 'TOO_MANY_REQUESTS') {
+      const assistantCode =
+        typeof error.details?.assistantCode === 'string'
+          ? error.details.assistantCode
+          : ASSISTANT_RUN_ERROR_CODES.QUOTA;
       return {
-        code: ASSISTANT_RUN_ERROR_CODES.QUOTA,
+        code: assistantCode,
         message: error.message || ASSISTANT_DAILY_QUOTA_EXCEEDED_MESSAGE,
         retryable: false,
         cancelled: false,
@@ -136,7 +141,15 @@ function classifyProviderError(error: AssistantProviderError): ClassifiedAssista
 }
 
 export function assistantQuotaExceededError(): AppError {
-  return AppError.tooManyRequests(ASSISTANT_DAILY_QUOTA_EXCEEDED_MESSAGE);
+  return AppError.tooManyRequests(ASSISTANT_DAILY_QUOTA_EXCEEDED_MESSAGE, {
+    assistantCode: ASSISTANT_RUN_ERROR_CODES.QUOTA,
+  });
+}
+
+export function assistantGlobalQuotaExceededError(): AppError {
+  return AppError.tooManyRequests(ASSISTANT_GLOBAL_QUOTA_EXCEEDED_MESSAGE, {
+    assistantCode: ASSISTANT_RUN_ERROR_CODES.GLOBAL_QUOTA,
+  });
 }
 
 export function assistantDisabledError(): AppError {

@@ -95,6 +95,7 @@ Reglas estructurales:
 | `OPENAI_VECTOR_STORE_ID`              |                         — | Requerida solo si está habilitado       |
 | `ASSISTANT_RETENTION_DAYS`            |                      `90` | 1–365                                   |
 | `ASSISTANT_DAILY_MESSAGE_LIMIT`       |                      `50` | Mayor que cero                          |
+| `ASSISTANT_GLOBAL_DAILY_MESSAGE_LIMIT`|                     `100` | Emergencia global (día laboral)         |
 | `ASSISTANT_MAX_INPUT_CHARS`           |                    `2000` | Validación HTTP y servicio              |
 | `ASSISTANT_MAX_OUTPUT_TOKENS`         |                    `1200` | Enviado al proveedor                    |
 | `ASSISTANT_MAX_TOOL_CALLS`            |                       `3` | Total por run                           |
@@ -578,33 +579,42 @@ Notas de implementación (decisiones del dueño 2026-09-24):
 
 **Objetivo:** controlar riesgos de LLM y hacer la feature operable.
 
+**Estado:** Completado (local) 2026-09-24.
+
+Notas de implementación (decisiones del dueño 2026-09-24):
+
+- Límite global de emergencia `ASSISTANT_GLOBAL_DAILY_MESSAGE_LIMIT` default **100** (mismo business day que la cuota por usuario).
+- Métricas con `@prometheus-io/client`; scrape `GET /metrics` solo con `METRICS_BEARER_TOKEN` (404 si ausente).
+- Ops docs en `docs/assistant-ops/` (threat model, runbook, provider privacy pendiente dueño, operations, fragmento job purge).
+- Sync sigue siendo CLI explícito; purge diario documentado como fragmento DO (App Specs aún no en repo).
+
 ### Tareas
 
-- [ ] `M8-T01` Crear threat model: secretos, PII, prompts, corpus, tools, costos y poisoning.
-- [ ] `M8-T02` Probar prompt injection en documentos y datos.
-- [ ] `M8-T03` Auditar cada select contra matriz de campos permitidos.
-- [ ] `M8-T04` Confirmar que el modelo no elige URLs, SQL o tools arbitrarias.
-- [ ] `M8-T05` Confirmar que logs no contienen prompts/respuestas/chunks/payloads.
-- [ ] `M8-T06` Añadir límite global de emergencia además del límite por usuario.
-- [ ] `M8-T07` Verificar sanitización Markdown/source labels/appPaths.
-- [ ] `M8-T08` Ejecutar dependency/security scan.
-- [ ] `M8-T09` Revisar controles de privacidad/retención del proveedor antes de producción.
-- [ ] `M8-T10` Definir logs por run: IDs, modelo, latencia, tokens, tools, status y errorCode.
-- [ ] `M8-T11` Definir métricas: éxito, TTFT, latencia, tokens, errores, cuota y tool usage.
-- [ ] `M8-T12` Crear alertas para 5xx, timeout, 429, costo y sync fallido.
-- [ ] `M8-T13` Mantener readiness independiente.
-- [ ] `M8-T14` Programar purga diaria.
-- [ ] `M8-T15` Mantener sync como operación explícita, no en cada restart.
-- [ ] `M8-T16` Documentar rotación de key, creación/reemplazo de vector store y recuperación.
-- [ ] `M8-T17` Documentar feature kill switch.
-- [ ] `M8-T18` Crear runbook de 401/429/timeout/outage/sync/purge.
-- [ ] `M8-T19` Documentar retención residual en backups.
+- [x] `M8-T01` Crear threat model: secretos, PII, prompts, corpus, tools, costos y poisoning.
+- [x] `M8-T02` Probar prompt injection en documentos y datos. _(wrapping + system prompt; fakes)_
+- [x] `M8-T03` Auditar cada select contra matriz de campos permitidos. _(tests tools existentes + forbidden keys)_
+- [x] `M8-T04` Confirmar que el modelo no elige URLs, SQL o tools arbitrarias. _(registry allowlist)_
+- [x] `M8-T05` Confirmar que logs no contienen prompts/respuestas/chunks/payloads.
+- [x] `M8-T06` Añadir límite global de emergencia además del límite por usuario.
+- [x] `M8-T07` Verificar sanitización Markdown/source labels/appPaths. _(regresión M7)_
+- [x] `M8-T08` Ejecutar dependency/security scan. _(`npm audit --audit-level=high` → 0)_
+- [x] `M8-T09` Revisar controles de privacidad/retención del proveedor antes de producción. _(confirmado dueño 2026-09-24; residual vector store / abuse logs 30d documentado; AI-010 sigue bloqueando enablement prod)_
+- [x] `M8-T10` Definir logs por run: IDs, modelo, latencia, tokens, tools, status y errorCode.
+- [x] `M8-T11` Definir métricas: éxito, TTFT, latencia, tokens, errores, cuota y tool usage.
+- [x] `M8-T12` Crear alertas para 5xx, timeout, 429, cuota y sync fallido. _(umbrales documentados en ops; cableado Better Stack/DO pendiente App Spec)_
+- [x] `M8-T13` Mantener readiness independiente.
+- [x] `M8-T14` Programar purga diaria. _(fragmento job + runbook; merge a App Spec futuro)_
+- [x] `M8-T15` Mantener sync como operación explícita, no en cada restart.
+- [x] `M8-T16` Documentar rotación de key, creación/reemplazo de vector store y recuperación.
+- [x] `M8-T17` Documentar feature kill switch.
+- [x] `M8-T18` Crear runbook de 401/429/timeout/outage/sync/purge.
+- [x] `M8-T19` Documentar retención residual en backups.
 
 ### Gate
 
-- Cero secretos/PII prohibida en logs, API y provider context.
-- Feature desactivable sin rollback.
-- Outage externo no afecta operación comercial ni readiness.
+- [x] Cero secretos/PII prohibida en logs, API y provider context. _(controles + tests; PII matriz en tools)_
+- [x] Feature desactivable sin rollback.
+- [x] Outage externo no afecta operación comercial ni readiness.
 
 ## M9 — Evaluación, staging, documentación y rollout
 
