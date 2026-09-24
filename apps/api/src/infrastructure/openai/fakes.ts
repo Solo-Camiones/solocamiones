@@ -11,9 +11,18 @@ import type {
   LanguageModelRequest,
 } from './types.js';
 
+export type FakeLanguageModelScriptStep =
+  | { events: LanguageModelEvent[] }
+  | { error: AssistantProviderError };
+
 export type FakeLanguageModelGatewayOptions = {
   events?: LanguageModelEvent[];
   error?: AssistantProviderError;
+  /**
+   * One entry per `streamCompletion` call. When set, overrides `events`/`error`
+   * for multi-turn tool loops in orchestrator tests.
+   */
+  script?: FakeLanguageModelScriptStep[];
 };
 
 /**
@@ -23,6 +32,8 @@ export type FakeLanguageModelGatewayOptions = {
 export function createFakeLanguageModelGateway(
   options: FakeLanguageModelGatewayOptions = {},
 ): LanguageModelGateway {
+  let scriptIndex = 0;
+
   return {
     async *streamCompletion(
       _request: LanguageModelRequest,
@@ -31,17 +42,31 @@ export function createFakeLanguageModelGateway(
       if (signal?.aborted) {
         throw AssistantProviderError.timeout('OpenAI request was aborted');
       }
-      if (options.error != null) {
+
+      let events: LanguageModelEvent[];
+      if (options.script != null && options.script.length > 0) {
+        const step = options.script[scriptIndex];
+        scriptIndex += 1;
+        if (step == null) {
+          throw AssistantProviderError.invalidResponse('Fake language model script exhausted');
+        }
+        if ('error' in step) {
+          throw step.error;
+        }
+        events = step.events;
+      } else if (options.error != null) {
         throw options.error;
+      } else {
+        events = options.events ?? [
+          { type: 'delta', text: 'fake-response' },
+          {
+            type: 'usage',
+            usage: { inputTokens: 1, outputTokens: 1, totalTokens: 2 },
+          },
+          { type: 'done', providerResponseId: 'fake-response-id' },
+        ];
       }
-      const events = options.events ?? [
-        { type: 'delta', text: 'fake-response' },
-        {
-          type: 'usage',
-          usage: { inputTokens: 1, outputTokens: 1, totalTokens: 2 },
-        },
-        { type: 'done', providerResponseId: 'fake-response-id' },
-      ];
+
       for (const event of events) {
         if (signal?.aborted) {
           throw AssistantProviderError.timeout('OpenAI request was aborted');

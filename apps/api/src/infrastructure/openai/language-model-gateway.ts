@@ -57,7 +57,7 @@ export class OpenAiLanguageModelGateway implements LanguageModelGateway {
       store: false,
       stream: true,
       max_output_tokens: request.maxOutputTokens ?? this.maxOutputTokens,
-      input: request.messages.map(mapMessageToInput),
+      input: request.messages.flatMap(mapMessageToInput),
       ...(request.tools != null && request.tools.length > 0
         ? { tools: request.tools.map(mapToolDefinition) }
         : {}),
@@ -145,19 +145,33 @@ export class OpenAiLanguageModelGateway implements LanguageModelGateway {
   }
 }
 
-function mapMessageToInput(message: LanguageModelMessage): Record<string, unknown> {
+function mapMessageToInput(message: LanguageModelMessage): Record<string, unknown>[] {
   if (message.role === 'tool') {
-    return {
-      type: 'function_call_output',
-      call_id: message.toolCallId,
-      output: message.content,
-    };
+    return [
+      {
+        type: 'function_call_output',
+        call_id: message.toolCallId,
+        output: message.content,
+      },
+    ];
   }
-  return {
-    type: 'message',
-    role: message.role,
-    content: message.content,
-  };
+
+  if (message.role === 'assistant' && message.toolCalls != null && message.toolCalls.length > 0) {
+    return message.toolCalls.map((toolCall) => ({
+      type: 'function_call',
+      call_id: toolCall.id,
+      name: toolCall.name,
+      arguments: toolCall.argumentsJson,
+    }));
+  }
+
+  return [
+    {
+      type: 'message',
+      role: message.role,
+      content: message.content,
+    },
+  ];
 }
 
 function mapToolDefinition(tool: LanguageModelToolDefinition): FunctionTool {

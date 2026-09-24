@@ -177,7 +177,7 @@ No requirement IDs in Features 08–16 were weakened. No cross-edits to those fi
 
 ### Orchestrator (M5)
 
-- [ ] Hybrid RAG + tools + model; evidence rules; quotas; run lifecycle; safe errors.
+- [x] Hybrid RAG + tools + model; evidence rules; quotas; run lifecycle; safe errors. _(2026-09-24 local; unit tests with in-memory repos + OpenAI fakes)_
 
 ### API (M6)
 

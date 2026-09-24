@@ -5,6 +5,11 @@ export type LanguageModelMessage = {
   content: string;
   /** Required when role is `tool`: correlates with a prior tool_call id. */
   toolCallId?: string;
+  /**
+   * When the assistant requested tools, carry the calls so the next request
+   * can include `function_call` items (Responses API).
+   */
+  toolCalls?: Array<{ id: string; name: string; argumentsJson: string }>;
 };
 
 export type LanguageModelToolDefinition = {

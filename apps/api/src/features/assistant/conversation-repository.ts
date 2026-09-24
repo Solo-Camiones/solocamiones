@@ -84,6 +84,24 @@ export class ConversationRepository {
     });
   }
 
+  /** Sets title only when still empty (first user message of the conversation). */
+  async updateTitleIfEmpty(
+    conversationId: string,
+    userId: string,
+    title: string,
+  ): Promise<boolean> {
+    if (title.length > ASSISTANT_CONVERSATION_TITLE_MAX_LENGTH) {
+      throw new Error(
+        `Conversation title exceeds ${ASSISTANT_CONVERSATION_TITLE_MAX_LENGTH} characters`,
+      );
+    }
+    const result = await this.database.assistantConversation.updateMany({
+      where: { id: conversationId, userId, title: '' },
+      data: { title },
+    });
+    return result.count > 0;
+  }
+
   listExpiredIds(now: Date, batchSize: number): Promise<Array<{ id: string }>> {
     return this.database.assistantConversation.findMany({
       where: { expiresAt: { lte: now } },

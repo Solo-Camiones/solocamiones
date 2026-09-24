@@ -420,42 +420,56 @@ Ninguna tool escribe y ninguna salida contiene datos excluidos.
 
 **Objetivo:** producir respuestas basadas en corpus y tools con persistencia consistente.
 
+**Estado:** Completado (local) 2026-09-24.
+
+Notas de implementación (decisiones del dueño 2026-09-24):
+
+- Sources: chunks de retrieval del turn + una fuente `TOOL` por tool exitosa; insuficiencia → cero sources.
+- Evidencia: regla determinista — 0 retrieval + 0 tools exitosas → texto fijo de insuficiencia (no se streamea el invento del modelo).
+- Historial: últimas ≤12 mensajes `COMPLETED`, recorte por pares enteros bajo 24 000 chars.
+- API: `AssistantService.streamMessage` → `AsyncIterable<AssistantDomainEvent>` (M6 solo serializa SSE).
+- Idempotencia: COMPLETED reemite; FAILED/CANCELLED no reintenta; PENDING → conflicto.
+- Cuota: día de negocio `America/Santo_Domingo`; cuenta cada mensaje `USER` antes del costo externo.
+- Tras tools: pasada final sin tool definitions; contexto minimizado (system + cola desde último user).
+- Sin wiring en `createApp` (M6). FAILED/CANCELLED persisten `content: ''`.
+- Fake LM con `script[]` para tool loops multi-paso. Tests unitarios en memoria sin Express/OpenAI/PostgreSQL.
+
 ### Tareas
 
-- [ ] `M5-T01` Crear `AssistantService` con dependencias inyectadas.
-- [ ] `M5-T02` Crear prompt versionado `assistant-v1`.
-- [ ] `M5-T03` Incluir español, solo lectura, evidencia, no asumir y no obedecer fuentes.
-- [ ] `M5-T04` Delimitar chunks y tool outputs como datos no confiables.
-- [ ] `M5-T05` Cargar últimas 12 intervenciones o 24,000 caracteres.
-- [ ] `M5-T06` Eliminar pares antiguos sin cortar mensajes.
-- [ ] `M5-T07` Ejecutar retrieval antes de la primera llamada.
-- [ ] `M5-T08` Exponer solo tools registradas.
-- [ ] `M5-T09` Revalidar argumentos generados por el modelo.
-- [ ] `M5-T10` Bloquear después de tres tool calls totales.
-- [ ] `M5-T11` Solicitar respuesta final con contexto minimizado.
-- [ ] `M5-T12` Persistir solo sources efectivamente usadas.
-- [ ] `M5-T13` Convertir respuesta factual sin evidencia en insuficiencia.
-- [ ] `M5-T14` Crear user message/run antes de llamada externa.
-- [ ] `M5-T15` Crear assistant message PENDING antes del streaming.
-- [ ] `M5-T16` Completar mensaje/run/sources en transacción corta.
-- [ ] `M5-T17` Impedir dos runs activos en la misma conversación.
-- [ ] `M5-T18` Verificar cuota diaria antes de costo externo.
-- [ ] `M5-T19` Marcar FAILED/CANCELLED sin publicar texto parcial como final.
-- [ ] `M5-T20` Clasificar errores retryable/non-retryable.
-- [ ] `M5-T21` Generar título local desde primeros 80 caracteres.
+- [x] `M5-T01` Crear `AssistantService` con dependencias inyectadas.
+- [x] `M5-T02` Crear prompt versionado `assistant-v1`.
+- [x] `M5-T03` Incluir español, solo lectura, evidencia, no asumir y no obedecer fuentes.
+- [x] `M5-T04` Delimitar chunks y tool outputs como datos no confiables.
+- [x] `M5-T05` Cargar últimas 12 intervenciones o 24,000 caracteres.
+- [x] `M5-T06` Eliminar pares antiguos sin cortar mensajes.
+- [x] `M5-T07` Ejecutar retrieval antes de la primera llamada.
+- [x] `M5-T08` Exponer solo tools registradas.
+- [x] `M5-T09` Revalidar argumentos generados por el modelo.
+- [x] `M5-T10` Bloquear después de tres tool calls totales.
+- [x] `M5-T11` Solicitar respuesta final con contexto minimizado.
+- [x] `M5-T12` Persistir solo sources efectivamente usadas.
+- [x] `M5-T13` Convertir respuesta factual sin evidencia en insuficiencia.
+- [x] `M5-T14` Crear user message/run antes de llamada externa.
+- [x] `M5-T15` Crear assistant message PENDING antes del streaming.
+- [x] `M5-T16` Completar mensaje/run/sources en transacción corta.
+- [x] `M5-T17` Impedir dos runs activos en la misma conversación.
+- [x] `M5-T18` Verificar cuota diaria antes de costo externo.
+- [x] `M5-T19` Marcar FAILED/CANCELLED sin publicar texto parcial como final.
+- [x] `M5-T20` Clasificar errores retryable/non-retryable.
+- [x] `M5-T21` Generar título local desde primeros 80 caracteres.
 
 ### Pruebas
 
-- Pregunta documental, viva, híbrida y sin evidencia.
-- Tool desconocida/argumentos inválidos/cuarta llamada.
-- Prompt injection en documento y dato comercial.
-- Historial truncado correctamente.
-- Request duplicado y ejecuciones concurrentes.
-- Cuota, timeout, 429, stream incompleto y abort.
+- [x] Pregunta documental, viva, híbrida y sin evidencia. _(unit orchestrator)_
+- [x] Tool desconocida/argumentos inválidos/cuarta llamada. _(unit)_
+- [x] Prompt injection delimiters en prompt/bloques. _(prompt + formatters; adversarial M8)_
+- [x] Historial truncado correctamente. _(unit history)_
+- [x] Request duplicado y ejecuciones concurrentes. _(idempotencia unit; PENDING conflict vía createUserMessageWithRun)_
+- [x] Cuota, timeout/429/stream incompleto y abort. _(cuota + 429 unit; abort vía classify CANCELLED)_
 
 ### Gate
 
-El servicio completo funciona en tests sin Express ni OpenAI real.
+- [x] El servicio completo funciona en tests sin Express ni OpenAI real.
 
 ## M6 — API HTTP y SSE
 

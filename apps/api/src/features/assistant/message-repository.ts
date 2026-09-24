@@ -1,6 +1,7 @@
 import type { AssistantMessage, Prisma } from '@prisma/client';
 
 import { prisma } from '../../infrastructure/database/index.js';
+import { businessDateString, businessDayRange } from '../payments/dates.js';
 import { ASSISTANT_MESSAGE_PAGE_SIZE } from './constants.js';
 import type {
   CreateAssistantMessageInput,
@@ -8,7 +9,10 @@ import type {
   PaginatedResult,
 } from './types.js';
 
-type MessageDatabase = Pick<Prisma.TransactionClient, 'assistantMessage'>;
+type MessageDatabase = Pick<
+  Prisma.TransactionClient,
+  'assistantMessage' | 'assistantConversation'
+>;
 
 export class MessageRepository {
   constructor(private readonly database: MessageDatabase = prisma) {}
@@ -30,6 +34,40 @@ export class MessageRepository {
     return { items, total, page: query.page, pageSize };
   }
 
+  /**
+   * Newest COMPLETED messages for provider context (caller reverses/truncates).
+   * Excludes the current turn when `excludeMessageId` is set.
+   */
+  async listRecentCompleted(
+    conversationId: string,
+    limit: number,
+    excludeMessageId?: string,
+  ): Promise<AssistantMessage[]> {
+    const items = await this.database.assistantMessage.findMany({
+      where: {
+        conversationId,
+        status: 'COMPLETED',
+        ...(excludeMessageId ? { id: { not: excludeMessageId } } : {}),
+      },
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      take: limit,
+    });
+    return items.reverse();
+  }
+
+  /** USER messages owned by the actor created on the business calendar day. */
+  countUserMessagesForActorOnBusinessDay(userId: string, now: Date): Promise<number> {
+    const day = businessDateString(now);
+    const range = businessDayRange(day, day);
+    return this.database.assistantMessage.count({
+      where: {
+        role: 'USER',
+        createdAt: { gte: range.gte, lte: range.lte },
+        conversation: { userId },
+      },
+    });
+  }
+
   findByClientRequestId(
     conversationId: string,
     clientRequestId: string,
@@ -39,6 +77,10 @@ export class MessageRepository {
         conversationId_clientRequestId: { conversationId, clientRequestId },
       },
     });
+  }
+
+  findById(id: string): Promise<AssistantMessage | null> {
+    return this.database.assistantMessage.findUnique({ where: { id } });
   }
 
   createUserMessage(input: {
