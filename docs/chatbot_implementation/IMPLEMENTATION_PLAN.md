@@ -372,34 +372,45 @@ Cada chunk se puede rastrear a archivo, versión y requisitos implementados.
 
 **Objetivo:** consultar datos vivos mediante proyecciones seguras.
 
+**Estado:** Completado (local) 2026-09-23. Integración `tests/integration/assistant/tools.test.ts` ejecutada OK tras reset autorizado de `solocamiones_test`.
+
+Notas de implementación (decisiones del dueño 2026-09-23):
+
+- Agregados de `getCustomerCommercialSummary`: saldos CxC abiertos DOP/USD, conteo de documentos abiertos, exposición usada / crédito restante (solo `CREDIT`).
+- `getProfitabilitySummary`: KPIs + contadores diagnósticos; siempre reporta en DOP; filtra por moneda de entrada; USD convierte con FX almacenado y omite sin tasa (opción B).
+- `appPath`: `/customers`, `/sales/{id}`, `/receivables`, `/profitability`.
+- `sourceKey` de tools: `tool:<nombre>`.
+- Receivables: `type` = FAC|CON (documento primario), `overdue` boolean, `cutOff` fecha de negocio para saldos/vencido.
+- Puertos dedicados por módulo (`*AssistantQueryService`); registry allowlisted en `features/assistant/tools/`; selects Prisma explícitos; `assertAdministrator` en cada servicio.
+
 ### Tareas
 
-- [ ] `M4-T01` Definir `AssistantTool` y registry allowlisted.
-- [ ] `M4-T02` Definir schemas Zod/JSON de las seis tools.
-- [ ] `M4-T03` Crear puerto público en Customers.
-- [ ] `M4-T04` Implementar búsqueda y resumen comercial de cliente.
-- [ ] `M4-T05` Crear puerto público en Sales.
-- [ ] `M4-T06` Implementar búsqueda COT/CON/FAC y detalle mínimo.
-- [ ] `M4-T07` Crear puerto público de Receivables.
-- [ ] `M4-T08` Implementar agregados y detalle limitado.
-- [ ] `M4-T09` Crear puerto público de Profitability.
-- [ ] `M4-T10` Implementar resumen por período/moneda.
-- [ ] `M4-T11` Usar fechas de negocio `America/Santo_Domingo`.
-- [ ] `M4-T12` Añadir `asOf`, `sourceKey` y appPath aprobado.
-- [ ] `M4-T13` Repetir `assertAdministrator` en servicios.
-- [ ] `M4-T14` Usar selects Prisma explícitos; no ocultar datos después de cargarlos.
-- [ ] `M4-T15` Limitar filas/rangos antes de consultar/enviar.
-- [ ] `M4-T16` Mapear errores Prisma a errores de aplicación.
-- [ ] `M4-T17` Medir duración/conteos sin loguear resultados.
+- [x] `M4-T01` Definir `AssistantTool` y registry allowlisted.
+- [x] `M4-T02` Definir schemas Zod/JSON de las seis tools.
+- [x] `M4-T03` Crear puerto público en Customers.
+- [x] `M4-T04` Implementar búsqueda y resumen comercial de cliente.
+- [x] `M4-T05` Crear puerto público en Sales.
+- [x] `M4-T06` Implementar búsqueda COT/CON/FAC y detalle mínimo.
+- [x] `M4-T07` Crear puerto público de Receivables.
+- [x] `M4-T08` Implementar agregados y detalle limitado.
+- [x] `M4-T09` Crear puerto público de Profitability.
+- [x] `M4-T10` Implementar resumen por período/moneda.
+- [x] `M4-T11` Usar fechas de negocio `America/Santo_Domingo`.
+- [x] `M4-T12` Añadir `asOf`, `sourceKey` y appPath aprobado.
+- [x] `M4-T13` Repetir `assertAdministrator` en servicios.
+- [x] `M4-T14` Usar selects Prisma explícitos; no ocultar datos después de cargarlos.
+- [x] `M4-T15` Limitar filas/rangos antes de consultar/enviar.
+- [x] `M4-T16` Mapear errores Prisma a errores de aplicación.
+- [x] `M4-T17` Medir duración/conteos sin loguear resultados.
 
 ### Pruebas
 
-- Happy, vacío, inválido y not found por tool.
-- Seller/Mechanic rechazados en servicio.
-- Cero campos prohibidos en outputs.
-- Máximo 20 y máximo 366 días.
-- Totales coinciden con módulos existentes.
-- Sin N+1 ni dependencias a repositorios ajenos.
+- [x] Happy, vacío, inválido y not found por tool. _(unit + integración)_
+- [x] Seller/Mechanic rechazados en servicio. _(integración: Seller FORBIDDEN)_
+- [x] Cero campos prohibidos en outputs. _(unit + integración)_
+- [x] Máximo 20 y máximo 366 días. _(unit schemas)_
+- [x] Totales coinciden con módulos existentes. _(agregados de crédito/CxC vía mismas bases de `summarizePayments` / exposición; KPIs reusan `calculatedCompletedProfitability`)_
+- [x] Sin N+1 ni dependencias a repositorios ajenos. _(puertos/repos del módulo propietario)_
 
 ### Gate
 

@@ -1,4 +1,10 @@
-import { Prisma, type Invoice, type InvoiceSequence } from '@prisma/client';
+import {
+  Prisma,
+  type Invoice,
+  type InvoiceCurrency,
+  type InvoiceSequence,
+  type InvoiceStatus,
+} from '@prisma/client';
 
 import { prisma } from '../../infrastructure/database/index.js';
 import { businessDayRange } from '../payments/dates.js';
@@ -286,6 +292,276 @@ export class SalesRepository {
     return openRows.flatMap((row) => {
       const invoice = invoicesById.get(row.id);
       return invoice ? [invoice] : [];
+    });
+  }
+
+  /**
+   * Open CONDUCE/COMPLETED balances for one customer (both currencies).
+   * Explicit select omits customer PII and line notes/cost (AI-004).
+   */
+  async listOpenInvoicesForAssistantCustomer(customerId: string) {
+    return this.database.invoice.findMany({
+      where: {
+        customerId,
+        status: { in: ['COMPLETED', 'CONDUCE'] },
+      },
+      select: {
+        id: true,
+        currency: true,
+        status: true,
+        gross: true,
+        dueDate: true,
+        confirmedAt: true,
+        number: true,
+        conduceNumber: true,
+        payments: {
+          select: {
+            kind: true,
+            amount: true,
+            effectiveDate: true,
+            method: true,
+          },
+          orderBy: [
+            { effectiveDate: 'asc' },
+            { createdAt: 'asc' },
+            { id: 'asc' },
+          ],
+        },
+      },
+      orderBy: [{ confirmedAt: 'desc' }, { id: 'asc' }],
+    });
+  }
+
+  async searchDocumentsForAssistant(query: {
+    q?: string;
+    status?: InvoiceStatus;
+    customerId?: string;
+    dateFrom?: string;
+    dateTo?: string;
+    limit: number;
+  }) {
+    const where = listInvoiceWhere({
+      status: query.status,
+      q: query.q,
+      dateFrom: query.dateFrom,
+      dateTo: query.dateTo,
+      page: 1,
+      pageSize: query.limit,
+    });
+    const customerClause = query.customerId ? { customerId: query.customerId } : {};
+    return this.database.invoice.findMany({
+      where: { AND: [where, customerClause] },
+      select: {
+        id: true,
+        status: true,
+        number: true,
+        quoteNumber: true,
+        conduceNumber: true,
+        currency: true,
+        fiscal: true,
+        confirmedAt: true,
+        quoteIssuedAt: true,
+        conduceIssuedAt: true,
+        invoiceIssuedAt: true,
+        dueDate: true,
+        gross: true,
+        base: true,
+        itbis: true,
+        discountPercent: true,
+        confirmedByUserId: true,
+        confirmedByName: true,
+        quoteIssuedByUserId: true,
+        quoteIssuedByName: true,
+        customerId: true,
+        customer: { select: { id: true, name: true } },
+      },
+      take: query.limit,
+      orderBy: [{ updatedAt: 'desc' }, { id: 'asc' }],
+    });
+  }
+
+  findDocumentDetailForAssistant(id: string) {
+    return this.database.invoice.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        status: true,
+        number: true,
+        quoteNumber: true,
+        conduceNumber: true,
+        currency: true,
+        fiscal: true,
+        applyItbis: true,
+        discountPercent: true,
+        confirmedAt: true,
+        quoteIssuedAt: true,
+        quoteExpiresAt: true,
+        conduceIssuedAt: true,
+        invoiceIssuedAt: true,
+        dueDate: true,
+        gross: true,
+        base: true,
+        itbis: true,
+        confirmedByUserId: true,
+        confirmedByName: true,
+        quoteIssuedByUserId: true,
+        quoteIssuedByName: true,
+        customerId: true,
+        customer: { select: { id: true, name: true } },
+        lines: {
+          select: {
+            id: true,
+            type: true,
+            description: true,
+            quantity: true,
+            unitPrice: true,
+            gross: true,
+            base: true,
+            itbis: true,
+          },
+          orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+        },
+        payments: {
+          select: {
+            kind: true,
+            amount: true,
+            method: true,
+            effectiveDate: true,
+          },
+          orderBy: [
+            { effectiveDate: 'asc' },
+            { createdAt: 'asc' },
+            { id: 'asc' },
+          ],
+        },
+      },
+    });
+  }
+
+  async listReceivablesForAssistant(query: {
+    customerId?: string;
+    type?: 'FAC' | 'CON';
+    limit: number;
+  }) {
+    const typeFilter =
+      query.type === 'FAC'
+        ? { number: { not: null } }
+        : query.type === 'CON'
+          ? { conduceNumber: { not: null }, number: null }
+          : {};
+    return this.database.invoice.findMany({
+      where: {
+        status: { in: ['COMPLETED', 'CONDUCE'] },
+        ...(query.customerId ? { customerId: query.customerId } : {}),
+        ...typeFilter,
+      },
+      select: {
+        id: true,
+        status: true,
+        number: true,
+        conduceNumber: true,
+        currency: true,
+        fiscal: true,
+        confirmedAt: true,
+        dueDate: true,
+        gross: true,
+        base: true,
+        itbis: true,
+        discountPercent: true,
+        confirmedByUserId: true,
+        confirmedByName: true,
+        customerId: true,
+        customer: { select: { id: true, name: true } },
+        payments: {
+          select: {
+            kind: true,
+            amount: true,
+            method: true,
+            effectiveDate: true,
+          },
+          orderBy: [
+            { effectiveDate: 'asc' },
+            { createdAt: 'asc' },
+            { id: 'asc' },
+          ],
+        },
+      },
+      // Fetch a bounded pool; service filters open/overdue then slices to limit.
+      take: Math.min(query.limit * 10, 200),
+      orderBy: [{ confirmedAt: 'desc' }, { id: 'asc' }],
+    });
+  }
+
+  async listRecognizedSalesForAssistantProfitability(query: {
+    dateFrom: string;
+    dateTo: string;
+    currency: InvoiceCurrency;
+  }) {
+    const range = businessDayRange(query.dateFrom, query.dateTo);
+    return this.database.invoice.findMany({
+      where: {
+        status: { in: ['COMPLETED', 'CONDUCE'] },
+        currency: query.currency,
+        confirmedAt: range,
+      },
+      select: {
+        id: true,
+        status: true,
+        currency: true,
+        applyItbis: true,
+        confirmedAt: true,
+        gross: true,
+        base: true,
+        itbis: true,
+        exchangeRateDopPerUsd: true,
+        manualGrossProfitDop: true,
+        lines: {
+          select: {
+            type: true,
+            unitPrice: true,
+            quantity: true,
+            gross: true,
+            base: true,
+            itbis: true,
+            acquisitionCostDop: true,
+            costProvenance: true,
+          },
+        },
+        payments: {
+          select: {
+            kind: true,
+            amount: true,
+            method: true,
+            effectiveDate: true,
+            idempotencyKey: true,
+          },
+          orderBy: [
+            { effectiveDate: 'asc' },
+            { createdAt: 'asc' },
+            { id: 'asc' },
+          ],
+        },
+      },
+      orderBy: [{ confirmedAt: 'asc' }, { id: 'asc' }],
+    });
+  }
+
+  async listOpenReceivableBalancesForAssistant() {
+    return this.database.invoice.findMany({
+      where: { status: { in: ['COMPLETED', 'CONDUCE'] } },
+      select: {
+        currency: true,
+        status: true,
+        gross: true,
+        dueDate: true,
+        payments: {
+          select: {
+            kind: true,
+            amount: true,
+            effectiveDate: true,
+          },
+        },
+      },
     });
   }
 

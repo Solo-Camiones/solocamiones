@@ -60,3 +60,4 @@ export { SourceRepository } from './source-repository.js';
 export { assistantTransaction } from './transaction.js';
 export type { AssistantRepositories, AssistantTransaction } from './transaction.js';
 export type * from './types.js';
+export * from './tools/index.js';

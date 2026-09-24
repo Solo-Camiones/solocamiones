@@ -173,7 +173,7 @@ No requirement IDs in Features 08–16 were weakened. No cross-edits to those fi
 
 ### Tools (M4)
 
-- [ ] Six read-only tools with Zod, re-auth, field matrix, `asOf`/`sourceKey`.
+- [x] Six read-only tools with Zod, re-auth, field matrix, `asOf`/`sourceKey`. _(2026-09-23 local; unit + integration OK)_
 
 ### Orchestrator (M5)
 
