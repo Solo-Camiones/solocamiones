@@ -1,6 +1,8 @@
 import { fileURLToPath } from 'node:url';
 
+import { computeKnowledgeSha256 } from '../features/assistant/knowledge-checksum.js';
 import type { KnowledgeCorpusReport } from '../features/assistant/knowledge-corpus.js';
+import { isSafeRelativeMarkdownPath } from '../features/assistant/knowledge-manifest.js';
 
 // Resolved from this file so the CLI works from src/ (tsx) and dist/ alike.
 export const ASSISTANT_KNOWLEDGE_DIRECTORY = fileURLToPath(
@@ -37,6 +39,48 @@ export function parseKnowledgeCliArgs(
   }
 
   return { dryRun, help, unknown };
+}
+
+export type KnowledgeDocumentHash =
+  | { sourceKey: string; sha256: string }
+  | { sourceKey: string; error: string };
+
+/**
+ * Reads the manifest leniently (without the strict schema) because its main use
+ * is fixing a manifest that does not validate yet, e.g. an approved entry
+ * whose sha256 is still empty.
+ */
+export async function hashKnowledgeDocuments(
+  rawManifest: string,
+  readDocument: (relativePath: string) => Promise<string>,
+  requestedSourceKeys: string[],
+): Promise<KnowledgeDocumentHash[]> {
+  const parsed = JSON.parse(rawManifest) as { documents?: unknown };
+  const documents = Array.isArray(parsed.documents)
+    ? (parsed.documents as Array<{ sourceKey?: unknown; path?: unknown }>)
+    : [];
+  const selected =
+    requestedSourceKeys.length === 0
+      ? documents
+      : documents.filter((document) => requestedSourceKeys.includes(String(document.sourceKey)));
+
+  const results: KnowledgeDocumentHash[] = requestedSourceKeys
+    .filter((key) => !documents.some((document) => document.sourceKey === key))
+    .map((sourceKey) => ({ sourceKey, error: 'not found in manifest' }));
+
+  for (const document of selected) {
+    const sourceKey = String(document.sourceKey);
+    if (typeof document.path !== 'string' || !isSafeRelativeMarkdownPath(document.path)) {
+      results.push({ sourceKey, error: 'path must be a relative .md path inside the corpus' });
+      continue;
+    }
+    try {
+      results.push({ sourceKey, sha256: computeKnowledgeSha256(await readDocument(document.path)) });
+    } catch {
+      results.push({ sourceKey, error: `cannot read ${document.path}` });
+    }
+  }
+  return results;
 }
 
 export function formatCorpusReport(report: KnowledgeCorpusReport): string[] {

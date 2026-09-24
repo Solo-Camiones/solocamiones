@@ -22,7 +22,7 @@ export type KnowledgeDocumentStatus = (typeof KNOWLEDGE_DOCUMENT_STATUSES)[numbe
  * Paths stay relative to the corpus directory, use forward slashes, and never
  * climb out of it, so the manifest cannot admit arbitrary repository files.
  */
-function isSafeRelativeMarkdownPath(value: string): boolean {
+export function isSafeRelativeMarkdownPath(value: string): boolean {
   if (!value.endsWith(MARKDOWN_EXTENSION)) return false;
   if (value.startsWith('/') || value.includes('\\') || value.includes(':')) return false;
   return value
