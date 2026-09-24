@@ -181,7 +181,7 @@ No requirement IDs in Features 08–16 were weakened. No cross-edits to those fi
 
 ### API (M6)
 
-- [ ] `/api/assistant` CRUD + SSE; CSRF; rate limit; `503` when disabled.
+- [x] `/api/assistant` CRUD + SSE; CSRF; rate limit; `503` when disabled. _(2026-09-24; unit + integration OK)_
 
 ### Web (M7)
 

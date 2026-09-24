@@ -7,6 +7,7 @@ export const APP_ERROR_CODES = [
   'UNSUPPORTED_MEDIA_TYPE',
   'CONFLICT',
   'TOO_MANY_REQUESTS',
+  'SERVICE_UNAVAILABLE',
   'INTERNAL',
 ] as const;
 
@@ -21,6 +22,7 @@ export const HTTP_STATUS_BY_ERROR_CODE: Record<AppErrorCode, number> = {
   UNSUPPORTED_MEDIA_TYPE: 415,
   CONFLICT: 409,
   TOO_MANY_REQUESTS: 429,
+  SERVICE_UNAVAILABLE: 503,
   INTERNAL: 500,
 };
 
@@ -65,6 +67,13 @@ export class AppError extends Error {
 
   static tooManyRequests(message = 'Too many requests'): AppError {
     return new AppError('TOO_MANY_REQUESTS', message);
+  }
+
+  static serviceUnavailable(
+    message = 'Service temporarily unavailable',
+    details?: Record<string, unknown>,
+  ): AppError {
+    return new AppError('SERVICE_UNAVAILABLE', message, details);
   }
 
   static internal(message = 'An unexpected error occurred'): AppError {

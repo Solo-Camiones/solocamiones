@@ -133,6 +133,13 @@ describe('mapErrorToHttp', () => {
       status: 429,
       code: 'TOO_MANY_REQUESTS',
     },
+    {
+      error: AppError.serviceUnavailable('Assistant is disabled', {
+        reason: 'ASSISTANT_DISABLED',
+      }),
+      status: 503,
+      code: 'SERVICE_UNAVAILABLE',
+    },
   ] as const)('maps $code to HTTP $status without errorId', ({ error, status, code }) => {
     const mapped = mapErrorToHttp(error, ERROR_ID);
 

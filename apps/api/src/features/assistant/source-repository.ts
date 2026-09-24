@@ -48,4 +48,13 @@ export class SourceRepository {
       orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }],
     });
   }
+
+  /** Batch load for message history pages (avoids N+1). */
+  listByAssistantMessageIds(assistantMessageIds: string[]): Promise<AssistantSource[]> {
+    if (assistantMessageIds.length === 0) return Promise.resolve([]);
+    return this.database.assistantSource.findMany({
+      where: { assistantMessageId: { in: assistantMessageIds } },
+      orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }],
+    });
+  }
 }

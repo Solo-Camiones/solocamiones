@@ -10,7 +10,7 @@ const DEFAULT_PORT = 3000;
 
 const port = Number(process.env.PORT ?? DEFAULT_PORT);
 
-// Validate assistant env at boot; gateways are not wired into createApp until M5/M6.
+// Validate assistant env at boot; createApp wires gateways (fakes when disabled).
 parseAssistantConfig();
 getInitialPassword();
 

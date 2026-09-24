@@ -26,6 +26,14 @@ export function classifyAssistantError(error: unknown): ClassifiedAssistantError
   }
 
   if (isAppError(error)) {
+    if (error.code === 'SERVICE_UNAVAILABLE') {
+      return {
+        code: ASSISTANT_RUN_ERROR_CODES.DISABLED,
+        message: error.message || ASSISTANT_DISABLED_MESSAGE,
+        retryable: false,
+        cancelled: false,
+      };
+    }
     if (error.code === 'TOO_MANY_REQUESTS') {
       return {
         code: ASSISTANT_RUN_ERROR_CODES.QUOTA,
@@ -129,6 +137,12 @@ function classifyProviderError(error: AssistantProviderError): ClassifiedAssista
 
 export function assistantQuotaExceededError(): AppError {
   return AppError.tooManyRequests(ASSISTANT_DAILY_QUOTA_EXCEEDED_MESSAGE);
+}
+
+export function assistantDisabledError(): AppError {
+  return AppError.serviceUnavailable(ASSISTANT_DISABLED_MESSAGE, {
+    reason: ASSISTANT_RUN_ERROR_CODES.DISABLED,
+  });
 }
 
 export function assistantMaxToolCallsError(): AppError {

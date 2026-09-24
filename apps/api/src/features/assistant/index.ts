@@ -11,8 +11,11 @@ export {
   ASSISTANT_MESSAGE_PAGE_SIZE,
   ASSISTANT_PROMPT_VERSION,
   ASSISTANT_PURGE_BATCH_SIZE,
+  ASSISTANT_RATE_LIMIT_MAX_REQUESTS,
+  ASSISTANT_RATE_LIMIT_WINDOW_MS,
   ASSISTANT_RUN_ERROR_CODES,
   ASSISTANT_RUN_NOT_PENDING_MESSAGE,
+  ASSISTANT_SSE_HEARTBEAT_INTERVAL_MS,
   ASSISTANT_TITLE_FROM_CONTENT_CHARS,
   KNOWLEDGE_PROVIDER_ERROR_CODE_PREFIX,
   KNOWLEDGE_SYNC_FAILED_ERROR_CODE,
@@ -71,9 +74,27 @@ export type { AssistantRepositories, AssistantTransaction } from './transaction.
 export type * from './types.js';
 export * from './tools/index.js';
 export { AssistantService } from './service.js';
-export type { AssistantServiceDependencies } from './service.js';
+export type { AssistantServiceDependencies, PreparedStreamTurn } from './service.js';
 export type { AssistantDomainEvent, StreamMessageInput } from './domain-events.js';
 export type { AssistantSourceView } from './evidence.js';
+export {
+  toPublicConversation,
+  toPublicMessage,
+  toPublicSource,
+} from './projection.js';
+export type { PublicAssistantConversation, PublicAssistantMessage } from './projection.js';
+export { createAssistantService } from './create-service.js';
+export { createAssistantRouter } from './routes.js';
+export type { CreateAssistantRouterOptions } from './routes.js';
+export { formatSseEvent, openAssistantSse, startSseHeartbeat } from './sse.js';
+export type { SseWriter } from './sse.js';
+export { resetAssistantRateLimit } from './assistant-rate-limit.js';
+export {
+  conversationIdParamsSchema,
+  createPostMessageBodySchema,
+  paginationQuerySchema,
+  postMessageBodySchema,
+} from './validation.js';
 export {
   ASSISTANT_SYSTEM_PROMPT,
   formatRetrievedDocumentBlock,
@@ -82,4 +103,4 @@ export {
 } from './prompt.js';
 export { truncateAssistantHistory } from './history.js';
 export { titleFromUserContent } from './title.js';
-export { classifyAssistantError } from './classify-error.js';
+export { classifyAssistantError, assistantDisabledError } from './classify-error.js';

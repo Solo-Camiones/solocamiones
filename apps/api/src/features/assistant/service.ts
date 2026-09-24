@@ -18,6 +18,7 @@ import {
   ASSISTANT_RUN_ERROR_CODES,
 } from './constants.js';
 import {
+  assistantDisabledError,
   assistantMaxToolCallsError,
   assistantQuotaExceededError,
   classifyAssistantError,
@@ -34,6 +35,12 @@ import {
 } from './evidence.js';
 import { truncateAssistantHistory } from './history.js';
 import {
+  toPublicConversation,
+  toPublicMessage,
+  type PublicAssistantConversation,
+  type PublicAssistantMessage,
+} from './projection.js';
+import {
   ASSISTANT_SYSTEM_PROMPT,
   formatRetrievedDocumentBlock,
   formatToolResultBlock,
@@ -42,7 +49,7 @@ import {
 import { titleFromUserContent } from './title.js';
 import type { AssistantToolRegistry } from './tools/types.js';
 import type { AssistantRepositories, AssistantTransaction } from './transaction.js';
-import type { CreateSourceInput } from './types.js';
+import type { CreateSourceInput, PaginatedResult } from './types.js';
 
 export type AssistantServiceDependencies = {
   config: AssistantConfig;
@@ -69,6 +76,16 @@ type TurnToolResult = {
   contentForModel: string;
 };
 
+/** Result of HTTP preflight before opening the SSE response (decision 2A). */
+export type PreparedStreamTurn =
+  | { mode: 'fresh'; content: string }
+  | {
+      mode: 'replay';
+      content: string;
+      userMessage: AssistantMessage;
+      run: AssistantRun;
+    };
+
 /**
  * Hybrid orchestrator: retrieval → model ↔ allowlisted tools → evidence gate → persistence.
  * Emits domain events for M6 SSE; no Express and no OpenAI SDK imports.
@@ -92,62 +109,190 @@ export class AssistantService {
     this.createErrorId = dependencies.createErrorId ?? (() => randomUUID());
   }
 
-  streamMessage(input: StreamMessageInput): AsyncIterable<AssistantDomainEvent> {
-    return this.iterate(input);
+  assertEnabled(): void {
+    if (!this.config.enabled) {
+      throw assistantDisabledError();
+    }
   }
 
-  private async *iterate(input: StreamMessageInput): AsyncGenerator<AssistantDomainEvent> {
-    const now = input.now ?? new Date();
-    const errorId = this.createErrorId();
+  async createConversation(userId: string): Promise<PublicAssistantConversation> {
+    this.assertEnabled();
+    const conversation = await this.repositories.conversations.create({
+      userId,
+      retentionDays: this.config.retentionDays,
+      title: '',
+    });
+    return toPublicConversation(conversation);
+  }
 
-    if (!this.config.enabled) {
-      yield {
-        type: 'error',
-        code: ASSISTANT_RUN_ERROR_CODES.DISABLED,
-        message: 'Assistant is disabled',
-        retryable: false,
-        errorId,
-      };
-      return;
+  async listConversations(
+    userId: string,
+    page: number,
+  ): Promise<PaginatedResult<PublicAssistantConversation>> {
+    this.assertEnabled();
+    const result = await this.repositories.conversations.listOwned({ userId, page });
+    return {
+      ...result,
+      items: result.items.map(toPublicConversation),
+    };
+  }
+
+  async listMessages(
+    userId: string,
+    conversationId: string,
+    page: number,
+  ): Promise<PaginatedResult<PublicAssistantMessage>> {
+    this.assertEnabled();
+    const conversation = await this.repositories.conversations.findOwned(
+      conversationId,
+      userId,
+    );
+    if (!conversation) {
+      throw AppError.notFound();
     }
+
+    const result = await this.repositories.messages.listByConversation({
+      conversationId,
+      page,
+    });
+    const assistantIds = result.items
+      .filter((message) => message.role === 'ASSISTANT')
+      .map((message) => message.id);
+    const allSources =
+      await this.repositories.sources.listByAssistantMessageIds(assistantIds);
+    const sourcesByMessageId = new Map<string, typeof allSources>();
+    for (const source of allSources) {
+      const bucket = sourcesByMessageId.get(source.assistantMessageId) ?? [];
+      bucket.push(source);
+      sourcesByMessageId.set(source.assistantMessageId, bucket);
+    }
+
+    return {
+      ...result,
+      items: result.items.map((message) =>
+        toPublicMessage(message, sourcesByMessageId.get(message.id) ?? []),
+      ),
+    };
+  }
+
+  async deleteConversation(userId: string, conversationId: string): Promise<void> {
+    this.assertEnabled();
+    const deleted = await this.repositories.conversations.deleteOwned(
+      conversationId,
+      userId,
+    );
+    if (!deleted) {
+      throw AppError.notFound();
+    }
+  }
+
+  /**
+   * HTTP preflight: throws AppError for disabled / validation / ownership / quota / conflict.
+   * Call before opening SSE headers.
+   */
+  async prepareStreamMessage(input: StreamMessageInput): Promise<PreparedStreamTurn> {
+    this.assertEnabled();
 
     const content = input.content.trim();
     if (content.length === 0) {
-      yield {
-        type: 'error',
-        code: 'ASSISTANT_VALIDATION',
-        message: 'Message content is required',
-        retryable: false,
-        errorId,
-      };
-      return;
+      throw AppError.validation('Message content is required');
     }
     if (content.length > this.config.maxInputChars) {
-      yield {
-        type: 'error',
-        code: 'ASSISTANT_VALIDATION',
-        message: `Message exceeds ${this.config.maxInputChars} characters`,
-        retryable: false,
-        errorId,
-      };
+      throw AppError.validation(`Message exceeds ${this.config.maxInputChars} characters`);
+    }
+
+    const conversation = await this.repositories.conversations.findOwned(
+      input.conversationId,
+      input.userId,
+    );
+    if (!conversation) {
+      throw AppError.notFound();
+    }
+
+    const existingMessage = await this.repositories.messages.findByClientRequestId(
+      input.conversationId,
+      input.clientRequestId,
+    );
+    if (existingMessage) {
+      const existingRun = await this.repositories.runs.findByUserMessageId(
+        existingMessage.id,
+      );
+      if (!existingRun) {
+        throw AppError.internal('Idempotent assistant message is missing its run');
+      }
+      // Same clientRequestId still in flight — client must wait or use a new id.
+      if (existingRun.status === 'PENDING') {
+        throw AppError.conflict(ASSISTANT_ACTIVE_RUN_CONFLICT_MESSAGE);
+      }
+      return { mode: 'replay', content, userMessage: existingMessage, run: existingRun };
+    }
+
+    const now = input.now ?? new Date();
+    const usedToday =
+      await this.repositories.messages.countUserMessagesForActorOnBusinessDay(
+        input.userId,
+        now,
+      );
+    if (usedToday >= this.config.dailyMessageLimit) {
+      throw assistantQuotaExceededError();
+    }
+
+    const pendingRun = await this.repositories.runs.findPendingByConversationId(
+      input.conversationId,
+    );
+    if (pendingRun) {
+      throw AppError.conflict(ASSISTANT_ACTIVE_RUN_CONFLICT_MESSAGE);
+    }
+
+    return { mode: 'fresh', content };
+  }
+
+  /**
+   * Continues after prepareStreamMessage. Mid-stream failures become domain `error` events.
+   */
+  streamPrepared(
+    prepared: PreparedStreamTurn,
+    input: StreamMessageInput,
+  ): AsyncIterable<AssistantDomainEvent> {
+    return this.iteratePrepared(prepared, input);
+  }
+
+  /**
+   * Convenience for unit tests: prepare then stream.
+   * Preflight AppErrors reject the first iterator pull (no domain error event).
+   */
+  streamMessage(input: StreamMessageInput): AsyncIterable<AssistantDomainEvent> {
+    return this.iterateFromInput(input);
+  }
+
+  private async *iterateFromInput(
+    input: StreamMessageInput,
+  ): AsyncGenerator<AssistantDomainEvent> {
+    const prepared = await this.prepareStreamMessage(input);
+    yield* this.iteratePrepared(prepared, input);
+  }
+
+  private async *iteratePrepared(
+    prepared: PreparedStreamTurn,
+    input: StreamMessageInput,
+  ): AsyncGenerator<AssistantDomainEvent> {
+    const now = input.now ?? new Date();
+
+    if (prepared.mode === 'replay') {
+      yield* this.replayExisting(
+        prepared.userMessage,
+        prepared.run,
+        input.conversationId,
+      );
       return;
     }
 
     try {
-      const usedToday =
-        await this.repositories.messages.countUserMessagesForActorOnBusinessDay(
-          input.userId,
-          now,
-        );
-      if (usedToday >= this.config.dailyMessageLimit) {
-        throw assistantQuotaExceededError();
-      }
-
       const created = await this.runTransaction((repos) =>
         createUserMessageWithRun(repos, {
           conversationId: input.conversationId,
           userId: input.userId,
-          content,
+          content: prepared.content,
           clientRequestId: input.clientRequestId,
           model: this.config.chatModel,
           promptVersion: getAssistantPromptVersion(),
@@ -156,12 +301,16 @@ export class AssistantService {
         }),
       );
 
+      // Race: another request created the same clientRequestId between prepare and here.
       if (!created.created) {
+        if (created.run.status === 'PENDING') {
+          throw AppError.conflict(ASSISTANT_ACTIVE_RUN_CONFLICT_MESSAGE);
+        }
         yield* this.replayExisting(created.message, created.run, input.conversationId);
         return;
       }
 
-      const title = titleFromUserContent(content);
+      const title = titleFromUserContent(prepared.content);
       if (title.length > 0) {
         await this.repositories.conversations.updateTitleIfEmpty(
           input.conversationId,
@@ -216,6 +365,11 @@ export class AssistantService {
         };
       }
     } catch (error) {
+      // Pre-metadata AppErrors stay throws for HTTP mapping (controller pulls first event
+      // before opening SSE). Other failures become a domain error event.
+      if (error instanceof AppError) {
+        throw error;
+      }
       const classified = classifyAssistantError(error);
       yield {
         type: 'error',
@@ -239,6 +393,7 @@ export class AssistantService {
       runId: run.id,
     };
 
+    // PENDING is rejected in prepareStreamMessage; keep a defensive check.
     if (run.status === 'PENDING') {
       throw AppError.conflict(ASSISTANT_ACTIVE_RUN_CONFLICT_MESSAGE);
     }

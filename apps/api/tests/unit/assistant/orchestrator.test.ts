@@ -309,6 +309,12 @@ function createMemoryRepositories(store: MemoryStore): AssistantRepositories {
         .filter((source) => source.assistantMessageId === assistantMessageId)
         .sort((a, b) => a.sortOrder - b.sortOrder);
     },
+    async listByAssistantMessageIds(assistantMessageIds: string[]) {
+      const idSet = new Set(assistantMessageIds);
+      return [...store.sources.values()]
+        .filter((source) => idSet.has(source.assistantMessageId))
+        .sort((a, b) => a.sortOrder - b.sortOrder || a.id.localeCompare(b.id));
+    },
   };
 
   return {
@@ -709,7 +715,7 @@ describe('AssistantService', () => {
       runTransaction: async (work) => work(repositories),
     });
 
-    const events = await collectEvents(
+    const eventsPromise = collectEvents(
       service.streamMessage({
         conversationId: conversation.id,
         userId: conversation.userId,
@@ -718,14 +724,10 @@ describe('AssistantService', () => {
       }),
     );
 
+    await expect(eventsPromise).rejects.toMatchObject({
+      code: 'TOO_MANY_REQUESTS',
+    });
     expect(retrieve).not.toHaveBeenCalled();
-    expect(events).toEqual([
-      expect.objectContaining({
-        type: 'error',
-        code: ASSISTANT_RUN_ERROR_CODES.QUOTA,
-        retryable: false,
-      }),
-    ]);
   });
 
   it('maps provider 429 to a retryable error and does not complete the assistant message', async () => {
@@ -839,22 +841,19 @@ describe('AssistantService', () => {
       runTransaction: async (work) => work(repositories),
     });
 
-    const events = await collectEvents(
-      service.streamMessage({
-        conversationId: conversation.id,
-        userId: conversation.userId,
-        content: 'hola',
-        clientRequestId: randomUUID(),
-      }),
-    );
-
+    await expect(
+      collectEvents(
+        service.streamMessage({
+          conversationId: conversation.id,
+          userId: conversation.userId,
+          content: 'hola',
+          clientRequestId: randomUUID(),
+        }),
+      ),
+    ).rejects.toMatchObject({
+      code: 'SERVICE_UNAVAILABLE',
+      details: { reason: ASSISTANT_RUN_ERROR_CODES.DISABLED },
+    });
     expect(retrieve).not.toHaveBeenCalled();
-    expect(events).toEqual([
-      expect.objectContaining({
-        type: 'error',
-        code: ASSISTANT_RUN_ERROR_CODES.DISABLED,
-        retryable: false,
-      }),
-    ]);
   });
 });

@@ -475,31 +475,40 @@ Notas de implementación (decisiones del dueño 2026-09-24):
 
 **Objetivo:** publicar el módulo con contratos y seguridad consistentes.
 
+**Estado:** Completado (local) 2026-09-24.
+
+Notas de implementación (decisiones del dueño 2026-09-24):
+
+- `AppError.SERVICE_UNAVAILABLE` (503) con `details.reason: ASSISTANT_DISABLED`.
+- Preflight HTTP (enabled, ownership, cuota, conflicto, validación) antes de abrir SSE; mid-stream usa `event: error`.
+- Rate limit dedicado: **60 req / 15 min / userId** en `/api/assistant`.
+- Heartbeat SSE: comentario `: heartbeat` cada 15s.
+- `GET .../messages` incluye `sources[]` en mensajes ASSISTANT.
+- Wiring en `createApp` + `CreateAppOptions.assistantConfig` / `assistantService`.
+- Migración `20260924000000_assistant_message_pending_content`: permite `content` vacío en PENDING/FAILED/CANCELLED (alineado con el ciclo de vida M5).
+
 ### Tareas
 
-- [ ] `M6-T01` Crear validaciones Zod para params/query/body.
-- [ ] `M6-T02` Crear controller sin lógica de negocio.
-- [ ] `M6-T03` Crear router `/api/assistant`.
-- [ ] `M6-T04` Aplicar auth, Administrator, CSRF, no-store y rate limit.
-- [ ] `M6-T05` Implementar CRUD acotado de conversaciones/mensajes.
-- [ ] `M6-T06` Crear serializador central de SSE.
-- [ ] `M6-T07` Implementar metadata/delta/sources/done/error.
-- [ ] `M6-T08` Implementar heartbeat de 15 segundos.
-- [ ] `M6-T09` Propagar cierre de conexión como abort.
-- [ ] `M6-T10` Evitar writes tras `writableEnded`.
-- [ ] `M6-T11` Diferenciar errores pre-stream/post-stream.
-- [ ] `M6-T12` Registrar requestId/runId/resultado sin contenido.
-- [ ] `M6-T13` Registrar dependencias en `createApp()`.
-- [ ] `M6-T14` Extender `CreateAppOptions` para dobles de tests.
-- [ ] `M6-T15` Devolver `503 ASSISTANT_DISABLED` si está apagado.
+- [x] `M6-T01` Crear validaciones Zod para params/query/body.
+- [x] `M6-T02` Crear controller sin lógica de negocio.
+- [x] `M6-T03` Crear router `/api/assistant`.
+- [x] `M6-T04` Aplicar auth, Administrator, CSRF, no-store y rate limit.
+- [x] `M6-T05` Implementar CRUD acotado de conversaciones/mensajes.
+- [x] `M6-T06` Crear serializador central de SSE.
+- [x] `M6-T07` Implementar metadata/delta/sources/done/error.
+- [x] `M6-T08` Implementar heartbeat de 15 segundos.
+- [x] `M6-T09` Propagar cierre de conexión como abort.
+- [x] `M6-T10` Evitar writes tras `writableEnded`.
+- [x] `M6-T11` Diferenciar errores pre-stream/post-stream.
+- [x] `M6-T12` Registrar requestId/runId/resultado sin contenido.
+- [x] `M6-T13` Registrar dependencias en `createApp()`.
+- [x] `M6-T14` Extender `CreateAppOptions` para dobles de tests.
+- [x] `M6-T15` Devolver `503 ASSISTANT_DISABLED` si está apagado.
 
 ### Pruebas
 
-- 401, 403 rol, 403 CSRF, 404 ownership, 409 concurrency, 429 y 503.
-- Headers y orden de eventos SSE.
-- Error tras iniciar stream.
-- Desconexión cancela run.
-- Health/readiness no depende de OpenAI.
+- [x] Unit: SSE serializer, map-error 503, orquestador preflight (cuota/disabled).
+- [x] Integración HTTP/SSE: 401, 403 rol, 403 CSRF, 404 ownership, 409 concurrency, 429 y 503; orden de eventos; readiness. _(2026-09-24; reset autorizado de `solocamiones_test`)_
 
 ### Gate
 

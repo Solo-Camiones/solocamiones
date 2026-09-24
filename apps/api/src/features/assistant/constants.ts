@@ -3,6 +3,13 @@ export const ASSISTANT_CONVERSATION_PAGE_SIZE = 20;
 export const ASSISTANT_MESSAGE_PAGE_SIZE = 50;
 export const ASSISTANT_PURGE_BATCH_SIZE = 100;
 
+/** Dedicated HTTP ceiling for /api/assistant (costly LLM work sits behind daily quota). */
+export const ASSISTANT_RATE_LIMIT_MAX_REQUESTS = 60;
+export const ASSISTANT_RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000;
+
+/** SSE comment keepalive while a run is open (M6-T08). */
+export const ASSISTANT_SSE_HEARTBEAT_INTERVAL_MS = 15_000;
+
 /** Context window for the language-model call (M5-T05). */
 export const ASSISTANT_HISTORY_MAX_MESSAGES = 12;
 export const ASSISTANT_HISTORY_MAX_CHARS = 24_000;

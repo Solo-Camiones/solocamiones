@@ -48,6 +48,12 @@ function createProbeRouter(): Router {
     throw AppError.tooManyRequests();
   });
 
+  router.get('/unavailable', () => {
+    throw AppError.serviceUnavailable('Assistant is disabled', {
+      reason: 'ASSISTANT_DISABLED',
+    });
+  });
+
   return router;
 }
 
@@ -135,6 +141,19 @@ describe('HTTP error contract (integration)', () => {
       error: {
         code: 'CONFLICT',
         message: 'Username already exists',
+      },
+    });
+  });
+
+  it('maps application SERVICE_UNAVAILABLE to 503 without errorId', async () => {
+    const response = await request(createProbeApp()).get('/api/test-probe/unavailable');
+
+    expect(response.status).toBe(503);
+    expect(response.body).toEqual({
+      error: {
+        code: 'SERVICE_UNAVAILABLE',
+        message: 'Assistant is disabled',
+        details: { reason: 'ASSISTANT_DISABLED' },
       },
     });
   });
