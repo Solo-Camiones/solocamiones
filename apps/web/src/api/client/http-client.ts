@@ -13,9 +13,13 @@ const ERROR_MESSAGES: Record<AppErrorCode, string> = {
     'Se alcanzó temporalmente el límite de solicitudes. Espere unos minutos antes de volver a intentar.',
   PAYLOAD_TOO_LARGE: 'Los datos enviados superan el tamaño permitido.',
   UNSUPPORTED_MEDIA_TYPE: 'El formato de los datos no es compatible.',
+  SERVICE_UNAVAILABLE: 'El servicio no está disponible temporalmente. Intente más tarde.',
   INTERNAL: 'No se pudo completar la operación. Intente nuevamente.',
   NETWORK: 'No se pudo conectar con el servidor. Revise su conexión e intente nuevamente.',
 };
+
+const ASSISTANT_DISABLED_MESSAGE =
+  'El asistente no está habilitado en este entorno.';
 
 export class HttpError extends Error {
   constructor(
@@ -26,7 +30,8 @@ export class HttpError extends Error {
   }
 }
 
-function mapResponseError(status: number, body: unknown): AppError {
+/** Shared HTTP error mapping for JSON clients and SSE preflight failures. */
+export function mapResponseError(status: number, body: unknown): AppError {
   const fallback: AppErrorCode =
     (
       {
@@ -38,6 +43,7 @@ function mapResponseError(status: number, body: unknown): AppError {
         413: 'PAYLOAD_TOO_LARGE',
         415: 'UNSUPPORTED_MEDIA_TYPE',
         429: 'TOO_MANY_REQUESTS',
+        503: 'SERVICE_UNAVAILABLE',
       } as Record<number, AppErrorCode>
     )[status] ?? 'INTERNAL';
   const envelope = body && typeof body === 'object' && 'error' in body ? body.error : null;
@@ -54,15 +60,19 @@ function mapResponseError(status: number, body: unknown): AppError {
       ? (error.details as Record<string, unknown>)
       : undefined;
   const serverMessage = 'message' in error && typeof error.message === 'string' ? error.message : undefined;
+  const isAssistantDisabled =
+    code === 'SERVICE_UNAVAILABLE' && details?.reason === 'ASSISTANT_DISABLED';
   const presented = presentError({
     details,
-    fallbackMessage: ERROR_MESSAGES[code],
-    serverMessage,
+    fallbackMessage: isAssistantDisabled ? ASSISTANT_DISABLED_MESSAGE : ERROR_MESSAGES[code],
+    serverMessage: isAssistantDisabled ? undefined : serverMessage,
   });
   const errorId =
     'errorId' in error && typeof error.errorId === 'string' ? error.errorId : undefined;
   let message = presented.summary;
-  if (code === 'INTERNAL' && errorId) message += ` Referencia: ${errorId}`;
+  if ((code === 'INTERNAL' || code === 'SERVICE_UNAVAILABLE') && errorId) {
+    message += ` Referencia: ${errorId}`;
+  }
   return { code, message, details, ...(errorId ? { errorId } : {}) };
 }
 

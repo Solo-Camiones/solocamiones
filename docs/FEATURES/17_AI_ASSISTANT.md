@@ -185,7 +185,7 @@ No requirement IDs in Features 08–16 were weakened. No cross-edits to those fi
 
 ### Web (M7)
 
-- [ ] Contracts, repository, capability, AppShell panel, accessibility, Markdown sanitization.
+- [x] Contracts, repository, capability, AppShell panel, accessibility, Markdown sanitization. _(2026-09-24 local)_
 
 ### Security and operations (M8)
 

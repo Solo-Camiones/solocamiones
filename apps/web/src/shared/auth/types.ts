@@ -8,6 +8,7 @@ export type AppErrorCode =
   | 'TOO_MANY_REQUESTS'
   | 'PAYLOAD_TOO_LARGE'
   | 'UNSUPPORTED_MEDIA_TYPE'
+  | 'SERVICE_UNAVAILABLE'
   | 'NETWORK'
   | 'INTERNAL';
 

@@ -21,6 +21,7 @@ import { UX_TERMS } from '../copy/glossary';
  * | hierarchy             | Baseline, ensamblajes, No desarmar, árbol recepción | 6 Hierarchy     |
  * | workOrders            | `/work-orders`, app mecánico, OT manual             | 7 Work orders   |
  * | recovery              | `/recovery`                                         | 8 Recovery      |
+ * | assistant             | Global side panel (Administrator); independent of R1–8 | Feature 17   |
  * | prototypeControls     | DemoControls / credenciales demo                    | never in prod   |
  */
 export type AppCapability =
@@ -37,6 +38,7 @@ export type AppCapability =
   | 'hierarchy'
   | 'workOrders'
   | 'recovery'
+  | 'assistant'
   | 'prototypeControls';
 
 export type AppCapabilities = Record<AppCapability, boolean>;
@@ -67,6 +69,7 @@ const DISABLED: AppCapabilities = {
   hierarchy: false,
   workOrders: false,
   recovery: false,
+  assistant: false,
   prototypeControls: false,
 };
 
@@ -176,6 +179,8 @@ export function resolveCapabilities(
       profitability: true,
       payments: true,
       invoiceCancellation: true,
+      // Feature 17: independent of Release 1–8; kill switch remains ASSISTANT_ENABLED on the API.
+      assistant: true,
     };
   }
   const presetName = parseCapabilityPreset(env.VITE_CAPABILITIES_PRESET);

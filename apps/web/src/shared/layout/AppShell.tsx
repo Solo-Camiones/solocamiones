@@ -3,6 +3,13 @@ import { Outlet, useLocation } from 'react-router-dom';
 
 import { useAuth } from '../../features/auth/useAuth';
 import { useAppCapabilities } from '../config/CapabilitiesProvider';
+import { assistantRepository } from '../../api/repositories';
+import {
+  AssistantLauncher,
+  AssistantPanel,
+  AssistantProvider,
+  canShowAssistantLauncher,
+} from '../../features/assistant';
 import { BrandMark, Button } from '../ui';
 import { ChevronLeftIcon, XIcon } from '../ui/icons';
 import { COMMERCIAL_SIDEBAR_ID } from './breakpoints';
@@ -60,6 +67,13 @@ export function AppShell() {
     !user.mustChangePassword &&
     (navMode === 'drawer' || (navMode === 'compact' && compactCollapsed));
   const menuExpanded = navMode === 'drawer' ? drawerOpen : !compactCollapsed;
+  const assistantRepo = assistantRepository;
+  const showAssistant = canShowAssistantLauncher({
+    role: user.role,
+    mustChangePassword: Boolean(user.mustChangePassword),
+    assistantCapability: capabilities.assistant,
+    hasRepository: assistantRepo != null,
+  });
 
   function closeOverlayNav() {
     setDrawerOpen(false);
@@ -91,7 +105,7 @@ export function AppShell() {
     </Button>
   );
 
-  return (
+  const shell = (
     <div className="flex h-dvh overflow-hidden">
       {showInlineSidebar ? (
         <CommercialSidebar
@@ -129,6 +143,7 @@ export function AppShell() {
             eyebrow={capabilities.prototypeControls ? 'Prototipo' : undefined}
           />
           <div className="flex shrink-0 items-center gap-2 sm:gap-3">
+            {showAssistant ? <AssistantLauncher /> : null}
             {!user.mustChangePassword && <DemoControls />}
             <UserMenu user={user} onLogout={logout} />
           </div>
@@ -152,6 +167,14 @@ export function AppShell() {
           onNavigate={closeOverlayNav}
         />
       </NavDrawer>
+
+      {showAssistant ? <AssistantPanel /> : null}
     </div>
   );
+
+  if (showAssistant && assistantRepo) {
+    return <AssistantProvider repository={assistantRepo}>{shell}</AssistantProvider>;
+  }
+
+  return shell;
 }

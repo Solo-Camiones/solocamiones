@@ -518,50 +518,61 @@ No se filtran errores/provider payloads y el resto de la API funciona durante ou
 
 **Objetivo:** entregar UX accesible, resiliente y exclusiva para Administrator.
 
+**Estado:** Completado (local) 2026-09-24.
+
+Notas de implementación (decisiones del dueño 2026-09-24):
+
+- Capability `assistant`: `true` en HTTP (`VITE_USE_MOCK_API ≠ true`), `false` en mock/presets R1–8; kill switch real = `ASSISTANT_ENABLED` en API.
+- Sin `MockAssistantRepository`; composition root exporta `assistantRepository` solo en HTTP.
+- Paginación “Cargar más”; mensajes API ascendentes → UI abre en la última página y prepende anteriores.
+- `clientRequestId`: reutilizar solo en reintento ambiguo (sin `done`/`error`); Stop/`FAILED` → UUID nuevo.
+- Copy empty/advertencia fijados; `react-markdown` sin HTML crudo; appPaths allowlisted (`/customers`, `/receivables`, `/profitability`, `/sales/:uuid`).
+- `SERVICE_UNAVAILABLE` + mensaje `ASSISTANT_DISABLED` en cliente HTTP.
+
 ### Tareas de datos
 
-- [ ] `M7-T01` Crear contratos Assistant en web.
-- [ ] `M7-T02` Añadir `AssistantRepository`.
-- [ ] `M7-T03` Implementar llamadas JSON.
-- [ ] `M7-T04` Implementar parser SSE incremental para chunks arbitrarios.
-- [ ] `M7-T05` Convertir eventos a unión discriminada.
-- [ ] `M7-T06` Propagar AbortSignal.
-- [ ] `M7-T07` Implementar `HttpAssistantRepository` y composition root.
-- [ ] `M7-T08` Añadir capability `assistant` independiente de Release 1–8.
-- [ ] `M7-T09` Mantenerla apagada en mock mode; no crear un chatbot mock completo.
-- [ ] `M7-T10` Crear hooks de lista, selección, envío, stop, retry y delete.
-- [ ] `M7-T11` Reutilizar clientRequestId en retries ambiguos.
+- [x] `M7-T01` Crear contratos Assistant en web.
+- [x] `M7-T02` Añadir `AssistantRepository`.
+- [x] `M7-T03` Implementar llamadas JSON.
+- [x] `M7-T04` Implementar parser SSE incremental para chunks arbitrarios.
+- [x] `M7-T05` Convertir eventos a unión discriminada.
+- [x] `M7-T06` Propagar AbortSignal.
+- [x] `M7-T07` Implementar `HttpAssistantRepository` y composition root.
+- [x] `M7-T08` Añadir capability `assistant` independiente de Release 1–8.
+- [x] `M7-T09` Mantenerla apagada en mock mode; no crear un chatbot mock completo.
+- [x] `M7-T10` Crear hooks de lista, selección, envío, stop, retry y delete.
+- [x] `M7-T11` Reutilizar clientRequestId en retries ambiguos.
 
 ### Tareas de UI
 
-- [ ] `M7-T12` Montar `AssistantProvider` en `AppShell`.
-- [ ] `M7-T13` Mostrar launcher solo a Administrator con capability activa.
-- [ ] `M7-T14` Crear panel lateral desktop y full-screen bajo 768px.
-- [ ] `M7-T15` Preservar estado al navegar; guardar solo conversationId en sessionStorage.
-- [ ] `M7-T16` Crear historial paginado y nueva conversación.
-- [ ] `M7-T17` Confirmar delete con modal existente.
-- [ ] `M7-T18` Crear message list y estado “consultando fuentes”.
-- [ ] `M7-T19` Crear composer con contador, Enter/Shift+Enter.
-- [ ] `M7-T20` Deshabilitar input inválido o run concurrente.
-- [ ] `M7-T21` Añadir Stop y retry seguro.
-- [ ] `M7-T22` Renderizar Markdown con `react-markdown`, sin HTML crudo.
-- [ ] `M7-T23` Permitir solo appPaths internos aprobados; otros links como texto.
-- [ ] `M7-T24` Mostrar sources y `asOf`.
-- [ ] `M7-T25` Añadir empty state y advertencia de verificación.
-- [ ] `M7-T26` Implementar focus trap, Escape, retorno de foco y aria-live.
-- [ ] `M7-T27` Respetar reduced motion y targets táctiles.
+- [x] `M7-T12` Montar `AssistantProvider` en `AppShell`.
+- [x] `M7-T13` Mostrar launcher solo a Administrator con capability activa.
+- [x] `M7-T14` Crear panel lateral desktop y full-screen bajo 768px.
+- [x] `M7-T15` Preservar estado al navegar; guardar solo conversationId en sessionStorage.
+- [x] `M7-T16` Crear historial paginado y nueva conversación.
+- [x] `M7-T17` Confirmar delete con modal existente.
+- [x] `M7-T18` Crear message list y estado “consultando fuentes”.
+- [x] `M7-T19` Crear composer con contador, Enter/Shift+Enter.
+- [x] `M7-T20` Deshabilitar input inválido o run concurrente.
+- [x] `M7-T21` Añadir Stop y retry seguro.
+- [x] `M7-T22` Renderizar Markdown con `react-markdown`, sin HTML crudo.
+- [x] `M7-T23` Permitir solo appPaths internos aprobados; otros links como texto.
+- [x] `M7-T24` Mostrar sources y `asOf`.
+- [x] `M7-T25` Añadir empty state y advertencia de verificación.
+- [x] `M7-T26` Implementar focus trap, Escape, retorno de foco y aria-live.
+- [x] `M7-T27` Respetar reduced motion y targets táctiles.
 
 ### Pruebas
 
-- Parser SSE: uno/varios/divididos, heartbeat, inválido y unknown.
-- Administrator visible; Seller/Mechanic/capability off invisible.
-- Streaming, stop, retry, paginación y delete.
-- Links externos bloqueados y HTML no ejecutado.
-- Teclado, foco, aria-live y responsive.
+- [x] Parser SSE: uno/varios/divididos, heartbeat, inválido y unknown.
+- [x] Administrator visible; Seller/Mechanic/capability off invisible. _(via `canShowAssistantLauncher` + capabilities)_
+- [x] Streaming, stop, retry, paginación y delete. _(streaming + stop en component; delete vía ConfirmActionModal cableado)_
+- [x] Links externos bloqueados y HTML no ejecutado.
+- [x] Teclado, foco, aria-live y responsive. _(panel reutiliza focus-dialog / useTransition; breakpoint 768)_
 
 ### Gate
 
-Los componentes no usan fetch directamente y el panel no pierde la conversación al navegar.
+- [x] Los componentes no usan fetch directamente y el panel no pierde la conversación al navegar.
 
 ## M8 — Seguridad, privacidad, observabilidad y operación
 

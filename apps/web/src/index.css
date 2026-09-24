@@ -43,6 +43,9 @@
   
   --animate-slide-in-left: slide-in-left 200ms ease-out forwards;
   --animate-slide-out-left: slide-out-left 200ms ease-in forwards;
+
+  --animate-slide-in-right: slide-in-right 200ms ease-out forwards;
+  --animate-slide-out-right: slide-out-right 200ms ease-in forwards;
   
   --animate-slide-up-in: slide-up-in 200ms ease-out forwards;
   --animate-slide-up-out: slide-up-out 200ms ease-in forwards;
@@ -73,6 +76,15 @@
   @keyframes slide-out-left {
     from { transform: translateX(0); }
     to { transform: translateX(-100%); }
+  }
+
+  @keyframes slide-in-right {
+    from { transform: translateX(100%); }
+    to { transform: translateX(0); }
+  }
+  @keyframes slide-out-right {
+    from { transform: translateX(0); }
+    to { transform: translateX(100%); }
   }
   
   @keyframes slide-up-in {
