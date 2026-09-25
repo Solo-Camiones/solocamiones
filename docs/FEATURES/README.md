@@ -49,7 +49,7 @@ Checklist `[x]` in a feature file may mean **prototype mock**, **production API*
 
 ## Feature index
 
-| File | Feature | Planned delivery | Production implementation (2026-09-10) |
+| File | Feature | Planned delivery | Local implementation snapshot (2026-09-25) |
 |---|---|---|---|
 | `01_ACCESS_AND_USERS.md` | Authentication, roles, user management, authorization | Release 1 | Done (API + HTTP) |
 | `02_INVENTORY.md` | Individually tracked inventory | Release 4 | **Not started** in API; prototype UI only |
@@ -62,9 +62,9 @@ Checklist `[x]` in a feature file may mean **prototype mock**, **production API*
 | `09_RESERVATIONS.md` | Draft-linked inventory reservations | Release 5 | **Not started** in API; some mock recovery UI `[x]` |
 | `10_SALES_AND_INVOICES.md` | Invoice lifecycle, quotes, line types, taxes, PDF, sale confirmation | Release 2/5/7 + pre-production | **R2 done**. ITEM/QTY/installed **API not started**. Paso 2 `applyItbis`/quotes schema. **Paso 4:** SALE-009/010 tax-exclusive ITBIS + POS checkbox. **Paso 6:** quote commands (`QUOTE-001`/`002`). **Paso 9:** DOC-001 `internal-v4` + quote PDF verificados y muestras aprobadas; cerrado 2026-09-17 |
 | `11_COST_AND_PROFITABILITY.md` | DOP cost, profit, USD FX enrichment | Release 2/4/5 + pre-production | **API done** for invoice-line cost/FX/profit. **HTTP UI done (R2 M24)**. **Paso 4:** billing cost capture withdrawn (`COST-006`); COST-005 remains |
-| `12_PAYMENTS_AND_ACCOUNTS_RECEIVABLE.md` | Payments, balances, basic CxC, account statement | Release 3 + pre-production | **Pulled forward — core API + HTTP done.** Customer/invoice AR filters done. Pre-production `PAY-006`/`007` done except `STMT-001` |
+| `12_PAYMENTS_AND_ACCOUNTS_RECEIVABLE.md` | Payments, balances, basic CxC, account statement | Release 3 + pre-production | **Pulled forward — API + HTTP done.** Customer/invoice AR filters and `STMT-001` account statement PDF done |
 | `13_CANCELLATION_AND_REFUNDS.md` | Cancellation, refunds, restoration | Release 3/5/7 | **Financial/non-inventory pulled forward — API + HTTP done**. Inventory/WO branches **mock only** |
 | `14_HISTORY_ADMIN_AND_RECOVERY.md` | History, protected corrections, recovery, diagnostics | Cross-cutting/Release 8 | Envelope + owning-feature events **partial**. Invoice detail activity timeline **done** (document-level only). PDF regenerate **done**. FX retry on profitability API. Rest of ADMIN-002/diagnostics **open** |
 | `15_ACCOUNTS_PAYABLE_PENDING_VALIDATION.md` | Basic CxP proposal | Pending validation | Do not implement |
-| `16_CONDUCES.md` | Commercial conduces on the sales aggregate (`CON-` then optional `FAC-`) | Pre-production (before first production release) | **Documentation confirmed 2026-09-20** (`CON-001`–`CON-006`). API/HTTP **not started**. Sequenced in `docs/plan_feature_contado/IMPLEMENTATION_PLAN.md` |
-| `17_AI_ASSISTANT.md` | Administrator-only hybrid RAG assistant (corpus + live commercial read tools) | Post-stabilization pilot (does **not** block first production release) | **Documentation confirmed 2026-09-22** (`AI-001`–`AI-010`). **M1 foundations done locally 2026-09-23**. Runtime API/SSE/tools/UI **not started**. Sequenced in `docs/chatbot_implementation/IMPLEMENTATION_PLAN.md` |
+| `16_CONDUCES.md` | Commercial conduces on the sales aggregate (`CON-` then optional `FAC-`) | Pre-production (before first production release) | **M1–M8 done locally:** schema, API, permissions, payments/CxC/cancellation, PDFs, reports/history, HTTP UI, mocks and stabilization. Owner walkthrough OK; formal `Verificado` / release authorization pending |
+| `17_AI_ASSISTANT.md` | Administrator-only hybrid RAG assistant (corpus + live commercial read tools) | Post-stabilization pilot (does **not** block first production release) | **M0–M8 done locally:** persistence, approved corpus/sync, six read-only tools, orchestrator, API/SSE, web panel and operations. **M9 revalidation pending** after 2026-09-25 hardening; production flag remains off |

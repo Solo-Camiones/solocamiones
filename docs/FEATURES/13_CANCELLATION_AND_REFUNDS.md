@@ -46,9 +46,9 @@ Controllers translate HTTP only. Business rules belong in services. Prisma/datab
 
 Cancellation is an Administrator-only compensating business operation, never destructive edit/delete. The cancellation service must reread current invoice/payment/inventory/Work-Order state, preview the applicable effects, require a reason, and commit one valid branch atomically.
 
-Refunds are additive money-returned records in the invoice currency. They never erase original payments. Cancellation and refund are one atomic, idempotent operation: Administrator indicates the **actual** refund amount from **zero through net collected** (cash, transfer, or cheque when amount &gt; 0); amounts above net collected are rejected. A payment of refund 0 is valid when nothing is returned. A cancelled operation has zero outstanding balance. **Amended 2026-09-20:** this replaces the prior mandatory full-net refund rule globally (CANCEL-002), including future conduce cancellations (CON-005).
+Refunds are additive money-returned records in the invoice currency. They never erase original payments. Cancellation and refund are one atomic, idempotent operation: Administrator indicates the **actual** refund amount from **zero through net collected** (cash, transfer, or cheque when amount &gt; 0); amounts above net collected are rejected. A payment of refund 0 is valid when nothing is returned. A cancelled operation has zero outstanding balance. **Amended 2026-09-20:** this replaces the prior mandatory full-net refund rule globally (CANCEL-002), including conduce cancellations (CON-005).
 
-A cancelled PDF remains downloadable. It preserves the original lines, prices, tax and total while adding a prominent `CANCELADA` mark plus cancellation date, reason and Administrator name. When Feature 16 is implemented, cancelling after `FAC-` exists for a conduce-originated operation cancels the whole `CON-/FAC-` pair (CON-005).
+A cancelled PDF remains downloadable. It preserves the original lines, prices, tax and total while adding a prominent `CANCELADA` mark plus cancellation date, reason and Administrator name. Cancelling after `FAC-` exists for a conduce-originated operation cancels the whole `CON-/FAC-` pair (CON-005).
 
 For non-inventory invoices, cancellation can be delivered early because there is no stock/physical branch. Once inventory is enabled, cancellation restores eligible commercial availability exactly once. Once Work Orders are enabled, choose the validated branch based on linked Dismantling state:
 
@@ -104,9 +104,9 @@ The blocks below are the final reconciled requirements retained from the previou
 **Name:** Cancel completed invoice without deletion  
 **Status:** CONFIRMED  
 **Actors:** Administrator  
-**Requirement:** Only an Administrator may cancel a completed invoice (and, when Feature 16 is implemented, an active conduce or `CON-/FAC-` operation per CON-005), recording reason, date, and actor while preserving its original contents.  
+**Requirement:** Only an Administrator may cancel a completed invoice, active conduce or `CON-/FAC-` operation per CON-005, recording reason, date, and actor while preserving its original contents.
 **Business Reason:** Cancellation is a sensitive reversal and must remain auditable.  
-**Preconditions:** The operation is commercially recognized (`COMPLETED` invoice today; `CONDUCE` or converted invoice when Feature 16 lands) and not already Cancelled.  
+**Preconditions:** The operation is commercially recognized (`CONDUCE` or `COMPLETED`) and not already Cancelled.
 **Main Flow:** Administrator reviews effects, supplies a reason, and confirms the cancellation transaction.  
 **Business Rules:** Cancellation is not editing or deleting the invoice. Cancelling a factura that originated from a conduce cancels the whole operation (CON-005).  
 **Important Exceptions/Edge Cases:** Concurrent payment or stock changes must be revalidated.  

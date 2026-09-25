@@ -2,7 +2,7 @@
 
 ## Estado del inventario
 
-Inventario actual: **17 de septiembre de 2026**. Los conteos de unitarias web/API, integración web y componentes salen de Vitest e incluyen cada caso expandido de `it.each`. Las rutas son relativas a `apps/web/tests` o `apps/api/tests`.
+Inventario de archivos actualizado: **25 de septiembre de 2026**. El árbol contiene **228 archivos de prueba**: 69 unitarios y 38 de integración en API; 58 unitarios, 10 de integración y 53 de componentes en web. Las tablas inferiores incorporan la cobertura añadida hasta Feature 17/M9. Los conteos de casos y resultados globales de la tabla siguiente conservan la última ejecución completa registrada (17-sep); no deben interpretarse como una ejecución completa del 25-sep.
 
 Esta pasada encontró **22 archivos** en disco que no estaban en las tablas (8 web, 14 API: cotizaciones `COT-`, crédito CASH/CREDIT, estado de cuenta, perfil corporativo/PDF y rate-limit global). También actualizó cantidades de archivos ya listados cuyo `it.each` o casos nuevos no coincidían con el inventario del 13-sep.
 
@@ -21,7 +21,7 @@ Ejecución 17-sep: las suites completas de API y web fueron aprobadas. La integr
 
 El inventario M20 (**897 / 129 archivos**, 9 de septiembre de 2026) ya no describe la rama: faltaban POS/confirmación/PDF/rentabilidad HTTP (M21–M24), timeline de factura, pagos/CxC/cancelación y plantilla PDF `internal-v3`. Cierre funcional de API R2: [`done_api/release_2.md`](done_api/release_2.md). Slice financiero R3: [`done_api/release_3.md`](done_api/release_3.md). Cierre Access/Users HTTP: [`done_api/release-1.md`](done_api/release-1.md).
 
-El inventario de **679 pruebas / 97 archivos** (5 de septiembre de 2026) es el cierre de Milestone 9; ya no describe la rama. Evidencia de ese cierre: [`plans_api/milestone-9-verification.md`](plans_api/milestone-9-verification.md).
+El inventario de **679 pruebas** (5 de septiembre de 2026) es el cierre de Milestone 9; ya no describe la rama. Evidencia de ese cierre: [`done_api/release-1.md`](done_api/release-1.md#milestone-9--history-mínimo-release-1).
 
 > La integración de API exige PostgreSQL accesible y `DATABASE_URL_TEST` aislada. Su preparación reinicia la base de pruebas y aplica las migraciones; si falta la configuración o la base no responde, la suite falla en lugar de omitir casos.
 
