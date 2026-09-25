@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { screen, waitFor } from '@testing-library/react';
+import { act, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -16,9 +16,7 @@ import { ok } from '../../../src/shared/auth/types';
 import { createAuthValue, renderWithProviders } from '../../support/render';
 import '../../support/dom';
 
-function createFakeRepository(
-  overrides: Partial<AssistantRepository> = {},
-): AssistantRepository {
+function createFakeRepository(overrides: Partial<AssistantRepository> = {}): AssistantRepository {
   return {
     createConversation: vi.fn(async () =>
       ok({
@@ -171,4 +169,149 @@ describe('Assistant panel streaming', () => {
     });
     expect(screen.queryByText('tarde')).not.toBeInTheDocument();
   });
+
+  it.each([
+    {
+      navigation: 'cambiar de conversación',
+      navigate: async (user: ReturnType<typeof userEvent.setup>) => {
+        await user.click(screen.getByRole('button', { name: 'Segunda conversación' }));
+        expect(await screen.findByText('Mensaje exclusivo de c2')).toBeVisible();
+      },
+      expectedStoredConversationId: 'c2',
+    },
+    {
+      navigation: 'crear una conversación',
+      navigate: async (user: ReturnType<typeof userEvent.setup>) => {
+        await user.click(screen.getByRole('button', { name: 'Nueva' }));
+        await waitFor(() => {
+          expect(sessionStorage.getItem('solocamiones.assistant.conversationId')).toBe('c3');
+        });
+      },
+      expectedStoredConversationId: 'c3',
+    },
+    {
+      navigation: 'eliminar la conversación activa',
+      navigate: async (user: ReturnType<typeof userEvent.setup>) => {
+        await user.click(
+          screen.getByRole('button', { name: 'Eliminar conversación Primera conversación' }),
+        );
+        await user.click(screen.getByRole('button', { name: 'Eliminar' }));
+        await waitFor(() => {
+          expect(sessionStorage.getItem('solocamiones.assistant.conversationId')).toBeNull();
+        });
+      },
+      expectedStoredConversationId: null,
+    },
+  ])(
+    'desacopla el stream al $navigation aunque el repositorio ignore AbortSignal',
+    async ({ navigate, expectedStoredConversationId }) => {
+      const user = userEvent.setup();
+      sessionStorage.setItem('solocamiones.assistant.conversationId', 'c1');
+
+      let releaseStream!: () => void;
+      const streamGate = new Promise<void>((resolve) => {
+        releaseStream = resolve;
+      });
+      let finishStream!: () => void;
+      const streamFinished = new Promise<void>((resolve) => {
+        finishStream = resolve;
+      });
+      let streamSignal: AbortSignal | undefined;
+
+      const conversations = [
+        {
+          id: 'c1',
+          title: 'Primera conversación',
+          createdAt: '2026-09-24T00:00:00.000Z',
+          updatedAt: '2026-09-24T00:00:00.000Z',
+          lastMessageAt: '2026-09-24T00:00:00.000Z',
+        },
+        {
+          id: 'c2',
+          title: 'Segunda conversación',
+          createdAt: '2026-09-24T00:01:00.000Z',
+          updatedAt: '2026-09-24T00:01:00.000Z',
+          lastMessageAt: '2026-09-24T00:01:00.000Z',
+        },
+      ];
+
+      const repository = createFakeRepository({
+        createConversation: vi.fn(async () =>
+          ok({
+            id: 'c3',
+            title: 'Nueva conversación',
+            createdAt: '2026-09-24T00:02:00.000Z',
+            updatedAt: '2026-09-24T00:02:00.000Z',
+            lastMessageAt: '2026-09-24T00:02:00.000Z',
+          }),
+        ),
+        listConversations: vi.fn(async () =>
+          ok({ items: conversations, total: conversations.length, page: 1, pageSize: 20 }),
+        ),
+        listMessages: vi.fn(async (conversationId: string) =>
+          ok({
+            items:
+              conversationId === 'c2'
+                ? [
+                    {
+                      id: 'c2-user',
+                      role: 'USER' as const,
+                      status: 'COMPLETED' as const,
+                      content: 'Mensaje exclusivo de c2',
+                      clientRequestId: 'request-c2',
+                      createdAt: '2026-09-24T00:01:00.000Z',
+                      completedAt: '2026-09-24T00:01:00.000Z',
+                      sources: [],
+                    },
+                  ]
+                : [],
+            total: conversationId === 'c2' ? 1 : 0,
+            page: 1,
+            pageSize: 50,
+          }),
+        ),
+        streamMessage: vi.fn(async function* (input: StreamAssistantMessageInput) {
+          streamSignal = input.signal;
+          try {
+            yield {
+              type: 'metadata' as const,
+              conversationId: 'c1',
+              userMessageId: 'u1',
+              runId: 'r1',
+            };
+            await streamGate;
+            // Deliberately ignore the aborted signal to verify the provider-level ownership guard.
+            yield { type: 'delta' as const, text: 'Respuesta tardía de c1' };
+            yield {
+              type: 'done' as const,
+              assistantMessageId: 'a1',
+              usage: { inputTokens: 1, outputTokens: 1, totalTokens: 2 },
+            };
+          } finally {
+            finishStream();
+          }
+        }),
+      });
+
+      renderAssistantShell(repository);
+      await user.click(screen.getByRole('button', { name: 'Abrir asistente' }));
+      await user.type(screen.getByLabelText('Mensaje para el asistente'), 'consulta en c1');
+      await user.click(screen.getByRole('button', { name: 'Enviar' }));
+      expect(await screen.findByRole('button', { name: 'Detener' })).toBeVisible();
+
+      await navigate(user);
+
+      expect(streamSignal?.aborted).toBe(true);
+      expect(sessionStorage.getItem('solocamiones.assistant.conversationId')).toBe(
+        expectedStoredConversationId,
+      );
+
+      await act(async () => {
+        releaseStream();
+        await streamFinished;
+      });
+
+      expect(screen.queryByText('Respuesta tardía de c1')).not.toBeInTheDocument();
+    },
+  );
 });

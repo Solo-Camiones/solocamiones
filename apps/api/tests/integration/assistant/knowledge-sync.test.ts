@@ -131,6 +131,33 @@ describe('Assistant knowledge sync (PostgreSQL + fake vector store)', () => {
     expect(writer.indexCalls).toBe(1);
   });
 
+  it('re-uploads when DB is READY but the provider file is absent from the current store', async () => {
+    const writer = new FakeKnowledgeIndexWriter();
+    const corpus = await corpusOf({ sourceKey: 'guia-pagos', content: '# Pagos\n' });
+    await sync(writer, corpus);
+    const previous = await documents.findBySourceKey('guia-pagos');
+    expect(previous?.status).toBe('READY');
+    expect(previous?.providerFileId).toBeTruthy();
+
+    // Simulate OPENAI_VECTOR_STORE_ID replacement: empty remote store, stale READY rows.
+    writer.files.clear();
+
+    const result = await sync(writer, corpus);
+    const row = await documents.findBySourceKey('guia-pagos');
+
+    expect(result.outcomes).toEqual([
+      {
+        action: 'upload',
+        sourceKey: 'guia-pagos',
+        providerFileId: row!.providerFileId,
+        status: 'done',
+      },
+    ]);
+    expect(row).toMatchObject({ status: 'READY' });
+    expect(row!.providerFileId).not.toBe(previous!.providerFileId);
+    expect(writer.files.has(row!.providerFileId!)).toBe(true);
+  });
+
   it('replaces a new version and deletes the superseded file only after the new one is READY', async () => {
     const writer = new FakeKnowledgeIndexWriter();
     await sync(writer, await corpusOf({ sourceKey: 'guia-pagos', content: 'v1\n' }));

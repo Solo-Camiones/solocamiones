@@ -127,10 +127,12 @@ export class OpenAiLanguageModelGateway implements LanguageModelGateway {
 
   private translateAndLog(error: unknown): AssistantProviderError {
     const mapped = mapOpenAiError(error);
+    const providerMeta = extractSafeProviderErrorMeta(error);
     logger.warn(
       {
         code: mapped.code,
         retryable: mapped.retryable,
+        ...providerMeta,
       },
       'OpenAI language model request failed',
     );
@@ -197,5 +199,24 @@ function mapUsage(usage: { input_tokens: number; output_tokens: number; total_to
     inputTokens: usage.input_tokens,
     outputTokens: usage.output_tokens,
     totalTokens: usage.total_tokens,
+  };
+}
+
+/** Safe ops fields only — never prompts, headers, or raw error bodies. */
+function extractSafeProviderErrorMeta(error: unknown): {
+  providerStatus?: number;
+  providerCode?: string;
+  providerType?: string;
+} {
+  if (error == null || typeof error !== 'object') return {};
+  const candidate = error as { status?: unknown; code?: unknown; type?: unknown };
+  return {
+    ...(typeof candidate.status === 'number' ? { providerStatus: candidate.status } : {}),
+    ...(typeof candidate.code === 'string' && candidate.code.length > 0
+      ? { providerCode: candidate.code }
+      : {}),
+    ...(typeof candidate.type === 'string' && candidate.type.length > 0
+      ? { providerType: candidate.type }
+      : {}),
   };
 }

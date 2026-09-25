@@ -7,7 +7,7 @@ import {
 } from '@prisma/client';
 
 import { prisma } from '../../infrastructure/database/index.js';
-import { businessDayRange } from '../payments/dates.js';
+import { businessDayRange, todayBusinessDate } from '../payments/dates.js';
 import { formatConduceNumber, formatInvoiceNumber, formatQuoteNumber } from './constants.js';
 import type {
   CompleteInvoiceRecord,
@@ -96,6 +96,40 @@ type ReceivableCountRow = { count: bigint };
 type ReceivableCustomerRow = Omit<ReceivablesCustomerAggregate, 'invoiceCount'> & {
   invoiceCount: bigint;
 };
+type AssistantReceivableQuery = {
+  customerId?: string;
+  type?: 'FAC' | 'CON';
+  overdue?: boolean;
+  asOf: Date;
+  limit: number;
+};
+type AssistantReceivableRow = {
+  id: string;
+  status: InvoiceStatus;
+  number: string | null;
+  conduceNumber: string | null;
+  currency: InvoiceCurrency;
+  fiscal: boolean;
+  confirmedAt: Date | null;
+  dueDate: Date | null;
+  invoiced: Prisma.Decimal;
+  paid: Prisma.Decimal;
+  balance: Prisma.Decimal;
+  isOverdue: boolean;
+  customerId: string;
+  customerName: string;
+  sellerUserId: string | null;
+  sellerName: string | null;
+};
+type AssistantReceivableAggregateRow = {
+  documentCount: bigint;
+  invoicedDop: Prisma.Decimal;
+  paidDop: Prisma.Decimal;
+  balanceDop: Prisma.Decimal;
+  invoicedUsd: Prisma.Decimal;
+  paidUsd: Prisma.Decimal;
+  balanceUsd: Prisma.Decimal;
+};
 
 function receivableBalances(query: ListReceivablesQuery): Prisma.Sql {
   const customerFilter = query.customerId
@@ -134,6 +168,59 @@ function receivableBalances(query: ListReceivablesQuery): Prisma.Sql {
   `;
 }
 
+function assistantReceivableBalances(query: AssistantReceivableQuery): Prisma.Sql {
+  const customerFilter = query.customerId
+    ? Prisma.sql`AND i."customerId" = ${query.customerId}::uuid`
+    : Prisma.empty;
+  const typeFilter =
+    query.type === 'FAC'
+      ? Prisma.sql`AND i."number" IS NOT NULL`
+      : query.type === 'CON'
+        ? Prisma.sql`AND i."conduceNumber" IS NOT NULL AND i."number" IS NULL`
+        : Prisma.empty;
+  const overdueFilter = query.overdue
+    ? Prisma.sql`AND i."dueDate" < ${todayBusinessDate(query.asOf)}`
+    : Prisma.empty;
+
+  return Prisma.sql`
+    WITH "paymentTotals" AS (
+      SELECT
+        "invoiceId",
+        SUM("amount") FILTER (WHERE "kind" = 'PAYMENT')::decimal AS "paid"
+      FROM "InvoicePayment"
+      WHERE "effectiveDate" <= ${query.asOf}
+      GROUP BY "invoiceId"
+    ),
+    "assistantReceivableBalances" AS (
+      SELECT
+        i."id",
+        i."status",
+        i."number",
+        i."conduceNumber",
+        i."currency",
+        i."fiscal",
+        i."confirmedAt",
+        i."dueDate",
+        i."gross"::decimal AS "invoiced",
+        COALESCE(p."paid", 0)::decimal AS "paid",
+        GREATEST(i."gross" - COALESCE(p."paid", 0), 0)::decimal AS "balance",
+        (i."dueDate" < ${todayBusinessDate(query.asOf)}) AS "isOverdue",
+        i."customerId",
+        c."name" AS "customerName",
+        i."confirmedByUserId" AS "sellerUserId",
+        i."confirmedByName" AS "sellerName"
+      FROM "Invoice" i
+      INNER JOIN "Customer" c ON c."id" = i."customerId"
+      LEFT JOIN "paymentTotals" p ON p."invoiceId" = i."id"
+      WHERE i."status" IN ('COMPLETED', 'CONDUCE')
+        AND i."gross" > COALESCE(p."paid", 0)
+        ${customerFilter}
+        ${typeFilter}
+        ${overdueFilter}
+    )
+  `;
+}
+
 export class SalesRepository {
   constructor(private readonly database: SalesDatabase = prisma) {}
 
@@ -144,9 +231,7 @@ export class SalesRepository {
         currency: input.currency,
         fiscal: input.fiscal,
         applyItbis: input.applyItbis,
-        ...(input.discountPercent !== undefined
-          ? { discountPercent: input.discountPercent }
-          : {}),
+        ...(input.discountPercent !== undefined ? { discountPercent: input.discountPercent } : {}),
         customerId: input.customerId,
       },
       include: invoiceDetailInclude,
@@ -280,11 +365,7 @@ export class SalesRepository {
         status: true,
         gross: true,
         payments: {
-          orderBy: [
-            { effectiveDate: 'asc' },
-            { createdAt: 'asc' },
-            { id: 'asc' },
-          ],
+          orderBy: [{ effectiveDate: 'asc' }, { createdAt: 'asc' }, { id: 'asc' }],
         },
       },
     });
@@ -321,11 +402,7 @@ export class SalesRepository {
             effectiveDate: true,
             method: true,
           },
-          orderBy: [
-            { effectiveDate: 'asc' },
-            { createdAt: 'asc' },
-            { id: 'asc' },
-          ],
+          orderBy: [{ effectiveDate: 'asc' }, { createdAt: 'asc' }, { id: 'asc' }],
         },
       },
       orderBy: [{ confirmedAt: 'desc' }, { id: 'asc' }],
@@ -428,68 +505,48 @@ export class SalesRepository {
             method: true,
             effectiveDate: true,
           },
-          orderBy: [
-            { effectiveDate: 'asc' },
-            { createdAt: 'asc' },
-            { id: 'asc' },
-          ],
+          orderBy: [{ effectiveDate: 'asc' }, { createdAt: 'asc' }, { id: 'asc' }],
         },
       },
     });
   }
 
-  async listReceivablesForAssistant(query: {
-    customerId?: string;
-    type?: 'FAC' | 'CON';
-    limit: number;
-  }) {
-    const typeFilter =
-      query.type === 'FAC'
-        ? { number: { not: null } }
-        : query.type === 'CON'
-          ? { conduceNumber: { not: null }, number: null }
-          : {};
-    return this.database.invoice.findMany({
-      where: {
-        status: { in: ['COMPLETED', 'CONDUCE'] },
-        ...(query.customerId ? { customerId: query.customerId } : {}),
-        ...typeFilter,
+  async getReceivablesSummaryForAssistant(query: AssistantReceivableQuery) {
+    const balances = assistantReceivableBalances(query);
+    const [documents, aggregateRows] = await Promise.all([
+      this.database.$queryRaw<AssistantReceivableRow[]>`
+        ${balances}
+        SELECT *
+        FROM "assistantReceivableBalances"
+        ORDER BY "confirmedAt" DESC, "id" ASC
+        LIMIT ${query.limit}
+      `,
+      this.database.$queryRaw<AssistantReceivableAggregateRow[]>`
+        ${balances}
+        SELECT
+          COUNT(*) AS "documentCount",
+          COALESCE(SUM("invoiced") FILTER (WHERE "currency" = 'DOP'), 0)::decimal AS "invoicedDop",
+          COALESCE(SUM("paid") FILTER (WHERE "currency" = 'DOP'), 0)::decimal AS "paidDop",
+          COALESCE(SUM("balance") FILTER (WHERE "currency" = 'DOP'), 0)::decimal AS "balanceDop",
+          COALESCE(SUM("invoiced") FILTER (WHERE "currency" = 'USD'), 0)::decimal AS "invoicedUsd",
+          COALESCE(SUM("paid") FILTER (WHERE "currency" = 'USD'), 0)::decimal AS "paidUsd",
+          COALESCE(SUM("balance") FILTER (WHERE "currency" = 'USD'), 0)::decimal AS "balanceUsd"
+        FROM "assistantReceivableBalances"
+      `,
+    ]);
+
+    return {
+      documents,
+      aggregates: aggregateRows[0] ?? {
+        documentCount: 0n,
+        invoicedDop: new Prisma.Decimal(0),
+        paidDop: new Prisma.Decimal(0),
+        balanceDop: new Prisma.Decimal(0),
+        invoicedUsd: new Prisma.Decimal(0),
+        paidUsd: new Prisma.Decimal(0),
+        balanceUsd: new Prisma.Decimal(0),
       },
-      select: {
-        id: true,
-        status: true,
-        number: true,
-        conduceNumber: true,
-        currency: true,
-        fiscal: true,
-        confirmedAt: true,
-        dueDate: true,
-        gross: true,
-        base: true,
-        itbis: true,
-        discountPercent: true,
-        confirmedByUserId: true,
-        confirmedByName: true,
-        customerId: true,
-        customer: { select: { id: true, name: true } },
-        payments: {
-          select: {
-            kind: true,
-            amount: true,
-            method: true,
-            effectiveDate: true,
-          },
-          orderBy: [
-            { effectiveDate: 'asc' },
-            { createdAt: 'asc' },
-            { id: 'asc' },
-          ],
-        },
-      },
-      // Fetch a bounded pool; service filters open/overdue then slices to limit.
-      take: Math.min(query.limit * 10, 200),
-      orderBy: [{ confirmedAt: 'desc' }, { id: 'asc' }],
-    });
+    };
   }
 
   async listRecognizedSalesForAssistantProfitability(query: {
@@ -535,11 +592,7 @@ export class SalesRepository {
             effectiveDate: true,
             idempotencyKey: true,
           },
-          orderBy: [
-            { effectiveDate: 'asc' },
-            { createdAt: 'asc' },
-            { id: 'asc' },
-          ],
+          orderBy: [{ effectiveDate: 'asc' }, { createdAt: 'asc' }, { id: 'asc' }],
         },
       },
       orderBy: [{ confirmedAt: 'asc' }, { id: 'asc' }],
@@ -572,9 +625,7 @@ export class SalesRepository {
         ...(input.currency !== undefined ? { currency: input.currency } : {}),
         ...(input.fiscal !== undefined ? { fiscal: input.fiscal } : {}),
         ...(input.applyItbis !== undefined ? { applyItbis: input.applyItbis } : {}),
-        ...(input.discountPercent !== undefined
-          ? { discountPercent: input.discountPercent }
-          : {}),
+        ...(input.discountPercent !== undefined ? { discountPercent: input.discountPercent } : {}),
         ...(input.customerId !== undefined ? { customerId: input.customerId } : {}),
       },
       include: invoiceDetailInclude,

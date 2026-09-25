@@ -8,6 +8,7 @@ import {
   ASSISTANT_RUN_ERROR_CODES,
   AssistantService,
   createAssistantToolRegistry,
+  minimizeProviderText,
   titleFromUserContent,
   truncateAssistantHistory,
   type AssistantDomainEvent,
@@ -21,6 +22,7 @@ import {
   type AssistantConfig,
   type KnowledgeChunk,
   type LanguageModelEvent,
+  type LanguageModelRequest,
 } from '../../../src/infrastructure/openai/index.js';
 import { AssistantProviderError } from '../../../src/infrastructure/openai/errors.js';
 import { z } from 'zod';
@@ -378,6 +380,27 @@ describe('truncateAssistantHistory', () => {
       maxChars: 12_000,
     });
     expect(truncated.map((message) => message.id)).toEqual(['3', '4']);
+  });
+});
+
+describe('minimizeProviderText', () => {
+  it('redacts forbidden identity and contact values without changing stored content', () => {
+    const raw =
+      'RNC 1-01-12345-6; teléfono (809) 555-0123; correo admin@example.com; ' +
+      'dirección: Calle 5, Santo Domingo; notas: llamar al llegar';
+
+    const minimized = minimizeProviderText(raw);
+
+    expect(minimized).not.toContain('1-01-12345-6');
+    expect(minimized).not.toContain('(809) 555-0123');
+    expect(minimized).not.toContain('admin@example.com');
+    expect(minimized).not.toContain('Calle 5');
+    expect(minimized).not.toContain('Santo Domingo');
+    expect(minimized).not.toContain('llamar al llegar');
+    expect(raw).toContain('admin@example.com');
+    expect(minimizeProviderText('vive en Calle Duarte 15, Santiago')).not.toContain(
+      'Calle Duarte',
+    );
   });
 });
 
@@ -776,7 +799,7 @@ describe('AssistantService', () => {
       ),
     ).rejects.toMatchObject({
       code: 'TOO_MANY_REQUESTS',
-      message: expect.stringMatching(/Global/i),
+      message: expect.stringMatching(/límite diario/i),
     });
     expect(retrieve).not.toHaveBeenCalled();
   });
@@ -906,5 +929,141 @@ describe('AssistantService', () => {
       details: { reason: ASSISTANT_RUN_ERROR_CODES.DISABLED },
     });
     expect(retrieve).not.toHaveBeenCalled();
+  });
+
+  it('minimizes the retrieval query and the real gateway payload, including history', async () => {
+    const store: MemoryStore = {
+      conversations: new Map(),
+      messages: new Map(),
+      runs: new Map(),
+      sources: new Map(),
+    };
+    const conversation = seedConversation(store);
+    const repositories = createMemoryRepositories(store);
+    await repositories.messages.createUserMessage({
+      conversationId: conversation.id,
+      content: 'Mi correo anterior era history@example.com',
+      clientRequestId: randomUUID(),
+    });
+    await repositories.messages.createAssistantMessage({
+      conversationId: conversation.id,
+      content: 'Anoté teléfono 809-555-0188 y dirección: Calle Vieja, Santiago',
+      status: 'COMPLETED',
+    });
+
+    const retrieve = vi.fn(async (_query: string) => [sampleChunk]);
+    const gatewayRequests: LanguageModelRequest[] = [];
+    const languageModel = {
+      async *streamCompletion(request: LanguageModelRequest) {
+        gatewayRequests.push(request);
+        yield { type: 'delta' as const, text: 'Respuesta basada en evidencia.' };
+        yield {
+          type: 'usage' as const,
+          usage: { inputTokens: 2, outputTokens: 2, totalTokens: 4 },
+        };
+        yield { type: 'done' as const, providerResponseId: 'resp_minimized' };
+      },
+    };
+    const service = new AssistantService({
+      config: baseConfig(),
+      languageModel,
+      knowledgeRetriever: { retrieve },
+      toolRegistry: createAssistantToolRegistry([]),
+      repositories,
+      runTransaction: async (work) => work(repositories),
+    });
+
+    const rawQuestion =
+      'Consulta RNC 1-01-99999-1; teléfono 849-555-0199; correo current@example.com; ' +
+      'dirección: Av. Principal 10, Santo Domingo';
+    await collectEvents(
+      service.streamMessage({
+        conversationId: conversation.id,
+        userId: conversation.userId,
+        content: rawQuestion,
+        clientRequestId: randomUUID(),
+      }),
+    );
+
+    const retrievalQuery = retrieve.mock.calls[0]?.[0];
+    const gatewayPayload = JSON.stringify(gatewayRequests);
+    for (const forbiddenValue of [
+      '1-01-99999-1',
+      '849-555-0199',
+      'current@example.com',
+      'Av. Principal 10',
+      'Santo Domingo',
+      'history@example.com',
+      '809-555-0188',
+      'Calle Vieja',
+      'Santiago',
+    ]) {
+      expect(retrievalQuery).not.toContain(forbiddenValue);
+      expect(gatewayPayload).not.toContain(forbiddenValue);
+    }
+    expect([...store.messages.values()].some((message) => message.content === rawQuestion)).toBe(
+      true,
+    );
+  });
+
+  it('rolls back the run reservation when assistant message creation fails', async () => {
+    const store: MemoryStore = {
+      conversations: new Map(),
+      messages: new Map(),
+      runs: new Map(),
+      sources: new Map(),
+    };
+    const conversation = seedConversation(store);
+    const repositories = createMemoryRepositories(store);
+    const transactionalRepositories: AssistantRepositories = {
+      ...repositories,
+      messages: new Proxy(repositories.messages, {
+        get(target, property, receiver) {
+          if (property === 'createAssistantMessage') {
+            return async () => {
+              throw new Error('simulated assistant message persistence failure');
+            };
+          }
+          return Reflect.get(target, property, receiver) as unknown;
+        },
+      }),
+    };
+    const runTransaction = async <T>(
+      work: (repos: AssistantRepositories) => Promise<T>,
+    ): Promise<T> => {
+      const conversationSnapshot = structuredClone([...store.conversations.entries()]);
+      const messageSnapshot = structuredClone([...store.messages.entries()]);
+      const runSnapshot = structuredClone([...store.runs.entries()]);
+      try {
+        return await work(transactionalRepositories);
+      } catch (error) {
+        store.conversations = new Map(conversationSnapshot);
+        store.messages = new Map(messageSnapshot);
+        store.runs = new Map(runSnapshot);
+        throw error;
+      }
+    };
+    const service = new AssistantService({
+      config: baseConfig(),
+      languageModel: createFakeLanguageModelGateway(),
+      knowledgeRetriever: createFakeKnowledgeRetriever({ chunks: [sampleChunk] }),
+      toolRegistry: createAssistantToolRegistry([]),
+      repositories,
+      runTransaction,
+    });
+
+    const events = await collectEvents(
+      service.streamMessage({
+        conversationId: conversation.id,
+        userId: conversation.userId,
+        content: 'Pregunta que falla antes de metadata',
+        clientRequestId: randomUUID(),
+      }),
+    );
+
+    expect(events).toEqual([expect.objectContaining({ type: 'error' })]);
+    expect(store.messages.size).toBe(0);
+    expect(store.runs.size).toBe(0);
+    expect(store.conversations.get(conversation.id)?.title).toBe('');
   });
 });

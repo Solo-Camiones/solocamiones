@@ -23,6 +23,12 @@ export {
 } from './constants.js';
 export { ConversationRepository, addRetentionDays } from './conversation-repository.js';
 export { createUserMessageWithRun } from './create-user-message.js';
+export { minimizeProviderText } from './provider-data-minimization.js';
+export { reserveAssistantTurn } from './reserve-turn.js';
+export type {
+  ReserveAssistantTurnInput,
+  ReserveAssistantTurnResult,
+} from './reserve-turn.js';
 export { computeKnowledgeSha256, normalizeKnowledgeContent } from './knowledge-checksum.js';
 export {
   createFileSystemKnowledgeCorpusReader,

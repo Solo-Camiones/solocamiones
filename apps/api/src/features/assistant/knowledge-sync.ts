@@ -78,10 +78,15 @@ export async function syncKnowledgeCorpus(
     createErrorId: randomUUID,
     ...dependencies,
   };
+  // List the current store once: the planner needs it to detect stale READY rows
+  // after OPENAI_VECTOR_STORE_ID changes; orphan cleanup reuses the same snapshot.
+  const remoteFileIds = await context.writer.listCorpusFileIds();
+  const presentProviderFileIds = new Set(remoteFileIds);
   const actions = planKnowledgeSync({
     approved: input.corpus.approved,
     protectedSourceKeys: new Set(input.corpus.invalidSourceKeys),
     indexed: await context.documents.list(),
+    presentProviderFileIds,
   });
 
   const outcomes: KnowledgeSyncOutcome[] = [];
@@ -227,6 +232,7 @@ async function cleanupOrphans(
   context: SyncContext,
   dryRun: boolean,
 ): Promise<KnowledgeSyncOutcome[]> {
+  // Re-list after uploads/replaces so newly attached files are not mistaken for orphans.
   const [remoteFileIds, referencedFileIds] = await Promise.all([
     context.writer.listCorpusFileIds(),
     context.documents.listReferencedProviderFileIds(),

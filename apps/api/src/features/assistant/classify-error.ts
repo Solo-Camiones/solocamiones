@@ -6,10 +6,18 @@ import {
 import { AppError, isAppError } from '../../infrastructure/errors/app-error.js';
 import {
   ASSISTANT_ACTIVE_RUN_CONFLICT_MESSAGE,
+  ASSISTANT_CANCELLED_MESSAGE,
   ASSISTANT_DAILY_QUOTA_EXCEEDED_MESSAGE,
   ASSISTANT_DISABLED_MESSAGE,
   ASSISTANT_GLOBAL_QUOTA_EXCEEDED_MESSAGE,
+  ASSISTANT_INTERNAL_ERROR_MESSAGE,
   ASSISTANT_MAX_TOOL_CALLS_EXCEEDED_MESSAGE,
+  ASSISTANT_NOT_FOUND_MESSAGE,
+  ASSISTANT_PROVIDER_AUTH_MESSAGE,
+  ASSISTANT_PROVIDER_INVALID_MESSAGE,
+  ASSISTANT_PROVIDER_RATE_LIMIT_MESSAGE,
+  ASSISTANT_PROVIDER_TIMEOUT_MESSAGE,
+  ASSISTANT_PROVIDER_UNAVAILABLE_MESSAGE,
   ASSISTANT_RUN_ERROR_CODES,
 } from './constants.js';
 
@@ -70,7 +78,7 @@ export function classifyAssistantError(error: unknown): ClassifiedAssistantError
     if (error.code === 'NOT_FOUND') {
       return {
         code: 'ASSISTANT_NOT_FOUND',
-        message: error.message || 'Resource not found',
+        message: error.message || ASSISTANT_NOT_FOUND_MESSAGE,
         retryable: false,
         cancelled: false,
       };
@@ -80,7 +88,7 @@ export function classifyAssistantError(error: unknown): ClassifiedAssistantError
   if (error instanceof Error && error.name === 'AbortError') {
     return {
       code: ASSISTANT_RUN_ERROR_CODES.CANCELLED,
-      message: 'Assistant request was cancelled',
+      message: ASSISTANT_CANCELLED_MESSAGE,
       retryable: false,
       cancelled: true,
     };
@@ -88,7 +96,7 @@ export function classifyAssistantError(error: unknown): ClassifiedAssistantError
 
   return {
     code: ASSISTANT_RUN_ERROR_CODES.INTERNAL,
-    message: 'Assistant request failed',
+    message: ASSISTANT_INTERNAL_ERROR_MESSAGE,
     retryable: false,
     cancelled: false,
   };
@@ -101,31 +109,32 @@ function classifyProviderError(error: AssistantProviderError): ClassifiedAssista
   > = {
     AUTH: {
       code: ASSISTANT_RUN_ERROR_CODES.PROVIDER_AUTH,
-      message: 'Assistant provider authentication failed',
+      message: ASSISTANT_PROVIDER_AUTH_MESSAGE,
       retryable: false,
       cancelled: false,
     },
     RATE_LIMIT: {
       code: ASSISTANT_RUN_ERROR_CODES.PROVIDER_RATE_LIMIT,
-      message: 'Assistant provider rate limit exceeded',
-      retryable: true,
+      message: ASSISTANT_PROVIDER_RATE_LIMIT_MESSAGE,
+      // Billing exhaustion is also RATE_LIMIT but not retryable; honor provider flag.
+      retryable: error.retryable,
       cancelled: false,
     },
     TIMEOUT: {
       code: ASSISTANT_RUN_ERROR_CODES.PROVIDER_TIMEOUT,
-      message: 'Assistant provider request timed out',
+      message: ASSISTANT_PROVIDER_TIMEOUT_MESSAGE,
       retryable: true,
       cancelled: false,
     },
     UNAVAILABLE: {
       code: ASSISTANT_RUN_ERROR_CODES.PROVIDER_UNAVAILABLE,
-      message: 'Assistant provider unavailable',
+      message: ASSISTANT_PROVIDER_UNAVAILABLE_MESSAGE,
       retryable: true,
       cancelled: false,
     },
     INVALID_RESPONSE: {
       code: ASSISTANT_RUN_ERROR_CODES.PROVIDER_INVALID,
-      message: 'Assistant provider returned an invalid response',
+      message: ASSISTANT_PROVIDER_INVALID_MESSAGE,
       retryable: false,
       cancelled: false,
     },

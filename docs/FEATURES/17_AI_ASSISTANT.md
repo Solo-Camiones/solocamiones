@@ -195,7 +195,7 @@ No requirement IDs in Features 08–16 were weakened. No cross-edits to those fi
 
 ### Evaluation and rollout (M9)
 
-- [ ] Dataset ≥ 30 cases; staging; owner approval; production flag off then Admin-only enablement.
+- [ ] Dataset ≥30 cases + CLI `assistant:eval` implemented; the 2026-09-24 fake/local-real baseline was superseded by the 2026-09-25 privacy/quota/mutation-gate hardening. Repeat fake + local-real + human accuracy review and freeze a new baseline before rollout. See `docs/assistant-eval/BASELINE.md` and `ROLLOUT_CHECKLIST.md`; keep `ASSISTANT_ENABLED=false` in production.
 
 ## Traceability matrix (requirement → milestone → tests → acceptance)
 
@@ -204,13 +204,13 @@ No requirement IDs in Features 08–16 were weakened. No cross-edits to those fi
 | AI-001 | M6, M7, M8 | 401/403 role; launcher hidden for Seller/Mechanic; capability off | Only Administrator accesses assistant |
 | AI-002 | M3, M5, M7, M9 | Documentary Q&A with sources; insufficient evidence | Factual doc answers cite corpus sources |
 | AI-003 | M4, M5, M8, M9 | Tool allowlist; unknown tool; fourth call rejected; no writes | Only registered read tools run |
-| AI-004 | M4, M5, M8, M9 | Negative field audits; PII never in provider stubs | Forbidden fields absent from provider context |
+| AI-004 | M4, M5, M8, M9 | Raw prompt/history/RAG minimization; negative field audits on gateway payload; PII never in provider stubs | Forbidden fields absent from provider context |
 | AI-005 | M2, M8 | Ownership 404; purge/dry-run; cascade | History owned, auditable, 90-day retention |
-| AI-006 | M1, M5, M6, M8 | Daily quota; max input; max tools; max retrieval | Limits enforced before/during external cost |
+| AI-006 | M1, M5, M6, M8 | Atomic concurrent daily quota; max input; max tools; max retrieval | Limits enforced before/during external cost |
 | AI-007 | M3, M5, M9 | Mock/future prompts refused; no false availability | Mocks/future never presented as live |
 | AI-008 | M1, M5, M6, M8 | Provider 5xx/timeout/429; readiness independent | Commercial API/readiness unaffected |
 | AI-009 | M3, M8, M9 | Manifest gate; sync checksum; failed sync safe | Only approved corpus indexed |
-| AI-010 | M9 | Eval runner thresholds | Production enablement blocked until pass |
+| AI-010 | M9 | Eval runner thresholds; commercial count + fingerprint snapshots | Production enablement blocked until pass |
 
 ## Canonical validated requirements
 

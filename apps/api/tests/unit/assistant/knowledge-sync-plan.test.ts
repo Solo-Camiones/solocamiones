@@ -39,6 +39,11 @@ function indexedFrom(
 
 const noProtection = new Set<string>();
 
+/** Helper: treat listed provider ids as present in the current vector store. */
+function withRemote(...providerFileIds: string[]) {
+  return new Set(providerFileIds);
+}
+
 describe('planKnowledgeSync', () => {
   it('uploads new documents and leaves identical READY documents unchanged', () => {
     const existing = approved();
@@ -49,11 +54,25 @@ describe('planKnowledgeSync', () => {
         approved: [existing, fresh],
         protectedSourceKeys: noProtection,
         indexed: [indexedFrom(existing)],
+        presentProviderFileIds: withRemote('file_1'),
       }).map((action) => [action.type, action.sourceKey]),
     ).toEqual([
       ['unchanged', 'guia-pagos'],
       ['upload', 'guia-clientes'],
     ]);
+  });
+
+  it('re-uploads READY documents whose provider file is missing from the current store', () => {
+    const document = approved();
+
+    expect(
+      planKnowledgeSync({
+        approved: [document],
+        protectedSourceKeys: noProtection,
+        indexed: [indexedFrom(document)],
+        presentProviderFileIds: withRemote(),
+      }),
+    ).toEqual([{ type: 'upload', sourceKey: 'guia-pagos', document }]);
   });
 
   it('replaces when content, version, title, path, or requirements change', () => {
@@ -71,6 +90,7 @@ describe('planKnowledgeSync', () => {
         approved: [approved(change)],
         protectedSourceKeys: noProtection,
         indexed: [indexedFrom(base)],
+        presentProviderFileIds: withRemote('file_1'),
       });
       expect(action, JSON.stringify(change)).toMatchObject({
         type: 'replace',
@@ -86,6 +106,7 @@ describe('planKnowledgeSync', () => {
         approved: [document],
         protectedSourceKeys: noProtection,
         indexed: [indexedFrom(document, { status, providerFileId: null })],
+        presentProviderFileIds: withRemote(),
       });
       expect(action.type, status).toBe('upload');
     }
@@ -100,6 +121,7 @@ describe('planKnowledgeSync', () => {
         approved: [],
         protectedSourceKeys: new Set(['guia-editada']),
         indexed: [indexedFrom(draftedBack), indexedFrom(brokenEdit, { providerFileId: 'file_2' })],
+        presentProviderFileIds: withRemote('file_1', 'file_2'),
       }),
     ).toEqual([{ type: 'remove', sourceKey: 'guia-borrador', providerFileId: 'file_1' }]);
   });
@@ -118,6 +140,7 @@ describe('planKnowledgeSync', () => {
             providerFileId: null,
           }),
         ],
+        presentProviderFileIds: withRemote('file_stuck'),
       }),
     ).toEqual([{ type: 'remove', sourceKey: 'guia-pagos', providerFileId: 'file_stuck' }]);
   });

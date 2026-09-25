@@ -9,6 +9,13 @@ import {
 
 import { AssistantProviderError } from './errors.js';
 
+/**
+ * Streaming Responses can surface billing exhaustion as a bare APIError
+ * without HTTP status (create() succeeds, then the stream fails mid-flight).
+ * Non-streaming uses RateLimitError/429 for the same condition.
+ */
+const OPENAI_INSUFFICIENT_QUOTA_CODES = new Set(['insufficient_quota', 'credit_balance_exhausted']);
+
 export function mapOpenAiError(error: unknown): AssistantProviderError {
   if (error instanceof AssistantProviderError) {
     return error;
@@ -27,6 +34,9 @@ export function mapOpenAiError(error: unknown): AssistantProviderError {
   }
 
   if (error instanceof RateLimitError) {
+    if (isOpenAiInsufficientQuotaError(error)) {
+      return openAiQuotaExhaustedError(error);
+    }
     return AssistantProviderError.rateLimit(undefined, error);
   }
 
@@ -35,6 +45,9 @@ export function mapOpenAiError(error: unknown): AssistantProviderError {
   }
 
   if (error instanceof APIError) {
+    if (isOpenAiInsufficientQuotaError(error)) {
+      return openAiQuotaExhaustedError(error);
+    }
     if (error.status === 401 || error.status === 403) {
       return AssistantProviderError.auth(undefined, error);
     }
@@ -52,6 +65,21 @@ export function mapOpenAiError(error: unknown): AssistantProviderError {
   }
 
   return AssistantProviderError.unavailable('OpenAI request failed', error);
+}
+
+function isOpenAiInsufficientQuotaError(error: APIError): boolean {
+  return (
+    OPENAI_INSUFFICIENT_QUOTA_CODES.has(String(error.code ?? '')) ||
+    OPENAI_INSUFFICIENT_QUOTA_CODES.has(String(error.type ?? ''))
+  );
+}
+
+function openAiQuotaExhaustedError(cause: APIError): AssistantProviderError {
+  // Not retryable: adding credits / raising org quota is required before retry helps.
+  return new AssistantProviderError('RATE_LIMIT', 'OpenAI quota or credits exhausted', {
+    retryable: false,
+    cause,
+  });
 }
 
 function isAbortLike(error: unknown): boolean {

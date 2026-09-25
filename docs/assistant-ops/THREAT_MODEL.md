@@ -50,7 +50,7 @@ Modelo de amenazas para el asistente híbrido RAG (milestones M8). Alineado con 
 
 | Amenaza | Impacto | Mitigación prevista |
 | --- | --- | --- |
-| RNC, teléfono, email, dirección, notas, credenciales o costos de adquisición enviados al proveedor | Exposición a tercero | Allowlist de campos en proyecciones de tools; auditorías negativas |
+| RNC, teléfono, email, dirección, notas, credenciales o costos de adquisición enviados al proveedor | Exposición a tercero | Minimización server-side del prompt crudo, historial y consulta RAG antes de cualquier llamada externa; allowlist de campos en proyecciones de tools; auditorías negativas sobre el payload del gateway |
 | Historial con datos sensibles retenido indefinidamente | Cumplimiento y blast radius | Retención 90 días (`ASSISTANT_RETENTION_DAYS=90`) + purga programada |
 | Logs con prompts, respuestas o chunks RAG | Filtración interna | Logs de run: IDs, modelo, latencia, tokens, tools, status, `errorCode` — **sin** prompts/chunks/payloads |
 
@@ -81,7 +81,7 @@ Modelo de amenazas para el asistente híbrido RAG (milestones M8). Alineado con 
 | Amenaza | Impacto | Mitigación prevista |
 | --- | --- | --- |
 | Modelo inventa tool o argumentos | Lectura amplia o mutación | Registry fijo + Zod; tools desconocidas fallan; tope `ASSISTANT_MAX_TOOL_CALLS` |
-| Tool mutable registrada por error | Escritura comercial vía LLM | Ninguna tool de create/update/delete/pay/cancel en v1 |
+| Tool mutable registrada por error | Escritura comercial vía LLM | Ninguna tool de create/update/delete/pay/cancel en v1; AI-010 compara conteo + fingerprint de todas las tablas comerciales relevantes antes/después de cada caso |
 | Seller/Mechanic llama al API | Uso no autorizado | `requireAuth` + `requireAdministrator` (AI-001); conversaciones ajenas → 404 seguro |
 
 ---
@@ -90,8 +90,8 @@ Modelo de amenazas para el asistente híbrido RAG (milestones M8). Alineado con 
 
 | Amenaza | Impacto | Mitigación prevista |
 | --- | --- | --- |
-| Abuso por-usuario | Costo OpenAI | `ASSISTANT_DAILY_MESSAGE_LIMIT` default **50**/usuario/día; rate limit dedicado en rutas |
-| Pico global / incidente de costo | Presupuesto | `ASSISTANT_GLOBAL_DAILY_MESSAGE_LIMIT` default **100**/día (límite de emergencia); kill switch |
+| Abuso por-usuario | Costo OpenAI | `ASSISTANT_DAILY_MESSAGE_LIMIT` default **50**/usuario/día; reserva serializable de cuota junto al mensaje/run; rate limit dedicado en rutas |
+| Pico global / incidente de costo | Presupuesto | `ASSISTANT_GLOBAL_DAILY_MESSAGE_LIMIT` default **100**/día (límite de emergencia), reservado en la misma transacción serializable; kill switch |
 | Input/output ilimitados | Tokens elevados | Caps de input chars, output tokens, retrieval results y timeout |
 
 Defaults operativos documentados:

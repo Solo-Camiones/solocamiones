@@ -55,7 +55,7 @@ npm run assistant:sync-knowledge
 
 1. Crear el **nuevo** store; no borrar el viejo hasta validar.
 2. Apuntar `OPENAI_VECTOR_STORE_ID` al nuevo id.
-3. Ejecutar sync completo (dry-run → sync).
+3. Ejecutar sync completo (dry-run → sync). El sync compara el corpus local **y** los file ids presentes en el store actual: si las filas `READY` apuntan a files del store anterior, las vuelve a subir.
 4. Smoke de retrieval; comparar que no se sirven source keys no aprobadas.
 5. Retirar/archivar el store antiguo según política del proveedor (ver `PROVIDER_PRIVACY.md`).
 

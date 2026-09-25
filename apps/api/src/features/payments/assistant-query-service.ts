@@ -1,16 +1,10 @@
-import { Prisma } from '@prisma/client';
-
-import {
-  ASSISTANT_APP_PATHS,
-  assistantToolSourceKey,
-} from '../assistant/tools/constants.js';
+import { ASSISTANT_APP_PATHS, assistantToolSourceKey } from '../assistant/tools/constants.js';
 import type { GetReceivablesSummaryInput } from '../assistant/tools/schemas.js';
 import type { AssistantToolMeta } from '../assistant/tools/types.js';
 import { salesTransaction, type SalesTransaction } from '../sales/transaction.js';
 import { assertAdministrator } from '../users/policies.js';
 import { businessDayRange, databaseDateString } from './dates.js';
 import { moneyString } from './receivables.js';
-import { summarizePayments } from './summary.js';
 
 export type AssistantReceivableDocument = {
   id: string;
@@ -63,97 +57,50 @@ export class ReceivablesAssistantQueryService {
     return this.transaction(async ({ sales, users }) => {
       assertAdministrator(await users.findById(actorId));
       const asOf = cutOffInstant(input.cutOff, now);
-      const rows = await sales.listReceivablesForAssistant({
+      const summary = await sales.getReceivablesSummaryForAssistant({
         customerId: input.customerId,
         type: input.type,
+        overdue: input.overdue,
+        asOf,
         limit: input.limit,
       });
-
-      const openDocuments: AssistantReceivableDocument[] = [];
-      let matchedCount = 0;
-      let invoicedDop = new Prisma.Decimal(0);
-      let paidDop = new Prisma.Decimal(0);
-      let balanceDop = new Prisma.Decimal(0);
-      let invoicedUsd = new Prisma.Decimal(0);
-      let paidUsd = new Prisma.Decimal(0);
-      let balanceUsd = new Prisma.Decimal(0);
-
-      for (const row of rows) {
-        const payments = row.payments.filter(
-          (payment) => payment.effectiveDate.getTime() <= asOf.getTime(),
-        );
-        const summary = summarizePayments(
-          {
-            status: row.status,
-            gross: row.gross,
-            dueDate: row.dueDate,
-            payments,
-          },
-          asOf,
-        );
-        if (!summary.balance.greaterThan(0)) continue;
-        if (
-          summary.state !== 'PENDING' &&
-          summary.state !== 'PARTIALLY_PAID' &&
-          summary.state !== 'OVERDUE' &&
-          summary.state !== 'PARTIALLY_PAID_OVERDUE'
-        ) {
-          continue;
-        }
-        if (
-          input.overdue === true &&
-          summary.state !== 'OVERDUE' &&
-          summary.state !== 'PARTIALLY_PAID_OVERDUE'
-        ) {
-          continue;
-        }
-
-        matchedCount += 1;
-        const invoiced = row.gross ?? new Prisma.Decimal(0);
-        if (row.currency === 'USD') {
-          invoicedUsd = invoicedUsd.plus(invoiced);
-          paidUsd = paidUsd.plus(summary.paid);
-          balanceUsd = balanceUsd.plus(summary.balance);
-        } else {
-          invoicedDop = invoicedDop.plus(invoiced);
-          paidDop = paidDop.plus(summary.paid);
-          balanceDop = balanceDop.plus(summary.balance);
-        }
-
-        if (openDocuments.length < input.limit) {
-          openDocuments.push({
-            id: row.id,
-            status: row.status,
-            number: row.number,
-            conduceNumber: row.conduceNumber,
-            currency: row.currency,
-            fiscal: row.fiscal,
-            confirmedAt: row.confirmedAt?.toISOString() ?? null,
-            dueDate: row.dueDate ? databaseDateString(row.dueDate) : null,
-            paymentState: summary.state,
-            invoiced: moneyString(invoiced),
-            paid: moneyString(summary.paid),
-            balance: moneyString(summary.balance),
-            customerId: row.customerId,
-            customerName: row.customer.name,
-            sellerUserId: row.confirmedByUserId,
-            sellerName: row.confirmedByName,
-            appPath: ASSISTANT_APP_PATHS.salesDocument(row.id),
-          });
-        }
-      }
+      const documents: AssistantReceivableDocument[] = summary.documents.map((row) => ({
+        id: row.id,
+        status: row.status,
+        number: row.number,
+        conduceNumber: row.conduceNumber,
+        currency: row.currency,
+        fiscal: row.fiscal,
+        confirmedAt: row.confirmedAt?.toISOString() ?? null,
+        dueDate: row.dueDate ? databaseDateString(row.dueDate) : null,
+        paymentState: row.paid.greaterThan(0)
+          ? row.isOverdue
+            ? 'PARTIALLY_PAID_OVERDUE'
+            : 'PARTIALLY_PAID'
+          : row.isOverdue
+            ? 'OVERDUE'
+            : 'PENDING',
+        invoiced: moneyString(row.invoiced),
+        paid: moneyString(row.paid),
+        balance: moneyString(row.balance),
+        customerId: row.customerId,
+        customerName: row.customerName,
+        sellerUserId: row.sellerUserId,
+        sellerName: row.sellerName,
+        appPath: ASSISTANT_APP_PATHS.salesDocument(row.id),
+      }));
 
       return {
         aggregates: {
-          documentCount: matchedCount,
-          invoicedDop: moneyString(invoicedDop),
-          paidDop: moneyString(paidDop),
-          balanceDop: moneyString(balanceDop),
-          invoicedUsd: moneyString(invoicedUsd),
-          paidUsd: moneyString(paidUsd),
-          balanceUsd: moneyString(balanceUsd),
+          documentCount: Number(summary.aggregates.documentCount),
+          invoicedDop: moneyString(summary.aggregates.invoicedDop),
+          paidDop: moneyString(summary.aggregates.paidDop),
+          balanceDop: moneyString(summary.aggregates.balanceDop),
+          invoicedUsd: moneyString(summary.aggregates.invoicedUsd),
+          paidUsd: moneyString(summary.aggregates.paidUsd),
+          balanceUsd: moneyString(summary.aggregates.balanceUsd),
         },
-        documents: openDocuments,
+        documents,
         appPath: ASSISTANT_APP_PATHS.receivables,
         asOf: asOf.toISOString(),
         sourceKey: assistantToolSourceKey('getReceivablesSummary'),

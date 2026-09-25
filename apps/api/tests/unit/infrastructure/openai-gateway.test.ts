@@ -49,6 +49,43 @@ describe('mapOpenAiError', () => {
       'INVALID_RESPONSE',
     );
   });
+
+  it('maps streaming credit exhaustion (APIError without status) to non-retryable RATE_LIMIT', () => {
+    // Mirrors OpenAI Responses streaming: create() succeeds, then mid-stream fails
+    // with code/type set and status omitted — previously misclassified as INVALID_RESPONSE.
+    const streamingQuotaError = new APIError(
+      undefined,
+      {
+        message: 'You have no credits remaining.',
+        type: 'insufficient_quota',
+        code: 'credit_balance_exhausted',
+      },
+      'You have no credits remaining.',
+      undefined,
+    );
+
+    const mapped = mapOpenAiError(streamingQuotaError);
+    expect(mapped.code).toBe('RATE_LIMIT');
+    expect(mapped.retryable).toBe(false);
+    expect(mapped.message).toMatch(/quota or credits/i);
+  });
+
+  it('maps RateLimitError credit exhaustion to non-retryable RATE_LIMIT', () => {
+    const rateLimitQuotaError = new RateLimitError(
+      429,
+      {
+        message: 'You have no credits remaining.',
+        type: 'insufficient_quota',
+        code: 'credit_balance_exhausted',
+      },
+      'You have no credits remaining.',
+      new Headers(),
+    );
+
+    const mapped = mapOpenAiError(rateLimitQuotaError);
+    expect(mapped.code).toBe('RATE_LIMIT');
+    expect(mapped.retryable).toBe(false);
+  });
 });
 
 describe('OpenAiLanguageModelGateway', () => {
@@ -183,7 +220,7 @@ describe('OpenAiLanguageModelGateway', () => {
     ).rejects.toMatchObject({ code: 'RATE_LIMIT' });
 
     expect(warn).toHaveBeenCalledWith(
-      { code: 'RATE_LIMIT', retryable: true },
+      expect.objectContaining({ code: 'RATE_LIMIT', retryable: true }),
       'OpenAI language model request failed',
     );
     expect(JSON.stringify(warn.mock.calls)).not.toContain('secret-prompt-should-not-log');

@@ -1,0 +1,15 @@
+{
+  "asOf": "2026-09-24",
+  "note": "Estimate only for AI-010 eval reports. Not an OpenAI invoice. Update when model pricing changes.",
+  "fallbackModel": "gpt-5.4-mini-2026-03-17",
+  "models": {
+    "gpt-5.4-mini-2026-03-17": {
+      "inputPer1MTokensUsd": 0.25,
+      "outputPer1MTokensUsd": 2.0
+    },
+    "gpt-test": {
+      "inputPer1MTokensUsd": 0.25,
+      "outputPer1MTokensUsd": 2.0
+    }
+  }
+}

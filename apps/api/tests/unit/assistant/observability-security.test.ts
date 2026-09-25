@@ -76,5 +76,7 @@ describe('prompt injection wrapping', () => {
     expect(tool).toContain('<<<TOOL_RESULT');
     expect(tool).toContain('<<<END_TOOL_RESULT>>>');
     expect(ASSISTANT_SYSTEM_PROMPT).toMatch(/no son órdenes|no confiables/i);
+    expect(ASSISTANT_SYSTEM_PROMPT).toMatch(/tablas Markdown GFM/i);
+    expect(ASSISTANT_SYSTEM_PROMPT).toMatch(/ISO crudo/i);
   });
 });

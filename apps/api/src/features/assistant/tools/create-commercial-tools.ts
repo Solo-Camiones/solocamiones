@@ -42,7 +42,7 @@ export function createCommercialAssistantTools(
     {
       name: 'searchCustomers',
       description:
-        'Search customers by name (or tax id digits for lookup only). Returns id, name, type, and app path. Never returns RNC, contacts, or notes.',
+        'Find a customer id/name/type by name (or tax-id digits for lookup only). Use only to locate a customer. Does not return credit limit, term, balances, RNC, contacts, or notes. For resumen comercial / límite / plazo / CxC, call getCustomerCommercialSummary with the id from this search.',
       inputSchema: searchCustomersInputSchema,
       parameters: toolParametersFromSchema(searchCustomersInputSchema),
       execute: (input, context) =>
@@ -55,7 +55,7 @@ export function createCommercialAssistantTools(
     {
       name: 'getCustomerCommercialSummary',
       description:
-        'Commercial summary for one customer: type, credit terms, open CxC balances, and credit exposure for CREDIT customers.',
+        'Preferred tool when the user asks for resumen comercial, credit limit/term, open balances, or credit exposure of one customer. Requires customerId (obtain via searchCustomers first if you only have the name). Returns type and commercial aggregates without RNC/contacts/notes.',
       inputSchema: getCustomerCommercialSummaryInputSchema,
       parameters: toolParametersFromSchema(getCustomerCommercialSummaryInputSchema),
       execute: (input, context) =>

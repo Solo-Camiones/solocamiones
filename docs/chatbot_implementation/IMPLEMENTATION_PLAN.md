@@ -320,7 +320,7 @@ Notas de implementación: modelos Prisma + migración `20260923000000_assistant_
 
 **Objetivo:** crear conocimiento versionado sin indexar `/docs` completo.
 
-**Estado:** Implementado (local) 2026-09-23. Pendiente: aprobación del dueño de las 6 guías (hoy `draft`) y ejecución de `tests/integration/assistant/knowledge-sync.test.ts` (su setup requiere `prisma migrate reset` de la DB de tests, autorizado solo por el desarrollador).
+**Estado:** Completado (local) 2026-09-24. Guías `approved` en manifest. Integración `knowledge-sync.test.ts` 11/11 OK tras reset autorizado de `solocamiones_test` (`PRISMA_USER_CONSENT_FOR_DANGEROUS_AI_ACTION`).
 
 Notas de implementación (decisiones del dueño 2026-09-23):
 
@@ -360,14 +360,14 @@ Notas de implementación (decisiones del dueño 2026-09-23):
 
 - [x] Manifest duplicado, inválido, archivo faltante y no aprobado. _(unit)_
 - [x] Checksum estable Windows/Linux. _(unit)_
-- [ ] Dry-run sin mutaciones. _(integración escrita; pendiente de ejecutar)_
-- [ ] Sync idempotente y reemplazo con rollback. _(integración escrita; pendiente de ejecutar)_
-- [ ] Documento REMOVED no recuperable. _(integración escrita; pendiente de ejecutar; decorator cubierto en unit)_
+- [x] Dry-run sin mutaciones. _(integración 2026-09-24)_
+- [x] Sync idempotente y reemplazo con rollback. _(integración 2026-09-24)_
+- [x] Documento REMOVED no recuperable. _(integración 2026-09-24; decorator también en unit)_
 - [x] Threshold, máximo y metadata de fuente. _(unit)_
 
 ### Gate
 
-Cada chunk se puede rastrear a archivo, versión y requisitos implementados.
+- [x] Cada chunk se puede rastrear a archivo, versión y requisitos implementados.
 
 ## M4 — Tools comerciales de solo lectura
 
@@ -620,15 +620,25 @@ Notas de implementación (decisiones del dueño 2026-09-24):
 
 **Objetivo:** demostrar calidad/costo y habilitar el piloto con rollback inmediato.
 
+**Estado:** Revalidación AI-010 pendiente. La baseline del 2026-09-24 quedó superseded por el hardening de privacidad, cuota atómica y fingerprints comerciales del 2026-09-25. El runner y sus regresiones están corregidos; falta repetir fake + local-real + revisión humana y congelar la nueva baseline. Staging/prod sigue bloqueado por `ROLLOUT_CHECKLIST.md`.
+
+Notas:
+
+- Dataset: `docs/assistant-eval/dataset/v1/cases.json` (15 doc / 12 live / 5 hybrid / 7 adversarial).
+- Runner: `npm run assistant:eval -w @solocamiones/api -- --mode=fake|real`.
+- Exactitud ≥90%: campo `humanAccuracyReview` en el reporte (no exit code).
+- “Real” = local-real OpenAI hasta existir staging DO.
+- Rollout dueño: `docs/assistant-eval/ROLLOUT_CHECKLIST.md`.
+
 ### Tareas de evaluación
 
-- [ ] `M9-T01` Crear dataset versionado de mínimo 30 casos.
-- [ ] `M9-T02` Incluir 10 documentales, 10 vivos, 5 híbridos y 5 adversariales/sin respuesta.
-- [ ] `M9-T03` Definir expected sources, facts y forbidden claims por caso.
-- [ ] `M9-T04` Crear runner con modo fake y staging real.
-- [ ] `M9-T05` Medir precision@5, exactitud, evidencia, rechazos, PII, TTFT, latencia, tokens y costo.
-- [ ] `M9-T06` Corregir primero corpus/tools; ajustar prompt solo si corresponde.
-- [ ] `M9-T07` Congelar prompt version y corpus version aprobados.
+- [x] `M9-T01` Crear dataset versionado de mínimo 30 casos.
+- [x] `M9-T02` Incluir 10 documentales, 10 vivos, 5 híbridos y 5 adversariales/sin respuesta.
+- [x] `M9-T03` Definir expected sources, facts y forbidden claims por caso.
+- [x] `M9-T04` Crear runner con modo fake y staging real. _(local-fake / local-real)_
+- [x] `M9-T05` Medir precision@5, exactitud (heurística + humana), evidencia, rechazos, PII, TTFT, latencia, tokens y costo.
+- [x] `M9-T06` Corregir primero corpus/tools; ajustar prompt solo si corresponde. _(scorer negation + tool routing + prompt v1.2; 2026-09-24)_
+- [ ] `M9-T07` Congelar prompt version y corpus version aprobados. _(repetir tras hardening; baseline anterior superseded)_
 
 ### Tareas de staging
 
@@ -646,23 +656,23 @@ Notas de implementación (decisiones del dueño 2026-09-24):
 - 0 campos prohibidos.
 - 0 operaciones comerciales ejecutadas.
 - 0 funcionalidades futuras presentadas como disponibles.
-- >= 90% de respuestas correctas.
+- >= 90% de respuestas correctas. _(revisión humana 5B)_
 - >= 95% de preguntas documentales con fuente relevante en top 5.
 - 100% de adversariales conserva permisos y allowlist.
-- P95 de primer token < 8 segundos en staging, excluyendo incidente externo documentado.
+- P95 de primer token < 8 segundos en staging, excluyendo incidente externo documentado. _(medido en local-real)_
 
 ### Tareas de cierre
 
-- [ ] `M9-T15` Ejecutar tests focalizados Assistant.
-- [ ] `M9-T16` Ejecutar `npm run lint`.
-- [ ] `M9-T17` Ejecutar `npm run typecheck` y typecheck web tests.
+- [x] `M9-T15` Ejecutar tests focalizados Assistant. _(incl. `tests/unit/assistant/eval.test.ts`)_
+- [x] `M9-T16` Ejecutar `npm run lint`. _(2026-09-25: 0 errores; 10 warnings Fast Refresh preexistentes)_
+- [x] `M9-T17` Ejecutar `npm run typecheck` y typecheck web tests. _(2026-09-25)_
 - [ ] `M9-T18` Ejecutar `npm run test`.
-- [ ] `M9-T19` Ejecutar `npm run build`.
+- [ ] `M9-T19` Ejecutar `npm run build`. _(2026-09-25: web PASS; API no pudo escribir sobre `apps/api/dist` por `EPERM` de archivos bloqueados en el entorno local; typecheck API sí PASS)_
 - [ ] `M9-T20` Ejecutar `npm run format:check`.
 - [ ] `M9-T21` Revisar diff/migración y ausencia de cambios fuera de alcance.
-- [ ] `M9-T22` Actualizar `docs/TESTING.md` y snapshot de Development Plan.
-- [ ] `M9-T23` Marcar checklist Feature 17 solo con implementación + pruebas.
-- [ ] `M9-T24` Registrar modelo, prompt, corpus y límites desplegados.
+- [x] `M9-T22` Actualizar `docs/TESTING.md` y snapshot de Development Plan.
+- [x] `M9-T23` Marcar checklist Feature 17 solo con implementación + pruebas. _(parcial: eval harness; no prod on)_
+- [ ] `M9-T24` Registrar modelo, prompt, corpus y límites desplegados. _(baseline 2026-09-24 superseded; congelar nueva)_
 - [ ] `M9-T25` Desplegar producción con flag apagado y ejecutar smoke tests.
 - [ ] `M9-T26` Habilitar solo para Administrator.
 - [ ] `M9-T27` Monitorear 24/72 horas y apagar ante exposición o respuesta sin evidencia.

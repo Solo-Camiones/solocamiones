@@ -36,8 +36,13 @@ La especificación de producto sigue siendo `docs/FEATURES/17_AI_ASSISTANT.md`. 
 ```bash
 npm run assistant:purge -- --dry-run
 npm run assistant:purge
+npm run assistant:validate-knowledge
 npm run assistant:sync-knowledge -- --dry-run
 npm run assistant:sync-knowledge
+npm run assistant:eval -w @solocamiones/api -- --mode=fake
+npm run assistant:eval -w @solocamiones/api -- --mode=real
 ```
 
-Sync y purge son operaciones **explícitas**; no se ejecutan al reiniciar la aplicación.
+Sync, purge y eval son operaciones **explícitas**; no se ejecutan al reiniciar la aplicación.
+
+Evaluación AI-010: ver `docs/assistant-eval/README.md`.

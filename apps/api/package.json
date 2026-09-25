@@ -9,6 +9,7 @@
     "assistant:validate-knowledge": "tsx src/cli/assistant-validate-knowledge.ts",
     "assistant:sync-knowledge": "tsx src/cli/assistant-sync-knowledge.ts",
     "assistant:hash-knowledge": "tsx src/cli/assistant-hash-knowledge.ts",
+    "assistant:eval": "tsx src/cli/assistant-eval.ts",
     "dev": "tsx watch src/index.ts",
     "build": "prisma generate && tsc -p tsconfig.json",
     "start": "node dist/index.js",

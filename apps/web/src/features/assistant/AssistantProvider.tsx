@@ -31,6 +31,11 @@ type LastAttempt = {
   ambiguous: boolean;
 };
 
+type ActiveStream = {
+  conversationId: string;
+  controller: AbortController;
+};
+
 type AssistantContextValue = {
   open: boolean;
   openPanel: () => void;
@@ -79,8 +84,8 @@ export function AssistantProvider({ children, repository }: AssistantProviderPro
   const [conversationsPage, setConversationsPage] = useState(0);
   const [conversationsTotal, setConversationsTotal] = useState(0);
   const [conversationsLoading, setConversationsLoading] = useState(false);
-  const [selectedConversationId, setSelectedConversationId] = useState<string | null>(
-    () => readStoredConversationId(),
+  const [selectedConversationId, setSelectedConversationId] = useState<string | null>(() =>
+    readStoredConversationId(),
   );
   const [messages, setMessages] = useState<AssistantMessage[]>([]);
   const [messagesOldestPage, setMessagesOldestPage] = useState(0);
@@ -94,7 +99,7 @@ export function AssistantProvider({ children, repository }: AssistantProviderPro
   const [lastAttempt, setLastAttempt] = useState<LastAttempt | null>(null);
   const [canRetry, setCanRetry] = useState(false);
 
-  const abortRef = useRef<AbortController | null>(null);
+  const activeStreamRef = useRef<ActiveStream | null>(null);
   const streamPhaseRef = useRef(streamPhase);
   streamPhaseRef.current = streamPhase;
 
@@ -105,6 +110,24 @@ export function AssistantProvider({ children, repository }: AssistantProviderPro
 
   const openPanel = useCallback(() => setOpen(true), []);
   const closePanel = useCallback(() => setOpen(false), []);
+
+  const detachActiveStream = useCallback((conversationId?: string) => {
+    const activeStream = activeStreamRef.current;
+    if (!activeStream || (conversationId && activeStream.conversationId !== conversationId)) {
+      return;
+    }
+
+    // Detach before aborting so a repository that ignores AbortSignal cannot update another thread.
+    activeStreamRef.current = null;
+    activeStream.controller.abort();
+    streamPhaseRef.current = 'idle';
+    setStreamPhase('idle');
+    setStreamingText('');
+    setStreamingSources([]);
+    setStreamError(null);
+    setCanRetry(false);
+    setLastAttempt(null);
+  }, []);
 
   const refreshConversations = useCallback(async () => {
     setConversationsLoading(true);
@@ -166,6 +189,7 @@ export function AssistantProvider({ children, repository }: AssistantProviderPro
 
   const selectConversation = useCallback(
     async (id: string) => {
+      detachActiveStream();
       setSelectedConversationId(id);
       writeStoredConversationId(id);
       setMessages([]);
@@ -177,7 +201,7 @@ export function AssistantProvider({ children, repository }: AssistantProviderPro
       setLastAttempt(null);
       await loadLatestMessages(id);
     },
-    [loadLatestMessages],
+    [detachActiveStream, loadLatestMessages],
   );
 
   const loadMoreMessages = useCallback(async () => {
@@ -192,15 +216,10 @@ export function AssistantProvider({ children, repository }: AssistantProviderPro
     }
     setMessages((prev) => [...result.value.items, ...prev]);
     setMessagesOldestPage(previousPage);
-  }, [
-    messagesHasMore,
-    messagesLoading,
-    messagesOldestPage,
-    repo,
-    selectedConversationId,
-  ]);
+  }, [messagesHasMore, messagesLoading, messagesOldestPage, repo, selectedConversationId]);
 
   const createConversation = useCallback(async () => {
+    detachActiveStream();
     setPanelError(null);
     const result = await repo.createConversation();
     if (!result.ok) {
@@ -210,10 +229,11 @@ export function AssistantProvider({ children, repository }: AssistantProviderPro
     setConversations((prev) => [result.value, ...prev]);
     setConversationsTotal((total) => total + 1);
     await selectConversation(result.value.id);
-  }, [repo, selectConversation]);
+  }, [detachActiveStream, repo, selectConversation]);
 
   const deleteConversation = useCallback(
     async (id: string): Promise<ResultLike> => {
+      detachActiveStream(id);
       const result = await repo.deleteConversation(id);
       if (!result.ok) return result;
       setConversations((prev) => prev.filter((item) => item.id !== id));
@@ -223,22 +243,32 @@ export function AssistantProvider({ children, repository }: AssistantProviderPro
         writeStoredConversationId(null);
         setMessages([]);
         setMessagesOldestPage(0);
+        setStreamError(null);
+        setStreamingText('');
+        setStreamingSources([]);
+        setCanRetry(false);
+        setLastAttempt(null);
       }
       return { ok: true };
     },
-    [repo, selectedConversationId],
+    [detachActiveStream, repo, selectedConversationId],
   );
 
   const stopStreaming = useCallback(() => {
-    abortRef.current?.abort();
+    activeStreamRef.current?.controller.abort();
   }, []);
 
   const runStream = useCallback(
     async (conversationId: string, content: string, clientRequestId: string) => {
-      abortRef.current?.abort();
+      const previousStream = activeStreamRef.current;
+      activeStreamRef.current = null;
+      previousStream?.controller.abort();
       const abort = new AbortController();
-      abortRef.current = abort;
+      activeStreamRef.current = { conversationId, controller: abort };
 
+      const isCurrentStream = () => activeStreamRef.current?.controller === abort;
+
+      streamPhaseRef.current = 'consulting';
       setStreamPhase('consulting');
       setStreamingText('');
       setStreamingSources([]);
@@ -259,14 +289,17 @@ export function AssistantProvider({ children, repository }: AssistantProviderPro
           clientRequestId,
           signal: abort.signal,
         })) {
+          if (!isCurrentStream()) return;
           applyStreamEvent(event, {
             onMetadata(metadata) {
               userMessageId = metadata.userMessageId;
+              streamPhaseRef.current = 'streaming';
               setStreamPhase('streaming');
             },
             onDelta(text) {
               assembled += text;
               setStreamingText(assembled);
+              streamPhaseRef.current = 'streaming';
               setStreamPhase('streaming');
             },
             onSources(next) {
@@ -291,6 +324,7 @@ export function AssistantProvider({ children, repository }: AssistantProviderPro
           });
         }
 
+        if (!isCurrentStream()) return;
         if (sawTerminal && assistantMessageId) {
           const now = new Date().toISOString();
           const userMessage: AssistantMessage = {
@@ -329,6 +363,7 @@ export function AssistantProvider({ children, repository }: AssistantProviderPro
           });
         }
       } catch (error) {
+        if (!isCurrentStream()) return;
         const appError = error instanceof HttpError ? error.appError : toAppError(error);
         const aborted = abort.signal.aborted;
         if (aborted) {
@@ -348,10 +383,11 @@ export function AssistantProvider({ children, repository }: AssistantProviderPro
           setLastAttempt({ content, clientRequestId, ambiguous: false });
         }
       } finally {
-        if (abortRef.current === abort) {
-          abortRef.current = null;
+        if (isCurrentStream()) {
+          activeStreamRef.current = null;
+          streamPhaseRef.current = 'idle';
+          setStreamPhase('idle');
         }
-        setStreamPhase('idle');
       }
     },
     [refreshConversations, repo],
@@ -401,6 +437,15 @@ export function AssistantProvider({ children, repository }: AssistantProviderPro
     if (messagesOldestPage > 0) return;
     void loadLatestMessages(selectedConversationId);
   }, [loadLatestMessages, messagesOldestPage, open, selectedConversationId]);
+
+  useEffect(
+    () => () => {
+      const activeStream = activeStreamRef.current;
+      activeStreamRef.current = null;
+      activeStream?.controller.abort();
+    },
+    [],
+  );
 
   const value = useMemo<AssistantContextValue>(
     () => ({

@@ -39,9 +39,7 @@ export async function getConversations(req: Request, res: Response): Promise<voi
 }
 
 export async function getMessages(req: Request, res: Response): Promise<void> {
-  res.json(
-    await assistantServiceOf(req).listMessages(actor(req), conversationId(req), page(req)),
-  );
+  res.json(await assistantServiceOf(req).listMessages(actor(req), conversationId(req), page(req)));
 }
 
 export async function deleteConversation(req: Request, res: Response): Promise<void> {
@@ -53,11 +51,7 @@ export async function deleteConversation(req: Request, res: Response): Promise<v
  * Persist question and stream the assistant run.
  * Preflight AppErrors use the normal HTTP envelope; after the first domain event, errors use SSE.
  */
-export async function postMessage(
-  req: Request,
-  res: Response,
-  next: NextFunction,
-): Promise<void> {
+export async function postMessage(req: Request, res: Response, next: NextFunction): Promise<void> {
   const service = assistantServiceOf(req);
   const body = req.validated?.body as { content: string; clientRequestId: string };
   const input = {
@@ -86,9 +80,11 @@ export async function postMessage(
   };
   res.on('close', onResponseClose);
 
-  const iterator = service
-    .streamPrepared(prepared, { ...input, signal: abort.signal })
-    [Symbol.asyncIterator]();
+  const stream = service.streamPrepared(prepared, {
+    ...input,
+    signal: abort.signal,
+  });
+  const iterator = stream[Symbol.asyncIterator]();
 
   let first;
   try {

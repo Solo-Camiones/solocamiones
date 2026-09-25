@@ -116,6 +116,60 @@ describe('Assistant commercial tools (PostgreSQL)', () => {
     }
   });
 
+  it('getReceivablesSummary aggregates every matching document while limiting stubs', async () => {
+    const admin = await createUser('ADMINISTRATOR');
+    const credit = await customers.create({
+      name: `CxC Assistant ${randomUUID().slice(0, 8)}`,
+      rnc: '131700000',
+      customerType: 'CREDIT',
+      creditLimitDop: '10000.00',
+      creditTermDays: 30,
+    });
+    const confirmedAt = new Date('2026-01-01T16:00:00.000Z');
+
+    await prisma.invoice.createMany({
+      data: Array.from({ length: 205 }, (_, index) => ({
+        status: 'COMPLETED' as const,
+        currency: 'DOP' as const,
+        fiscal: false,
+        customerId: credit.id,
+        number: `FAC-${String(700_000 + index).padStart(6, '0')}`,
+        confirmedAt,
+        invoiceIssuedAt: confirmedAt,
+        dueDate: new Date('2026-02-01T00:00:00.000Z'),
+        customerName: credit.name,
+        snapshotCustomerType: 'CREDIT' as const,
+        snapshotCreditTermDays: 30,
+        confirmedByUserId: admin.id,
+        confirmedByName: admin.name,
+        gross: '10.00',
+        base: '10.00',
+        itbis: '0.00',
+      })),
+    });
+
+    const registry = createCommercialAssistantToolRegistry();
+    const summary = (await registry.execute(
+      'getReceivablesSummary',
+      { customerId: credit.id, type: 'FAC', limit: 20 },
+      { actorId: admin.id, now: new Date('2026-01-15T16:00:00.000Z') },
+    )) as {
+      aggregates: Record<string, unknown>;
+      documents: unknown[];
+    };
+
+    expect(summary.aggregates).toEqual({
+      documentCount: 205,
+      invoicedDop: '2050.00',
+      paidDop: '0.00',
+      balanceDop: '2050.00',
+      invoicedUsd: '0.00',
+      paidUsd: '0.00',
+      balanceUsd: '0.00',
+    });
+    expect(summary.documents).toHaveLength(20);
+  });
+
   it('getProfitabilitySummary rejects ranges over 366 days at the registry', async () => {
     const admin = await createUser('ADMINISTRATOR');
     const registry = createCommercialAssistantToolRegistry();

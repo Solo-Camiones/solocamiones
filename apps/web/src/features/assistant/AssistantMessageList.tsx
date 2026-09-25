@@ -105,8 +105,12 @@ export function AssistantMessageList() {
 
         {streamError ? (
           <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">
-            {streamError.message}
-            {streamError.errorId ? ` (${streamError.errorId})` : null}
+            <span className="block">{streamError.message}</span>
+            {streamError.errorId ? (
+              <span className="mt-1 block text-xs text-red-500">
+                Referencia: {streamError.errorId}
+              </span>
+            ) : null}
           </p>
         ) : null}
 

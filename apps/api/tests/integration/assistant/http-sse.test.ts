@@ -234,14 +234,10 @@ describe('Assistant HTTP and SSE', () => {
     const created = await owner.agent.post(`${ROOT}/conversations`).set(CSRF).send({});
     expect(created.status).toBe(201);
 
-    const messages = await other.agent.get(
-      `${ROOT}/conversations/${created.body.id}/messages`,
-    );
+    const messages = await other.agent.get(`${ROOT}/conversations/${created.body.id}/messages`);
     expect(messages.status).toBe(404);
 
-    const deleted = await other.agent
-      .delete(`${ROOT}/conversations/${created.body.id}`)
-      .set(CSRF);
+    const deleted = await other.agent.delete(`${ROOT}/conversations/${created.body.id}`).set(CSRF);
     expect(deleted.status).toBe(404);
   });
 
@@ -366,6 +362,39 @@ describe('Assistant HTTP and SSE', () => {
       .send({ content: 'segunda', clientRequestId: randomUUID() });
     expect(second.status).toBe(429);
     expect(second.body.error.code).toBe('TOO_MANY_REQUESTS');
+  });
+
+  it('atomically reserves one daily slot across concurrent conversations', async () => {
+    const config = assistantConfig({ dailyMessageLimit: 1, globalDailyMessageLimit: 1 });
+    const app = createAssistantApp(config);
+    const actor = await fixture('ADMINISTRATOR', app);
+    const [firstConversation, secondConversation] = await Promise.all([
+      actor.agent.post(`${ROOT}/conversations`).set(CSRF).send({}),
+      actor.agent.post(`${ROOT}/conversations`).set(CSRF).send({}),
+    ]);
+    expect(firstConversation.status).toBe(201);
+    expect(secondConversation.status).toBe(201);
+
+    const makeConcurrentRequest = (conversationId: string, content: string) =>
+      actor.agent
+        .post(`${ROOT}/conversations/${conversationId}/messages`)
+        .set(CSRF)
+        .send({ content, clientRequestId: randomUUID() })
+        .buffer(true)
+        .parse((res, callback) => {
+          const chunks: Buffer[] = [];
+          res.on('data', (chunk: Buffer) => chunks.push(chunk));
+          res.on('end', () => callback(null, Buffer.concat(chunks).toString('utf8')));
+        });
+
+    const responses = await Promise.all([
+      makeConcurrentRequest(firstConversation.body.id, 'primera simultánea'),
+      makeConcurrentRequest(secondConversation.body.id, 'segunda simultánea'),
+    ]);
+
+    expect(responses.map((response) => response.status).sort()).toEqual([200, 429]);
+    expect(await prisma.assistantMessage.count({ where: { role: 'USER' } })).toBe(1);
+    expect(await prisma.assistantRun.count()).toBe(1);
   });
 
   it('keeps readiness independent of the assistant feature flag', async () => {

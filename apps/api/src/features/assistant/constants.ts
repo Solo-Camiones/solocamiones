@@ -17,18 +17,34 @@ export const ASSISTANT_HISTORY_MAX_CHARS = 24_000;
 /** Local title from the first user message (M5-T21); capped by conversation title max. */
 export const ASSISTANT_TITLE_FROM_CONTENT_CHARS = 80;
 
-export const ASSISTANT_PROMPT_VERSION = 'assistant-v1';
+export const ASSISTANT_PROMPT_VERSION = 'assistant-v1.2';
 
+/** User-visible assistant errors (Spanish). Codes stay English for logs/ops. */
 export const ASSISTANT_ACTIVE_RUN_CONFLICT_MESSAGE =
-  'An assistant run is already in progress for this conversation';
-export const ASSISTANT_RUN_NOT_PENDING_MESSAGE = 'Assistant run is not pending';
+  'Ya hay una respuesta en curso en esta conversación. Espera a que termine.';
+export const ASSISTANT_RUN_NOT_PENDING_MESSAGE =
+  'La respuesta del asistente ya no está pendiente.';
 export const ASSISTANT_DAILY_QUOTA_EXCEEDED_MESSAGE =
-  'Daily assistant message limit reached';
+  'Alcanzaste el límite diario de mensajes del asistente.';
 export const ASSISTANT_GLOBAL_QUOTA_EXCEEDED_MESSAGE =
-  'Global assistant message limit reached';
+  'Se alcanzó el límite diario de mensajes del asistente para todos los usuarios.';
 export const ASSISTANT_MAX_TOOL_CALLS_EXCEEDED_MESSAGE =
-  'Assistant tool-call limit exceeded for this run';
-export const ASSISTANT_DISABLED_MESSAGE = 'Assistant is disabled';
+  'Esta consulta usó demasiadas herramientas. Reformula la pregunta e intenta de nuevo.';
+export const ASSISTANT_DISABLED_MESSAGE = 'El asistente no está habilitado en este entorno.';
+export const ASSISTANT_CANCELLED_MESSAGE = 'Se canceló la solicitud al asistente.';
+export const ASSISTANT_INTERNAL_ERROR_MESSAGE =
+  'No pudimos completar la solicitud. Intenta de nuevo.';
+export const ASSISTANT_NOT_FOUND_MESSAGE = 'No se encontró el recurso del asistente.';
+export const ASSISTANT_PROVIDER_AUTH_MESSAGE =
+  'El asistente no está configurado correctamente. Contacta a soporte.';
+export const ASSISTANT_PROVIDER_RATE_LIMIT_MESSAGE =
+  'El asistente no puede responder ahora por un límite de uso. Intenta de nuevo más tarde.';
+export const ASSISTANT_PROVIDER_TIMEOUT_MESSAGE =
+  'La respuesta del asistente tardó demasiado. Intenta de nuevo.';
+export const ASSISTANT_PROVIDER_UNAVAILABLE_MESSAGE =
+  'El asistente no está disponible en este momento. Intenta de nuevo más tarde.';
+export const ASSISTANT_PROVIDER_INVALID_MESSAGE =
+  'No pudimos completar la respuesta del asistente. Intenta de nuevo.';
 export const ASSISTANT_INSUFFICIENT_EVIDENCE_MESSAGE =
   'No tengo información suficiente en la base de conocimiento aprobada ni en los datos comerciales consultados para responder con evidencia.';
 

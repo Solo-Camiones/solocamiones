@@ -19,14 +19,11 @@ import {
 } from './constants.js';
 import {
   assistantDisabledError,
-  assistantGlobalQuotaExceededError,
   assistantMaxToolCallsError,
-  assistantQuotaExceededError,
   classifyAssistantError,
 } from './classify-error.js';
 import { recordAssistantRunObservation } from './run-observability.js';
 import { recordAssistantQuotaRejection } from '../../infrastructure/metrics/index.js';
-import { createUserMessageWithRun } from './create-user-message.js';
 import type { AssistantDomainEvent, StreamMessageInput } from './domain-events.js';
 import {
   buildDocumentSourceInputs,
@@ -50,6 +47,8 @@ import {
   getAssistantPromptVersion,
 } from './prompt.js';
 import { titleFromUserContent } from './title.js';
+import { minimizeProviderText } from './provider-data-minimization.js';
+import { reserveAssistantTurn } from './reserve-turn.js';
 import type { AssistantToolRegistry } from './tools/types.js';
 import type { AssistantRepositories, AssistantTransaction } from './transaction.js';
 import type { CreateSourceInput, PaginatedResult } from './types.js';
@@ -59,7 +58,7 @@ export type AssistantServiceDependencies = {
   languageModel: LanguageModelGateway;
   knowledgeRetriever: KnowledgeRetriever;
   toolRegistry: AssistantToolRegistry;
-  /** Non-transactional reads (quota, history, idempotent replay). */
+  /** Non-transactional reads (history and idempotent preflight only). */
   repositories: AssistantRepositories;
   runTransaction: AssistantTransaction;
   createErrorId?: () => string;
@@ -146,10 +145,7 @@ export class AssistantService {
     page: number,
   ): Promise<PaginatedResult<PublicAssistantMessage>> {
     this.assertEnabled();
-    const conversation = await this.repositories.conversations.findOwned(
-      conversationId,
-      userId,
-    );
+    const conversation = await this.repositories.conversations.findOwned(conversationId, userId);
     if (!conversation) {
       throw AppError.notFound();
     }
@@ -161,8 +157,7 @@ export class AssistantService {
     const assistantIds = result.items
       .filter((message) => message.role === 'ASSISTANT')
       .map((message) => message.id);
-    const allSources =
-      await this.repositories.sources.listByAssistantMessageIds(assistantIds);
+    const allSources = await this.repositories.sources.listByAssistantMessageIds(assistantIds);
     const sourcesByMessageId = new Map<string, typeof allSources>();
     for (const source of allSources) {
       const bucket = sourcesByMessageId.get(source.assistantMessageId) ?? [];
@@ -180,17 +175,15 @@ export class AssistantService {
 
   async deleteConversation(userId: string, conversationId: string): Promise<void> {
     this.assertEnabled();
-    const deleted = await this.repositories.conversations.deleteOwned(
-      conversationId,
-      userId,
-    );
+    const deleted = await this.repositories.conversations.deleteOwned(conversationId, userId);
     if (!deleted) {
       throw AppError.notFound();
     }
   }
 
   /**
-   * HTTP preflight: throws AppError for disabled / validation / ownership / quota / conflict.
+   * HTTP preflight: throws AppError for disabled / validation / ownership / conflict.
+   * Quota is reserved atomically on the first iterator pull, before SSE headers open.
    * Call before opening SSE headers.
    */
   async prepareStreamMessage(input: StreamMessageInput): Promise<PreparedStreamTurn> {
@@ -217,9 +210,7 @@ export class AssistantService {
       input.clientRequestId,
     );
     if (existingMessage) {
-      const existingRun = await this.repositories.runs.findByUserMessageId(
-        existingMessage.id,
-      );
+      const existingRun = await this.repositories.runs.findByUserMessageId(existingMessage.id);
       if (!existingRun) {
         throw AppError.internal('Idempotent assistant message is missing its run');
       }
@@ -228,24 +219,6 @@ export class AssistantService {
         throw AppError.conflict(ASSISTANT_ACTIVE_RUN_CONFLICT_MESSAGE);
       }
       return { mode: 'replay', content, userMessage: existingMessage, run: existingRun };
-    }
-
-    const now = input.now ?? new Date();
-    const usedToday =
-      await this.repositories.messages.countUserMessagesForActorOnBusinessDay(
-        input.userId,
-        now,
-      );
-    if (usedToday >= this.config.dailyMessageLimit) {
-      recordAssistantQuotaRejection('user');
-      throw assistantQuotaExceededError();
-    }
-
-    const usedGlobally =
-      await this.repositories.messages.countUserMessagesOnBusinessDay(now);
-    if (usedGlobally >= this.config.globalDailyMessageLimit) {
-      recordAssistantQuotaRejection('global');
-      throw assistantGlobalQuotaExceededError();
     }
 
     const pendingRun = await this.repositories.runs.findPendingByConversationId(
@@ -276,9 +249,7 @@ export class AssistantService {
     return this.iterateFromInput(input);
   }
 
-  private async *iterateFromInput(
-    input: StreamMessageInput,
-  ): AsyncGenerator<AssistantDomainEvent> {
+  private async *iterateFromInput(input: StreamMessageInput): AsyncGenerator<AssistantDomainEvent> {
     const prepared = await this.prepareStreamMessage(input);
     yield* this.iteratePrepared(prepared, input);
   }
@@ -290,17 +261,13 @@ export class AssistantService {
     const now = input.now ?? new Date();
 
     if (prepared.mode === 'replay') {
-      yield* this.replayExisting(
-        prepared.userMessage,
-        prepared.run,
-        input.conversationId,
-      );
+      yield* this.replayExisting(prepared.userMessage, prepared.run, input.conversationId);
       return;
     }
 
     try {
       const created = await this.runTransaction((repos) =>
-        createUserMessageWithRun(repos, {
+        reserveAssistantTurn(repos, {
           conversationId: input.conversationId,
           userId: input.userId,
           content: prepared.content,
@@ -309,6 +276,9 @@ export class AssistantService {
           promptVersion: getAssistantPromptVersion(),
           retentionDays: this.config.retentionDays,
           now,
+          title: titleFromUserContent(prepared.content),
+          dailyMessageLimit: this.config.dailyMessageLimit,
+          globalDailyMessageLimit: this.config.globalDailyMessageLimit,
         }),
       );
 
@@ -321,20 +291,7 @@ export class AssistantService {
         return;
       }
 
-      const title = titleFromUserContent(prepared.content);
-      if (title.length > 0) {
-        await this.repositories.conversations.updateTitleIfEmpty(
-          input.conversationId,
-          input.userId,
-          title,
-        );
-      }
-
-      const assistantMessage = await this.repositories.messages.createAssistantMessage({
-        conversationId: input.conversationId,
-        content: '',
-        status: 'PENDING',
-      });
+      const assistantMessage = created.assistantMessage;
 
       yield {
         type: 'metadata',
@@ -344,9 +301,7 @@ export class AssistantService {
       };
 
       const timeoutSignal = AbortSignal.timeout(this.config.requestTimeoutMs);
-      const signal = input.signal
-        ? AbortSignal.any([input.signal, timeoutSignal])
-        : timeoutSignal;
+      const signal = input.signal ? AbortSignal.any([input.signal, timeoutSignal]) : timeoutSignal;
 
       try {
         yield* this.runHybridTurn({
@@ -367,10 +322,7 @@ export class AssistantService {
           errorId: failErrorId,
           startedAt: created.run.startedAt,
         });
-        const latencyMs = Math.max(
-          0,
-          Date.now() - created.run.startedAt.getTime(),
-        );
+        const latencyMs = Math.max(0, Date.now() - created.run.startedAt.getTime());
         recordAssistantRunObservation({
           requestId: input.requestId,
           runId: created.run.id,
@@ -401,6 +353,11 @@ export class AssistantService {
       // Pre-metadata AppErrors stay throws for HTTP mapping (controller pulls first event
       // before opening SSE). Other failures become a domain error event.
       if (error instanceof AppError) {
+        if (error.details?.assistantCode === ASSISTANT_RUN_ERROR_CODES.QUOTA) {
+          recordAssistantQuotaRejection('user');
+        } else if (error.details?.assistantCode === ASSISTANT_RUN_ERROR_CODES.GLOBAL_QUOTA) {
+          recordAssistantQuotaRejection('global');
+        }
         throw error;
       }
       const classified = classifyAssistantError(error);
@@ -454,9 +411,7 @@ export class AssistantService {
       return;
     }
 
-    const assistantMessage = await this.repositories.messages.findById(
-      run.assistantMessageId,
-    );
+    const assistantMessage = await this.repositories.messages.findById(run.assistantMessageId);
 
     if (!assistantMessage) {
       yield {
@@ -521,12 +476,14 @@ export class AssistantService {
       historyRows.map((row) => ({
         id: row.id,
         role: row.role,
-        content: row.content,
+        content: minimizeProviderText(row.content),
       })),
     );
 
+    const minimizedUserContent = minimizeProviderText(userMessage.content);
+
     const chunks = await this.knowledgeRetriever.retrieve(
-      userMessage.content,
+      minimizedUserContent,
       {
         maxResults: this.config.maxRetrievalResults,
         scoreThreshold: this.config.retrievalScoreThreshold,
@@ -544,7 +501,7 @@ export class AssistantService {
                 sourceKey: chunk.sourceKey,
                 title: chunk.title,
                 locator: chunk.locator,
-                excerpt: chunk.excerpt,
+                excerpt: minimizeProviderText(chunk.excerpt),
                 version: chunk.version,
               }),
             ),
@@ -556,10 +513,8 @@ export class AssistantService {
         role: (message.role === 'USER' ? 'user' : 'assistant') as 'user' | 'assistant',
         content: message.content,
       })),
-      ...(retrievalBlock
-        ? [{ role: 'system' as const, content: retrievalBlock }]
-        : []),
-      { role: 'user', content: userMessage.content },
+      ...(retrievalBlock ? [{ role: 'system' as const, content: retrievalBlock }] : []),
+      { role: 'user', content: minimizedUserContent },
     ];
 
     const toolDefinitions = this.toolRegistry.listDefinitions();
@@ -579,8 +534,7 @@ export class AssistantService {
         throw AssistantProviderError.timeout('OpenAI request was aborted');
       }
 
-      const allowTools =
-        !forceFinalWithoutTools && toolCallCount < this.config.maxToolCalls;
+      const allowTools = !forceFinalWithoutTools && toolCallCount < this.config.maxToolCalls;
       const requestMessages = forceFinalWithoutTools
         ? minimizeMessagesForFinal(workingMessages)
         : workingMessages;
@@ -628,7 +582,7 @@ export class AssistantService {
           ...batchResults.map((result) => ({
             role: 'tool' as const,
             toolCallId: result.callId,
-            content: result.contentForModel,
+            content: minimizeProviderText(result.contentForModel),
           })),
         ];
 
@@ -651,11 +605,7 @@ export class AssistantService {
       sourceInputs = [];
     } else {
       const documents = buildDocumentSourceInputs(assistantMessage.id, chunks);
-      const tools = buildToolSourceInputs(
-        assistantMessage.id,
-        successfulTools,
-        documents.length,
-      );
+      const tools = buildToolSourceInputs(assistantMessage.id, successfulTools, documents.length);
       sourceInputs = [...documents, ...tools];
     }
 
@@ -810,8 +760,7 @@ export class AssistantService {
         }),
       };
     } catch (error) {
-      const message =
-        error instanceof AppError ? error.message : 'Tool execution failed';
+      const message = error instanceof AppError ? error.message : 'Tool execution failed';
       return {
         callId: toolCall.id,
         name: toolCall.name,
