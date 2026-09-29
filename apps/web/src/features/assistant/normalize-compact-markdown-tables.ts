@@ -7,7 +7,8 @@
  * prose and well-formed multiline tables are left alone.
  */
 export function normalizeCompactMarkdownTables(content: string): string {
-  return content.replace(/^[^\n]*\|[^\n]*$/gm, (line) => {
+  // `[^\n|]*\|` finds the first pipe in linear time; `[^\n]*\|` backtracks.
+  return content.replace(/^[^\n|]*\|[^\n]*$/gm, (line) => {
     if (!/\|\s*:?-{3,}/.test(line)) {
       return line;
     }

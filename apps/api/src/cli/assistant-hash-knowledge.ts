@@ -1,5 +1,6 @@
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import {
   ASSISTANT_KNOWLEDGE_DIRECTORY,
@@ -10,8 +11,8 @@ import {
 const USAGE = 'Usage: assistant:hash-knowledge [sourceKey ...]';
 const MANIFEST_FILE_NAME = 'manifest.json';
 
-async function main(): Promise<void> {
-  const args = parseKnowledgeCliArgs(process.argv.slice(2), { allowDryRun: false });
+export async function runAssistantHashKnowledgeCli(argv = process.argv.slice(2)): Promise<void> {
+  const args = parseKnowledgeCliArgs(argv, { allowDryRun: false });
 
   if (args.help) {
     console.log(USAGE);
@@ -59,4 +60,6 @@ async function main(): Promise<void> {
   }
 }
 
-void main();
+if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {
+  void runAssistantHashKnowledgeCli();
+}

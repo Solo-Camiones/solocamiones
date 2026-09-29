@@ -1,4 +1,6 @@
 import '../infrastructure/config/load-env.js';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import {
   createFileSystemKnowledgeCorpusReader,
@@ -29,8 +31,8 @@ function formatOutcome(outcome: KnowledgeSyncOutcome): string {
   return `[${outcome.status.toUpperCase()}] ${outcome.action} ${subject}${failure}`;
 }
 
-async function main(): Promise<void> {
-  const args = parseKnowledgeCliArgs(process.argv.slice(2), { allowDryRun: true });
+export async function runAssistantSyncKnowledgeCli(argv = process.argv.slice(2)): Promise<void> {
+  const args = parseKnowledgeCliArgs(argv, { allowDryRun: true });
 
   if (args.help) {
     console.log(USAGE);
@@ -89,4 +91,6 @@ async function main(): Promise<void> {
   }
 }
 
-void main();
+if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {
+  void runAssistantSyncKnowledgeCli();
+}

@@ -1,10 +1,14 @@
 const REDACTED_VALUE = '[REDACTED]';
 
-const EMAIL_PATTERN = /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/giu;
+// Domain labels exclude `.` so the engine cannot backtrack across overlapping
+// `[A-Z0-9.-]+` / `\.[A-Z]{2,}` partitions (super-linear on long dotted strings).
+const EMAIL_PATTERN = /\b[A-Z0-9._%+-]+@[A-Z0-9-]+(?:\.[A-Z0-9-]+)+\b/giu;
+// Separator is a single non-overlapping alternative (not `\s*opt?\s*`), which
+// keeps matching linear when the value capture later fails.
 const LABELED_FREE_TEXT_PATTERN =
-  /\b(direcci[oó]n|domicilio|nota(?:s)?|observaci[oó]n(?:es)?)\s*(?::|=|es)?\s*([^\n;]+)/giu;
+  /\b(direcci[oó]n|domicilio|notas?|observaci[oó]n(?:es)?)(?:\s*[=:]|\s+es\b|\s+)\s*([^\n;]+)/giu;
 const LABELED_IDENTITY_OR_CONTACT_PATTERN =
-  /\b(rnc|c[eé]dula|tel[eé]fono|celular|correo(?:\s+electr[oó]nico)?|email)\s*(?::|=|#|n(?:ú|u)mero|no\.?)?\s*([^\n;,]+)/giu;
+  /\b(rnc|c[eé]dula|tel[eé]fono|celular|correo(?:\s+electr[oó]nico)?|email)(?:\s*[=:#]|\s+(?:n(?:ú|u)mero|no\.?)|\s+)\s*([^\n;,]+)/giu;
 const ADDRESS_PATTERN =
   /\b(calle|avenida|av\.?|carretera|autopista|sector|residencial|urbanizaci[oó]n)\s+[^\n;]+/giu;
 const DOMINICAN_PHONE_PATTERN =

@@ -170,6 +170,83 @@ describe('Assistant panel streaming', () => {
     expect(screen.queryByText('tarde')).not.toBeInTheDocument();
   });
 
+  it('shows a terminal stream error and retries with a new request id', async () => {
+    const user = userEvent.setup();
+    sessionStorage.setItem('solocamiones.assistant.conversationId', 'c1');
+    const requestIds: string[] = [];
+    let attempt = 0;
+    const repository = createFakeRepository({
+      streamMessage: vi.fn(async function* (input: StreamAssistantMessageInput) {
+        requestIds.push(input.clientRequestId);
+        attempt += 1;
+        yield {
+          type: 'metadata' as const,
+          conversationId: 'c1',
+          userMessageId: `u${attempt}`,
+          runId: `r${attempt}`,
+        };
+        if (attempt === 1) {
+          yield {
+            type: 'error' as const,
+            code: 'PROVIDER_RATE_LIMIT',
+            message: 'Proveedor ocupado',
+            retryable: true,
+            errorId: 'error-1',
+          };
+          return;
+        }
+        yield { type: 'delta' as const, text: 'Respuesta recuperada' };
+        yield {
+          type: 'done' as const,
+          assistantMessageId: 'a2',
+          usage: { inputTokens: 1, outputTokens: 1, totalTokens: 2 },
+        };
+      }),
+    });
+
+    renderAssistantShell(repository);
+    await user.click(screen.getByRole('button', { name: 'Abrir asistente' }));
+    await user.type(screen.getByLabelText('Mensaje para el asistente'), 'consulta');
+    await user.click(screen.getByRole('button', { name: 'Enviar' }));
+
+    expect(await screen.findByText('Proveedor ocupado')).toBeVisible();
+    await user.click(screen.getByRole('button', { name: 'Reintentar' }));
+    expect(await screen.findByText('Respuesta recuperada')).toBeVisible();
+    expect(requestIds).toHaveLength(2);
+    expect(requestIds[1]).not.toBe(requestIds[0]);
+  });
+
+  it('reuses the request id when a stream ends without a terminal event', async () => {
+    const user = userEvent.setup();
+    sessionStorage.setItem('solocamiones.assistant.conversationId', 'c1');
+    const requestIds: string[] = [];
+    let attempt = 0;
+    const repository = createFakeRepository({
+      streamMessage: vi.fn(async function* (input: StreamAssistantMessageInput) {
+        requestIds.push(input.clientRequestId);
+        attempt += 1;
+        if (attempt === 1) return;
+        yield { type: 'delta' as const, text: 'Respuesta idempotente' };
+        yield {
+          type: 'done' as const,
+          assistantMessageId: 'a2',
+          usage: { inputTokens: 1, outputTokens: 1, totalTokens: 2 },
+        };
+      }),
+    });
+
+    renderAssistantShell(repository);
+    await user.click(screen.getByRole('button', { name: 'Abrir asistente' }));
+    await user.type(screen.getByLabelText('Mensaje para el asistente'), 'consulta');
+    await user.click(screen.getByRole('button', { name: 'Enviar' }));
+
+    expect(await screen.findByText(/respuesta se interrumpió/i)).toBeVisible();
+    await user.click(screen.getByRole('button', { name: 'Reintentar' }));
+    expect(await screen.findByText('Respuesta idempotente')).toBeVisible();
+    expect(requestIds).toHaveLength(2);
+    expect(requestIds[1]).toBe(requestIds[0]);
+  });
+
   it.each([
     {
       navigation: 'cambiar de conversación',

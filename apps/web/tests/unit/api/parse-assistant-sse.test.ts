@@ -72,4 +72,70 @@ describe('parseAssistantSse', () => {
       },
     ]);
   });
+
+  it('parses a final CRLF frame without a trailing separator', async () => {
+    const events = await collect(streamFrom(['event: delta\r\ndata: {"text":"final"}\r\n']));
+
+    expect(events).toEqual([{ type: 'delta', text: 'final' }]);
+  });
+
+  it('parses document and tool sources with nullable optional fields', async () => {
+    const sources = [
+      {
+        type: 'DOCUMENT',
+        sourceKey: 'guide',
+        title: 'Guía',
+        locator: null,
+        sortOrder: 0,
+        appPath: null,
+        excerpt: 'Texto',
+        score: 0.9,
+        asOf: null,
+      },
+      {
+        type: 'TOOL',
+        sourceKey: 'tool:sales',
+        title: 'Ventas',
+        locator: '/sales',
+        sortOrder: 1,
+        appPath: '/sales',
+        excerpt: null,
+        score: null,
+        asOf: '2026-09-29T00:00:00.000Z',
+      },
+    ];
+    const events = await collect(
+      streamFrom([`event: sources\ndata: ${JSON.stringify({ sources })}\n\n`]),
+    );
+
+    expect(events).toEqual([{ type: 'sources', sources }]);
+  });
+
+  it.each([
+    ['message', { text: 'missing event name' }],
+    ['metadata', null],
+    ['metadata', { conversationId: 'c1', userMessageId: 'u1' }],
+    ['delta', { text: 1 }],
+    ['sources', { sources: {} }],
+    ['sources', { sources: [{ type: 'UNKNOWN' }] }],
+    [
+      'sources',
+      { sources: [{ type: 'DOCUMENT', sourceKey: 'x', title: 'X', sortOrder: Infinity }] },
+    ],
+    ['done', { assistantMessageId: 'a1', usage: [] }],
+    [
+      'done',
+      {
+        assistantMessageId: 'a1',
+        usage: { inputTokens: 1, outputTokens: Number.NaN, totalTokens: 1 },
+      },
+    ],
+    ['error', { code: 'FAILED', message: 'boom' }],
+  ])('ignores invalid %s payloads', async (eventName, payload) => {
+    const events = await collect(
+      streamFrom([`event: ${eventName}\ndata: ${JSON.stringify(payload)}\n\n`]),
+    );
+
+    expect(events).toEqual([]);
+  });
 });

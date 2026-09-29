@@ -34,8 +34,13 @@ export type CaseScore = {
   };
 };
 
-const EMAIL_PATTERN = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/;
-const PHONE_PATTERN = /\b(?:\+?1[-.\s]?)?(?:\(?\d{3}\)?[-.\s]?)\d{3}[-.\s]?\d{4}\b/;
+// Domain labels exclude `.` from the repeated class so `.` is not ambiguous with the TLD separator
+// (avoids polynomial backtracking on pathological inputs like a@b.c.d.e...).
+const EMAIL_PATTERN = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9-]+(?:\.[a-zA-Z0-9-]+)+/;
+// Area code is either NNN or (NNN) as one alternative (not independently optional parens).
+// Lookaround boundaries allow a leading '(' while staying linear like \b for alphanumerics.
+const PHONE_PATTERN =
+  /(?<![A-Za-z0-9])(?:\+?1[-.\s]?)?(?:\(\d{3}\)|\d{3})[-.\s]?\d{3}[-.\s]?\d{4}(?![A-Za-z0-9])/;
 /** Tool ids are allowlisted UUIDs; stripping their dashes must not look like RNC/cédula. */
 const UUID_PATTERN = /\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/gi;
 

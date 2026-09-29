@@ -1,10 +1,14 @@
 import { randomUUID } from 'node:crypto';
+import { unlink } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { resolve } from 'node:path';
 
 import { afterAll, describe, expect, it } from 'vitest';
 
 import {
   captureCommercialSnapshot,
   diffCommercialSnapshots,
+  runAssistantEval,
 } from '../../../src/features/assistant/eval/index.js';
 import { disconnectPrisma, prisma } from '../../../src/infrastructure/database/index.js';
 
@@ -33,4 +37,25 @@ describe('Assistant eval commercial snapshot (PostgreSQL)', () => {
       await prisma.mechanicalService.delete({ where: { id: service.id } });
     }
   });
+
+  it('runs the complete deterministic evaluation without commercial mutations', async () => {
+    const reportPath = resolve(tmpdir(), `assistant-eval-${randomUUID()}.json`);
+
+    try {
+      const report = await runAssistantEval({
+        mode: 'fake',
+        datasetPath: resolve('../../docs/assistant-eval/dataset/v1/cases.json'),
+        pricingPath: resolve('../../docs/assistant-eval/pricing.json'),
+        reportPath,
+      });
+
+      expect(report.environment).toBe('local-fake');
+      expect(report.cases).toHaveLength(39);
+      expect(report.aggregate.totalCases).toBe(39);
+      expect(report.aggregate.mutationHitCount).toBe(0);
+      expect(report.hardGates).toEqual({ passed: true, failures: [] });
+    } finally {
+      await unlink(reportPath).catch(() => undefined);
+    }
+  }, 30_000);
 });

@@ -400,6 +400,22 @@ describe('minimizeProviderText', () => {
     expect(raw).toContain('admin@example.com');
     expect(minimizeProviderText('vive en Calle Duarte 15, Santiago')).not.toContain('Calle Duarte');
   });
+
+  it('redacts labeled values with alternate separators without quadratic backtracking', () => {
+    const labeled =
+      'cédula número 001-1234567-8; email=owner@example.com.do; ' +
+      'dirección es Av. Independencia 100; observación = cliente VIP';
+    const minimized = minimizeProviderText(labeled);
+
+    expect(minimized).not.toContain('001-1234567-8');
+    expect(minimized).not.toContain('owner@example.com.do');
+    expect(minimized).not.toContain('Independencia');
+    expect(minimized).not.toContain('cliente VIP');
+
+    // Pathological email-like input must stay fast (linear domain labels).
+    const dottedNoise = `user@${'a.'.repeat(40)}`;
+    expect(minimizeProviderText(dottedNoise)).toContain('[REDACTED]');
+  });
 });
 
 describe('titleFromUserContent', () => {

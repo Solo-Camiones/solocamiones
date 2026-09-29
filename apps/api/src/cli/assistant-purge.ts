@@ -1,12 +1,14 @@
 import '../infrastructure/config/load-env.js';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import { ConversationRepository } from '../features/assistant/conversation-repository.js';
 import { purgeExpiredConversations } from '../features/assistant/purge.js';
 import { disconnectPrisma } from '../infrastructure/database/index.js';
 import { parseAssistantPurgeArgs } from './assistant-purge-command.js';
 
-async function main(): Promise<void> {
-  const args = parseAssistantPurgeArgs(process.argv.slice(2));
+export async function runAssistantPurgeCli(argv = process.argv.slice(2)): Promise<void> {
+  const args = parseAssistantPurgeArgs(argv);
 
   if (args.help) {
     console.log('Usage: assistant:purge [--dry-run]');
@@ -49,4 +51,6 @@ async function main(): Promise<void> {
   }
 }
 
-void main();
+if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {
+  void runAssistantPurgeCli();
+}

@@ -1,4 +1,5 @@
 import { fileURLToPath } from 'node:url';
+import { resolve } from 'node:path';
 
 import '../infrastructure/config/load-env.js';
 
@@ -14,8 +15,8 @@ const ASSISTANT_EVAL_DIRECTORY = fileURLToPath(
   new URL('../../../../docs/assistant-eval', import.meta.url),
 );
 
-async function main(): Promise<void> {
-  const args = parseAssistantEvalArgs(process.argv.slice(2));
+export async function runAssistantEvalCli(argv = process.argv.slice(2)): Promise<void> {
+  const args = parseAssistantEvalArgs(argv);
 
   if (args.help) {
     console.log(USAGE);
@@ -76,4 +77,6 @@ async function main(): Promise<void> {
   }
 }
 
-void main();
+if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1])) {
+  void runAssistantEvalCli();
+}

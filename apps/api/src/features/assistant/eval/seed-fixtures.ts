@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { Prisma } from '@prisma/client';
 
 import { prisma } from '../../../infrastructure/database/index.js';
+import { hashPassword } from '../../access/password.js';
 import { UserRepository } from '../../users/repository.js';
 import { CustomerRepository } from '../../customers/repository.js';
 
@@ -32,11 +33,13 @@ export async function seedEvalFixtures(): Promise<EvalFixtures> {
   const rncCash = `131${Date.now().toString().slice(-6)}`;
   const rncCredit = `001${(Date.now() + 1).toString().slice(-8)}`;
 
+  // Eval never logs in over HTTP; store a real Argon2 hash of a discarded secret
+  // so passwordHash stays well-formed without embedding a known credential in source.
   const admin = await users.create({
     name: `Eval Admin ${suffix}`,
     username: `eval-admin-${suffix}`,
     role: 'ADMINISTRATOR',
-    passwordHash: 'eval-fixture-unused',
+    passwordHash: await hashPassword(randomUUID()),
   });
 
   const cash = await customers.create({

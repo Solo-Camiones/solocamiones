@@ -12,8 +12,10 @@ import {
 
 const USAGE = 'Usage: assistant:validate-knowledge';
 
-async function main(): Promise<void> {
-  const args = parseKnowledgeCliArgs(process.argv.slice(2), { allowDryRun: false });
+export async function runAssistantValidateKnowledgeCli(
+  argv = process.argv.slice(2),
+): Promise<void> {
+  const args = parseKnowledgeCliArgs(argv, { allowDryRun: false });
 
   if (args.help) {
     console.log(USAGE);
@@ -51,4 +53,8 @@ async function main(): Promise<void> {
   }
 }
 
-void main();
+if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {
+  void runAssistantValidateKnowledgeCli();
+}
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
