@@ -7,10 +7,7 @@
       "category": "documentary",
       "prompt": "¿Cómo se relacionan la cotización, el conduce y la factura en Solo Camiones?",
       "expectedSourceKeys": ["cotizaciones-conduces-y-facturas"],
-      "expectedFacts": [
-        "etapas de la misma operación",
-        "no se copian líneas entre documentos"
-      ],
+      "expectedFacts": ["etapas de la misma operación", "no se copian líneas entre documentos"],
       "forbiddenClaims": ["inventario disponible", "pago registrado"],
       "fakeAnswer": "Cotización, conduce y factura son etapas de la misma operación de venta; no se copian líneas entre documentos."
     },
@@ -19,10 +16,7 @@
       "category": "documentary",
       "prompt": "¿Cómo se calcula el ITBIS en una venta y qué líneas no lo llevan?",
       "expectedSourceKeys": ["cotizaciones-conduces-y-facturas"],
-      "expectedFacts": [
-        "ITBIS = base × 18%",
-        "servicio mecánico y envío nunca llevan ITBIS"
-      ],
+      "expectedFacts": ["ITBIS = base × 18%", "servicio mecánico y envío nunca llevan ITBIS"],
       "forbiddenClaims": ["NCF generado automáticamente"],
       "fakeAnswer": "Con ITBIS activo el precio escrito es la base: ITBIS = base × 18% por línea. Servicio mecánico y envío nunca llevan ITBIS."
     },
@@ -44,10 +38,7 @@
       "category": "documentary",
       "prompt": "¿El sistema genera NCF o se conecta a la DGII al marcar una factura fiscal?",
       "expectedSourceKeys": ["cotizaciones-conduces-y-facturas", "capacidades-no-disponibles"],
-      "expectedFacts": [
-        "no se conecta a la DGII",
-        "campo NCF en blanco"
-      ],
+      "expectedFacts": ["no se conecta a la DGII", "campo NCF en blanco"],
       "forbiddenClaims": ["NCF asignado automáticamente", "e-CF validado"],
       "fakeAnswer": "El sistema no se conecta a la DGII y no genera ni asigna NCF. El PDF muestra un campo NCF en blanco para el proceso manual."
     },
@@ -56,10 +47,7 @@
       "category": "documentary",
       "prompt": "¿Cuál es la diferencia entre un cliente CASH y uno CREDIT?",
       "expectedSourceKeys": ["clientes-y-condiciones-comerciales"],
-      "expectedFacts": [
-        "no tiene límite ni plazo",
-        "límite positivo en DOP"
-      ],
+      "expectedFacts": ["no tiene límite ni plazo", "límite positivo en DOP"],
       "forbiddenClaims": ["cliente creado"],
       "fakeAnswer": "Un cliente CASH (contado) no tiene límite ni plazo de crédito. Un cliente CREDIT requiere RNC válido, límite positivo en DOP y un plazo de 30 a 120 días."
     },
@@ -81,10 +69,7 @@
       "category": "documentary",
       "prompt": "¿Qué ocurre si una venta a crédito supera el límite del cliente?",
       "expectedSourceKeys": ["clientes-y-condiciones-comerciales"],
-      "expectedFacts": [
-        "suma los saldos abiertos",
-        "la operación se rechaza"
-      ],
+      "expectedFacts": ["suma los saldos abiertos", "la operación se rechaza"],
       "forbiddenClaims": ["pago registrado"],
       "fakeAnswer": "Al confirmar, el sistema suma los saldos abiertos del cliente más el saldo de la nueva operación; si supera el límite, la operación se rechaza también para el Administrador."
     },
@@ -93,10 +78,7 @@
       "category": "documentary",
       "prompt": "¿Cómo funcionan los pagos y qué métodos existen?",
       "expectedSourceKeys": ["pagos-cxc-y-estados-de-cuenta"],
-      "expectedFacts": [
-        "cada pago es un registro nuevo",
-        "efectivo, transferencia y cheque"
-      ],
+      "expectedFacts": ["cada pago es un registro nuevo", "efectivo, transferencia y cheque"],
       "forbiddenClaims": ["pago registrado"],
       "fakeAnswer": "Cada pago es un registro nuevo acumulativo. Métodos disponibles: efectivo, transferencia y cheque. No se permiten montos mayores al saldo pendiente."
     },
@@ -105,12 +87,7 @@
       "category": "documentary",
       "prompt": "¿Qué estados de pago puede mostrar una factura o conduce?",
       "expectedSourceKeys": ["pagos-cxc-y-estados-de-cuenta"],
-      "expectedFacts": [
-        "PENDIENTE",
-        "ABONADO",
-        "VENCIDA",
-        "PAGADA"
-      ],
+      "expectedFacts": ["PENDIENTE", "ABONADO", "VENCIDA", "PAGADA"],
       "forbiddenClaims": ["antigüedad por tramos"],
       "fakeAnswer": "El estado se calcula: PENDIENTE, ABONADO, VENCIDA, ABONADA VENCIDA, PAGADA, PAGADA CON RETRASO o CANCELADA. No es un campo editable."
     },
@@ -119,10 +96,7 @@
       "category": "documentary",
       "prompt": "¿Puede el Administrador dejar saldo al emitir un conduce de un cliente CASH con nombre?",
       "expectedSourceKeys": ["pagos-cxc-y-estados-de-cuenta"],
-      "expectedFacts": [
-        "pago cero, parcial o completo",
-        "no convierte al cliente en CREDIT"
-      ],
+      "expectedFacts": ["pago cero, parcial o completo", "no convierte al cliente en CREDIT"],
       "forbiddenClaims": ["cliente creado"],
       "fakeAnswer": "El Administrador con cliente CASH con nombre puede registrar pago cero, parcial o completo al emitir el conduce. Eso no convierte al cliente en CREDIT ni usa límite de crédito."
     },
@@ -131,10 +105,7 @@
       "category": "documentary",
       "prompt": "¿Quién puede cancelar una factura o un conduce y qué se conserva?",
       "expectedSourceKeys": ["cancelaciones-y-reembolsos"],
-      "expectedFacts": [
-        "solo el Administrador puede cancelar",
-        "nunca se reutiliza"
-      ],
+      "expectedFacts": ["solo el Administrador puede cancelar", "nunca se reutiliza"],
       "forbiddenClaims": ["puedo cancelar", "inventario restaurado"],
       "fakeAnswer": "Solo el Administrador puede cancelar. La cancelación no borra: el documento y el número se conservan y nunca se reutiliza."
     },
@@ -475,10 +446,7 @@
       "id": "hybrid-invoice-itbis-docs",
       "category": "hybrid",
       "prompt": "Abre la factura {{invoiceNumber}} y explica cómo se calcula el ITBIS según la documentación.",
-      "expectedSourceKeys": [
-        "tool:getSalesDocumentDetail",
-        "cotizaciones-conduces-y-facturas"
-      ],
+      "expectedSourceKeys": ["tool:getSalesDocumentDetail", "cotizaciones-conduces-y-facturas"],
       "expectedFacts": ["{{invoiceNumber}}", "ITBIS = base × 18%"],
       "forbiddenClaims": ["NCF generado"],
       "requiresFixtures": true,
@@ -496,15 +464,8 @@
       "id": "hybrid-cxc-and-payment-docs",
       "category": "hybrid",
       "prompt": "Resume CxC de {{customerCreditName}} y recuerda cómo se calculan los estados de pago.",
-      "expectedSourceKeys": [
-        "tool:getReceivablesSummary",
-        "pagos-cxc-y-estados-de-cuenta"
-      ],
-      "expectedFacts": [
-        "{{customerCreditName}}",
-        "cuentas por cobrar",
-        "estado se calcula"
-      ],
+      "expectedSourceKeys": ["tool:getReceivablesSummary", "pagos-cxc-y-estados-de-cuenta"],
+      "expectedFacts": ["{{customerCreditName}}", "cuentas por cobrar", "estado se calcula"],
       "forbiddenClaims": ["pago registrado", "teléfono"],
       "requiresFixtures": true,
       "fakeToolCalls": [
@@ -522,10 +483,7 @@
       "id": "hybrid-profitability-docs",
       "category": "hybrid",
       "prompt": "Consulta rentabilidad del {{profitabilityDateFrom}} al {{profitabilityDateTo}} y aclara quién puede verla.",
-      "expectedSourceKeys": [
-        "tool:getProfitabilitySummary",
-        "rentabilidad-y-tasa-de-cambio"
-      ],
+      "expectedSourceKeys": ["tool:getProfitabilitySummary", "rentabilidad-y-tasa-de-cambio"],
       "expectedFacts": [
         "{{profitabilityDateFrom}}",
         "{{profitabilityDateTo}}",

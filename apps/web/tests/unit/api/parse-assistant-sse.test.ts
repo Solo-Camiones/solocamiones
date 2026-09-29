@@ -27,11 +27,7 @@ async function collect(stream: ReadableStream<Uint8Array>) {
 
 describe('parseAssistantSse', () => {
   it('parses a single complete event', async () => {
-    const events = await collect(
-      streamFrom([
-        'event: delta\ndata: {"text":"Hola"}\n\n',
-      ]),
-    );
+    const events = await collect(streamFrom(['event: delta\ndata: {"text":"Hola"}\n\n']));
     expect(events).toEqual([{ type: 'delta', text: 'Hola' }]);
   });
 
@@ -47,9 +43,7 @@ describe('parseAssistantSse', () => {
   });
 
   it('reassembles events split across chunks', async () => {
-    const events = await collect(
-      streamFrom(['event: del', 'ta\ndata: {"text":"xy', 'z"}\n\n']),
-    );
+    const events = await collect(streamFrom(['event: del', 'ta\ndata: {"text":"xy', 'z"}\n\n']));
     expect(events).toEqual([{ type: 'delta', text: 'xyz' }]);
   });
 

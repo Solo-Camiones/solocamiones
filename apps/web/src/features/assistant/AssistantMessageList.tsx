@@ -43,7 +43,11 @@ export function AssistantMessageList() {
       <p className="shrink-0 border-b border-navy-50 px-4 py-2 text-xs text-navy-400">
         {ASSISTANT_VERIFICATION_WARNING}
       </p>
-      <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-3" role="log" aria-live="polite">
+      <div
+        className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-3"
+        role="log"
+        aria-live="polite"
+      >
         {messagesHasMore ? (
           <div className="flex justify-center">
             <Button
@@ -58,7 +62,10 @@ export function AssistantMessageList() {
         ) : null}
 
         {showEmpty ? (
-          <Empty title={ASSISTANT_EMPTY_STATE_TITLE} description={ASSISTANT_EMPTY_STATE_DESCRIPTION} />
+          <Empty
+            title={ASSISTANT_EMPTY_STATE_TITLE}
+            description={ASSISTANT_EMPTY_STATE_DESCRIPTION}
+          />
         ) : null}
 
         {messages.map((message) => (

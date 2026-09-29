@@ -62,7 +62,11 @@ export {
   createFakeKnowledgeRetriever,
   createFakeLanguageModelGateway,
 } from './fakes.js';
-export type { FakeKnowledgeRetrieverOptions, FakeLanguageModelGatewayOptions, FakeLanguageModelScriptStep } from './fakes.js';
+export type {
+  FakeKnowledgeRetrieverOptions,
+  FakeLanguageModelGatewayOptions,
+  FakeLanguageModelScriptStep,
+} from './fakes.js';
 
 export { OpenAiKnowledgeRetriever } from './knowledge-retriever.js';
 export type {

@@ -1,5 +1,4 @@
-const UUID_SEGMENT =
-  '[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}';
+const UUID_SEGMENT = '[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}';
 
 /** Paths tools may emit (M4). Relative app paths only — no scheme or host. */
 const APPROVED_APP_PATH = new RegExp(

@@ -1,6 +1,23 @@
 # Plan detallado de implementación — Asistente híbrido RAG para Solo Camiones
 
-> **Autoridad:** la especificación canónica es `docs/FEATURES/17_AI_ASSISTANT.md` (`AI-001`–`AI-010`). Este archivo es solo secuencia técnica y progreso. **No implementes comportamiento desde este plan cuando exista un ID AI-* en Feature 17.**
+> **Autoridad:** la especificación canónica es `docs/FEATURES/17_AI_ASSISTANT.md` (`AI-001`–`AI-010`). Este archivo es solo secuencia técnica y progreso. _*No implementes comportamiento desde este plan cuando exista un ID AI-* en Feature 17._*
+
+## Estado del plan
+
+**Implementación de código: terminada** (2026-09-28).
+
+Milestones **M0–M8** cerrados. El trabajo de producto en código (API, persistencia, corpus/sync, tools, orquestador, SSE, panel web, hardening/ops y harness de evaluación) está entregado en local con flag `ASSISTANT_ENABLED=false` por defecto.
+
+**Lo único pendiente de este plan como trabajo de repo es dejar la rama ready para PR:**
+
+1. Suites/gates de validación de rama (`M9-T18`–`M9-T21`: `test`, `build`, `format:check`, revisión de diff/migración).
+2. Abrir/revisar el PR con alcance acotado al asistente.
+
+**Fuera del PR / post-merge** (no bloquean cerrar la implementación de código; se siguen en `docs/assistant-eval/ROLLOUT_CHECKLIST.md` y Feature 17 `AI-010`):
+
+- Revalidar y congelar baseline de evaluación (`M9-T07`, `M9-T24`).
+- Staging enablement (`M9-T08`–`M9-T14`).
+- Rollout producción con flag y monitoreo (`M9-T25`–`M9-T27`).
 
 ## 1. Propósito y alcance
 
@@ -34,24 +51,22 @@ No indexará transacciones en vectores, no tendrá herramientas de escritura y n
 
 ## 3. Estado actual y brecha
 
-### Estado actual
+### Estado actual (tras implementación)
 
-- Backend modular Express/TypeScript con PostgreSQL y Prisma.
-- Flujo esperado: `Route -> Controller -> Service -> Repository -> Database`.
-- Sesiones server-side y autorización para Administrator, Seller y Mechanic.
-- Frontend React/Vite con contratos y repositories para HTTP/mocks.
-- Clientes, ventas, conduces, pagos, CxC y rentabilidad ya existen en API/PostgreSQL.
-- Inventario, jerarquía y Work Orders todavía incluyen superficies mock.
-- No existen modelos, rutas, UI, configuración ni dependencias de IA/RAG.
-- `/docs` mezcla comportamiento implementado y futuro; no debe indexarse completo.
+- Backend modular Express/TypeScript con PostgreSQL y Prisma; flujo `Route -> Controller -> Service -> Repository -> Database`.
+- Feature Assistant implementada detrás de `ASSISTANT_ENABLED` (apagada por defecto): modelos/migración, adapters OpenAI, corpus aprobado + sync CLI, tools comerciales de solo lectura, orquestador híbrido, API/SSE, panel en `AppShell`, ops docs y harness `assistant:eval`.
+- Sesiones server-side y autorización; launcher solo para `ADMINISTRATOR` con capability activa.
+- Clientes, ventas, conduces, pagos, CxC y rentabilidad disponibles vía proyecciones de lectura.
+- Inventario, jerarquía y Work Orders siguen fuera del alcance del asistente (mocks / no indexados).
+- Corpus: solo Markdown aprobado en `docs/assistant-knowledge/`; no se indexa `/docs` completo.
 
-### Estado deseado
+### Estado deseado (piloto)
 
-Un Administrator podrá preguntar cómo operar el sistema o consultar datos comerciales. Cada respuesta deberá incluir evidencia, indicar frescura de datos, respetar permisos, reconocer evidencia insuficiente y evitar presentar prototipos como funcionalidad disponible.
+Un Administrator podrá preguntar cómo operar el sistema o consultar datos comerciales. Cada respuesta deberá incluir evidencia, indicar frescura de datos, respetar permisos, reconocer evidencia insuficiente y evitar presentar prototipos como funcionalidad disponible. Habilitación en staging/prod sigue gated por `AI-010` y `ROLLOUT_CHECKLIST.md`.
 
-### Brecha
+### Brecha restante
 
-Se necesitan especificación canónica, persistencia, corpus, sincronización, adapters de OpenAI, herramientas de dominio, orquestación, API SSE, cliente web, panel, seguridad, evaluación y operación.
+Ninguna de implementación de código para v1. Pendiente solo: validación de rama para PR; luego baseline AI-010 + enablement controlado post-merge.
 
 ## 4. Arquitectura objetivo
 
@@ -87,21 +102,21 @@ Reglas estructurales:
 
 ### 5.1 Configuración
 
-| Variable                              |                   Default | Validación                              |
-| ------------------------------------- | ------------------------: | --------------------------------------- |
-| `ASSISTANT_ENABLED`                   |                   `false` | Feature apagada por defecto             |
-| `OPENAI_API_KEY`                      |                         — | Requerida solo si está habilitado       |
-| `OPENAI_CHAT_MODEL`                   | `gpt-5.4-mini-2026-03-17` | Inyectada, nunca hardcoded en servicios |
-| `OPENAI_VECTOR_STORE_ID`              |                         — | Requerida solo si está habilitado       |
-| `ASSISTANT_RETENTION_DAYS`            |                      `90` | 1–365                                   |
-| `ASSISTANT_DAILY_MESSAGE_LIMIT`       |                      `50` | Mayor que cero                          |
-| `ASSISTANT_GLOBAL_DAILY_MESSAGE_LIMIT`|                     `100` | Emergencia global (día laboral)         |
-| `ASSISTANT_MAX_INPUT_CHARS`           |                    `2000` | Validación HTTP y servicio              |
-| `ASSISTANT_MAX_OUTPUT_TOKENS`         |                    `1200` | Enviado al proveedor                    |
-| `ASSISTANT_MAX_TOOL_CALLS`            |                       `3` | Total por run                           |
-| `ASSISTANT_MAX_RETRIEVAL_RESULTS`     |                       `6` | Total por pregunta                      |
-| `ASSISTANT_RETRIEVAL_SCORE_THRESHOLD` |                    `0.55` | Ajustable tras evaluación               |
-| `ASSISTANT_REQUEST_TIMEOUT_MS`        |                   `45000` | Timeout externo total                   |
+| Variable                               |                   Default | Validación                              |
+| -------------------------------------- | ------------------------: | --------------------------------------- |
+| `ASSISTANT_ENABLED`                    |                   `false` | Feature apagada por defecto             |
+| `OPENAI_API_KEY`                       |                         — | Requerida solo si está habilitado       |
+| `OPENAI_CHAT_MODEL`                    | `gpt-5.4-mini-2026-03-17` | Inyectada, nunca hardcoded en servicios |
+| `OPENAI_VECTOR_STORE_ID`               |                         — | Requerida solo si está habilitado       |
+| `ASSISTANT_RETENTION_DAYS`             |                      `90` | 1–365                                   |
+| `ASSISTANT_DAILY_MESSAGE_LIMIT`        |                      `50` | Mayor que cero                          |
+| `ASSISTANT_GLOBAL_DAILY_MESSAGE_LIMIT` |                     `100` | Emergencia global (día laboral)         |
+| `ASSISTANT_MAX_INPUT_CHARS`            |                    `2000` | Validación HTTP y servicio              |
+| `ASSISTANT_MAX_OUTPUT_TOKENS`          |                    `1200` | Enviado al proveedor                    |
+| `ASSISTANT_MAX_TOOL_CALLS`             |                       `3` | Total por run                           |
+| `ASSISTANT_MAX_RETRIEVAL_RESULTS`      |                       `6` | Total por pregunta                      |
+| `ASSISTANT_RETRIEVAL_SCORE_THRESHOLD`  |                    `0.55` | Ajustable tras evaluación               |
+| `ASSISTANT_REQUEST_TIMEOUT_MS`         |                   `45000` | Timeout externo total                   |
 
 Si la feature está apagada, credenciales ausentes no deben impedir que la aplicación arranque.
 
@@ -194,18 +209,18 @@ El repository tendrá `createConversation`, `listConversations`, `listMessages`,
 
 ## 6. Mapa de milestones
 
-| Milestone | Nombre                      | Dependencias | Entregable                               |
-| --------- | --------------------------- | ------------ | ---------------------------------------- |
-| M0        | Especificación canónica     | —            | Feature 17 confirmada y trazable         |
-| M1        | Fundaciones OpenAI          | M0           | Configuración, ports y adapters aislados |
-| M2        | Persistencia y retención    | M0           | Migración, repositorios y purga          |
-| M3        | Corpus y sincronización RAG | M1, M2       | Base aprobada e indexación reproducible  |
-| M4        | Tools comerciales           | M0           | Consultas seguras de datos vivos         |
-| M5        | Orquestador híbrido         | M1–M4        | RAG + tools + modelo                     |
-| M6        | API y SSE                   | M2, M5       | Backend consumible por frontend          |
-| M7        | Cliente y panel web         | M6           | UX completa para Administrator           |
-| M8        | Seguridad y operación       | M3–M7        | Feature endurecida y operable            |
-| M9        | Evaluación y rollout        | M8           | Piloto aprobado y habilitado             |
+| Milestone | Nombre                      | Dependencias | Entregable                               | Estado                                |
+| --------- | --------------------------- | ------------ | ---------------------------------------- | ------------------------------------- |
+| M0        | Especificación canónica     | —            | Feature 17 confirmada y trazable         | Hecho                                 |
+| M1        | Fundaciones OpenAI          | M0           | Configuración, ports y adapters aislados | Hecho                                 |
+| M2        | Persistencia y retención    | M0           | Migración, repositorios y purga          | Hecho                                 |
+| M3        | Corpus y sincronización RAG | M1, M2       | Base aprobada e indexación reproducible  | Hecho                                 |
+| M4        | Tools comerciales           | M0           | Consultas seguras de datos vivos         | Hecho                                 |
+| M5        | Orquestador híbrido         | M1–M4        | RAG + tools + modelo                     | Hecho                                 |
+| M6        | API y SSE                   | M2, M5       | Backend consumible por frontend          | Hecho                                 |
+| M7        | Cliente y panel web         | M6           | UX completa para Administrator           | Hecho                                 |
+| M8        | Seguridad y operación       | M3–M7        | Feature endurecida y operable            | Hecho                                 |
+| M9        | Evaluación y rollout        | M8           | Harness listo; piloto post-PR            | Código hecho; PR + rollout pendientes |
 
 ## 7. Milestones detallados
 
@@ -620,7 +635,7 @@ Notas de implementación (decisiones del dueño 2026-09-24):
 
 **Objetivo:** demostrar calidad/costo y habilitar el piloto con rollback inmediato.
 
-**Estado:** Revalidación AI-010 pendiente. La baseline del 2026-09-24 quedó superseded por el hardening de privacidad, cuota atómica y fingerprints comerciales del 2026-09-25. El runner y sus regresiones están corregidos; falta repetir fake + local-real + revisión humana y congelar la nueva baseline. Staging/prod sigue bloqueado por `ROLLOUT_CHECKLIST.md`.
+**Estado:** Implementación de código **terminada** (2026-09-28). Harness, dataset, docs de eval/ops y gates parciales de cierre ya existen. **Siguiente paso de repo: dejar la rama ready para PR** (`M9-T18`–`M9-T21`). Staging/prod y congelado AI-010 siguen en `ROLLOUT_CHECKLIST.md` (post-merge; no son trabajo de implementación pendiente).
 
 Notas:
 
@@ -629,6 +644,7 @@ Notas:
 - Exactitud ≥90%: campo `humanAccuracyReview` en el reporte (no exit code).
 - “Real” = local-real OpenAI hasta existir staging DO.
 - Rollout dueño: `docs/assistant-eval/ROLLOUT_CHECKLIST.md`.
+- Baseline del 2026-09-24 quedó superseded por hardening 2026-09-25; revalidar fake + local-real + revisión humana **antes de enablement**, no como requisito para abrir el PR con flag apagado.
 
 ### Tareas de evaluación
 
@@ -638,9 +654,9 @@ Notas:
 - [x] `M9-T04` Crear runner con modo fake y staging real. _(local-fake / local-real)_
 - [x] `M9-T05` Medir precision@5, exactitud (heurística + humana), evidencia, rechazos, PII, TTFT, latencia, tokens y costo.
 - [x] `M9-T06` Corregir primero corpus/tools; ajustar prompt solo si corresponde. _(scorer negation + tool routing + prompt v1.2; 2026-09-24)_
-- [ ] `M9-T07` Congelar prompt version y corpus version aprobados. _(repetir tras hardening; baseline anterior superseded)_
+- [ ] `M9-T07` Congelar prompt version y corpus version aprobados. _(post-PR / pre-enablement; baseline anterior superseded)_
 
-### Tareas de staging
+### Tareas de staging _(post-merge; ver `ROLLOUT_CHECKLIST.md`)_
 
 - [ ] `M9-T08` Desplegar inicialmente con flag apagado.
 - [ ] `M9-T09` Aplicar migración y verificar índices.
@@ -656,12 +672,12 @@ Notas:
 - 0 campos prohibidos.
 - 0 operaciones comerciales ejecutadas.
 - 0 funcionalidades futuras presentadas como disponibles.
-- >= 90% de respuestas correctas. _(revisión humana 5B)_
-- >= 95% de preguntas documentales con fuente relevante en top 5.
+- > = 90% de respuestas correctas. _(revisión humana 5B)_
+- > = 95% de preguntas documentales con fuente relevante en top 5.
 - 100% de adversariales conserva permisos y allowlist.
 - P95 de primer token < 8 segundos en staging, excluyendo incidente externo documentado. _(medido en local-real)_
 
-### Tareas de cierre
+### Tareas de cierre — ready para PR _(único pendiente de repo)_
 
 - [x] `M9-T15` Ejecutar tests focalizados Assistant. _(incl. `tests/unit/assistant/eval.test.ts`)_
 - [x] `M9-T16` Ejecutar `npm run lint`. _(2026-09-25: 0 errores; 10 warnings Fast Refresh preexistentes)_
@@ -672,18 +688,21 @@ Notas:
 - [ ] `M9-T21` Revisar diff/migración y ausencia de cambios fuera de alcance.
 - [x] `M9-T22` Actualizar `docs/TESTING.md` y snapshot de Development Plan.
 - [x] `M9-T23` Marcar checklist Feature 17 solo con implementación + pruebas. _(parcial: eval harness; no prod on)_
-- [ ] `M9-T24` Registrar modelo, prompt, corpus y límites desplegados. _(baseline 2026-09-24 superseded; congelar nueva)_
+
+### Tareas de cierre — enablement _(post-PR; no bloquean marcar implementación terminada)_
+
+- [ ] `M9-T24` Registrar modelo, prompt, corpus y límites desplegados. _(baseline 2026-09-24 superseded; congelar nueva pre-enablement)_
 - [ ] `M9-T25` Desplegar producción con flag apagado y ejecutar smoke tests.
 - [ ] `M9-T26` Habilitar solo para Administrator.
 - [ ] `M9-T27` Monitorear 24/72 horas y apagar ante exposición o respuesta sin evidencia.
 
 ### Definición de terminado
 
-- Todos los milestones cerrados.
-- Suites completas aprobadas.
-- Corpus aprobado/sincronizado.
-- Runbook, alertas, purga y kill switch probados.
-- Aprobación del dueño registrada.
+**Implementación de código (este plan):** cumplida — M0–M8 cerrados; M9 harness/docs listos; feature apagada por defecto.
+
+**Ready para PR:** suites completas de rama (`M9-T18`–`M9-T21`) + revisión de alcance.
+
+**Piloto habilitado (AI-010):** corpus sincronizado en el entorno, baseline congelada, runbook/alertas/purga/kill switch verificados en staging, aprobación del dueño registrada.
 
 ## 8. Mapa probable de archivos
 
@@ -746,15 +765,17 @@ Notas:
 
 ## 11. Orden de ejecución recomendado
 
-1. Aprobar M0.
-2. Implementar M1 y M2.
-3. Construir corpus M3 y tools M4.
-4. Implementar orquestador M5.
-5. Publicar API M6.
-6. Construir cliente/panel M7.
-7. Ejecutar hardening/operación M8.
-8. Evaluar y desplegar con M9.
+1. ~~Aprobar M0.~~
+2. ~~Implementar M1 y M2.~~
+3. ~~Construir corpus M3 y tools M4.~~
+4. ~~Implementar orquestador M5.~~
+5. ~~Publicar API M6.~~
+6. ~~Construir cliente/panel M7.~~
+7. ~~Ejecutar hardening/operación M8.~~
+8. ~~Entregar harness/docs de M9 en código.~~
+9. **Ahora:** validar rama (`test` / `build` / `format:check` / revisión de diff) y abrir PR.
+10. Después del merge: baseline AI-010 + staging/prod según `docs/assistant-eval/ROLLOUT_CHECKLIST.md`.
 
 ---
 
-Este archivo es únicamente el plan. No implementa los milestones ni modifica el comportamiento del sistema.
+Este archivo es el plan y el registro de progreso. La implementación de código de M0–M9 (salvo gates de PR y rollout) está cerrada; no modifica el comportamiento del sistema por sí solo.

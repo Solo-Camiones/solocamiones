@@ -1,11 +1,13 @@
 import { z } from 'zod';
 
-import {
-  ASSISTANT_PROFITABILITY_MAX_RANGE_DAYS,
-  ASSISTANT_TOOL_MAX_ROWS,
-} from './constants.js';
+import { ASSISTANT_PROFITABILITY_MAX_RANGE_DAYS, ASSISTANT_TOOL_MAX_ROWS } from './constants.js';
 
-const limitSchema = z.coerce.number().int().min(1).max(ASSISTANT_TOOL_MAX_ROWS).default(ASSISTANT_TOOL_MAX_ROWS);
+const limitSchema = z.coerce
+  .number()
+  .int()
+  .min(1)
+  .max(ASSISTANT_TOOL_MAX_ROWS)
+  .default(ASSISTANT_TOOL_MAX_ROWS);
 
 function inclusiveCalendarDays(dateFrom: string, dateTo: string): number {
   const from = Date.UTC(
@@ -35,14 +37,7 @@ export const searchSalesDocumentsInputSchema = z
   .strictObject({
     query: z.string().trim().min(1).max(200).optional(),
     status: z
-      .enum([
-        'DRAFT',
-        'QUOTE_DRAFT',
-        'QUOTE_ISSUED',
-        'CONDUCE',
-        'COMPLETED',
-        'CANCELLED',
-      ])
+      .enum(['DRAFT', 'QUOTE_DRAFT', 'QUOTE_ISSUED', 'CONDUCE', 'COMPLETED', 'CANCELLED'])
       .optional(),
     customerId: z.uuid().optional(),
     dateFrom: z.iso.date().optional(),

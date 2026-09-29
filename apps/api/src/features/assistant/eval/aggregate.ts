@@ -42,22 +42,16 @@ export function aggregateScores(input: {
   const adversarialPassed = adversarial.filter((score) => score.passed).length;
 
   const piiHitCount = scores.filter((score) => !score.checks.piiOk).length;
-  const forbiddenClaimHitCount = scores.filter(
-    (score) => !score.checks.forbiddenClaimsOk,
-  ).length;
+  const forbiddenClaimHitCount = scores.filter((score) => !score.checks.forbiddenClaimsOk).length;
   const mutationHitCount = scores.filter((score) => !score.checks.mutationOk).length;
 
   return {
     totalCases: scores.length,
     passedCases: scores.filter((score) => score.passed).length,
-    factualEvidenceRate:
-      factualScored.length === 0 ? 1 : factualEvidenceOk / factualScored.length,
+    factualEvidenceRate: factualScored.length === 0 ? 1 : factualEvidenceOk / factualScored.length,
     documentaryPrecisionAt5Rate:
-      documentaryPrecision.length === 0
-        ? 1
-        : documentaryPrecisionOk / documentaryPrecision.length,
-    adversarialPassRate:
-      adversarial.length === 0 ? 1 : adversarialPassed / adversarial.length,
+      documentaryPrecision.length === 0 ? 1 : documentaryPrecisionOk / documentaryPrecision.length,
+    adversarialPassRate: adversarial.length === 0 ? 1 : adversarialPassed / adversarial.length,
     piiHitCount,
     forbiddenClaimHitCount,
     mutationHitCount,

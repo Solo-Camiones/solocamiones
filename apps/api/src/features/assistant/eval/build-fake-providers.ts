@@ -88,9 +88,7 @@ export function buildFakeProvidersForCase(
       type: 'tool_call' as const,
       id: `call_eval_${index}`,
       name: call.name,
-      argumentsJson: JSON.stringify(
-        substitutePlaceholdersInUnknown(call.arguments, placeholders),
-      ),
+      argumentsJson: JSON.stringify(substitutePlaceholdersInUnknown(call.arguments, placeholders)),
     }));
     script.push({
       events: [

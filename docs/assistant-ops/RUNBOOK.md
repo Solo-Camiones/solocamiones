@@ -173,10 +173,10 @@ npm run assistant:purge -- --dry-run
 npm run assistant:purge
 ```
 
-| Modo | Efecto |
-| --- | --- |
-| `--dry-run` | Lista/cuenta candidatos; **no** borra |
-| sin flag | Elimina conversaciones expiradas en lotes (cascade solo tablas assistant) |
+| Modo        | Efecto                                                                    |
+| ----------- | ------------------------------------------------------------------------- |
+| `--dry-run` | Lista/cuenta candidatos; **no** borra                                     |
+| sin flag    | Elimina conversaciones expiradas en lotes (cascade solo tablas assistant) |
 
 **Acciones ante fallo de purge**
 
@@ -214,16 +214,16 @@ npm run assistant:purge
 
 ## Matriz rápida
 
-| Señal | Mirar primero | Evitar |
-| --- | --- | --- |
-| 401 | Sesión / CSRF | Rotar OpenAI key |
-| 403 | Rol no Admin | Subir cuotas |
-| 429 | Rate limit vs cuota user/global | Reintentos agresivos |
-| Timeout | Proveedor / tools / abort | Sync del corpus |
-| Outage OpenAI | Aislamiento + status page | Restart masivo app |
-| Sync fail | Manifest / store / CLI env | Sync en boot |
-| Purge fail | Dry-run + DB job | Reset DB |
-| Incidente seguridad/costo | Kill switch | Dejar flag on “para depurar en prod” |
+| Señal                     | Mirar primero                   | Evitar                               |
+| ------------------------- | ------------------------------- | ------------------------------------ |
+| 401                       | Sesión / CSRF                   | Rotar OpenAI key                     |
+| 403                       | Rol no Admin                    | Subir cuotas                         |
+| 429                       | Rate limit vs cuota user/global | Reintentos agresivos                 |
+| Timeout                   | Proveedor / tools / abort       | Sync del corpus                      |
+| Outage OpenAI             | Aislamiento + status page       | Restart masivo app                   |
+| Sync fail                 | Manifest / store / CLI env      | Sync en boot                         |
+| Purge fail                | Dry-run + DB job                | Reset DB                             |
+| Incidente seguridad/costo | Kill switch                     | Dejar flag on “para depurar en prod” |
 
 ---
 

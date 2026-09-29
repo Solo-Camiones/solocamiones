@@ -25,10 +25,7 @@ export { ConversationRepository, addRetentionDays } from './conversation-reposit
 export { createUserMessageWithRun } from './create-user-message.js';
 export { minimizeProviderText } from './provider-data-minimization.js';
 export { reserveAssistantTurn } from './reserve-turn.js';
-export type {
-  ReserveAssistantTurnInput,
-  ReserveAssistantTurnResult,
-} from './reserve-turn.js';
+export type { ReserveAssistantTurnInput, ReserveAssistantTurnResult } from './reserve-turn.js';
 export { computeKnowledgeSha256, normalizeKnowledgeContent } from './knowledge-checksum.js';
 export {
   createFileSystemKnowledgeCorpusReader,
@@ -84,11 +81,7 @@ export { AssistantService } from './service.js';
 export type { AssistantServiceDependencies, PreparedStreamTurn } from './service.js';
 export type { AssistantDomainEvent, StreamMessageInput } from './domain-events.js';
 export type { AssistantSourceView } from './evidence.js';
-export {
-  toPublicConversation,
-  toPublicMessage,
-  toPublicSource,
-} from './projection.js';
+export { toPublicConversation, toPublicMessage, toPublicSource } from './projection.js';
 export type { PublicAssistantConversation, PublicAssistantMessage } from './projection.js';
 export { createAssistantService } from './create-service.js';
 export { createAssistantRouter } from './routes.js';

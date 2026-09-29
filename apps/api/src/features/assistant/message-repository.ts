@@ -3,23 +3,14 @@ import type { AssistantMessage, Prisma } from '@prisma/client';
 import { prisma } from '../../infrastructure/database/index.js';
 import { businessDateString, businessDayRange } from '../payments/dates.js';
 import { ASSISTANT_MESSAGE_PAGE_SIZE } from './constants.js';
-import type {
-  CreateAssistantMessageInput,
-  ListMessagesQuery,
-  PaginatedResult,
-} from './types.js';
+import type { CreateAssistantMessageInput, ListMessagesQuery, PaginatedResult } from './types.js';
 
-type MessageDatabase = Pick<
-  Prisma.TransactionClient,
-  'assistantMessage' | 'assistantConversation'
->;
+type MessageDatabase = Pick<Prisma.TransactionClient, 'assistantMessage' | 'assistantConversation'>;
 
 export class MessageRepository {
   constructor(private readonly database: MessageDatabase = prisma) {}
 
-  async listByConversation(
-    query: ListMessagesQuery,
-  ): Promise<PaginatedResult<AssistantMessage>> {
+  async listByConversation(query: ListMessagesQuery): Promise<PaginatedResult<AssistantMessage>> {
     const pageSize = query.pageSize ?? ASSISTANT_MESSAGE_PAGE_SIZE;
     const where = { conversationId: query.conversationId };
     const [items, total] = await Promise.all([
@@ -117,8 +108,7 @@ export class MessageRepository {
 
   createAssistantMessage(input: CreateAssistantMessageInput): Promise<AssistantMessage> {
     const status = input.status ?? 'PENDING';
-    const completedAt =
-      status === 'PENDING' ? null : (input.completedAt ?? new Date());
+    const completedAt = status === 'PENDING' ? null : (input.completedAt ?? new Date());
 
     return this.database.assistantMessage.create({
       data: {

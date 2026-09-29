@@ -19,7 +19,7 @@ jobs:
     instance_count: 1
     instance_size_slug: basic-xxs
     schedule:
-      cron: "0 3 * * *"
+      cron: '0 3 * * *'
       time_zone: America/Santo_Domingo
     envs:
       # Solo referencias — valores en el secret store de App Platform, nunca en Git.
@@ -29,11 +29,11 @@ jobs:
         # value: set in App Platform UI / doctl secrets — do not commit
       - key: ASSISTANT_RETENTION_DAYS
         scope: RUN_TIME
-        value: "90"
+        value: '90'
       - key: NODE_ENV
         scope: RUN_TIME
-        value: "production"
+        value: 'production'
       - key: LOG_LEVEL
         scope: RUN_TIME
-        value: "info"
+        value: 'info'
     # Opcional: alertar si el job falla (configurar en el App Spec completo / Better Stack).

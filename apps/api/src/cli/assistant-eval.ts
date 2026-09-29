@@ -52,9 +52,7 @@ async function main(): Promise<void> {
     console.log(`Mode: ${report.mode} (${report.environment})`);
     console.log(`Dataset: ${report.datasetVersion}`);
     console.log(`Cases passed: ${report.aggregate.passedCases}/${report.aggregate.totalCases}`);
-    console.log(
-      `Hard gates: ${report.hardGates.passed ? 'PASS' : 'FAIL'}`,
-    );
+    console.log(`Hard gates: ${report.hardGates.passed ? 'PASS' : 'FAIL'}`);
     if (report.hardGates.failures.length > 0) {
       for (const failure of report.hardGates.failures) {
         console.error(`  - ${failure}`);

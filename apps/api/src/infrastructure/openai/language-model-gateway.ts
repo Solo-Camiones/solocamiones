@@ -138,10 +138,14 @@ export class OpenAiLanguageModelGateway implements LanguageModelGateway {
     );
     // Ensure accidental message logging never retains the API key if callers stringify errors later.
     if (this.apiKey != null && mapped.message.includes(this.apiKey)) {
-      return new AssistantProviderError(mapped.code, mapped.message.split(this.apiKey).join('[Redacted]'), {
-        retryable: mapped.retryable,
-        cause: mapped.cause,
-      });
+      return new AssistantProviderError(
+        mapped.code,
+        mapped.message.split(this.apiKey).join('[Redacted]'),
+        {
+          retryable: mapped.retryable,
+          cause: mapped.cause,
+        },
+      );
     }
     return mapped;
   }
@@ -186,7 +190,9 @@ function mapToolDefinition(tool: LanguageModelToolDefinition): FunctionTool {
   };
 }
 
-function mapUsage(usage: { input_tokens: number; output_tokens: number; total_tokens: number } | null | undefined): LanguageModelUsage | null {
+function mapUsage(
+  usage: { input_tokens: number; output_tokens: number; total_tokens: number } | null | undefined,
+): LanguageModelUsage | null {
   if (usage == null) return null;
   if (
     typeof usage.input_tokens !== 'number' ||

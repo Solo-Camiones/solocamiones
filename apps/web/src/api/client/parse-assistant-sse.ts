@@ -1,12 +1,6 @@
 import type { AssistantSource, AssistantStreamEvent, AssistantUsage } from '../contracts/assistant';
 
-const KNOWN_EVENT_TYPES = new Set([
-  'metadata',
-  'delta',
-  'sources',
-  'done',
-  'error',
-]);
+const KNOWN_EVENT_TYPES = new Set(['metadata', 'delta', 'sources', 'done', 'error']);
 
 /**
  * Incremental SSE parser for assistant streams.

@@ -10,11 +10,7 @@ import {
  * Prometheus scrape endpoint. Disabled (404) when METRICS_BEARER_TOKEN is unset.
  * Never mount this behind a public edge without the bearer secret.
  */
-export async function getMetrics(
-  req: Request,
-  res: Response,
-  next: NextFunction,
-): Promise<void> {
+export async function getMetrics(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const expected = parseMetricsBearerToken();
     if (expected == null) {

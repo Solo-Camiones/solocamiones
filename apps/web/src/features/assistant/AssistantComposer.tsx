@@ -5,15 +5,8 @@ import { useAssistant } from './AssistantProvider';
 import { Button, Textarea } from '../../shared/ui';
 
 export function AssistantComposer() {
-  const {
-    draft,
-    setDraft,
-    sendMessage,
-    stopStreaming,
-    retryLast,
-    canRetry,
-    streamPhase,
-  } = useAssistant();
+  const { draft, setDraft, sendMessage, stopStreaming, retryLast, canRetry, streamPhase } =
+    useAssistant();
 
   const trimmed = draft.trim();
   const overLimit = draft.length > ASSISTANT_MAX_INPUT_CHARS;

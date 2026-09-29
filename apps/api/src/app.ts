@@ -33,10 +33,7 @@ import {
   pdfkitInvoicePdfRenderer,
   type InvoicePdfRenderer,
 } from './infrastructure/invoice-pdf/index.js';
-import {
-  pdfkitQuotePdfRenderer,
-  type QuotePdfRenderer,
-} from './infrastructure/quote-pdf/index.js';
+import { pdfkitQuotePdfRenderer, type QuotePdfRenderer } from './infrastructure/quote-pdf/index.js';
 import {
   pdfkitAccountStatementRenderer,
   type AccountStatementPdfRenderer,
@@ -45,10 +42,7 @@ import {
   pdfkitSellerSalesRenderer,
   type SellerSalesPdfRenderer,
 } from './infrastructure/seller-sales-pdf/index.js';
-import {
-  parseAssistantConfig,
-  type AssistantConfig,
-} from './infrastructure/openai/index.js';
+import { parseAssistantConfig, type AssistantConfig } from './infrastructure/openai/index.js';
 
 export type CreateAppOptions = {
   /** Test-only routers, mounted after feature routes and before the 404 handler. */
@@ -114,8 +108,7 @@ export function createApp(options: CreateAppOptions = {}): express.Application {
     options.sellerSalesPdfRenderer ?? pdfkitSellerSalesRenderer,
   );
   const assistantConfig = options.assistantConfig ?? parseAssistantConfig();
-  const assistantService =
-    options.assistantService ?? createAssistantService(assistantConfig);
+  const assistantService = options.assistantService ?? createAssistantService(assistantConfig);
   const apiRateLimiter = createApiRateLimiter(options.apiRateLimitMaxRequests);
   app.locals.salesService = salesService;
   app.locals.profitabilityService = profitabilityService;

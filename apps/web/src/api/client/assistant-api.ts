@@ -12,7 +12,9 @@ import { CSRF_HEADERS, request } from './http-result';
 
 const ASSISTANT_PATH = '/api/assistant';
 
-export async function createAssistantConversationWithHttp(): Promise<Result<AssistantConversation>> {
+export async function createAssistantConversationWithHttp(): Promise<
+  Result<AssistantConversation>
+> {
   return request(() =>
     httpClient<AssistantConversation>(`${ASSISTANT_PATH}/conversations`, {
       method: 'POST',

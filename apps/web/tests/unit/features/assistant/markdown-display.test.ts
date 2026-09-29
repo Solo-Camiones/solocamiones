@@ -5,8 +5,7 @@ import { normalizeCompactMarkdownTables } from '../../../../src/features/assista
 
 describe('normalizeCompactMarkdownTables', () => {
   it('expands a compacted GFM table into one row per line', () => {
-    const input =
-      '| Moneda | Facturado | |---|---:| | DOP | 155,036.00 | | USD | 400.00 |';
+    const input = '| Moneda | Facturado | |---|---:| | DOP | 155,036.00 | | USD | 400.00 |';
     const output = normalizeCompactMarkdownTables(input);
 
     expect(output).toBe(
@@ -29,6 +28,14 @@ describe('formatAssistantTimestamps', () => {
     expect(formatted).toMatch(/24 sept?\.? de 2026/i);
     expect(formatted).toMatch(/7:39/i);
     expect(formatted).not.toContain('T23:39');
+  });
+
+  it('treats offset-less ISO datetimes as UTC (models often drop Z)', () => {
+    // Same instant as above without Z — must not show 11:39 p. m. (local misparse)
+    const formatted = formatAssistantTimestamps('Corte: 2026-09-24T23:39:22.122');
+    expect(formatted).toMatch(/24 sept?\.? de 2026/i);
+    expect(formatted).toMatch(/7:39/i);
+    expect(formatted).not.toMatch(/11:39/i);
   });
 
   it('formats date-only values without shifting the calendar day', () => {

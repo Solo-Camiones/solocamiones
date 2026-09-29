@@ -3,10 +3,7 @@ import { Prisma } from '@prisma/client';
 import { AppError } from '../../infrastructure/errors/app-error.js';
 import { ASSISTANT_ACTIVE_RUN_CONFLICT_MESSAGE } from './constants.js';
 import type { AssistantRepositories } from './transaction.js';
-import type {
-  CreateUserMessageWithRunInput,
-  CreateUserMessageWithRunResult,
-} from './types.js';
+import type { CreateUserMessageWithRunInput, CreateUserMessageWithRunResult } from './types.js';
 
 /**
  * Atomically creates a USER message + PENDING run and slides conversation retention.
@@ -60,10 +57,7 @@ export async function createUserMessageWithRun(
     await repositories.conversations.touch(input.conversationId, input.retentionDays, now);
     return { message, run, created: true };
   } catch (error) {
-    if (
-      error instanceof Prisma.PrismaClientKnownRequestError &&
-      error.code === 'P2002'
-    ) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
       const racedMessage = await repositories.messages.findByClientRequestId(
         input.conversationId,
         input.clientRequestId,

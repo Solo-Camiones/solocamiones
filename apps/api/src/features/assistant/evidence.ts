@@ -111,9 +111,7 @@ export function extractSuccessfulToolEvidence(
       : assistantToolSourceKey(name);
   const appPath = typeof record.appPath === 'string' ? record.appPath : null;
   const asOf =
-    typeof record.asOf === 'string' && record.asOf.length > 0
-      ? new Date(record.asOf)
-      : null;
+    typeof record.asOf === 'string' && record.asOf.length > 0 ? new Date(record.asOf) : null;
 
   return {
     name,

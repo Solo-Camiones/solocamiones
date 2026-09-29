@@ -38,9 +38,7 @@ const FORBIDDEN_OBSERVATION_KEYS = [
   'messages',
 ] as const;
 
-export function assertSafeRunObservation(
-  observation: Record<string, unknown>,
-): void {
+export function assertSafeRunObservation(observation: Record<string, unknown>): void {
   for (const key of FORBIDDEN_OBSERVATION_KEYS) {
     if (key in observation) {
       throw new Error(`Assistant run observation must not include "${key}"`);

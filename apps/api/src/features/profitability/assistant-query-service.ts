@@ -1,9 +1,6 @@
 import { Prisma } from '@prisma/client';
 
-import {
-  ASSISTANT_APP_PATHS,
-  assistantToolSourceKey,
-} from '../assistant/tools/constants.js';
+import { ASSISTANT_APP_PATHS, assistantToolSourceKey } from '../assistant/tools/constants.js';
 import type { GetProfitabilitySummaryInput } from '../assistant/tools/schemas.js';
 import type { AssistantToolMeta } from '../assistant/tools/types.js';
 import { moneyString } from '../payments/receivables.js';
@@ -137,8 +134,7 @@ export class ProfitabilityAssistantQueryService {
         }
 
         for (const payment of invoice.payments) {
-          const signed =
-            payment.kind === 'REFUND' ? payment.amount.negated() : payment.amount;
+          const signed = payment.kind === 'REFUND' ? payment.amount.negated() : payment.amount;
           const converted = toDopAmount(
             invoice.currency,
             signed,

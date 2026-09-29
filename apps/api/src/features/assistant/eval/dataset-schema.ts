@@ -1,11 +1,6 @@
 import { z } from 'zod';
 
-export const EVAL_CASE_CATEGORIES = [
-  'documentary',
-  'live',
-  'hybrid',
-  'adversarial',
-] as const;
+export const EVAL_CASE_CATEGORIES = ['documentary', 'live', 'hybrid', 'adversarial'] as const;
 
 export type EvalCaseCategory = (typeof EVAL_CASE_CATEGORIES)[number];
 
@@ -59,9 +54,7 @@ export type DatasetCompositionIssue = {
 };
 
 /** Enforce M9 mix: ≥10 documentary, ≥10 live, ≥5 hybrid, ≥5 adversarial. */
-export function validateDatasetComposition(
-  dataset: EvalDataset,
-): DatasetCompositionIssue[] {
+export function validateDatasetComposition(dataset: EvalDataset): DatasetCompositionIssue[] {
   const issues: DatasetCompositionIssue[] = [];
   const counts = {
     documentary: 0,

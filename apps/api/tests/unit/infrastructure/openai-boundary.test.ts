@@ -30,7 +30,10 @@ describe('OpenAI SDK import boundary', () => {
     for (const filePath of listTsFiles(apiSrcRoot)) {
       if (filePath.startsWith(openaiModuleRoot)) continue;
       const source = readFileSync(filePath, 'utf8');
-      if (/\bfrom\s+['"]openai(?:\/[^'"]*)?['"]/.test(source) || /\bimport\s*\(\s*['"]openai['"]/.test(source)) {
+      if (
+        /\bfrom\s+['"]openai(?:\/[^'"]*)?['"]/.test(source) ||
+        /\bimport\s*\(\s*['"]openai['"]/.test(source)
+      ) {
         offenders.push(relative(apiSrcRoot, filePath));
       }
     }

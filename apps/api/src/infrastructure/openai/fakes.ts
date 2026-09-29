@@ -12,8 +12,7 @@ import type {
 } from './types.js';
 
 export type FakeLanguageModelScriptStep =
-  | { events: LanguageModelEvent[] }
-  | { error: AssistantProviderError };
+  { events: LanguageModelEvent[] } | { error: AssistantProviderError };
 
 export type FakeLanguageModelGatewayOptions = {
   events?: LanguageModelEvent[];

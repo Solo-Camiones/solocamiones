@@ -34,7 +34,10 @@ export class AssistantProviderError extends Error {
     return new AssistantProviderError('AUTH', message, { retryable: false, cause });
   }
 
-  static rateLimit(message = 'OpenAI rate limit exceeded', cause?: unknown): AssistantProviderError {
+  static rateLimit(
+    message = 'OpenAI rate limit exceeded',
+    cause?: unknown,
+  ): AssistantProviderError {
     return new AssistantProviderError('RATE_LIMIT', message, { retryable: true, cause });
   }
 

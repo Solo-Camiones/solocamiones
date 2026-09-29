@@ -6,7 +6,7 @@
 
 Operational security docs (threat model, runbook, provider privacy checklist, metrics/purge): `docs/assistant-ops/`.
 
-These IDs were added 2026-09-22 for the Administrator-only hybrid assistant sequenced in `docs/chatbot_implementation/IMPLEMENTATION_PLAN.md`. That plan is technical sequencing and progress only. **Do not implement behavior from the plan file when an AI-* ID exists here.**
+These IDs were added 2026-09-22 for the Administrator-only hybrid assistant sequenced in `docs/chatbot_implementation/IMPLEMENTATION_PLAN.md`. That plan is technical sequencing and progress only. _*Do not implement behavior from the plan file when an AI-* ID exists here._*
 
 Owner decisions recorded for documentation confirmation (2026-09-22):
 
@@ -83,13 +83,13 @@ Administrator
 
 All routes: `requireAuth`, `requireAdministrator`, `Cache-Control: no-store`, dedicated rate limit, CSRF on POST/DELETE.
 
-| Method | Endpoint | Result |
-|---|---|---|
-| `POST` | `/api/assistant/conversations` | Create conversation; `201` |
-| `GET` | `/api/assistant/conversations?page=1` | Own conversations (20/page) |
-| `GET` | `/api/assistant/conversations/:id/messages?page=1` | Own messages (50/page) |
-| `POST` | `/api/assistant/conversations/:id/messages` | Persist question; stream SSE |
-| `DELETE` | `/api/assistant/conversations/:id` | Delete own conversation; `204` |
+| Method   | Endpoint                                           | Result                         |
+| -------- | -------------------------------------------------- | ------------------------------ |
+| `POST`   | `/api/assistant/conversations`                     | Create conversation; `201`     |
+| `GET`    | `/api/assistant/conversations?page=1`              | Own conversations (20/page)    |
+| `GET`    | `/api/assistant/conversations/:id/messages?page=1` | Own messages (50/page)         |
+| `POST`   | `/api/assistant/conversations/:id/messages`        | Persist question; stream SSE   |
+| `DELETE` | `/api/assistant/conversations/:id`                 | Delete own conversation; `204` |
 
 SSE events after stream start: `metadata`, `delta`, `sources`, `done`, `error`, plus 15s heartbeat. Pre-stream failures use normal HTTP errors (`503 ASSISTANT_DISABLED` when off).
 
@@ -116,27 +116,27 @@ SSE events after stream start: `metadata`, `delta`, `sources`, `done`, `error`, 
 
 ### Allowed tools and field matrix
 
-| Tool | Allowed inputs | Allowed output fields | Forbidden |
-|---|---|---|---|
-| `searchCustomers` | query, optional type, limit ≤ 20 | `id`, `name`, `customerType`, `isDefault`, `appPath`, `asOf`, `sourceKey` | RNC, contacts, phone, email, address, notes, credit fields in search list |
-| `getCustomerCommercialSummary` | `customerId` | `id`, `name`, `customerType`, `isDefault`, `creditLimitDop`, `creditTermDays`, allowed aggregates, `appPath`, `asOf`, `sourceKey` | RNC, contacts, phone, email, address, notes |
-| `searchSalesDocuments` | text/number, status, customer, dates, limit | `id`, COT/CON/FAC numbers, status, dates, currency, totals, `appPath`, seller id/name, fiscal flag, `asOf`, `sourceKey` | customer RNC/phone, NCF value, notes |
-| `getSalesDocumentDetail` | `documentId` | document identity fields above; line **description**, unit price, quantities, discount, ITBIS, line/subtotals; payment amount/date/method; balance; seller; fiscal flag; `asOf`, `sourceKey` | line/document notes; acquisition cost; per-document gross profit; customer RNC/phone; NCF |
-| `getReceivablesSummary` | customer, overdue, type, cut-off | aggregates; up to 20 document stubs with allowed sales fields; `asOf`, `sourceKey` | PII/contact fields; notes |
-| `getProfitabilitySummary` | `dateFrom`/`dateTo`, currency; range ≤ 366 days | aggregate profitability metrics Administrator may already view; `asOf`, `sourceKey` | raw acquisition-cost line dumps; forbidden customer PII |
+| Tool                           | Allowed inputs                                  | Allowed output fields                                                                                                                                                                        | Forbidden                                                                                 |
+| ------------------------------ | ----------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| `searchCustomers`              | query, optional type, limit ≤ 20                | `id`, `name`, `customerType`, `isDefault`, `appPath`, `asOf`, `sourceKey`                                                                                                                    | RNC, contacts, phone, email, address, notes, credit fields in search list                 |
+| `getCustomerCommercialSummary` | `customerId`                                    | `id`, `name`, `customerType`, `isDefault`, `creditLimitDop`, `creditTermDays`, allowed aggregates, `appPath`, `asOf`, `sourceKey`                                                            | RNC, contacts, phone, email, address, notes                                               |
+| `searchSalesDocuments`         | text/number, status, customer, dates, limit     | `id`, COT/CON/FAC numbers, status, dates, currency, totals, `appPath`, seller id/name, fiscal flag, `asOf`, `sourceKey`                                                                      | customer RNC/phone, NCF value, notes                                                      |
+| `getSalesDocumentDetail`       | `documentId`                                    | document identity fields above; line **description**, unit price, quantities, discount, ITBIS, line/subtotals; payment amount/date/method; balance; seller; fiscal flag; `asOf`, `sourceKey` | line/document notes; acquisition cost; per-document gross profit; customer RNC/phone; NCF |
+| `getReceivablesSummary`        | customer, overdue, type, cut-off                | aggregates; up to 20 document stubs with allowed sales fields; `asOf`, `sourceKey`                                                                                                           | PII/contact fields; notes                                                                 |
+| `getProfitabilitySummary`      | `dateFrom`/`dateTo`, currency; range ≤ 366 days | aggregate profitability metrics Administrator may already view; `asOf`, `sourceKey`                                                                                                          | raw acquisition-cost line dumps; forbidden customer PII                                   |
 
 **Global forbidden to provider context:** RNC/Cédula, phone, email, address, notes (customer, contact, line, or document), users/credentials/sessions, NCF / invoice customer RNC snapshots, acquisition cost on billing lines (COST-006), writing any commercial mutation.
 
 ### Cross-feature coordination / conflicts reviewed (M0-T17)
 
-| Feature | Review result |
-|---|---|
-| **08 Customers** | Assistant uses a narrower projection than `PublicCustomer`. Does not change CUST-* rules. Never sends RNC/contacts/address/notes to the provider. |
-| **10 Sales / invoices / quotes** | Read-only search/detail over existing aggregates. Does not change SALE-*/QUOTE-* lifecycle or confirmation rules. |
-| **11 Cost / profitability** | Aggregate profitability tool is Administrator-aligned with COST-002..005 visibility. Line acquisition cost stays out of assistant payloads (COST-006). Per-document gross profit is not exposed via sales-detail tool. |
-| **12 Payments / CxC** | Read-only payment and receivables summaries for Administrator (PAY-007). No payment recording. |
-| **13 Cancellation / refunds** | No cancel/refund tools. Assistant must not imply it can cancel. |
-| **16 Conduces** | Live CON-/FAC- documents are in scope for read tools once implemented in production API. Assistant does not issue/convert/cancel conduces. |
+| Feature                          | Review result                                                                                                                                                                                                          |
+| -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **08 Customers**                 | Assistant uses a narrower projection than `PublicCustomer`. Does not change CUST-* rules. Never sends RNC/contacts/address/notes to the provider.                                                                      |
+| **10 Sales / invoices / quotes** | Read-only search/detail over existing aggregates. Does not change SALE-_/QUOTE-_ lifecycle or confirmation rules.                                                                                                      |
+| **11 Cost / profitability**      | Aggregate profitability tool is Administrator-aligned with COST-002..005 visibility. Line acquisition cost stays out of assistant payloads (COST-006). Per-document gross profit is not exposed via sales-detail tool. |
+| **12 Payments / CxC**            | Read-only payment and receivables summaries for Administrator (PAY-007). No payment recording.                                                                                                                         |
+| **13 Cancellation / refunds**    | No cancel/refund tools. Assistant must not imply it can cancel.                                                                                                                                                        |
+| **16 Conduces**                  | Live CON-/FAC- documents are in scope for read tools once implemented in production API. Assistant does not issue/convert/cancel conduces.                                                                             |
 
 No requirement IDs in Features 08–16 were weakened. No cross-edits to those files were required.
 
@@ -199,18 +199,18 @@ No requirement IDs in Features 08–16 were weakened. No cross-edits to those fi
 
 ## Traceability matrix (requirement → milestone → tests → acceptance)
 
-| Requirement | Primary milestones | Representative tests | Acceptance signal |
-|---|---|---|---|
-| AI-001 | M6, M7, M8 | 401/403 role; launcher hidden for Seller/Mechanic; capability off | Only Administrator accesses assistant |
-| AI-002 | M3, M5, M7, M9 | Documentary Q&A with sources; insufficient evidence | Factual doc answers cite corpus sources |
-| AI-003 | M4, M5, M8, M9 | Tool allowlist; unknown tool; fourth call rejected; no writes | Only registered read tools run |
-| AI-004 | M4, M5, M8, M9 | Raw prompt/history/RAG minimization; negative field audits on gateway payload; PII never in provider stubs | Forbidden fields absent from provider context |
-| AI-005 | M2, M8 | Ownership 404; purge/dry-run; cascade | History owned, auditable, 90-day retention |
-| AI-006 | M1, M5, M6, M8 | Atomic concurrent daily quota; max input; max tools; max retrieval | Limits enforced before/during external cost |
-| AI-007 | M3, M5, M9 | Mock/future prompts refused; no false availability | Mocks/future never presented as live |
-| AI-008 | M1, M5, M6, M8 | Provider 5xx/timeout/429; readiness independent | Commercial API/readiness unaffected |
-| AI-009 | M3, M8, M9 | Manifest gate; sync checksum; failed sync safe | Only approved corpus indexed |
-| AI-010 | M9 | Eval runner thresholds; commercial count + fingerprint snapshots | Production enablement blocked until pass |
+| Requirement | Primary milestones | Representative tests                                                                                       | Acceptance signal                             |
+| ----------- | ------------------ | ---------------------------------------------------------------------------------------------------------- | --------------------------------------------- |
+| AI-001      | M6, M7, M8         | 401/403 role; launcher hidden for Seller/Mechanic; capability off                                          | Only Administrator accesses assistant         |
+| AI-002      | M3, M5, M7, M9     | Documentary Q&A with sources; insufficient evidence                                                        | Factual doc answers cite corpus sources       |
+| AI-003      | M4, M5, M8, M9     | Tool allowlist; unknown tool; fourth call rejected; no writes                                              | Only registered read tools run                |
+| AI-004      | M4, M5, M8, M9     | Raw prompt/history/RAG minimization; negative field audits on gateway payload; PII never in provider stubs | Forbidden fields absent from provider context |
+| AI-005      | M2, M8             | Ownership 404; purge/dry-run; cascade                                                                      | History owned, auditable, 90-day retention    |
+| AI-006      | M1, M5, M6, M8     | Atomic concurrent daily quota; max input; max tools; max retrieval                                         | Limits enforced before/during external cost   |
+| AI-007      | M3, M5, M9         | Mock/future prompts refused; no false availability                                                         | Mocks/future never presented as live          |
+| AI-008      | M1, M5, M6, M8     | Provider 5xx/timeout/429; readiness independent                                                            | Commercial API/readiness unaffected           |
+| AI-009      | M3, M8, M9         | Manifest gate; sync checksum; failed sync safe                                                             | Only approved corpus indexed                  |
+| AI-010      | M9                 | Eval runner thresholds; commercial count + fingerprint snapshots                                           | Production enablement blocked until pass      |
 
 ## Canonical validated requirements
 

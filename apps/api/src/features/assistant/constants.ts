@@ -17,13 +17,12 @@ export const ASSISTANT_HISTORY_MAX_CHARS = 24_000;
 /** Local title from the first user message (M5-T21); capped by conversation title max. */
 export const ASSISTANT_TITLE_FROM_CONTENT_CHARS = 80;
 
-export const ASSISTANT_PROMPT_VERSION = 'assistant-v1.2';
+export const ASSISTANT_PROMPT_VERSION = 'assistant-v1.3';
 
 /** User-visible assistant errors (Spanish). Codes stay English for logs/ops. */
 export const ASSISTANT_ACTIVE_RUN_CONFLICT_MESSAGE =
   'Ya hay una respuesta en curso en esta conversación. Espera a que termine.';
-export const ASSISTANT_RUN_NOT_PENDING_MESSAGE =
-  'La respuesta del asistente ya no está pendiente.';
+export const ASSISTANT_RUN_NOT_PENDING_MESSAGE = 'La respuesta del asistente ya no está pendiente.';
 export const ASSISTANT_DAILY_QUOTA_EXCEEDED_MESSAGE =
   'Alcanzaste el límite diario de mensajes del asistente.';
 export const ASSISTANT_GLOBAL_QUOTA_EXCEEDED_MESSAGE =

@@ -1,10 +1,7 @@
 import { Prisma } from '@prisma/client';
 
 import { AppError } from '../../infrastructure/errors/app-error.js';
-import {
-  ASSISTANT_APP_PATHS,
-  assistantToolSourceKey,
-} from '../assistant/tools/constants.js';
+import { ASSISTANT_APP_PATHS, assistantToolSourceKey } from '../assistant/tools/constants.js';
 import type {
   GetSalesDocumentDetailInput,
   SearchSalesDocumentsInput,

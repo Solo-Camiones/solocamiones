@@ -1,8 +1,4 @@
-import {
-  Registry,
-  collectDefaultMetrics,
-  type RegistryContentType,
-} from '@prometheus-io/client';
+import { Registry, collectDefaultMetrics, type RegistryContentType } from '@prometheus-io/client';
 
 /** Prometheus text exposition (0.0.4) — standard scrape format. */
 export const PROMETHEUS_CONTENT_TYPE =

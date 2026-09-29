@@ -18,8 +18,7 @@ const ERROR_MESSAGES: Record<AppErrorCode, string> = {
   NETWORK: 'No se pudo conectar con el servidor. Revise su conexión e intente nuevamente.',
 };
 
-const ASSISTANT_DISABLED_MESSAGE =
-  'El asistente no está habilitado en este entorno.';
+const ASSISTANT_DISABLED_MESSAGE = 'El asistente no está habilitado en este entorno.';
 
 export class HttpError extends Error {
   constructor(
@@ -59,7 +58,8 @@ export function mapResponseError(status: number, body: unknown): AppError {
     !Array.isArray(error.details)
       ? (error.details as Record<string, unknown>)
       : undefined;
-  const serverMessage = 'message' in error && typeof error.message === 'string' ? error.message : undefined;
+  const serverMessage =
+    'message' in error && typeof error.message === 'string' ? error.message : undefined;
   const isAssistantDisabled =
     code === 'SERVICE_UNAVAILABLE' && details?.reason === 'ASSISTANT_DISABLED';
   const presented = presentError({
@@ -119,7 +119,8 @@ export async function httpClientBlob(
   const blob = await response.blob();
   return {
     blob,
-    filename: contentDispositionFilename(response.headers.get('Content-Disposition')) ?? 'invoice.pdf',
+    filename:
+      contentDispositionFilename(response.headers.get('Content-Disposition')) ?? 'invoice.pdf',
   };
 }
 

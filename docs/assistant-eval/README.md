@@ -4,22 +4,22 @@ Dataset versionado y runner local para el gate de calidad antes de habilitar el 
 
 ## Decisiones de este paquete
 
-| Tema | Decisión |
-| --- | --- |
+| Tema           | Decisión                                                                   |
+| -------------- | -------------------------------------------------------------------------- |
 | Entorno “real” | Local con OpenAI (`local-real`), no staging DO (aún sin App Specs en repo) |
-| Exactitud ≥90% | Heurística automática + **revisión humana** del reporte real (5B) |
-| Datos vivos | Fixtures deterministas sembradas por el runner |
-| Costo | Estimación vía `pricing.json` |
+| Exactitud ≥90% | Heurística automática + **revisión humana** del reporte real (5B)          |
+| Datos vivos    | Fixtures deterministas sembradas por el runner                             |
+| Costo          | Estimación vía `pricing.json`                                              |
 
 ## Layout
 
-| Path | Contenido |
-| --- | --- |
+| Path                    | Contenido                                                   |
+| ----------------------- | ----------------------------------------------------------- |
 | `dataset/v1/cases.json` | ≥30 casos (documentales / vivos / híbridos / adversariales) |
-| `pricing.json` | Tabla de precios estimada (USD / 1M tokens) |
-| `BASELINE.md` | Versiones congeladas tras PASS + revisión humana |
-| `ROLLOUT_CHECKLIST.md` | Tareas de staging/prod del dueño (fuera del runner) |
-| `reports/` | Salidas JSON del CLI (gitignored) |
+| `pricing.json`          | Tabla de precios estimada (USD / 1M tokens)                 |
+| `BASELINE.md`           | Versiones congeladas tras PASS + revisión humana            |
+| `ROLLOUT_CHECKLIST.md`  | Tareas de staging/prod del dueño (fuera del runner)         |
+| `reports/`              | Salidas JSON del CLI (gitignored)                           |
 
 ## Cómo correr
 

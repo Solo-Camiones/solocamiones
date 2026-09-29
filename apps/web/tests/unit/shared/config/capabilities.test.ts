@@ -49,7 +49,9 @@ describe('capability presets follow the Development Plan', () => {
     );
     expect(isRouteAllowedForRole('/profitability', 'ADMINISTRATOR', capabilities)).toBe(true);
     expect(isRouteAllowedForRole('/profitability', 'SELLER', capabilities)).toBe(false);
-    expect(navItemsForRole('SELLER', capabilities).map((item) => item.id)).not.toContain('inventory');
+    expect(navItemsForRole('SELLER', capabilities).map((item) => item.id)).not.toContain(
+      'inventory',
+    );
     expect(enabledPosLineTypes(capabilities).map((entry) => entry.value)).toEqual([
       'GENERIC',
       'EXTERNAL',

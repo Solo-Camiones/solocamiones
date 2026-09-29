@@ -85,7 +85,9 @@ function openAiQuotaExhaustedError(cause: APIError): AssistantProviderError {
 function isAbortLike(error: unknown): boolean {
   return (
     error instanceof Error &&
-    (error.name === 'AbortError' || error.name === 'TimeoutError' || error.name === 'APIUserAbortError')
+    (error.name === 'AbortError' ||
+      error.name === 'TimeoutError' ||
+      error.name === 'APIUserAbortError')
   );
 }
 

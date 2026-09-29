@@ -65,9 +65,7 @@ function createProbeApp() {
 
 describe('HTTP error contract (integration)', () => {
   it('returns 400 VALIDATION with details and without errorId for invalid bodies', async () => {
-    const response = await request(createProbeApp())
-      .post('/api/test-probe/echo')
-      .send({ name: 1 });
+    const response = await request(createProbeApp()).post('/api/test-probe/echo').send({ name: 1 });
 
     expect(response.status).toBe(400);
     expect(response.body.error.code).toBe('VALIDATION');

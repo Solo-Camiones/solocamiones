@@ -61,15 +61,15 @@ Provider selection should be delayed until region, support, backup retention, da
 
 ## Managed Platform Compared with a VPS
 
-| Concern | Managed app platform | Self-managed VPS |
-|---|---|---|
-| Initial setup | Build/deploy conventions and environment configuration | Operating system, runtime, firewall, proxy, certificates, deployment, and process manager |
-| Ongoing work | Application updates and provider settings | OS patching, intrusion response, disk management, service upgrades, and all application work |
-| PostgreSQL | Separate managed service with automated operations | Must be managed personally or still purchased separately |
-| HTTPS and proxy | Usually built in | Nginx/Caddy and certificate automation must be operated |
-| Scaling/recovery | Platform health checks and replacement | Manual design and recovery |
-| Flexibility | Moderate; provider conventions apply | High; full host control |
-| Solo-developer risk | Lower operational burden | More ways for a routine host issue to become business downtime |
+| Concern             | Managed app platform                                   | Self-managed VPS                                                                             |
+| ------------------- | ------------------------------------------------------ | -------------------------------------------------------------------------------------------- |
+| Initial setup       | Build/deploy conventions and environment configuration | Operating system, runtime, firewall, proxy, certificates, deployment, and process manager    |
+| Ongoing work        | Application updates and provider settings              | OS patching, intrusion response, disk management, service upgrades, and all application work |
+| PostgreSQL          | Separate managed service with automated operations     | Must be managed personally or still purchased separately                                     |
+| HTTPS and proxy     | Usually built in                                       | Nginx/Caddy and certificate automation must be operated                                      |
+| Scaling/recovery    | Platform health checks and replacement                 | Manual design and recovery                                                                   |
+| Flexibility         | Moderate; provider conventions apply                   | High; full host control                                                                      |
+| Solo-developer risk | Lower operational burden                               | More ways for a routine host issue to become business downtime                               |
 
 ### Recommendation
 

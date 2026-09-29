@@ -14,17 +14,17 @@ La especificación de producto vive en [`docs/`](docs/). Este README describe el
 
 Con `VITE_USE_MOCK_API` distinto de `true` (el valor por defecto y el de producción):
 
-| Área | En producción |
-|---|---|
-| Acceso y usuarios | Login/sesión, perfil, roles Administrador y Vendedor, alta/edición, recuperación autorizada de contraseña |
-| Clientes | Directorio, Cliente contado, snapshot en factura |
-| Catálogos | Servicios mecánicos (`/api/catalogs/services`). Categorías de inventario **ocultas** |
-| Ventas | Borradores, cotizaciones `COT-`, conduces `CON-` y facturas `FAC-` con líneas GENERIC / SERVICE / DELIVERY / EXTERNAL. Moneda DOP o USD, ITBIS y PDF reproducible |
-| Pagos y CxC | Reglas CASH/CREDIT, pago inicial según documento/rol, pagos posteriores, vencimiento por plazo comercial, filtros de abiertas y estado de cuenta PDF |
-| Cancelación | Anulación de factura o conduce no inventariado (Administrador), reembolso entre cero y el neto cobrado, PDF de cancelación |
-| Rentabilidad | Costo DOP, ganancia, equivalencia USD (tasa externa no bloquea la venta). Visible solo a Administrador |
-| Historial comercial | Actividad de cotización, conduce o factura: emisión/conversión, pago, PDF y cancelación; utilidad/FX solo Administrador |
-| Asistente de IA | Panel global solo para Administrador, RAG sobre corpus aprobado y seis herramientas comerciales de lectura. Deshabilitado por defecto y pendiente del gate AI-010 antes de producción |
+| Área                | En producción                                                                                                                                                                         |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Acceso y usuarios   | Login/sesión, perfil, roles Administrador y Vendedor, alta/edición, recuperación autorizada de contraseña                                                                             |
+| Clientes            | Directorio, Cliente contado, snapshot en factura                                                                                                                                      |
+| Catálogos           | Servicios mecánicos (`/api/catalogs/services`). Categorías de inventario **ocultas**                                                                                                  |
+| Ventas              | Borradores, cotizaciones `COT-`, conduces `CON-` y facturas `FAC-` con líneas GENERIC / SERVICE / DELIVERY / EXTERNAL. Moneda DOP o USD, ITBIS y PDF reproducible                     |
+| Pagos y CxC         | Reglas CASH/CREDIT, pago inicial según documento/rol, pagos posteriores, vencimiento por plazo comercial, filtros de abiertas y estado de cuenta PDF                                  |
+| Cancelación         | Anulación de factura o conduce no inventariado (Administrador), reembolso entre cero y el neto cobrado, PDF de cancelación                                                            |
+| Rentabilidad        | Costo DOP, ganancia, equivalencia USD (tasa externa no bloquea la venta). Visible solo a Administrador                                                                                |
+| Historial comercial | Actividad de cotización, conduce o factura: emisión/conversión, pago, PDF y cancelación; utilidad/FX solo Administrador                                                               |
+| Asistente de IA     | Panel global solo para Administrador, RAG sobre corpus aprobado y seis herramientas comerciales de lectura. Deshabilitado por defecto y pendiente del gate AI-010 antes de producción |
 
 Roles: **Administrador** y **Vendedor**. El Mecánico y su app móvil no forman parte de esta versión.
 
@@ -141,23 +141,23 @@ Variables relevantes del `.env` (nunca commitear `.env`):
 
 ## Scripts
 
-| Comando | Descripción |
-|---|---|
-| `npm run dev` | API (3000) y web (5173) |
-| `npm run build` | Build de API y web |
-| `npm run typecheck` | TypeScript de todos los workspaces |
-| `npm run lint` | ESLint |
-| `npm run test` | Pruebas de API y web |
-| `npm run test:unit` | Solo unitarias |
-| `npm run test:integration` | Integración (API exige PostgreSQL de prueba) |
-| `npm run db:generate` | Prisma Client |
-| `npm run db:migrate` | Crear/aplicar migraciones en desarrollo |
-| `npm run db:migrate:deploy` | Aplicar migraciones existentes |
-| `npm run bootstrap:admin` | Primer Administrador en una base sin usuarios |
-| `npm run assistant:validate-knowledge` | Validar manifest, archivos y checksums del corpus aprobado |
-| `npm run assistant:sync-knowledge -- --dry-run` | Previsualizar la sincronización explícita del corpus |
-| `npm run assistant:purge -- --dry-run` | Previsualizar la purga de conversaciones vencidas |
-| `npm run assistant:eval -- --mode=fake` | Ejecutar el gate local determinista de evaluación del asistente |
+| Comando                                         | Descripción                                                     |
+| ----------------------------------------------- | --------------------------------------------------------------- |
+| `npm run dev`                                   | API (3000) y web (5173)                                         |
+| `npm run build`                                 | Build de API y web                                              |
+| `npm run typecheck`                             | TypeScript de todos los workspaces                              |
+| `npm run lint`                                  | ESLint                                                          |
+| `npm run test`                                  | Pruebas de API y web                                            |
+| `npm run test:unit`                             | Solo unitarias                                                  |
+| `npm run test:integration`                      | Integración (API exige PostgreSQL de prueba)                    |
+| `npm run db:generate`                           | Prisma Client                                                   |
+| `npm run db:migrate`                            | Crear/aplicar migraciones en desarrollo                         |
+| `npm run db:migrate:deploy`                     | Aplicar migraciones existentes                                  |
+| `npm run bootstrap:admin`                       | Primer Administrador en una base sin usuarios                   |
+| `npm run assistant:validate-knowledge`          | Validar manifest, archivos y checksums del corpus aprobado      |
+| `npm run assistant:sync-knowledge -- --dry-run` | Previsualizar la sincronización explícita del corpus            |
+| `npm run assistant:purge -- --dry-run`          | Previsualizar la purga de conversaciones vencidas               |
+| `npm run assistant:eval -- --mode=fake`         | Ejecutar el gate local determinista de evaluación del asistente |
 
 ---
 
@@ -185,9 +185,9 @@ Inventario reciente de pruebas: [`docs/TESTING.md`](docs/TESTING.md).
 
 ### Health
 
-| Endpoint | Significado | Éxito | Fallo |
-|---|---|---|---|
-| `GET /api/health/live` | El proceso corre | `200 { "status": "ok" }` | Proceso caído |
+| Endpoint                | Significado                               | Éxito                                                                  | Fallo                                                    |
+| ----------------------- | ----------------------------------------- | ---------------------------------------------------------------------- | -------------------------------------------------------- |
+| `GET /api/health/live`  | El proceso corre                          | `200 { "status": "ok" }`                                               | Proceso caído                                            |
 | `GET /api/health/ready` | PostgreSQL accesible y migraciones al día | `200 { "status": "ok", "database": "up", "migrations": "up_to_date" }` | `503` si la base está caída o hay migraciones pendientes |
 
 ---
@@ -224,19 +224,19 @@ routes → controller → service → repository
 
 ## Documentación
 
-| Documento | Uso |
-|---|---|
-| [`docs/DEVELOPMENT_PLAN.md`](docs/DEVELOPMENT_PLAN.md) | Releases, snapshot de lo implementado, reglas de Cursor |
-| [`docs/FEATURES/README.md`](docs/FEATURES/README.md) | Índice de specs; cada `FEATURES/*.md` es canónico para ese dominio |
-| [`docs/ARCHITECTURE_PLAN.md`](docs/ARCHITECTURE_PLAN.md) | Decisiones de arquitectura |
-| [`docs/ROLES_AND_PERMISSIONS.md`](docs/ROLES_AND_PERMISSIONS.md) | Autorización |
-| [`docs/INFRASTRUCTURE_PLAN.md`](docs/INFRASTRUCTURE_PLAN.md) | Hosting, backups, HTTPS, secretos |
-| [`docs/TESTING.md`](docs/TESTING.md) | Inventario y cómo correr pruebas |
-| [`docs/assistant-ops/README.md`](docs/assistant-ops/README.md) | Seguridad, operación, métricas, sync, purge y kill switch del asistente |
-| [`docs/assistant-eval/README.md`](docs/assistant-eval/README.md) | Dataset, runner y gate AI-010 |
-| [`docs/done_api/release-1.md`](docs/done_api/release-1.md) | Cierre Access/Users |
-| [`docs/done_api/release_2.md`](docs/done_api/release_2.md) | Cierre Billing Core |
-| [`docs/done_api/release_3.md`](docs/done_api/release_3.md) | Cierre del slice financiero adelantado de Release 3 |
+| Documento                                                        | Uso                                                                     |
+| ---------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| [`docs/DEVELOPMENT_PLAN.md`](docs/DEVELOPMENT_PLAN.md)           | Releases, snapshot de lo implementado, reglas de Cursor                 |
+| [`docs/FEATURES/README.md`](docs/FEATURES/README.md)             | Índice de specs; cada `FEATURES/*.md` es canónico para ese dominio      |
+| [`docs/ARCHITECTURE_PLAN.md`](docs/ARCHITECTURE_PLAN.md)         | Decisiones de arquitectura                                              |
+| [`docs/ROLES_AND_PERMISSIONS.md`](docs/ROLES_AND_PERMISSIONS.md) | Autorización                                                            |
+| [`docs/INFRASTRUCTURE_PLAN.md`](docs/INFRASTRUCTURE_PLAN.md)     | Hosting, backups, HTTPS, secretos                                       |
+| [`docs/TESTING.md`](docs/TESTING.md)                             | Inventario y cómo correr pruebas                                        |
+| [`docs/assistant-ops/README.md`](docs/assistant-ops/README.md)   | Seguridad, operación, métricas, sync, purge y kill switch del asistente |
+| [`docs/assistant-eval/README.md`](docs/assistant-eval/README.md) | Dataset, runner y gate AI-010                                           |
+| [`docs/done_api/release-1.md`](docs/done_api/release-1.md)       | Cierre Access/Users                                                     |
+| [`docs/done_api/release_2.md`](docs/done_api/release_2.md)       | Cierre Billing Core                                                     |
+| [`docs/done_api/release_3.md`](docs/done_api/release_3.md)       | Cierre del slice financiero adelantado de Release 3                     |
 
 No implementar ideas de [`docs/FUTURE_ROADMAP.md`](docs/FUTURE_ROADMAP.md) salvo petición explícita.
 

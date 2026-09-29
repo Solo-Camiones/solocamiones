@@ -34,10 +34,9 @@ function createRepositories(database: Prisma.TransactionClient): AssistantReposi
 export const assistantTransaction: AssistantTransaction = async (work) => {
   for (let attempt = 0; ; attempt += 1) {
     try {
-      return await prisma.$transaction(
-        async (tx) => work(createRepositories(tx)),
-        { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
-      );
+      return await prisma.$transaction(async (tx) => work(createRepositories(tx)), {
+        isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+      });
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError) {
         if (error.code === 'P2034' && attempt < 3) continue;

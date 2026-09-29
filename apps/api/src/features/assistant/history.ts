@@ -1,7 +1,4 @@
-import {
-  ASSISTANT_HISTORY_MAX_CHARS,
-  ASSISTANT_HISTORY_MAX_MESSAGES,
-} from './constants.js';
+import { ASSISTANT_HISTORY_MAX_CHARS, ASSISTANT_HISTORY_MAX_MESSAGES } from './constants.js';
 
 export type HistoryMessage = {
   id: string;

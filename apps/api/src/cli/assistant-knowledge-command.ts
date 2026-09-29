@@ -42,8 +42,7 @@ export function parseKnowledgeCliArgs(
 }
 
 export type KnowledgeDocumentHash =
-  | { sourceKey: string; sha256: string }
-  | { sourceKey: string; error: string };
+  { sourceKey: string; sha256: string } | { sourceKey: string; error: string };
 
 /**
  * Reads the manifest leniently (without the strict schema) because its main use
@@ -75,7 +74,10 @@ export async function hashKnowledgeDocuments(
       continue;
     }
     try {
-      results.push({ sourceKey, sha256: computeKnowledgeSha256(await readDocument(document.path)) });
+      results.push({
+        sourceKey,
+        sha256: computeKnowledgeSha256(await readDocument(document.path)),
+      });
     } catch {
       results.push({ sourceKey, error: `cannot read ${document.path}` });
     }

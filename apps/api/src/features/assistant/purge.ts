@@ -1,9 +1,6 @@
 import { ASSISTANT_PURGE_BATCH_SIZE } from './constants.js';
 import type { ConversationRepository } from './conversation-repository.js';
-import type {
-  PurgeExpiredConversationsInput,
-  PurgeExpiredConversationsResult,
-} from './types.js';
+import type { PurgeExpiredConversationsInput, PurgeExpiredConversationsResult } from './types.js';
 
 export async function purgeExpiredConversations(
   conversations: ConversationRepository,

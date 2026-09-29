@@ -19,9 +19,7 @@ import {
   type OpenAiResponsesClient,
 } from '../../../src/infrastructure/openai/index.js';
 
-async function collect(
-  iterable: AsyncIterable<unknown>,
-): Promise<unknown[]> {
+async function collect(iterable: AsyncIterable<unknown>): Promise<unknown[]> {
   const items: unknown[] = [];
   for await (const item of iterable) {
     items.push(item);
@@ -31,17 +29,17 @@ async function collect(
 
 describe('mapOpenAiError', () => {
   it('maps auth, rate limit, timeout, abort, and 5xx errors', () => {
-    expect(mapOpenAiError(new AuthenticationError(401, undefined, 'auth', new Headers())).code).toBe(
-      'AUTH',
-    );
+    expect(
+      mapOpenAiError(new AuthenticationError(401, undefined, 'auth', new Headers())).code,
+    ).toBe('AUTH');
     expect(mapOpenAiError(new RateLimitError(429, undefined, 'rate', new Headers())).code).toBe(
       'RATE_LIMIT',
     );
     expect(mapOpenAiError(new APIConnectionTimeoutError()).code).toBe('TIMEOUT');
     expect(mapOpenAiError(new APIUserAbortError()).code).toBe('TIMEOUT');
-    expect(mapOpenAiError(new InternalServerError(503, undefined, 'down', new Headers())).code).toBe(
-      'UNAVAILABLE',
-    );
+    expect(
+      mapOpenAiError(new InternalServerError(503, undefined, 'down', new Headers())).code,
+    ).toBe('UNAVAILABLE');
     expect(mapOpenAiError(APIError.generate(500, undefined, 'boom', new Headers())).code).toBe(
       'UNAVAILABLE',
     );
@@ -94,38 +92,40 @@ describe('OpenAiLanguageModelGateway', () => {
   });
 
   it('sends store:false, model, max tokens and streams domain events', async () => {
-    const create = vi.fn(async (_body: Record<string, unknown>, _options?: { signal?: AbortSignal }) => {
-      return (async function* () {
-        yield {
-          type: 'response.created',
-          response: { id: 'resp_1' },
-          sequence_number: 0,
-        };
-        yield {
-          type: 'response.output_text.delta',
-          delta: 'Hello',
-          sequence_number: 1,
-        };
-        yield {
-          type: 'response.output_item.done',
-          item: {
-            type: 'function_call',
-            call_id: 'call_1',
-            name: 'searchCustomers',
-            arguments: '{"query":"acme"}',
-          },
-          sequence_number: 2,
-        };
-        yield {
-          type: 'response.completed',
-          response: {
-            id: 'resp_1',
-            usage: { input_tokens: 10, output_tokens: 4, total_tokens: 14 },
-          },
-          sequence_number: 3,
-        };
-      })();
-    });
+    const create = vi.fn(
+      async (_body: Record<string, unknown>, _options?: { signal?: AbortSignal }) => {
+        return (async function* () {
+          yield {
+            type: 'response.created',
+            response: { id: 'resp_1' },
+            sequence_number: 0,
+          };
+          yield {
+            type: 'response.output_text.delta',
+            delta: 'Hello',
+            sequence_number: 1,
+          };
+          yield {
+            type: 'response.output_item.done',
+            item: {
+              type: 'function_call',
+              call_id: 'call_1',
+              name: 'searchCustomers',
+              arguments: '{"query":"acme"}',
+            },
+            sequence_number: 2,
+          };
+          yield {
+            type: 'response.completed',
+            response: {
+              id: 'resp_1',
+              usage: { input_tokens: 10, output_tokens: 4, total_tokens: 14 },
+            },
+            sequence_number: 3,
+          };
+        })();
+      },
+    );
 
     const client = { responses: { create } } as unknown as OpenAiResponsesClient;
     const gateway = new OpenAiLanguageModelGateway({
@@ -185,10 +185,12 @@ describe('OpenAiLanguageModelGateway', () => {
     const controller = new AbortController();
     controller.abort();
 
-    const create = vi.fn(async (_body: Record<string, unknown>, options?: { signal?: AbortSignal }) => {
-      expect(options?.signal?.aborted).toBe(true);
-      throw new APIUserAbortError();
-    });
+    const create = vi.fn(
+      async (_body: Record<string, unknown>, options?: { signal?: AbortSignal }) => {
+        expect(options?.signal?.aborted).toBe(true);
+        throw new APIUserAbortError();
+      },
+    );
 
     const gateway = new OpenAiLanguageModelGateway({
       client: { responses: { create } },
@@ -196,7 +198,9 @@ describe('OpenAiLanguageModelGateway', () => {
     });
 
     await expect(
-      collect(gateway.streamCompletion({ messages: [{ role: 'user', content: 'x' }] }, controller.signal)),
+      collect(
+        gateway.streamCompletion({ messages: [{ role: 'user', content: 'x' }] }, controller.signal),
+      ),
     ).rejects.toMatchObject({ code: 'TIMEOUT' });
   });
 
@@ -255,7 +259,9 @@ describe('language model fakes and factories', () => {
   });
 
   it('returns disabled gateway when feature is off', async () => {
-    const gateway = createLanguageModelGateway(parseAssistantConfig({ ASSISTANT_ENABLED: 'false' }));
+    const gateway = createLanguageModelGateway(
+      parseAssistantConfig({ ASSISTANT_ENABLED: 'false' }),
+    );
     await expect(
       collect(gateway.streamCompletion({ messages: [{ role: 'user', content: 'x' }] })),
     ).rejects.toBeInstanceOf(AssistantProviderError);

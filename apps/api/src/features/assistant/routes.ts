@@ -33,11 +33,7 @@ export function createAssistantRouter(options: CreateAssistantRouterOptions): Ro
   });
 
   router.post('/conversations', requireCsrfHeader, postConversation);
-  router.get(
-    '/conversations',
-    validate({ query: paginationQuerySchema }),
-    getConversations,
-  );
+  router.get('/conversations', validate({ query: paginationQuerySchema }), getConversations);
   router.get(
     '/conversations/:id/messages',
     validate({ params: conversationIdParamsSchema, query: paginationQuerySchema }),

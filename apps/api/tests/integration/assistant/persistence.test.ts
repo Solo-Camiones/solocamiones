@@ -270,7 +270,9 @@ describe('Assistant persistence (PostgreSQL)', () => {
     await conversations.deleteByIds([conversation.id]);
 
     expect(await runs.findById(turn.run.id)).toBeNull();
-    expect(await messages.findByClientRequestId(conversation.id, turn.message.clientRequestId!)).toBeNull();
+    expect(
+      await messages.findByClientRequestId(conversation.id, turn.message.clientRequestId!),
+    ).toBeNull();
     expect(await users.findById(owner.id)).not.toBeNull();
   });
 

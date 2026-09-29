@@ -36,9 +36,7 @@ const markdownComponents: Components = {
     return <tr className="even:bg-navy-50/40">{children}</tr>;
   },
   th({ children }) {
-    return (
-      <th className="whitespace-nowrap px-2.5 py-1.5 font-semibold text-navy">{children}</th>
-    );
+    return <th className="whitespace-nowrap px-2.5 py-1.5 font-semibold text-navy">{children}</th>;
   },
   td({ children }) {
     return <td className="whitespace-nowrap px-2.5 py-1.5 text-navy-700">{children}</td>;

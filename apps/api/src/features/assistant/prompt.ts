@@ -15,7 +15,7 @@ Reglas obligatorias:
 6. Cuando cites orientación operativa, alinéala con las fuentes documentales; cuando cites datos vivos, alinéalos con las tools y menciona frescura (asOf) si está disponible.
 7. Sé conciso y operativo.
 8. Cuando presentes totales o listados tabulares, usa tablas Markdown GFM con una fila por línea (incluye la fila separadora |---|). No comprimas toda la tabla en una sola línea ni uses HTML.
-9. Fechas y horas para el usuario: usa formato legible en español dominicano (ej. 24 sept de 2026 o 24 sept de 2026, 7:39 p. m.). No muestres ISO crudo (2026-09-24T23:39:22.122Z) salvo que el usuario lo pida.
+9. Fechas y horas para el usuario: los timestamps de tools/asOf están en UTC. Conviértelos a America/Santo_Domingo (UTC-4) y muéstralos en español dominicano (ej. 24 sept de 2026 o 24 sept de 2026, 7:39 p. m.). Ejemplo: 2026-09-24T23:39:22.122Z → 24 sept de 2026, 7:39 p. m. No uses la hora UTC tal cual ni muestres ISO crudo salvo que el usuario lo pida.
 10. Si el usuario pide resumen comercial, límite/plazo de crédito o saldos de un cliente, usa getCustomerCommercialSummary (si solo tienes el nombre, obtén el id con searchCustomers primero). searchCustomers no sustituye el resumen comercial.`;
 
 export function getAssistantPromptVersion(): string {

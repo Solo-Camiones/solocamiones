@@ -8,15 +8,15 @@ Zona horaria de negocio y jobs: **`America/Santo_Domingo`**.
 
 ## Defaults de configuración relevantes
 
-| Variable | Default | Notas |
-| --- | --- | --- |
-| `ASSISTANT_ENABLED` | `false` | Kill switch; feature off por defecto |
-| `ASSISTANT_DAILY_MESSAGE_LIMIT` | `50` | Cuota por usuario / día |
-| `ASSISTANT_GLOBAL_DAILY_MESSAGE_LIMIT` | `100` | Cuota global de emergencia / día |
-| `ASSISTANT_RETENTION_DAYS` | `90` | Base de `expiresAt` + purge |
-| `OPENAI_API_KEY` | — | Secreto; nunca al frontend |
-| `OPENAI_VECTOR_STORE_ID` | — | Un vector store **por entorno** |
-| `METRICS_BEARER_TOKEN` | — | Secreto para scrapear métricas |
+| Variable                               | Default | Notas                                |
+| -------------------------------------- | ------- | ------------------------------------ |
+| `ASSISTANT_ENABLED`                    | `false` | Kill switch; feature off por defecto |
+| `ASSISTANT_DAILY_MESSAGE_LIMIT`        | `50`    | Cuota por usuario / día              |
+| `ASSISTANT_GLOBAL_DAILY_MESSAGE_LIMIT` | `100`   | Cuota global de emergencia / día     |
+| `ASSISTANT_RETENTION_DAYS`             | `90`    | Base de `expiresAt` + purge          |
+| `OPENAI_API_KEY`                       | —       | Secreto; nunca al frontend           |
+| `OPENAI_VECTOR_STORE_ID`               | —       | Un vector store **por entorno**      |
+| `METRICS_BEARER_TOKEN`                 | —       | Secreto para scrapear métricas       |
 
 ---
 
@@ -70,13 +70,13 @@ npm run assistant:sync-knowledge
 
 ## 3. Recuperación ante incidentes
 
-| Escenario | Acción primaria | Notas |
-| --- | --- | --- |
-| Key filtrada | Rotar key + kill switch hasta confirmar | Revisar logs por exposición |
-| Respuestas peligrosas / sin evidencia | `ASSISTANT_ENABLED=false` | Corregir corpus/prompt; re-eval AI-010 |
-| Outage OpenAI | Aislar; no tocar comercio | Ver `RUNBOOK.md` |
-| Cuota global agotada | Kill switch o esperar reset diario | Revisar abuso / límites |
-| DB restore | Restaurar según runbook de infra | Historial assistant vuelve con el backup; puede reaparecer data ya purgada (residual) |
+| Escenario                             | Acción primaria                         | Notas                                                                                 |
+| ------------------------------------- | --------------------------------------- | ------------------------------------------------------------------------------------- |
+| Key filtrada                          | Rotar key + kill switch hasta confirmar | Revisar logs por exposición                                                           |
+| Respuestas peligrosas / sin evidencia | `ASSISTANT_ENABLED=false`               | Corregir corpus/prompt; re-eval AI-010                                                |
+| Outage OpenAI                         | Aislar; no tocar comercio               | Ver `RUNBOOK.md`                                                                      |
+| Cuota global agotada                  | Kill switch o esperar reset diario      | Revisar abuso / límites                                                               |
+| DB restore                            | Restaurar según runbook de infra        | Historial assistant vuelve con el backup; puede reaparecer data ya purgada (residual) |
 
 Readiness de la app **no** debe depender de OpenAI. Tras cualquier recuperación, verificar `/api/health/ready` y una ruta comercial.
 
@@ -114,16 +114,16 @@ Authorization: Bearer <METRICS_BEARER_TOKEN>
 
 **Series del asistente**
 
-| Serie | Qué mide |
-| --- | --- |
-| `assistant_runs_total{status}` | Runs `COMPLETED` / `FAILED` / `CANCELLED` |
-| `assistant_ttft_seconds` | Tiempo hasta el primer token visible al cliente |
-| `assistant_latency_seconds` | Latencia end-to-end del run |
-| `assistant_tokens_total{direction}` | Tokens `input` / `output` |
-| `assistant_errors_total{code}` | Errores por `errorCode` seguro |
-| `assistant_quota_rejections_total{scope}` | Rechazos `user` / `global` antes del proveedor |
-| `assistant_tool_calls_total{tool}` | Ejecuciones de tools allowlisted |
-| `assistant_knowledge_sync_failures_total` | Fallos de pasos de sync |
+| Serie                                     | Qué mide                                        |
+| ----------------------------------------- | ----------------------------------------------- |
+| `assistant_runs_total{status}`            | Runs `COMPLETED` / `FAILED` / `CANCELLED`       |
+| `assistant_ttft_seconds`                  | Tiempo hasta el primer token visible al cliente |
+| `assistant_latency_seconds`               | Latencia end-to-end del run                     |
+| `assistant_tokens_total{direction}`       | Tokens `input` / `output`                       |
+| `assistant_errors_total{code}`            | Errores por `errorCode` seguro                  |
+| `assistant_quota_rejections_total{scope}` | Rechazos `user` / `global` antes del proveedor  |
+| `assistant_tool_calls_total{tool}`        | Ejecuciones de tools allowlisted                |
+| `assistant_knowledge_sync_failures_total` | Fallos de pasos de sync                         |
 
 Los logs de aplicación asociados al run deben incluir IDs, modelo, latencia, tokens, tools, status y `errorCode` — **sin** prompts, respuestas completas, chunks ni payloads de tools.
 
@@ -133,13 +133,13 @@ Los logs de aplicación asociados al run deben incluir IDs, modelo, latencia, to
 
 Configurar en el stack de monitoreo (DigitalOcean + Better Stack u equivalente). Umbrales exactos: ajustar en piloto.
 
-| Alerta | Condición sugerida | Severidad | Acción |
-| --- | --- | --- | --- |
-| Assistant 5xx | Tasa de 5xx en `/api/assistant/*` por encima de baseline | High | Runbook outage / logs `errorId` |
-| Timeout | Timeouts o latencia P95 > umbral sostenido | Medium | Runbook timeout; status OpenAI |
-| 429 rate limit | Ráfaga de 429 HTTP del assistant | Medium | ¿abuso o límite demasiado bajo? |
-| Cuota user/global | Rechazos por `ASSISTANT_DAILY_*` / global | Medium/High | Costo; posible kill switch si global |
-| Sync failed | Job/CLI de sync con exit ≠ 0 o docs `FAILED` | High | Runbook sync; no ignorar en staging pre-piloto |
+| Alerta            | Condición sugerida                                       | Severidad   | Acción                                         |
+| ----------------- | -------------------------------------------------------- | ----------- | ---------------------------------------------- |
+| Assistant 5xx     | Tasa de 5xx en `/api/assistant/*` por encima de baseline | High        | Runbook outage / logs `errorId`                |
+| Timeout           | Timeouts o latencia P95 > umbral sostenido               | Medium      | Runbook timeout; status OpenAI                 |
+| 429 rate limit    | Ráfaga de 429 HTTP del assistant                         | Medium      | ¿abuso o límite demasiado bajo?                |
+| Cuota user/global | Rechazos por `ASSISTANT_DAILY_*` / global                | Medium/High | Costo; posible kill switch si global           |
+| Sync failed       | Job/CLI de sync con exit ≠ 0 o docs `FAILED`             | High        | Runbook sync; no ignorar en staging pre-piloto |
 
 Alertas de plataforma existentes (CPU, memoria, health checks) siguen aplicando; un fallo de OpenAI **no** debe marcar ready como down.
 
@@ -160,11 +160,11 @@ La purge elimina filas assistant en la base primaria. **Copias residuales** pued
 
 ## 8. Sync vs restart (recordatorio)
 
-| Operación | ¿Automática en app restart? |
-| --- | --- |
-| Carga de config / kill switch | Sí (lee env) |
-| `assistant:sync-knowledge` | **No** — solo CLI/ops explícito |
-| `assistant:purge` | **No** en restart — job programado o CLI manual |
+| Operación                     | ¿Automática en app restart?                     |
+| ----------------------------- | ----------------------------------------------- |
+| Carga de config / kill switch | Sí (lee env)                                    |
+| `assistant:sync-knowledge`    | **No** — solo CLI/ops explícito                 |
+| `assistant:purge`             | **No** en restart — job programado o CLI manual |
 
 ---
 

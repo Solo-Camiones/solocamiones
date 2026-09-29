@@ -29,7 +29,13 @@ function createMockResponse() {
       this.writableEnded = true;
     },
   };
-  return { res, chunks, get ended() { return ended; } };
+  return {
+    res,
+    chunks,
+    get ended() {
+      return ended;
+    },
+  };
 }
 
 describe('assistant SSE serializer', () => {
@@ -40,13 +46,13 @@ describe('assistant SSE serializer', () => {
       userMessageId: 'm1',
       runId: 'r1',
     };
-    expect(formatSseEvent('metadata', {
-      conversationId: 'c1',
-      userMessageId: 'm1',
-      runId: 'r1',
-    })).toBe(
-      'event: metadata\ndata: {"conversationId":"c1","userMessageId":"m1","runId":"r1"}\n\n',
-    );
+    expect(
+      formatSseEvent('metadata', {
+        conversationId: 'c1',
+        userMessageId: 'm1',
+        runId: 'r1',
+      }),
+    ).toBe('event: metadata\ndata: {"conversationId":"c1","userMessageId":"m1","runId":"r1"}\n\n');
 
     const mock = createMockResponse();
     const writer = openAssistantSse(mock.res as never);

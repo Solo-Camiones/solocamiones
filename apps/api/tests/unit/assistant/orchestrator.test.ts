@@ -398,9 +398,7 @@ describe('minimizeProviderText', () => {
     expect(minimized).not.toContain('Santo Domingo');
     expect(minimized).not.toContain('llamar al llegar');
     expect(raw).toContain('admin@example.com');
-    expect(minimizeProviderText('vive en Calle Duarte 15, Santiago')).not.toContain(
-      'Calle Duarte',
-    );
+    expect(minimizeProviderText('vive en Calle Duarte 15, Santiago')).not.toContain('Calle Duarte');
   });
 });
 
@@ -415,15 +413,18 @@ describe('hasFactualEvidence', () => {
     expect(hasFactualEvidence([], [])).toBe(false);
     expect(hasFactualEvidence([sampleChunk], [])).toBe(true);
     expect(
-      hasFactualEvidence([], [
-        {
-          name: 'searchCustomers',
-          sourceKey: 'tool:searchCustomers',
-          title: 'searchCustomers',
-          appPath: null,
-          asOf: null,
-        },
-      ]),
+      hasFactualEvidence(
+        [],
+        [
+          {
+            name: 'searchCustomers',
+            sourceKey: 'tool:searchCustomers',
+            title: 'searchCustomers',
+            appPath: null,
+            asOf: null,
+          },
+        ],
+      ),
     ).toBe(true);
   });
 });
@@ -543,9 +544,9 @@ describe('AssistantService', () => {
       type: 'sources',
       sources: [expect.objectContaining({ type: 'TOOL', sourceKey: 'tool:searchCustomers' })],
     });
-    expect(events.some((event) => event.type === 'delta' && event.text.includes('Cliente Demo'))).toBe(
-      true,
-    );
+    expect(
+      events.some((event) => event.type === 'delta' && event.text.includes('Cliente Demo')),
+    ).toBe(true);
   });
 
   it('converts factual answers without evidence into insufficiency', async () => {

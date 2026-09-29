@@ -11,7 +11,9 @@ describe('AssistantMarkdown', () => {
   it('renders approved internal links and blocks external hrefs as text', () => {
     render(
       <MemoryRouter>
-        <AssistantMarkdown content={'Ver [clientes](/customers) y [externo](https://evil.example)'} />
+        <AssistantMarkdown
+          content={'Ver [clientes](/customers) y [externo](https://evil.example)'}
+        />
       </MemoryRouter>,
     );
 
@@ -33,8 +35,7 @@ describe('AssistantMarkdown', () => {
   });
 
   it('renders GFM tables as HTML tables, including compacted single-line tables', () => {
-    const compacted =
-      '| Moneda | Balance | |---|---:| | DOP | 151,036.00 | | USD | 273.00 |';
+    const compacted = '| Moneda | Balance | |---|---:| | DOP | 151,036.00 | | USD | 273.00 |';
 
     render(
       <MemoryRouter>

@@ -31,14 +31,14 @@ The primary agent remains responsible for the final result even when work is del
 
 Before modifying anything:
 
-* Understand the user's request.
-* Inspect the relevant code and documentation.
-* Identify affected modules, services, components, APIs, database entities, tests, and documentation.
-* Identify existing architectural patterns and conventions.
-* Identify relevant business rules.
-* Identify dependencies between potential subtasks.
-* Identify files likely to be modified.
-* Identify risks and possible side effects.
+- Understand the user's request.
+- Inspect the relevant code and documentation.
+- Identify affected modules, services, components, APIs, database entities, tests, and documentation.
+- Identify existing architectural patterns and conventions.
+- Identify relevant business rules.
+- Identify dependencies between potential subtasks.
+- Identify files likely to be modified.
+- Identify risks and possible side effects.
 
 Do not invent missing requirements.
 
@@ -56,26 +56,26 @@ Determine whether the task can benefit from multiple agents.
 
 Parallelization is appropriate when work can be divided into reasonably independent areas such as:
 
-* backend
-* frontend
-* tests
-* database
-* documentation
-* security review
-* API integration
-* refactoring isolated modules
-* investigation of separate problems
+- backend
+- frontend
+- tests
+- database
+- documentation
+- security review
+- API integration
+- refactoring isolated modules
+- investigation of separate problems
 
 Do NOT parallelize merely because multiple agents are available.
 
 Prefer sequential execution when:
 
-* subtasks strongly depend on one another;
-* the implementation direction is still unclear;
-* several agents would heavily modify the same code;
-* business rules need to be established first;
-* one change determines the design of subsequent changes;
-* parallel execution would create unnecessary merge or integration risk.
+- subtasks strongly depend on one another;
+- the implementation direction is still unclear;
+- several agents would heavily modify the same code;
+- business rules need to be established first;
+- one change determines the design of subsequent changes;
+- parallel execution would create unnecessary merge or integration risk.
 
 The primary agent decides the safest execution strategy.
 
@@ -87,20 +87,20 @@ Before delegating, establish a coordination plan.
 
 For every subtask define:
 
-* objective
-* scope
-* expected output
-* files or modules likely to be affected
-* dependencies
-* relevant business rules
-* constraints
-* tests or validation expected
+- objective
+- scope
+- expected output
+- files or modules likely to be affected
+- dependencies
+- relevant business rules
+- constraints
+- tests or validation expected
 
 Classify subtasks as:
 
-* `INDEPENDENT`
-* `DEPENDENT`
-* `SHARED_RESOURCE`
+- `INDEPENDENT`
+- `DEPENDENT`
+- `SHARED_RESOURCE`
 
 Only independent work should normally execute fully in parallel.
 
@@ -144,10 +144,10 @@ Assign one agent as the owner of the shared file.
 
 Other agents:
 
-* inspect the file;
-* describe the required changes;
-* communicate their requirements;
-* do not independently modify it.
+- inspect the file;
+- describe the required changes;
+- communicate their requirements;
+- do not independently modify it.
 
 The owner integrates the necessary changes.
 
@@ -169,16 +169,16 @@ The primary agent performs the final shared-file modification.
 
 This strategy is preferred for critical files such as:
 
-* database schemas
-* central configuration
-* authentication
-* authorization
-* shared types
-* dependency configuration
-* routing
-* infrastructure
-* CI/CD
-* core business logic
+- database schemas
+- central configuration
+- authentication
+- authorization
+- shared types
+- dependency configuration
+- routing
+- infrastructure
+- CI/CD
+- core business logic
 
 Never allow agents to blindly overwrite another agent's work.
 
@@ -190,25 +190,25 @@ When delegating a task, provide enough context for the agent to work correctly.
 
 Each delegated task should include:
 
-* exact objective
-* scope boundaries
-* relevant architecture
-* relevant business rules
-* files it owns
-* files it must not modify
-* known dependencies
-* expected tests
-* expected output
+- exact objective
+- scope boundaries
+- relevant architecture
+- relevant business rules
+- files it owns
+- files it must not modify
+- known dependencies
+- expected tests
+- expected output
 
 Agents must report:
 
-* what they changed
-* files modified
-* assumptions made
-* business rules affected
-* tests performed
-* unresolved concerns
-* changes required from other agents
+- what they changed
+- files modified
+- assumptions made
+- business rules affected
+- tests performed
+- unresolved concerns
+- changes required from other agents
 
 The primary agent uses these reports to coordinate integration.
 
@@ -220,18 +220,18 @@ Before accepting any implementation, verify that existing business rules remain 
 
 Check:
 
-* state transitions
-* permissions and roles
-* validations
-* calculations
-* inventory behavior
-* billing behavior
-* financial rules
-* database constraints
-* workflows
-* authorization boundaries
-* side effects
-* domain invariants
+- state transitions
+- permissions and roles
+- validations
+- calculations
+- inventory behavior
+- billing behavior
+- financial rules
+- database constraints
+- workflows
+- authorization boundaries
+- side effects
+- domain invariants
 
 Never change a business rule merely to simplify implementation.
 
@@ -245,19 +245,19 @@ All agents must follow existing project conventions unless there is a strong tec
 
 Respect:
 
-* folder structure
-* naming conventions
-* architecture
-* API patterns
-* error handling
-* logging
-* validation
-* authentication
-* authorization
-* database access patterns
-* testing patterns
-* dependency management
-* documentation conventions
+- folder structure
+- naming conventions
+- architecture
+- API patterns
+- error handling
+- logging
+- validation
+- authentication
+- authorization
+- database access patterns
+- testing patterns
+- dependency management
+- documentation conventions
 
 Avoid introducing a second architectural pattern when an established project pattern already solves the problem.
 
@@ -267,27 +267,27 @@ Avoid introducing a second architectural pattern when an established project pat
 
 All generated or modified code should aim for:
 
-* readability
-* maintainability
-* cohesion
-* low coupling
-* clear responsibilities
-* explicit error handling
-* input validation
-* secure defaults
-* minimal duplication
-* appropriate abstractions
-* meaningful naming
-* testability
+- readability
+- maintainability
+- cohesion
+- low coupling
+- clear responsibilities
+- explicit error handling
+- input validation
+- secure defaults
+- minimal duplication
+- appropriate abstractions
+- meaningful naming
+- testability
 
 Apply relevant principles such as:
 
-* SOLID
-* DRY
-* KISS
-* separation of concerns
-* least privilege
-* defense in depth
+- SOLID
+- DRY
+- KISS
+- separation of concerns
+- least privilege
+- defense in depth
 
 Do not overengineer simple problems.
 
@@ -301,17 +301,17 @@ For affected functionality, inspect for relevant security risks.
 
 Examples:
 
-* authentication bypass
-* authorization failures
-* missing role checks
-* injection
-* insecure input handling
-* exposed secrets
-* unsafe logging
-* sensitive-data exposure
-* insecure direct object references
-* broken validation
-* insecure API behavior
+- authentication bypass
+- authorization failures
+- missing role checks
+- injection
+- insecure input handling
+- exposed secrets
+- unsafe logging
+- sensitive-data exposure
+- insecure direct object references
+- broken validation
+- insecure API behavior
 
 Security-sensitive files should preferably be coordinated or reviewed by the primary agent.
 
@@ -327,34 +327,34 @@ Verify:
 
 ### Architecture
 
-* components interact correctly;
-* boundaries remain clear;
-* no unnecessary coupling was introduced.
+- components interact correctly;
+- boundaries remain clear;
+- no unnecessary coupling was introduced.
 
 ### Business Logic
 
-* rules remain consistent across modules;
-* no workflow was accidentally changed;
-* states and transitions remain valid.
+- rules remain consistent across modules;
+- no workflow was accidentally changed;
+- states and transitions remain valid.
 
 ### Interfaces
 
 Verify consistency between:
 
-* frontend ↔ backend
-* API ↔ services
-* services ↔ database
-* types ↔ implementations
-* schemas ↔ runtime behavior
+- frontend ↔ backend
+- API ↔ services
+- services ↔ database
+- types ↔ implementations
+- schemas ↔ runtime behavior
 
 ### Shared Files
 
 Verify that:
 
-* no agent overwrote another agent's work;
-* imports remain valid;
-* shared types remain consistent;
-* configuration remains coherent.
+- no agent overwrote another agent's work;
+- imports remain valid;
+- shared types remain consistent;
+- configuration remains coherent.
 
 ---
 
@@ -364,14 +364,14 @@ Run the relevant project validation whenever available.
 
 Depending on the project, this may include:
 
-* build
-* type checking
-* lint
-* unit tests
-* integration tests
-* database tests
-* security checks
-* formatting checks
+- build
+- type checking
+- lint
+- unit tests
+- integration tests
+- database tests
+- security checks
+- formatting checks
 
 Do not blindly fix failing tests by changing expected behavior.
 
@@ -407,15 +407,15 @@ If the correct choice depends on a product or business decision, ask the user.
 
 After implementation, determine whether the changes affect:
 
-* business rules
-* workflows
-* architecture
-* API behavior
-* database structure
-* configuration
-* deployment
-* security
-* operational procedures
+- business rules
+- workflows
+- architecture
+- API behavior
+- database structure
+- configuration
+- deployment
+- security
+- operational procedures
 
 If so, update the appropriate project documentation.
 
@@ -427,23 +427,23 @@ Documentation must describe the resulting behavior, not merely the code changes.
 
 Before considering the task complete, the primary agent must verify:
 
-* [ ] User requirements are satisfied.
-* [ ] Relevant business rules remain valid.
-* [ ] No conflicting agent modifications remain.
-* [ ] Shared files were integrated correctly.
-* [ ] Project architecture is respected.
-* [ ] Code follows project conventions.
-* [ ] Error handling is appropriate.
-* [ ] Input validation is appropriate.
-* [ ] Authorization remains correct.
-* [ ] Security implications were reviewed.
-* [ ] Relevant tests were added or updated.
-* [ ] Existing relevant tests pass.
-* [ ] Build/typecheck/lint pass when applicable.
-* [ ] No unnecessary duplication was introduced.
-* [ ] No obvious dead code was introduced.
-* [ ] Documentation was updated when necessary.
-* [ ] No unresolved assumptions remain hidden.
+- [ ] User requirements are satisfied.
+- [ ] Relevant business rules remain valid.
+- [ ] No conflicting agent modifications remain.
+- [ ] Shared files were integrated correctly.
+- [ ] Project architecture is respected.
+- [ ] Code follows project conventions.
+- [ ] Error handling is appropriate.
+- [ ] Input validation is appropriate.
+- [ ] Authorization remains correct.
+- [ ] Security implications were reviewed.
+- [ ] Relevant tests were added or updated.
+- [ ] Existing relevant tests pass.
+- [ ] Build/typecheck/lint pass when applicable.
+- [ ] No unnecessary duplication was introduced.
+- [ ] No obvious dead code was introduced.
+- [ ] Documentation was updated when necessary.
+- [ ] No unresolved assumptions remain hidden.
 
 If any item cannot be verified, explicitly report it.
 
@@ -489,15 +489,15 @@ Any unresolved risk, assumption, limitation, or follow-up work.
 
 Never:
 
-* parallelize blindly;
-* let agents independently overwrite shared files;
-* assume delegated work is correct;
-* modify business rules silently;
-* hide assumptions;
-* change tests merely to make them pass;
-* introduce architectural patterns unnecessarily;
-* accept code solely because it compiles;
-* mark a task complete without integration review.
+- parallelize blindly;
+- let agents independently overwrite shared files;
+- assume delegated work is correct;
+- modify business rules silently;
+- hide assumptions;
+- change tests merely to make them pass;
+- introduce architectural patterns unnecessarily;
+- accept code solely because it compiles;
+- mark a task complete without integration review.
 
 The primary agent is the orchestrator and final reviewer.
 

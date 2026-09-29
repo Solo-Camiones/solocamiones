@@ -21,9 +21,7 @@ describe('assistant run observability', () => {
   });
 
   it('rejects forbidden observation keys', () => {
-    expect(() => assertSafeRunObservation({ runId: '1', content: 'secret' })).toThrow(
-      /content/,
-    );
+    expect(() => assertSafeRunObservation({ runId: '1', content: 'secret' })).toThrow(/content/);
     expect(() => assertSafeRunObservation({ runId: '1', chunks: [] })).toThrow(/chunks/);
   });
 

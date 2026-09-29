@@ -60,9 +60,12 @@ describe('assistant tool schemas', () => {
 describe('assistant tool registry', () => {
   it('registers the six commercial tools exactly once', () => {
     const registry = createAssistantToolRegistry(createCommercialAssistantTools());
-    expect(registry.listDefinitions().map((tool) => tool.name).sort()).toEqual(
-      [...ASSISTANT_TOOL_NAMES].sort(),
-    );
+    expect(
+      registry
+        .listDefinitions()
+        .map((tool) => tool.name)
+        .sort(),
+    ).toEqual([...ASSISTANT_TOOL_NAMES].sort());
   });
 
   it('rejects unknown tools and invalid arguments without executing', async () => {
