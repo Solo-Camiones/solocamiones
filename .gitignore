@@ -12,3 +12,4 @@ coverage/
 .sonar/
 .scannerwork/
 tmp/
+docs/assistant-eval/reports/*.json

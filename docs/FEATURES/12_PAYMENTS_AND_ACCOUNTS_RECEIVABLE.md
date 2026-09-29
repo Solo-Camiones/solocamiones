@@ -81,7 +81,7 @@ Advanced AR such as aging buckets, interest, collection promises/tasks, automate
 
 ## Feature-level acceptance criteria
 
-- Completed `CASH` invoices are fully paid at **direct** confirmation; completed `CREDIT` invoices may be unpaid or partially paid. Open named-`CASH` conduce balances (Administrator exception, CON-002) are planned AR rows when Feature 16 is implemented.
+- Completed `CASH` invoices are fully paid at **direct** confirmation; completed `CREDIT` invoices may be unpaid or partially paid. Open named-`CASH` conduce balances (Administrator exception, CON-002) are included in AR.
 - Visible state distinguishes `ABONADO` and `ABONADA VENCIDA` from unpaid pending/overdue.
 - AR screens and payment-collection endpoints are Administrator-only; Seller invoice list and detail omit payment state, paid amount, balance, and movements.
 - Account statement PDF lists every open DOP invoice for the selected customer and reconciles to the customer’s open total.
@@ -148,7 +148,7 @@ The blocks below are the final reconciled requirements retained from the previou
 **Name:** Record immediate or deferred payment  
 **Status:** CONFIRMED  
 **Actors:** Seller (cash confirmation payment and cash/USD full payment at conduce emission only); Administrator (cash confirmation, credit confirmation partial, named-`CASH` conduce initial payment per CON-002, and later collections)  
-**Requirement:** A completed invoice may be fully paid, partially paid, or unpaid on credit, with a calculated outstanding balance in exactly the invoice currency, subject to customer type (CUST-004) and SALE-005. When Feature 16 is implemented, an emitted conduce follows CON-002 for initial payment and may appear in AR with the same ledger rules.  
+**Requirement:** A completed invoice may be fully paid, partially paid, or unpaid on credit, with a calculated outstanding balance in exactly the invoice currency, subject to customer type (CUST-004) and SALE-005. An emitted conduce follows CON-002 for initial payment and may appear in AR with the same ledger rules.
 **Business Reason:** Both cash and credit sales are normal, but credit is an authorized customer condition; named-`CASH` conduce balance is an Administrator-only exception documented in CON-002.  
 **Main Flow:** Actor records allowed sale terms and any allowed initial payment; the system calculates paid and outstanding amounts.  
 **Business Rules:** Inventory is Sold at commercial recognition (invoice confirmation today; conduce emission when implemented) regardless of payment completion; payments and balance must use the operation currency. On **direct invoice confirmation**, `CASH` customers, including generic `Cliente contado` and named `CASH`, cannot remain unpaid or partially paid. `CREDIT` customers may remain unpaid (Seller confirmation) or partially paid (Administrator confirmation). Later collections are Administrator-only (PAY-007). Overdue/paid-late timing for a new credit operation uses the snapshotted customer term, not a hard-coded 30 days (CUST-005, SALE-005). Conduce-specific payment matrix and named-`CASH` Admin exception: CON-002.  
@@ -157,7 +157,7 @@ The blocks below are the final reconciled requirements retained from the previou
 **Acceptance Notes:** Cash confirmation with full payment is `PAID`. Seller credit confirmation with zero payment is `PENDING` or `OVERDUE` by the customer-term due date. Administrator credit confirmation with partial payment is `PARTIALLY_PAID` when still in that term. A 60-day customer is not overdue 31 days after confirmation.
 
 **Amended 2026-09-15:** Named customers are not implicitly credit-eligible; Seller later collections are withdrawn; credit due date follows the customer term instead of automatic +30.  
-**Amended 2026-09-20:** Clarified direct-confirmation cash rules vs conduce matrix (CON-002); AR will include conduces when Feature 16 is implemented.
+**Amended 2026-09-20; implemented locally 2026-09-21:** Clarified direct-confirmation cash rules vs conduce matrix (CON-002); AR includes conduces.
 
 ---
 

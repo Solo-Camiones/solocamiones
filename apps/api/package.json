@@ -5,6 +5,11 @@
   "type": "module",
   "scripts": {
     "bootstrap:admin": "tsx src/cli/bootstrap-admin.ts",
+    "assistant:purge": "tsx src/cli/assistant-purge.ts",
+    "assistant:validate-knowledge": "tsx src/cli/assistant-validate-knowledge.ts",
+    "assistant:sync-knowledge": "tsx src/cli/assistant-sync-knowledge.ts",
+    "assistant:hash-knowledge": "tsx src/cli/assistant-hash-knowledge.ts",
+    "assistant:eval": "tsx src/cli/assistant-eval.ts",
     "dev": "tsx watch src/index.ts",
     "build": "prisma generate && tsc -p tsconfig.json",
     "start": "node dist/index.js",
@@ -23,11 +28,13 @@
   },
   "dependencies": {
     "@prisma/client": "^6.19.3",
+    "@prometheus-io/client": "^0.16.1",
     "argon2": "0.45.1",
     "dotenv": "^17.4.2",
     "express": "^5.1.0",
     "express-rate-limit": "^8.7.0",
     "helmet": "^8.3.0",
+    "openai": "^7.22.0",
     "pdfkit": "^0.20.2",
     "pino": "^10.3.1",
     "zod": "^4.5.4"

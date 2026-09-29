@@ -28,6 +28,7 @@ describe('capability presets follow the Development Plan', () => {
     expect(capabilities.profitability).toBe(true);
     expect(capabilities.payments).toBe(true);
     expect(capabilities.invoiceCancellation).toBe(true);
+    expect(capabilities.assistant).toBe(true);
     expect(capabilities.inventory).toBe(false);
     expect(isRouteAllowedForRole('/users', 'ADMINISTRATOR', capabilities)).toBe(true);
     expect(isRouteAllowedForRole('/catalogs', 'ADMINISTRATOR', capabilities)).toBe(true);
@@ -48,7 +49,9 @@ describe('capability presets follow the Development Plan', () => {
     );
     expect(isRouteAllowedForRole('/profitability', 'ADMINISTRATOR', capabilities)).toBe(true);
     expect(isRouteAllowedForRole('/profitability', 'SELLER', capabilities)).toBe(false);
-    expect(navItemsForRole('SELLER', capabilities).map((item) => item.id)).not.toContain('inventory');
+    expect(navItemsForRole('SELLER', capabilities).map((item) => item.id)).not.toContain(
+      'inventory',
+    );
     expect(enabledPosLineTypes(capabilities).map((entry) => entry.value)).toEqual([
       'GENERIC',
       'EXTERNAL',
@@ -71,6 +74,19 @@ describe('capability presets follow the Development Plan', () => {
     expect(capabilities.sales).toBe(true);
     expect(capabilities.inventory).toBe(false);
     expect(capabilities.prototypeControls).toBe(false);
+    expect(capabilities.assistant).toBe(true);
+  });
+
+  it('keeps assistant off in mock presets and independent of release-8', () => {
+    expect(CAPABILITY_PRESETS.prototype.assistant).toBe(false);
+    expect(CAPABILITY_PRESETS['release-8'].assistant).toBe(false);
+    const mockMode = resolveCapabilities({
+      VITE_USE_MOCK_API: 'true',
+      VITE_CAPABILITIES_PRESET: 'prototype',
+      VITE_ENABLE_DEMO_CONTROLS: 'false',
+      DEV: false,
+    });
+    expect(mockMode.assistant).toBe(false);
   });
 
   it('Release 1 is only access and user administration', () => {

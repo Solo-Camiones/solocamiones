@@ -84,6 +84,13 @@ import type {
   WorkOrderListTab,
 } from './work-orders';
 import type {
+  AssistantConversation,
+  AssistantConversationPage,
+  AssistantMessagePage,
+  AssistantStreamEvent,
+  StreamAssistantMessageInput,
+} from './assistant';
+import type {
   AppEvent,
   Category,
   Customer,
@@ -235,4 +242,12 @@ export type RecoveryRepository = {
   getSnapshot(): Promise<Result<RecoverySnapshot>>;
   releaseReservation(input: ReleaseReservationInput): Promise<Result<ReleaseReservationResult>>;
   retryUsdProfitability(input: RetryUsdProfitabilityInput): Promise<Result<RecoverySnapshot>>;
+};
+
+export type AssistantRepository = {
+  createConversation(): Promise<Result<AssistantConversation>>;
+  listConversations(page: number): Promise<Result<AssistantConversationPage>>;
+  listMessages(conversationId: string, page: number): Promise<Result<AssistantMessagePage>>;
+  streamMessage(input: StreamAssistantMessageInput): AsyncIterable<AssistantStreamEvent>;
+  deleteConversation(conversationId: string): Promise<Result<void>>;
 };

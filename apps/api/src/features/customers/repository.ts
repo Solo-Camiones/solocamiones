@@ -107,6 +107,57 @@ export class CustomerRepository {
     };
   }
 
+  /**
+   * Assistant search projection (AI-004): never select RNC, contacts, address, or notes.
+   * RNC may still appear in the WHERE clause for name/tax-id lookup without being returned.
+   */
+  async searchForAssistant(
+    query: string | undefined,
+    limit: number,
+    customerType?: CustomerType,
+  ): Promise<
+    Array<{
+      id: string;
+      name: string;
+      customerType: CustomerType;
+      isDefault: boolean;
+    }>
+  > {
+    const where = this.searchWhere(query, customerType);
+    return this.database.customer.findMany({
+      where,
+      select: {
+        id: true,
+        name: true,
+        customerType: true,
+        isDefault: true,
+      },
+      take: limit,
+      orderBy: [{ isDefault: 'desc' }, { name: 'asc' }, { id: 'asc' }],
+    });
+  }
+
+  findIdentityForAssistant(id: string): Promise<{
+    id: string;
+    name: string;
+    customerType: CustomerType;
+    isDefault: boolean;
+    creditLimitDop: PrismaNamespace.Decimal | null;
+    creditTermDays: number | null;
+  } | null> {
+    return this.database.customer.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        name: true,
+        customerType: true,
+        isDefault: true,
+        creditLimitDop: true,
+        creditTermDays: true,
+      },
+    });
+  }
+
   async update(id: string, input: UpdateCustomerRecord): Promise<CustomerRecord> {
     if (input.contacts) {
       await this.database.customerContact.deleteMany({ where: { customerId: id } });
