@@ -148,9 +148,10 @@ Alertas de plataforma existentes (CPU, memoria, health checks) siguen aplicando;
 ## 7. Purga programada
 
 - Retención: **90 días** (`ASSISTANT_RETENTION_DAYS`).
-- Comando: `npm run assistant:purge` (probar antes con `--dry-run`).
-- Schedule objetivo: diario ~**03:00** `America/Santo_Domingo`.
-- Fragmento Compose: `purge.compose.fragment.yaml` (referencia documental para integrar un servicio one-shot; el scheduler del VPS dispara la ejecución diaria).
+- Local/dev: `npm run assistant:purge` (probar antes con `--dry-run`).
+- Imagen VPS / Compose: `npm run assistant:purge:runtime` (node sobre `dist`; sin `tsx`).
+- Schedule: systemd timer `infra/vps/systemd/solocamiones-assistant-purge.timer` (~**03:00** `America/Santo_Domingo`); un batch de 100 conversaciones por ejecución.
+- Servicio Compose canónico: `assistant-purge` en `infra/vps/compose.yaml` (profile `operations`). El fragmento `purge.compose.fragment.yaml` es referencia documental.
 
 ### Retención residual en backups
 
@@ -174,5 +175,6 @@ La purge elimina filas assistant en la base primaria. **Copias residuales** pued
 - `docs/assistant-ops/THREAT_MODEL.md`
 - `docs/assistant-ops/PROVIDER_PRIVACY.md`
 - `docs/assistant-ops/purge.compose.fragment.yaml`
-- `docs/FEATURES/17_AI_ASSISTANT.md`
+- `infra/vps/compose.yaml` (`assistant-purge`)
+- `infra/vps/systemd/solocamiones-assistant-purge.timer`
 - `docs/INFRASTRUCTURE_PLAN.md` (dependencia opcional OpenAI)

@@ -6,6 +6,7 @@
   "scripts": {
     "bootstrap:admin": "tsx src/cli/bootstrap-admin.ts",
     "assistant:purge": "tsx src/cli/assistant-purge.ts",
+    "assistant:purge:runtime": "node ./dist/cli/assistant-purge.js",
     "assistant:validate-knowledge": "tsx src/cli/assistant-validate-knowledge.ts",
     "assistant:sync-knowledge": "tsx src/cli/assistant-sync-knowledge.ts",
     "assistant:hash-knowledge": "tsx src/cli/assistant-hash-knowledge.ts",

@@ -1,0 +1,31 @@
+# Hourly encrypted PostgreSQL backup (M3.4).
+# Install on the VPS after the stack path is known (see M6 bootstrap).
+#
+# Expected layout:
+#   WorkingDirectory=/opt/solocamiones
+#   Environment file=/etc/solocamiones/<env>.env  (0600, root-owned)
+#
+# Override EnvironmentFile / WorkingDirectory with drop-ins if paths differ.
+
+[Unit]
+Description=Solo Camiones PostgreSQL backup to R2
+Documentation=file:///opt/solocamiones/docs/deployment_plan/deployment_plan.md
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/solocamiones
+EnvironmentFile=/etc/solocamiones/staging.env
+# For production hosts, replace EnvironmentFile via:
+#   /etc/systemd/system/solocamiones-backup.service.d/override.conf
+ExecStart=/usr/bin/docker compose --env-file /etc/solocamiones/staging.env -f infra/vps/compose.yaml --profile operations run --rm --no-deps backup
+Nice=10
+TimeoutStartSec=30min
+
+# Do not expose job environment in journal beyond what Compose already redacts.
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

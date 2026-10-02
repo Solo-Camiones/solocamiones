@@ -2,11 +2,19 @@
 # Secrets and environment-specific values come from an external env file, e.g.:
 #   docker compose --env-file /etc/solocamiones/staging.env -f infra/vps/compose.yaml up -d
 #
-# Scope M2 (critical path): edge, web, api, db, migrate.
-# Backup, exporters, prometheus/grafana, assistant-purge arrive in M3/M4.
+# Scope M2 critical path: edge, web, api, db, migrate.
+# M3 adds: bootstrap-db, backup, verify-restore, assistant-purge (+ systemd timers).
+# M4 adds: exporters / prometheus / grafana (profile observability).
 #
 # Images must be digests in real deploys (set API_IMAGE / WEB_IMAGE).
 # Local smoke may build from Dockerfiles via the optional build contexts below.
+#
+# Role bootstrap order on a new volume:
+#   1) up db
+#   2) --profile operations run --rm bootstrap-db
+#   3) --profile operations run --rm migrate   (DATABASE_MIGRATION_URL = migration role)
+#   4) --profile operations run --rm bootstrap-db   (refresh grants on new tables)
+#   5) up api/web/edge                         (DATABASE_URL = runtime role)
 
 name: ${COMPOSE_PROJECT_NAME:-solocamiones}
 
@@ -163,9 +171,165 @@ services:
     profiles: ['operations']
     restart: 'no'
     environment:
-      # Until M3 role split, set DATABASE_MIGRATION_URL equal to DATABASE_URL.
       DATABASE_URL: ${DATABASE_MIGRATION_URL:?DATABASE_MIGRATION_URL is required}
     command: ['npm', 'run', 'db:migrate:deploy:runtime', '-w', '@solocamiones/api']
+    networks:
+      - database
+    depends_on:
+      db:
+        condition: service_healthy
+    logging: *default-logging
+
+  # Idempotent role bootstrap (migration/runtime/backup/monitoring). M3.1.
+  # docker compose --env-file ... --profile operations run --rm bootstrap-db
+  bootstrap-db:
+    build:
+      context: ./backup
+      dockerfile: Dockerfile
+    image: ${BACKUP_IMAGE:-solocamiones-backup:local}
+    profiles: ['operations']
+    restart: 'no'
+    environment:
+      POSTGRES_HOST: db
+      POSTGRES_PORT: '5432'
+      POSTGRES_DB: ${POSTGRES_DB:?POSTGRES_DB is required}
+      POSTGRES_SUPERUSER: ${POSTGRES_USER:?POSTGRES_USER is required}
+      POSTGRES_SUPERUSER_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      ROLE_MIGRATION_NAME: ${ROLE_MIGRATION_NAME:-migration}
+      ROLE_RUNTIME_NAME: ${ROLE_RUNTIME_NAME:-runtime}
+      ROLE_BACKUP_NAME: ${ROLE_BACKUP_NAME:-backup}
+      ROLE_MONITORING_NAME: ${ROLE_MONITORING_NAME:-monitoring}
+      ROLE_MIGRATION_PASSWORD: ${ROLE_MIGRATION_PASSWORD:?ROLE_MIGRATION_PASSWORD is required}
+      ROLE_RUNTIME_PASSWORD: ${ROLE_RUNTIME_PASSWORD:?ROLE_RUNTIME_PASSWORD is required}
+      ROLE_BACKUP_PASSWORD: ${ROLE_BACKUP_PASSWORD:?ROLE_BACKUP_PASSWORD is required}
+      ROLE_MONITORING_PASSWORD: ${ROLE_MONITORING_PASSWORD:?ROLE_MONITORING_PASSWORD is required}
+      BOOTSTRAP_REASSIGN_FROM: ${BOOTSTRAP_REASSIGN_FROM:-}
+    volumes:
+      - ../../scripts/deployment/bootstrap-postgres.sh:/scripts/bootstrap-postgres.sh:ro
+    entrypoint: ['/bin/bash', '/scripts/bootstrap-postgres.sh']
+    networks:
+      - database
+    depends_on:
+      db:
+        condition: service_healthy
+    logging: *default-logging
+
+  # Negative permission checks for DB roles. M3.1.
+  # docker compose --env-file ... --profile operations run --rm test-db-roles
+  test-db-roles:
+    build:
+      context: ./backup
+      dockerfile: Dockerfile
+    image: ${BACKUP_IMAGE:-solocamiones-backup:local}
+    profiles: ['operations']
+    restart: 'no'
+    environment:
+      POSTGRES_HOST: db
+      POSTGRES_PORT: '5432'
+      POSTGRES_DB: ${POSTGRES_DB:?POSTGRES_DB is required}
+      ROLE_RUNTIME_NAME: ${ROLE_RUNTIME_NAME:-runtime}
+      ROLE_BACKUP_NAME: ${ROLE_BACKUP_NAME:-backup}
+      ROLE_MONITORING_NAME: ${ROLE_MONITORING_NAME:-monitoring}
+      ROLE_RUNTIME_PASSWORD: ${ROLE_RUNTIME_PASSWORD:?ROLE_RUNTIME_PASSWORD is required}
+      ROLE_BACKUP_PASSWORD: ${ROLE_BACKUP_PASSWORD:?ROLE_BACKUP_PASSWORD is required}
+      ROLE_MONITORING_PASSWORD: ${ROLE_MONITORING_PASSWORD:?ROLE_MONITORING_PASSWORD is required}
+    volumes:
+      - ../../scripts/deployment/test-postgres-roles.sh:/scripts/test-postgres-roles.sh:ro
+    entrypoint: ['/bin/bash', '/scripts/test-postgres-roles.sh']
+    networks:
+      - database
+    depends_on:
+      db:
+        condition: service_healthy
+    logging: *default-logging
+
+  # Encrypted pg_dump → R2. Needs database + non-internal network for R2 egress. M3.2.
+  # docker compose --env-file ... --profile operations run --rm backup
+  backup:
+    build:
+      context: ./backup
+      dockerfile: Dockerfile
+    image: ${BACKUP_IMAGE:-solocamiones-backup:local}
+    profiles: ['operations']
+    restart: 'no'
+    environment:
+      APP_ENV: ${APP_ENV:?APP_ENV is required}
+      APP_RELEASE: ${APP_RELEASE:-unknown}
+      RELEASE_SHA: ${RELEASE_SHA:-unknown}
+      BACKUP_DATABASE_URL: ${BACKUP_DATABASE_URL:?BACKUP_DATABASE_URL is required}
+      R2_ENDPOINT: ${R2_ENDPOINT:?R2_ENDPOINT is required}
+      R2_BUCKET: ${R2_BUCKET:?R2_BUCKET is required}
+      R2_ACCESS_KEY_ID: ${R2_ACCESS_KEY_ID:?R2_ACCESS_KEY_ID is required}
+      R2_SECRET_ACCESS_KEY: ${R2_SECRET_ACCESS_KEY:?R2_SECRET_ACCESS_KEY is required}
+      BACKUP_AGE_RECIPIENT: ${BACKUP_AGE_RECIPIENT:?BACKUP_AGE_RECIPIENT is required}
+      BACKUP_TZ: ${BACKUP_TZ:-America/Santo_Domingo}
+      BACKUP_RETENTION_HOURLY_HOURS: ${BACKUP_RETENTION_HOURLY_HOURS:-48}
+      BACKUP_RETENTION_DAILY_DAYS: ${BACKUP_RETENTION_DAILY_DAYS:-30}
+      BACKUP_RETENTION_MONTHLY_MONTHS: ${BACKUP_RETENTION_MONTHLY_MONTHS:-12}
+    volumes:
+      - ../../scripts/deployment/backup-postgres.sh:/scripts/backup-postgres.sh:ro
+      - backup-tmp:/tmp/solocamiones-backup
+    entrypoint: ['/bin/bash', '/scripts/backup-postgres.sh']
+    networks:
+      - database
+      - application
+    depends_on:
+      db:
+        condition: service_healthy
+    logging: *default-logging
+
+  # Isolated restore drill. Never points at live DATABASE_URL. M3.3.
+  # docker compose --env-file ... --profile operations run --rm verify-restore
+  verify-restore:
+    build:
+      context: ./backup
+      dockerfile: Dockerfile
+    image: ${BACKUP_IMAGE:-solocamiones-backup:local}
+    profiles: ['operations']
+    restart: 'no'
+    environment:
+      APP_ENV: ${APP_ENV:?APP_ENV is required}
+      CONFIRM_RESTORE: ${CONFIRM_RESTORE:-}
+      RESTORE_DATABASE_URL: ${RESTORE_DATABASE_URL:-}
+      DATABASE_URL: ${DATABASE_URL:-}
+      DATABASE_MIGRATION_URL: ${DATABASE_MIGRATION_URL:-}
+      BACKUP_DATABASE_URL: ${BACKUP_DATABASE_URL:-}
+      RESTORE_DENIED_DATABASE_URLS: ${RESTORE_DENIED_DATABASE_URLS:-}
+      R2_ENDPOINT: ${R2_ENDPOINT:-}
+      R2_BUCKET: ${R2_BUCKET:-}
+      R2_ACCESS_KEY_ID: ${R2_ACCESS_KEY_ID:-}
+      R2_SECRET_ACCESS_KEY: ${R2_SECRET_ACCESS_KEY:-}
+      BACKUP_AGE_SECRET_KEY: ${BACKUP_AGE_SECRET_KEY:-}
+      BACKUP_OBJECT_KEY: ${BACKUP_OBJECT_KEY:-}
+      BACKUP_CHECKSUM_OBJECT_KEY: ${BACKUP_CHECKSUM_OBJECT_KEY:-}
+    volumes:
+      - ../../scripts/deployment/verify-restore.sh:/scripts/verify-restore.sh:ro
+      - backup-tmp:/tmp/solocamiones-restore
+    entrypoint: ['/bin/bash', '/scripts/verify-restore.sh']
+    networks:
+      - database
+      - application
+    depends_on:
+      db:
+        condition: service_healthy
+    logging: *default-logging
+
+  # Daily retention purge (one batch of 100). Does not affect API readiness. M3.5.
+  # docker compose --env-file ... --profile operations run --rm assistant-purge
+  assistant-purge:
+    image: ${API_IMAGE:-solocamiones-api:local}
+    build:
+      context: ../..
+      dockerfile: apps/api/Dockerfile
+    profiles: ['operations']
+    restart: 'no'
+    environment:
+      APP_ENV: ${APP_ENV:?APP_ENV is required}
+      NODE_ENV: production
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL is required}
+      ASSISTANT_RETENTION_DAYS: ${ASSISTANT_RETENTION_DAYS:-90}
+    command: ['npm', 'run', 'assistant:purge:runtime', '-w', '@solocamiones/api']
     networks:
       - database
     depends_on:
@@ -182,3 +346,5 @@ networks:
 volumes:
   pgdata:
     name: ${POSTGRES_VOLUME_NAME:-solocamiones_pgdata}
+  backup-tmp:
+    name: ${BACKUP_TMP_VOLUME_NAME:-solocamiones_backup_tmp}

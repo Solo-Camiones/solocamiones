@@ -684,16 +684,18 @@ Esta secuencia convierte el plan operativo en bloques implementables. Una depend
 
 **Objetivo:** proteger los datos antes de desplegar usuarios reales y demostrar que pueden recuperarse dentro del RTO.
 
+**Estado:** **Implementado en repositorio 2026-10-02** (ensayo R2/restore con secretos reales: operador, §8 de `docs/RELEASES/v2.0.0.md`). Decisiones owner: systemd (1A), Compose backup image (2A), R2 staging real (3A), snapshots checklist (4A), retención en script (5A), purge un batch (6A), bootstrap one-shot (7).
+
 **Dependencias del milestone:** M2.4; puede avanzar en paralelo con M4 y M5 donde no comparta archivos.
 
 | Paso | Tarea y qué cumple                                                                                                                                                                           | Dependencias |
 | ---- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------ |
-| M3.1 | Definir bootstrap de PostgreSQL para roles `migration`, `runtime`, `backup` y `monitoring`, con pruebas negativas; aplica mínimo privilegio y separa DDL, DML, lectura de backup y métricas. | M2.4.        |
-| M3.2 | Implementar `backup-postgres.sh` con `pg_dump`, validación, cifrado `age`, checksum, manifiesto, upload R2 y limpieza segura; cumple el backup externo cifrado y auditable.                  | M3.1.        |
-| M3.3 | Implementar `verify-restore.sh` sobre una base nueva y con rechazo explícito de destinos productivos; demuestra recuperación sin sobrescribir el origen.                                     | M3.2.        |
-| M3.4 | Configurar scheduler, retención `hourly/daily/monthly` y verificación de snapshots; convierte los scripts en una protección continua y medible.                                              | M3.2 y M3.3. |
-| M3.5 | Adaptar `assistant-purge` a un job diario con la imagen API y sin afectar readiness; hace cumplir la retención de 90 días del Assistant.                                                     | M2.4.        |
-| M3.6 | Ensayar backup, checksum, descifrado, restore y purge con datos no productivos; valida códigos de salida, limpieza y evidencia antes de depender de los jobs.                                | M3.3–M3.5.   |
+| M3.1 | Definir bootstrap de PostgreSQL para roles `migration`, `runtime`, `backup` y `monitoring`, con pruebas negativas; aplica mínimo privilegio y separa DDL, DML, lectura de backup y métricas. | M2.4. **Hecho 2026-10-02.** |
+| M3.2 | Implementar `backup-postgres.sh` con `pg_dump`, validación, cifrado `age`, checksum, manifiesto, upload R2 y limpieza segura; cumple el backup externo cifrado y auditable.                  | M3.1. **Hecho 2026-10-02.** |
+| M3.3 | Implementar `verify-restore.sh` sobre una base nueva y con rechazo explícito de destinos productivos; demuestra recuperación sin sobrescribir el origen.                                     | M3.2. **Hecho 2026-10-02.** |
+| M3.4 | Configurar scheduler, retención `hourly/daily/monthly` y verificación de snapshots; convierte los scripts en una protección continua y medible.                                              | M3.2 y M3.3. **Hecho 2026-10-02** (timers versionados; checklist snapshots; ejecución Hostinger en M6+). |
+| M3.5 | Adaptar `assistant-purge` a un job diario con la imagen API y sin afectar readiness; hace cumplir la retención de 90 días del Assistant.                                                     | M2.4. **Hecho 2026-10-02.** |
+| M3.6 | Ensayar backup, checksum, descifrado, restore y purge con datos no productivos; valida códigos de salida, limpieza y evidencia antes de depender de los jobs.                                | M3.3–M3.5. **Procedimiento en RELEASES §8.1; ejecución con secretos R2 del operador.** |
 
 **Gate de salida:** roles y pruebas negativas aprobados, backup cifrado recuperable en una base aislada y jobs programables con fallos observables.
 
