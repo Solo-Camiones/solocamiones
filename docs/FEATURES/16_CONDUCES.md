@@ -4,7 +4,9 @@
 
 **CONFIRMED (documentation).** This file is the implementation source of truth for requirement IDs: `CON-001, CON-002, CON-003, CON-004, CON-005, CON-006`.
 
-These IDs were added 2026-09-20 for the commercial-conduce change set sequenced in `docs/plan_feature_contado/IMPLEMENTATION_PLAN.md`. That plan is technical sequencing and progress only. **Do not implement behavior from the plan file when a CON-* ID exists here.**
+These IDs were added 2026-09-20 for the commercial-conduce change set sequenced in `docs/plan_feature_conduce/IMPLEMENTATION_PLAN.md`. That plan is technical sequencing and progress only. **Do not implement behavior from the plan file when a CON-* ID exists here.**
+
+**Implementation status (2026-10-01):** M1–M8 **Verificado** by owner authorization for the first production release (`v2.0.0`). See `docs/RELEASES/v2.0.0.md`.
 
 Owner clarifications recorded at M1 close (2026-09-20), which supersede earlier wording in the plan’s “Decisiones confirmadas” where they conflict:
 
@@ -18,9 +20,9 @@ If another retained document conflicts with a requirement block below, update th
 
 ## Delivery
 
-**Required before the first production release** (pre-production gate amendment, 2026-09-20). Sequenced as milestones M2–M8 in `docs/plan_feature_contado/IMPLEMENTATION_PLAN.md` after this documentation milestone (M1).
+**Required before the first production release** (pre-production gate amendment, 2026-09-20). Sequenced as milestones M2–M8 in `docs/plan_feature_conduce/IMPLEMENTATION_PLAN.md` after this documentation milestone (M1). **Verificado 2026-10-01.**
 
-**Implementation:** M2–M6 cover API domain, emission/conversion, payments/CxC/cancellation, PDFs, and profitability/FX/reports/history. **M7 (2026-09-21):** web contracts, POS dual factura/conduce, detalle (PDF/facturar/pago/cancel), tab Conduce, mocks CON-002/CANCEL-002 + seed `CON-000001`; live HTTP walkthrough still pending authorized `solocamiones_test` reset or manual app run. Existing direct invoice confirmation, quotes, and payments remain as Features 08/10/12/13 except where CON-* already amended runtime.
+**Implementation:** M2–M6 cover API domain, emission/conversion, payments/CxC/cancellation, PDFs, and profitability/FX/reports/history. **M7 (2026-09-21):** web contracts, POS dual factura/conduce, detalle (PDF/facturar/pago/cancel), tab Conduce, mocks CON-002/CANCEL-002 + seed `CON-000001`. **M8 (2026-09-21):** stabilization + owner walkthrough OK. Existing direct invoice confirmation, quotes, and payments remain as Features 08/10/12/13 except where CON-* already amended runtime.
 
 ## What this feature does
 
@@ -175,7 +177,7 @@ Direct invoice confirmation does **not** use the Administrator named-`CASH` bala
 
 ### Stabilization (M8)
 
-- [x] Migration, suites, walkthroughs, and pre-production gate evidence for conduces. _(M8 Completado localmente 2026-09-21; `Verificado` / firma release pendiente.)_
+- [x] Migration, suites, walkthroughs, and pre-production gate evidence for conduces. _(M8 Completado localmente 2026-09-21; **Verificado** owner 2026-10-01 para `v2.0.0`.)_
 
 ## Canonical validated requirements
 

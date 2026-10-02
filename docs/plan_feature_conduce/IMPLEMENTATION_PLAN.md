@@ -21,14 +21,14 @@
 
 | ID | Milestone | Estado |
 |---|---|---|
-| M1 | Formalizar reglas y criterios de aceptación | Completado localmente (2026-09-20) |
-| M2 | Migración y modelo de dominio | Completado localmente (2026-09-20) |
-| M3 | Motor de emisión y conversión | Completado localmente (2026-09-20) |
-| M4 | Pagos, vencimiento, CxC y cancelación | Completado localmente (2026-09-20) |
-| M5 | PDFs y fiscalidad manual | Completado localmente (2026-09-20) |
-| M6 | Reportes, rentabilidad e historial | Completado localmente (2026-09-21) |
-| M7 | Integración web y mocks | Completado localmente (2026-09-21) |
-| M8 | Estabilización y exit gate preproducción | Completado localmente (2026-09-21) |
+| M1 | Formalizar reglas y criterios de aceptación | Verificado (2026-10-01; Completado localmente 2026-09-20) |
+| M2 | Migración y modelo de dominio | Verificado (2026-10-01; Completado localmente 2026-09-20) |
+| M3 | Motor de emisión y conversión | Verificado (2026-10-01; Completado localmente 2026-09-20) |
+| M4 | Pagos, vencimiento, CxC y cancelación | Verificado (2026-10-01; Completado localmente 2026-09-20) |
+| M5 | PDFs y fiscalidad manual | Verificado (2026-10-01; Completado localmente 2026-09-20) |
+| M6 | Reportes, rentabilidad e historial | Verificado (2026-10-01; Completado localmente 2026-09-21) |
+| M7 | Integración web y mocks | Verificado (2026-10-01; Completado localmente 2026-09-21) |
+| M8 | Estabilización y exit gate preproducción | Verificado (2026-10-01; Completado localmente 2026-09-21) |
 
 ---
 
@@ -473,8 +473,8 @@ Cuando ITEM/QTY exista: emitir consume/reserva→vendido; cancelar restaura una 
 
 **Objetivo:** Verificar el feature completo antes del primer release.
 
-**Estado:** Completado localmente — 2026-09-21  
-**Alcance:** Gate técnico (migraciones `solocamiones_dev`, lint/typecheck/test/build), filtro CxC UI `CON-`, test concurrencia HTTP `CON-`, walkthrough browser Admin/Seller + PDFs (owner). Paso 10 del change set preproducción **fuera** de este milestone. Cierre como Completado localmente; Verificado queda a firma owner.
+**Estado:** Verificado — 2026-10-01 (Completado localmente — 2026-09-21)  
+**Alcance:** Gate técnico (migraciones `solocamiones_dev`, lint/typecheck/test/build), filtro CxC UI `CON-`, test concurrencia HTTP `CON-`, walkthrough browser Admin/Seller + PDFs (owner). Paso 10 del change set preproducción se cerró aparte el 2026-10-01 (`docs/RELEASES/v2.0.0.md`).
 
 ### Decisiones owner (2026-09-21)
 
@@ -511,16 +511,16 @@ Cuando ITEM/QTY exista: emitir consume/reserva→vendido; cancelar restaura una 
 
 - Feature 16: walkthrough + estabilización `[x]`. **Hecho.**
 - Feature 12: UI CxC documento `FAC-`/`CON-` (M8). **Hecho.**
-- `DEVELOPMENT_PLAN.md` snapshot: M1–M8 Completado localmente; Paso 10 sigue abierto. **Hecho.**
-- Pendientes reales: Paso 10 preproducción; firma owner para estado `Verificado` / autorización explícita al primer release; ITEM/QTY inventario (releases posteriores).
+- `DEVELOPMENT_PLAN.md` snapshot: M1–M8 Completado localmente; Paso 10 sigue abierto. **Hecho al cierre M8; supersedido 2026-10-01 (Paso 10 cerrado + Verificado).**
+- Pendientes reales al cierre M8: Paso 10 preproducción (cerrado 2026-10-01); `Verificado` owner (otorgado 2026-10-01); ITEM/QTY inventario (releases posteriores).
 
 ### Migración / rollback / aprobación empresarial
 
 - Migraciones conduce son aditivas (enum `CONDUCE`, columnas, CHECKs FX/profit, secuencia `CON`).
 - Rollback de schema solo en no-productivo o con aprobación; no dropear fácilmente el valor de enum PostgreSQL.
-- **Aprobación empresarial / `Verificado`:** pendiente de firma explícita del owner (este cierre es Completado localmente).
+- **Aprobación empresarial / `Verificado`:** owner autorizó explícitamente el 2026-10-01 para incluir conduces en `v2.0.0` (`docs/RELEASES/v2.0.0.md`).
 
-**Gate final (técnico local):** Cero fallos conocidos en flujos aprobados tras suites + walkthrough owner. Autorización formal para incluir conduces en el primer release = pendiente `Verificado`.
+**Gate final:** Cero fallos conocidos en flujos aprobados tras suites + walkthrough owner. **Verificado 2026-10-01** — conduces autorizados en el primer release productivo.
 
 ---
 

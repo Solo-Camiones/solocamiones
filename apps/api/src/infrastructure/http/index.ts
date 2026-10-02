@@ -1,3 +1,14 @@
+export { createAllowedHostsMiddleware } from './allowed-hosts.js';
+export {
+  CF_ACCESS_JWT_HEADER,
+  createCloudflareAccessMiddleware,
+  verifyCloudflareAccessJwt,
+} from './cloudflare-access.js';
+export type {
+  CloudflareAccessJwtVerifier,
+  CloudflareAccessJwtVerifyInput,
+  CloudflareAccessMiddlewareOptions,
+} from './cloudflare-access.js';
 export { errorHandler } from './error-handler.js';
 export { notFoundHandler } from './not-found-handler.js';
 export {

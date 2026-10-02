@@ -234,6 +234,7 @@ La aplicación debe centralizar y validar su environment al arrancar. Local/test
 ### 8.1 Runtime API
 
 ```text
+APP_ENV
 NODE_ENV
 PORT
 LOG_LEVEL
@@ -252,6 +253,8 @@ OPENAI_VECTOR_STORE_ID
 ASSISTANT_* límites y retención
 METRICS_BEARER_TOKEN
 ```
+
+`APP_ENV` discrimina `development` | `test` | `staging` | `production` (decisión owner 2026-10-01). Staging y production usan `NODE_ENV=production` con `APP_ENV` distinto. En staging/production son obligatorios `APP_RELEASE` (patrón `vMAJOR.MINOR.PATCH`, p. ej. `v2.0.0`), `ALLOWED_HOSTS`, `TRUST_PROXY`, `CF_ACCESS_*` y `METRICS_BEARER_TOKEN`. `ASSISTANT_ENABLED=false` permanece válido como kill switch y no bloquea el arranque.
 
 ### 8.2 Jobs
 
@@ -625,34 +628,38 @@ Esta secuencia convierte el plan operativo en bloques implementables. Una depend
 
 **Objetivo:** asegurar que la infraestructura se construye para un alcance funcional estable y autorizado, no para un candidato que todavía cambia.
 
+**Estado:** **Cerrado 2026-10-01.** Evidencia y alcance: `docs/RELEASES/v2.0.0.md`.
+
 **Dependencias del milestone:** ninguna; es el punto de entrada obligatorio.
 
 | Paso | Tarea y qué cumple                                                                                                                                                                                            | Dependencias                                    |
 | ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------- |
-| M0.1 | Completar el Paso 10 de `docs/pre_production_business_changes/IMPLEMENTATION_PLAN.md`; demuestra migraciones sobre una copia realista, regresión, concurrencia y suites completas antes de separar ambientes. | Ninguna.                                        |
-| M0.2 | Obtener el `Verificado` formal de Feature 16 conduces; convierte el walkthrough ya aprobado en autorización explícita para el primer release productivo.                                                      | Ninguna; puede ejecutarse en paralelo con M0.1. |
-| M0.3 | Registrar el alcance exacto de `v2.0.0`, sus exclusiones y los flujos habilitados; evita desplegar por accidente inventario, Work Orders o CxP que continúan fuera del release.                               | M0.1 y M0.2.                                    |
-| M0.4 | Levantar una línea base del repositorio y de los checks actuales; identifica qué piezas ya existen, cuáles deben endurecerse y qué evidencia debe conservar cada milestone.                                   | M0.3.                                           |
+| M0.1 | Completar el Paso 10 de `docs/pre_production_business_changes/IMPLEMENTATION_PLAN.md`; demuestra migraciones sobre una copia realista, regresión, concurrencia y suites completas antes de separar ambientes. | Ninguna. **Hecho 2026-10-01.**                  |
+| M0.2 | Obtener el `Verificado` formal de Feature 16 conduces; convierte el walkthrough ya aprobado en autorización explícita para el primer release productivo.                                                      | Ninguna; puede ejecutarse en paralelo con M0.1. **Hecho 2026-10-01.** |
+| M0.3 | Registrar el alcance exacto de `v2.0.0`, sus exclusiones y los flujos habilitados; evita desplegar por accidente inventario, Work Orders o CxP que continúan fuera del release.                               | M0.1 y M0.2. **Hecho:** `docs/RELEASES/v2.0.0.md`. |
+| M0.4 | Levantar una línea base del repositorio y de los checks actuales; identifica qué piezas ya existen, cuáles deben endurecerse y qué evidencia debe conservar cada milestone.                                   | M0.3. **Hecho:** §5 de `docs/RELEASES/v2.0.0.md`. |
 
-**Gate de salida:** Paso 10 cerrado, conduces formalmente verificados, alcance `v2.0.0` aprobado y cero cambio funcional pendiente que invalide la configuración de ambientes.
+**Gate de salida:** Paso 10 cerrado, conduces formalmente verificados, alcance `v2.0.0` aprobado y cero cambio funcional pendiente que invalide la configuración de ambientes. **Cumplido 2026-10-01.** Siguiente: M1 (también **cerrado 2026-10-01**).
 
 ### M1 — Contrato de runtime y frontera HTTP segura
 
 **Objetivo:** hacer que la API falle de forma segura ante configuración inválida y que solo acepte tráfico del ambiente y de Cloudflare Access previstos.
 
+**Estado:** **Cerrado 2026-10-01.** Evidencia: §6 de `docs/RELEASES/v2.0.0.md`.
+
 **Dependencias del milestone:** M0.
 
 | Paso | Tarea y qué cumple                                                                                                                                                                         | Dependencias |
 | ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------ |
-| M1.1 | Centralizar y validar el contrato de environment, incluidas validaciones cruzadas por ambiente; impide iniciar con secretos, URLs, hosts o flags incompletos/inseguros.                    | M0.4.        |
-| M1.2 | Limitar la carga de `.env` a local/test y consumir solo variables inyectadas en staging/producción; evita fallbacks silenciosos y archivos locales en servidores.                          | M1.1.        |
-| M1.3 | Implementar `ALLOWED_HOSTS` y `TRUST_PROXY` exactos; bloquea Host spoofing y evita confiar en una cadena de proxies no declarada.                                                          | M1.1.        |
-| M1.4 | Validar firma, issuer, expiración y audience del JWT de Cloudflare Access; garantiza que alcanzar el origen no omita el control perimetral.                                                | M1.1.        |
-| M1.5 | Integrar Helmet, límites de payload, rate limiting y cookies seguras respetando la autenticación/roles propios; completa el hardening HTTP sin mezclar Access con autorización de negocio. | M1.3 y M1.4. |
-| M1.6 | Confirmar liveness/readiness mínimos, logging JSON con `APP_RELEASE` y redacción de datos sensibles; permite operar y diagnosticar sin filtrar secretos o datos financieros.               | M1.1 y M1.5. |
-| M1.7 | Añadir pruebas unitarias e integración de environment, hosts, JWT, proxy, health y cookies; demuestra los rechazos y excepciones controladas antes de empaquetar.                          | M1.2–M1.6.   |
+| M1.1 | Centralizar y validar el contrato de environment, incluidas validaciones cruzadas por ambiente; impide iniciar con secretos, URLs, hosts o flags incompletos/inseguros.                    | M0.4. **Hecho 2026-10-01:** `apps/api/src/infrastructure/config/runtime-config.ts` (`APP_ENV`, validaciones cruzadas). |
+| M1.2 | Limitar la carga de `.env` a local/test y consumir solo variables inyectadas en staging/producción; evita fallbacks silenciosos y archivos locales en servidores.                          | M1.1. **Hecho 2026-10-01:** `load-env.ts` no carga dotenv en staging/production ni con `NODE_ENV=production`. |
+| M1.3 | Implementar `ALLOWED_HOSTS` y `TRUST_PROXY` exactos; bloquea Host spoofing y evita confiar en una cadena de proxies no declarada.                                                          | M1.1. **Hecho 2026-10-01:** middleware Host + trust proxy de un hop; obligatorio en staging/production. |
+| M1.4 | Validar firma, issuer, expiración y audience del JWT de Cloudflare Access; garantiza que alcanzar el origen no omita el control perimetral.                                                | M1.1. **Hecho 2026-10-01:** `cloudflare-access.ts` con `jose` (JWKS); aplica también a health. |
+| M1.5 | Integrar Helmet, límites de payload, rate limiting y cookies seguras respetando la autenticación/roles propios; completa el hardening HTTP sin mezclar Access con autorización de negocio. | M1.3 y M1.4. **Hecho 2026-10-01:** Helmet, body limit, rate limits y cookies existentes cableados al perímetro Access. |
+| M1.6 | Confirmar liveness/readiness mínimos, logging JSON con `APP_RELEASE` y redacción de datos sensibles; permite operar y diagnosticar sin filtrar secretos o datos financieros.               | M1.1 y M1.5. **Hecho 2026-10-01:** live/ready confirmados; Pino con `release` y redact ampliado. |
+| M1.7 | Añadir pruebas unitarias e integración de environment, hosts, JWT, proxy, health y cookies; demuestra los rechazos y excepciones controladas antes de empaquetar.                          | M1.2–M1.6. **Hecho 2026-10-01:** suites unitarias de contrato, dotenv, hosts, JWT, edge security y trust proxy. |
 
-**Gate de salida:** la API arranca solo con configuración válida, rechaza host/JWT/proxy incorrectos y las pruebas negativas de la frontera HTTP están verdes.
+**Gate de salida:** la API arranca solo con configuración válida, rechaza host/JWT/proxy incorrectos y las pruebas negativas de la frontera HTTP están verdes. **Cumplido 2026-10-01.** Siguiente: M2.
 
 ### M2 — Imágenes, Compose y proxy reproducibles
 

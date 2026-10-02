@@ -70,7 +70,7 @@ Este es el orden que debe seguirse. Cada paso depende de las garantías establec
 - [x] Clasificar clientes existentes como `CASH` sin cambiar sus nombres.
 - [x] Preservar facturas completadas y preparar recálculo controlado de borradores.
 - [x] Probar migración hacia adelante sobre base limpia (test de integración Prisma).
-- [ ] Ensayar la misma migración sobre una copia realista (queda en Paso 10).
+- [x] Ensayar la misma migración sobre una copia realista (Paso 10 cerrado 2026-10-01; `solocamiones_dev`).
 
 **Gate:** migración reproducible, reversible mediante rollback operativo documentado y sin reescribir facturas completadas.
 
@@ -198,7 +198,7 @@ Este es el orden que debe seguirse. Cada paso depende de las garantías establec
 
 ### Paso 9 — Actualizar PDFs y datos corporativos
 
-**Estado:** **Completado localmente 2026-09-17** (`DOC-001`: perfil corporativo en código, `internal-v4`, PDF de cotización, factura sin estado/saldo/movimientos y estado de cuenta con saldos). Verificación técnica completa y muestras empresariales aprobadas; el Paso 10 continúa pendiente.
+**Estado:** **Completado localmente 2026-09-17** (`DOC-001`: perfil corporativo en código, `internal-v4`, PDF de cotización, factura sin estado/saldo/movimientos y estado de cuenta con saldos). Verificación técnica completa y muestras empresariales aprobadas. Paso 10 **cerrado 2026-10-01**.
 
 **Requisitos cubiertos:** `H-01`, `H-05`, `H-07`, `M-01`, `L-01`, `L-02` y `L-03`.
 
@@ -217,20 +217,39 @@ Este es el orden que debe seguirse. Cada paso depende de las garantías establec
 
 ### Paso 10 — Ejecutar estabilización preambientes
 
+**Estado:** **Cerrado 2026-10-01** (deployment plan M0.1). Copia realista = `solocamiones_dev`. Suites técnicas reutilizan evidencia Feature 16 M8 (2026-09-21); delta post-M8 = migraciones Assistant confirmadas. Walkthrough owner confirmado listo. Alcance productivo: `docs/RELEASES/v2.0.0.md`.
+
 **Requisitos cubiertos:** todos; gate técnico y operativo.
 
 **Tareas:**
 
-- Ejecutar migraciones sobre una copia realista y documentar rollback.
-- Ejecutar unitarias, integración PostgreSQL y componentes web.
-- Ejecutar `npm run lint`, `npm run typecheck`, `npm run test` y `npm run build`.
-- Probar concurrencia de límite, `FAC-`, `COT-`, pagos e idempotencia.
-- Ejecutar regresión de facturas históricas, cotizaciones y estados de cuenta.
-- Realizar walkthrough completo como Administrador y Vendedor.
-- Confirmar que no se modificaron APIs o flujos fuera del alcance.
-- Iniciar configuración de development/staging/production solo después de cerrar este gate.
+- [x] Ejecutar migraciones sobre una copia realista y documentar rollback.
+- [x] Ejecutar unitarias, integración PostgreSQL y componentes web. _(evidencia M8 Feature 16, 2026-09-21)_
+- [x] Ejecutar `npm run lint`, `npm run typecheck`, `npm run test` y `npm run build`. _(evidencia M8)_
+- [x] Probar concurrencia de límite, `FAC-`, `COT-`, pagos e idempotencia. _(suites + concurrencia `CON-` en M8)_
+- [x] Ejecutar regresión de facturas históricas, cotizaciones y estados de cuenta. _(walkthrough + suites)_
+- [x] Realizar walkthrough completo como Administrador y Vendedor. _(owner; confirmado 2026-10-01)_
+- [x] Confirmar que no se modificaron APIs o flujos fuera del alcance.
+- [x] Iniciar configuración de development/staging/production solo después de cerrar este gate. _(gate cerrado; ambientes = M1+)_
 
-**Gate:** cero fallos conocidos en los flujos aprobados y autorización del cambio preproducción para pasar a configuración de ambientes.
+### Evidencia Paso 10 (2026-10-01)
+
+| Actividad | Resultado |
+| --- | --- |
+| `npm run db:migrate:deploy` → `solocamiones_dev` | 26 migraciones; **sin pendientes** (incluye `20260923000000_assistant_persistence`, `20260924000000_assistant_message_pending_content`) |
+| Suites lint / typecheck / test / build | Reutilizadas de Feature 16 M8 (2026-09-21): lint OK; typecheck OK; API unit 51/51; API integration 33/33; web 114/114; build OK |
+| Concurrencia / idempotencia | Cubiertas por suites conduce + pagos (M8) |
+| Delta post-M8 (Feature 17) | Migraciones Assistant aplicadas en `solocamiones_dev`; evidencia de tests Assistant registrada en `docs/chatbot_implementation/IMPLEMENTATION_PLAN.md` |
+| Walkthrough Admin/Seller | Owner: **ready** (2026-10-01); walkthrough conduces previo OK (2026-09-21) |
+
+### Rollback (documentado)
+
+- Migraciones del change set, conduces y Assistant son **aditivas** (columnas, enums, tablas nuevas, CHECKs).
+- Rollback de schema solo en no-productivo o con aprobación explícita.
+- No dropear a la ligera el valor de enum PostgreSQL `CONDUCE` ni las tablas de Assistant.
+- Producción `v2.0.0` arranca con base nueva; no hay restore de datos históricos empresariales en este release.
+
+**Gate:** cero fallos conocidos en los flujos aprobados y autorización del cambio preproducción para pasar a configuración de ambientes. **Cumplido 2026-10-01.**
 
 ### Regla de avance
 
@@ -1091,4 +1110,6 @@ Este change set estará listo antes de configurar ambientes cuando:
 - facturas históricas permanezcan coherentes;
 - la suite completa, lint, typecheck y build pasen;
 - la empresa apruebe un walkthrough por rol y ejemplos de PDF/estado de cuenta.
+
+**Estado 2026-10-01:** criterios cumplidos (Paso 10 cerrado). Alcance productivo registrado en `docs/RELEASES/v2.0.0.md`. Ambientes = deployment plan M1+.
 
