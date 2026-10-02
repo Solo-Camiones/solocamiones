@@ -31,7 +31,8 @@
     "format:check": "prettier --check .",
     "db:generate": "npm run db:generate -w @solocamiones/api",
     "db:migrate": "npm run db:migrate -w @solocamiones/api",
-    "db:migrate:deploy": "npm run db:migrate:deploy -w @solocamiones/api"
+    "db:migrate:deploy": "npm run db:migrate:deploy -w @solocamiones/api",
+    "db:migrate:deploy:runtime": "npm run db:migrate:deploy:runtime -w @solocamiones/api"
   },
   "overrides": {
     "@prisma/config@6.19.3": {

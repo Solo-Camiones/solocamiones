@@ -13,3 +13,5 @@ coverage/
 .scannerwork/
 tmp/
 docs/assistant-eval/reports/*.json
+infra/vps/certs/
+infra/vps/.env.smoke

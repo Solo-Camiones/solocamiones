@@ -28,6 +28,8 @@ COPY apps/web/nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=build --chown=root:root /app/apps/web/dist /usr/share/nginx/html
 USER nginx
 
+# 8081: host-published local entry (and VPS edge upstream).
+# 8080: internal cloudflared entry on the local Compose tunnel profile.
 EXPOSE 8081 8080
 
 CMD ["nginx", "-g", "daemon off;"]

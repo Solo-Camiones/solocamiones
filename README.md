@@ -124,7 +124,24 @@ Vite proxea `/api/*` al backend.
 
 ## Docker Compose
 
-`docker-compose.yml` levanta PostgreSQL 16, API (sin publicar el puerto 3000) y web en **5173** detrás de nginx. La API solo es cliente interno de nginx. `cloudflared` es opcional para un túnel de prueba.
+### Local (`docker-compose.yml`)
+
+Levanta PostgreSQL 16 (`db`), aplica migraciones con un servicio one-shot (`migrate`), luego API (sin publicar el puerto 3000) y web en **5173** detrás de nginx. La API solo es cliente interno de nginx.
+
+```bash
+docker compose up --build
+```
+
+Opcional:
+
+- `docker compose --profile test up -d db-test` — Postgres aislado para integración (puerto `DATABASE_TEST_PORT`, default 5434)
+- `docker compose --profile tunnel up` — incluye `cloudflared`
+
+La imagen de API **no** ejecuta `prisma migrate deploy` en su `CMD`. Las migraciones corren solo en el servicio `migrate` (local: automáticamente antes de `api`; VPS: `docker compose --profile operations run --rm migrate`).
+
+### VPS (`infra/vps/compose.yaml`)
+
+Stack genérico de staging/producción (camino crítico M2): `edge` (Nginx TLS/AOP, únicos puertos 80/443), `web`, `api`, `db`, `migrate`. Secretos vía `--env-file` fuera de Git. Ver `infra/vps/.env.smoke.example` y `scripts/deployment/generate-dev-origin-certs.sh` para smoke local.
 
 Variables relevantes del `.env` (nunca commitear `.env`):
 
@@ -151,7 +168,8 @@ Variables relevantes del `.env` (nunca commitear `.env`):
 | `npm run test:integration`                      | Integración (API exige PostgreSQL de prueba)                    |
 | `npm run db:generate`                           | Prisma Client                                                   |
 | `npm run db:migrate`                            | Crear/aplicar migraciones en desarrollo                         |
-| `npm run db:migrate:deploy`                     | Aplicar migraciones existentes                                  |
+| `npm run db:migrate:deploy`                     | Aplicar migraciones existentes (carga `.env` local)             |
+| `npm run db:migrate:deploy:runtime`             | `prisma migrate deploy` sin dotenv (imagen / Compose)           |
 | `npm run bootstrap:admin`                       | Primer Administrador en una base sin usuarios                   |
 | `npm run assistant:validate-knowledge`          | Validar manifest, archivos y checksums del corpus aprobado      |
 | `npm run assistant:sync-knowledge -- --dry-run` | Previsualizar la sincronización explícita del corpus            |

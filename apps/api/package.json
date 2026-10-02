@@ -24,6 +24,7 @@
     "db:generate": "dotenv -e ../../.env -- prisma generate",
     "db:migrate": "dotenv -e ../../.env -- prisma migrate dev",
     "db:migrate:deploy": "dotenv -e ../../.env -- prisma migrate deploy",
+    "db:migrate:deploy:runtime": "prisma migrate deploy",
     "db:studio": "dotenv -e ../../.env -- prisma studio"
   },
   "dependencies": {
@@ -38,6 +39,7 @@
     "openai": "^7.22.0",
     "pdfkit": "^0.20.2",
     "pino": "^10.3.1",
+    "prisma": "^6.19.3",
     "zod": "^4.5.4"
   },
   "devDependencies": {
@@ -49,7 +51,6 @@
     "@vitest/coverage-v8": "^4.1.11",
     "dotenv-cli": "^11.0.0",
     "pdfjs-dist": "^6.3.289",
-    "prisma": "^6.19.3",
     "supertest": "^7.2.2",
     "tsx": "^4.20.5",
     "typescript": "^5.9.2",

@@ -665,18 +665,20 @@ Esta secuencia convierte el plan operativo en bloques implementables. Una depend
 
 **Objetivo:** producir un stack versionado que pueda levantarse igual en hosts limpios, con responsabilidades y redes separadas.
 
+**Estado:** **Cerrado 2026-10-02.** Evidencia: §7 de `docs/RELEASES/v2.0.0.md`. Alcance Compose VPS: camino crítico (edge/web/api/db/migrate); backup/exporters/observability en M3/M4 (decisión owner 1B).
+
 **Dependencias del milestone:** M1.
 
 | Paso | Tarea y qué cumple                                                                                                                                                                          | Dependencias      |
 | ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------- |
-| M2.1 | Retirar `prisma migrate deploy` del `CMD` de la API y exponer la migración como comando one-shot; evita que cada arranque o réplica modifique el esquema.                                   | M1.1.             |
-| M2.2 | Endurecer las imágenes API/web y `.dockerignore`; crea artefactos mínimos, no-root, sin tests, coverage, `.git`, `.env` ni secretos.                                                        | M2.1.             |
-| M2.3 | Evolucionar el Compose local para separar `db`, `db-test`, `migrate`, `api`, `web` y tunnel opcional; mantiene desarrollo/test reproducible sin convertirlo en configuración productiva.    | M2.1 y M2.2.      |
-| M2.4 | Crear `infra/vps/compose.yaml` con servicios, redes, volúmenes, health checks, rotación de logs y profiles definidos en 5.3; materializa el stack común de staging/producción sin secretos. | M2.2.             |
-| M2.5 | Crear la configuración Nginx del origen con same-origin, TLS, AOP, hosts estrictos, headers reemplazados y límites para API/PDF/SSE; expone solo el edge y mantiene API, web y DB privadas. | M1.3–M1.6 y M2.4. |
-| M2.6 | Probar build, arranque, migración one-shot, health checks y aislamiento de redes desde un host limpio; demuestra que Compose es reproducible y que ningún servicio interno publica puertos. | M2.3–M2.5.        |
+| M2.1 | Retirar `prisma migrate deploy` del `CMD` de la API y exponer la migración como comando one-shot; evita que cada arranque o réplica modifique el esquema.                                   | M1.1. **Hecho 2026-10-02.** |
+| M2.2 | Endurecer las imágenes API/web y `.dockerignore`; crea artefactos mínimos, no-root, sin tests, coverage, `.git`, `.env` ni secretos.                                                        | M2.1. **Hecho 2026-10-02.** |
+| M2.3 | Evolucionar el Compose local para separar `db`, `db-test`, `migrate`, `api`, `web` y tunnel opcional; mantiene desarrollo/test reproducible sin convertirlo en configuración productiva.    | M2.1 y M2.2. **Hecho 2026-10-02.** |
+| M2.4 | Crear `infra/vps/compose.yaml` con servicios, redes, volúmenes, health checks, rotación de logs y profiles del camino crítico; materializa el stack común sin secretos. Backup/observability se amplían en M3/M4. | M2.2. **Hecho 2026-10-02.** |
+| M2.5 | Crear la configuración Nginx del origen con same-origin, TLS, AOP, hosts estrictos, headers reemplazados y límites para API/PDF/SSE; expone solo el edge y mantiene API, web y DB privadas. | M1.3–M1.6 y M2.4. **Hecho 2026-10-02.** |
+| M2.6 | Probar build, arranque, migración one-shot, health checks y aislamiento de redes desde un host limpio; demuestra que Compose es reproducible y que ningún servicio interno publica puertos. | M2.3–M2.5. **Hecho 2026-10-02.** |
 
-**Gate de salida:** las imágenes se construyen limpiamente, el `CMD` de API no migra, Compose VPS levanta por project name y solo Nginx publica 80/443.
+**Gate de salida:** las imágenes se construyen limpiamente, el `CMD` de API no migra, Compose VPS levanta por project name y solo Nginx publica 80/443. **Cumplido 2026-10-02.** Siguiente: M3.
 
 ### M3 — Persistencia, backup, restore y jobs operativos
 
