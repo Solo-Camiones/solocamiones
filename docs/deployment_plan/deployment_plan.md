@@ -1,1001 +1,858 @@
-# Plan maestro de despliegue v1.1.0 — Solo Camiones
+# Plan maestro de despliegue v2.0.0 — Solo Camiones
 
-## 1. Resumen y decisiones cerradas
+## 1. Propósito y estado
 
-Este documento reemplaza la estrategia anterior basada en VPS y define el plan ejecutable para preparar y desplegar el primer release real de Solo Camiones.
+Este documento define la arquitectura aprobada y el orden de implementación para el primer despliegue real de Solo Camiones.
 
-Arquitectura aprobada:
+Es una especificación operativa: describe archivos, automatizaciones y recursos que deberán implementarse en tareas posteriores. No afirma que esos recursos ya existan.
+
+Decisión del dueño (2026-09-30): se reemplaza la estrategia anterior basada en DigitalOcean App Platform y PostgreSQL administrado por dos VPS autogestionados en Hostinger. El dueño acepta expresamente la responsabilidad operativa de Linux, Docker, Nginx, PostgreSQL, backups, restauración, monitoreo y respuesta a incidentes.
+
+## 2. Decisiones cerradas
+
+- Release inicial de producción: `v2.0.0`.
+- Proveedor: Hostinger VPS.
+- Región preferida: New York si está disponible al contratar; Boston como segunda opción. Ambos VPS deben estar en la misma región.
+- Staging: VPS Hostinger KVM 1, permanente.
+- Producción: VPS Hostinger KVM 2, permanente.
+- Sistema operativo: Ubuntu Server LTS soportado por Hostinger.
+- Capacidad inicial esperada: hasta 10 usuarios, aproximadamente 5 simultáneos.
+- Presupuesto objetivo de VPS: menos de US$30/mes; costos de renovación, impuestos, R2, Better Stack, dominio, GitHub y OpenAI se controlan por separado.
+- Contenedores separados para Nginx, web React, API Express y PostgreSQL.
+- Un solo Docker Compose versionado representa staging y producción; cada VPS inyecta configuración y secretos propios.
+- PostgreSQL 16 corre dentro de cada VPS, con volumen y credenciales exclusivos por ambiente.
+- Staging y producción nunca comparten base, volumen, secreto, bucket R2, credencial OpenAI, vector store ni token de métricas.
+- Dominio productivo: `app.solocamiones.com`.
+- Dominio de staging: `staging.solocamiones.com`.
+- Cloudflare administra DNS, proxy, WAF, Access, WARP y TLS público.
+- Nginx es el reverse proxy del origen y termina el TLS Cloudflare → VPS.
+- El origen acepta HTTP/HTTPS únicamente desde rangos oficiales de Cloudflare.
+- Cloudflare usa `Full (strict)`, Authenticated Origin Pulls y audiences Access distintos por ambiente.
+- Express valida criptográficamente el JWT de Cloudflare Access.
+- Administración por SSH exclusivamente mediante Tailscale; no depende de las IP públicas dinámicas del operador.
+- GitHub Actions construye imágenes y las publica en GHCR.
+- El repositorio y las imágenes pasarán a privados antes del go-live.
+- `develop` despliega automáticamente a staging.
+- Producción requiere aprobación manual en el primer release; automatización desatendida queda como evolución futura.
+- Producción usa exactamente los mismos digests de imagen verificados en staging.
+- Migraciones usan `prisma migrate deploy` como paso separado del arranque normal.
+- Backups PostgreSQL cifrados se envían a Cloudflare R2 cada hora en ambos ambientes.
+- Retención: horarios 48 horas, diarios 30 días y mensuales 12 meses.
+- Snapshots Hostinger: semanales en ambos VPS; son una capa adicional, no sustituyen `pg_dump` externo.
+- RPO: 1 hora.
+- RTO: 1 hora, sujeto a restore drill exitoso.
+- Better Stack recibe logs y monitorea disponibilidad externamente.
+- Prometheus y Grafana corren en staging; conservan 30 días y monitorean ambos VPS mediante Tailscale.
+- Alertas por email y aplicación móvil al único operador.
+- Feature 17 AI Assistant está habilitada desde el primer día para `ADMINISTRATOR`, por decisión explícita del dueño después de su prueba funcional. La evaluación permanece como control de calidad continuo, no como gate de habilitación.
+- Producción comienza con una base nueva, sin datos demo ni importación de facturas físicas anteriores. La importación histórica queda fuera del alcance actual.
+- El primer Administrator se crea manualmente después del despliegue.
+- Se aceptan algunos minutos de indisponibilidad durante despliegues nocturnos o de madrugada.
+- Monitoreo intensivo posterior al go-live: 24 horas.
+
+## 3. Arquitectura aprobada
 
 ```text
 Usuarios autorizados
         |
-Cloudflare Zero Trust + WARP
+Cloudflare Access + WARP
         |
-app.DOMAIN / staging.DOMAIN
+Cloudflare DNS / Proxy / WAF
         |
-DigitalOcean App Platform
-  React SPA + Express API
+Firewall Hostinger + UFW
+  (80/443 solo Cloudflare)
         |
-DigitalOcean Managed PostgreSQL
+Nginx del ambiente
+  TLS Full (strict) + Authenticated Origin Pulls
         |
-Backups automáticos + PITR
+        +-- /api/* --> API Express :3000
         |
-pg_dump cifrado diario
+        +-- /* ------> Web React/Nginx :8081
+                          |
+API Express --------------+
         |
-Cloudflare R2
+PostgreSQL 16 interno :5432
 ```
 
-Decisiones:
-
-- Release: `v1.1.0`.
-- Alcance: Release 2 más pagos, CxC y cancelación ya adelantados.
-- Hosting: DigitalOcean App Platform, no Droplet/VPS.
-- Región: New York `NYC3`.
-- Producción: 24/7, hasta 10 usuarios.
-- Staging: efímero y creado bajo demanda.
-- PostgreSQL 16 administrado, separado por ambiente.
-- Presupuesto objetivo: US$50–100/mes.
-- Producción y staging protegidos por Cloudflare Zero Trust y WARP.
-- Dispositivos inscritos manualmente mediante tokens individuales revocables.
-- Base productiva nueva, sin importar datos locales ni cuentas demo.
-- RPO: 1 hora. RTO: 1 hora.
-- Backups externos: diarios por 30 días y mensuales por 12 meses en R2.
-- Operador único, alertas por email y aplicación móvil.
-- Dominio pendiente: usar `DOMAIN`, `app.DOMAIN` y `staging.DOMAIN` hasta sustituirlo.
-- Monitoreo: DigitalOcean + Better Stack.
-- Go-live fuera del horario laboral.
-
-Estimación inicial:
-
-- App productiva de 1 GB: US$10–12/mes.
-- Managed PostgreSQL productivo: desde US$15/mes.
-- Staging activo: aproximadamente US$12 adicionales.
-- Jobs, R2, Better Stack y transferencia: variables según uso.
-- Bloquear la contratación si la estimación total supera US$100/mes sin nueva aprobación.
-
-Referencia: [precios de App Platform](https://docs.digitalocean.com/products/app-platform/details/pricing/) y [precios de Managed PostgreSQL](https://docs.digitalocean.com/products/databases/postgresql/details/pricing/).
-
-## 2. Preparación de aplicación e infraestructura
-
-### Fase 0 — Auditoría obligatoria
-
-- Confirmar que `main` contiene exclusivamente el candidato que será desplegado.
-- Registrar SHA, migraciones Prisma, versión Node 22, npm 11.19.1 y PostgreSQL 16.
-- Resolver el fallo local de escritura sobre `apps/api/dist` y ejecutar un build limpio.
-- Obtener acceso funcional a Docker y construir la imagen productiva localmente.
-- Revisar los nueve warnings actuales de ESLint; ninguno puede convertirse en error.
-- Ejecutar búsqueda de secretos, `npm audit --audit-level=high` y escaneo de imagen.
-- Revisar todas las migraciones sobre una base vacía y confirmar que el código anterior no será necesario después de aplicarlas.
-- No continuar con riesgos `CRITICAL` o `HIGH` sin resolver.
-
-### Fase 1 — Empaquetado productivo
-
-- Crear una imagen multi-stage única que compile API y React.
-- Servir los assets de React desde Express y mantener `/api/*` para la API.
-- Implementar fallback de SPA únicamente para rutas no API.
-- Ejecutar como usuario no root y escuchar en `0.0.0.0:$PORT`.
-- Actualizar `docker-compose.yml` como stack exclusivo de desarrollo/integración local, con migraciones en un servicio one-shot y Cloudflare Quick Tunnel bajo un profile opcional.
-- Mantener Nginx y los Dockerfiles actuales exclusivamente para desarrollo local; staging y producción se describen únicamente mediante App Specs de DigitalOcean.
-- Eliminar `prisma migrate deploy` del `CMD`; las migraciones se ejecutarán mediante un deployment job.
-- Fijar durante el build:
-  - `VITE_USE_MOCK_API=false`
-  - `VITE_CAPABILITIES_PRESET=release-2`
-  - `VITE_ENABLE_DEMO_CONTROLS=false`
-- Publicar la imagen privada en GHCR con tag `sha-<commit>` y conservar su digest. Staging y producción usarán exactamente ese digest.
-
-### Fase 2 — Configuración y contratos
-
-Variables de runtime de la aplicación:
-
-- `NODE_ENV=production`
-- `PORT`
-- `LOG_LEVEL`
-- `DATABASE_URL`
-- `INITIAL_PASSWORD`
-- `EXCHANGE_RATE_API_KEY`
-- `APP_RELEASE`
-- `ALLOWED_HOSTS`
-- `CF_ACCESS_TEAM_DOMAIN`
-- `CF_ACCESS_AUD`
-- configuración explícita de proxy confiable.
-
-Variables exclusivas de jobs:
-
-- `DATABASE_MIGRATION_URL`
-- `BACKUP_DATABASE_URL`
-- `R2_ENDPOINT`
-- `R2_BUCKET`
-- `R2_ACCESS_KEY_ID`
-- `R2_SECRET_ACCESS_KEY`
-- clave pública de cifrado del backup.
-
-Cambios de seguridad:
-
-- Añadir middleware global que valide firma, issuer, expiración y audience del JWT de Cloudflare Access mediante una biblioteca mantenida como `jose`.
-- Rechazar peticiones sin JWT válido incluso cuando lleguen por el dominio `ondigitalocean.app`.
-- Excluir únicamente `/api/health/live` y `/api/health/ready`, cuyas respuestas seguirán siendo genéricas.
-- Conservar autenticación, roles y cookie `sid` propios de Solo Camiones.
-- Mantener cookies `HttpOnly`, `Secure` y `SameSite=Lax`.
-- No confiar en `X-Forwarded-For` o `CF-Connecting-IP` hasta validar la cadena de proxy y el token de Access.
-- Aplicar allowlist de hosts, límites de payload, Helmet y rate limiting.
-- No habilitar CORS: SPA y API permanecerán en el mismo origen.
-
-### Fase 3 — DigitalOcean
-
-Crear dos App Platform apps independientes:
-
-- `solocamiones-production`
-- `solocamiones-staging`
-
-Producción:
-
-- Región `NYC3`.
-- Instancia compartida de 1 GB.
-- Managed PostgreSQL 16 de un nodo.
-- Conexión privada por VPC.
-- Base accesible únicamente desde la app y los jobs autorizados.
-- Health check de readiness en `/api/health/ready`.
-- Liveness en `/api/health/live`.
-- Alertas de deployment, dominio, CPU, memoria, reinicios y health checks.
-
-Staging:
-
-- Instancia de 512 MB.
-- Base de desarrollo PostgreSQL separada.
-- Datos sintéticos exclusivamente.
-- Se crea desde un App Spec versionado, se valida y se destruye después de la promoción.
-- Nunca utiliza secrets, URLs ni backups de producción.
-
-Definir tres roles PostgreSQL:
-
-- `migration`: permisos DDL, usado solo por el deployment job.
-- `runtime`: mínimo DML requerido por Prisma y lectura de `_prisma_migrations`.
-- `backup`: permisos de lectura para `pg_dump`.
-
-El deployment job `PRE_DEPLOY` ejecutará `prisma migrate deploy`. Si falla, el servicio nuevo no recibe tráfico. Los jobs de DigitalOcean pueden ejecutarse antes o después del despliegue: [deployment jobs](https://docs.digitalocean.com/products/app-platform/how-to/manage-jobs/).
-
-## 3. Archivos, configuración por ambiente y estándares
-
-Esta sección define los cambios que deberán implementarse en una tarea posterior. No se deben crear archivos alternativos con la misma responsabilidad ni almacenar configuración productiva fuera de las ubicaciones aquí indicadas.
-
-### Principios generales de configuración
-
-- Aplicar [The Twelve-Factor App](https://12factor.net/config): el código y la configuración versionable se separan de credenciales y valores propios de cada ambiente.
-- Construir una sola imagen de aplicación inmutable por SHA. No recompilar esa imagen al promover de staging a producción. Los backups usan una imagen operativa separada, mínima y ligada al mismo SHA.
-- Mantener paridad funcional entre staging y producción; solo cambian recursos, datos, dominios, credenciales y nivel de capacidad.
-- Validar toda variable al iniciar y fallar de forma segura si falta una configuración obligatoria.
-- No usar valores productivos por defecto, fallback silencioso, `latest`, credenciales compartidas ni secretos en argumentos de build.
-- Versionar ejemplos, esquemas declarativos y nombres de variables; almacenar valores secretos únicamente en GitHub, DigitalOcean o Cloudflare según su consumidor.
-- Mantener configuración local compatible con el flujo existente. Los archivos de Docker Compose y Nginx locales no representan producción.
-- Evitar archivos `.env.staging` o `.env.production` versionados. `.env` continúa ignorado por Git.
-
-### Matriz de archivos de aplicación y empaquetado
-
-| Archivo                                                 | Acción futura | Responsabilidad y estándar                                                                                                                                                                                                                                                                               |
-| ------------------------------------------------------- | ------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `Dockerfile.production`                                 | Crear         | Imagen OCI multi-stage única para API y SPA. Fijar Node/npm, usar `npm ci`, copiar solo artefactos necesarios, ejecutar como usuario no root, no contener secretos y arrancar únicamente Express. Las imágenes base se fijarán por versión y digest revisable.                                           |
-| `Dockerfile.backup`                                     | Crear         | Imagen operativa separada con cliente PostgreSQL 16, `age`, cliente S3 compatible y scripts de backup/restore. Ejecutar como usuario no root, sin servidor web ni dependencias de la aplicación que no sean necesarias.                                                                                  |
-| `.dockerignore`                                         | Crear         | Excluir `.git`, `.env*`, `node_modules`, `dist`, coverage, logs, documentación no requerida y artefactos locales para reducir contexto, tiempo y riesgo de filtrar secretos. Mantener `.env.example` solo si el build realmente lo necesita.                                                             |
-| `docker-compose.yml`                                    | Modificar     | Definir únicamente el entorno local: PostgreSQL de desarrollo, PostgreSQL de test separado, migración one-shot, API, web y túnel opcional. No contener configuración ni secretos de staging/producción. Aplicar health checks, dependencias por estado, redes explícitas y puertos enlazados a loopback. |
-| `apps/api/Dockerfile`                                   | Modificar     | Conservar la imagen local de API, pero retirar `prisma migrate deploy` del `CMD`. El contenedor debe ejecutar una sola responsabilidad; Compose invocará la misma imagen como servicio de migración antes de iniciar la API.                                                                             |
-| `apps/web/Dockerfile`                                   | Revisar       | Mantener el build local de React/Nginx, fijar imágenes base revisables y conservar validación de build args. No se publicará como imagen productiva independiente.                                                                                                                                       |
-| `apps/web/nginx.conf`                                   | Revisar       | Conservar same-origin y reemplazo seguro de headers para Compose local. No añadir reglas específicas de DigitalOcean ni usarlo como reverse proxy productivo.                                                                                                                                            |
-| `apps/api/src/app.ts`                                   | Modificar     | Montar seguridad y host allowlist antes de rutas privadas; conservar health checks mínimos; servir `apps/web/dist` con `express.static`; aplicar fallback de SPA solo para `GET/HEAD` no pertenecientes a `/api`. No incorporar reglas de negocio.                                                       |
-| `apps/api/src/index.ts`                                 | Modificar     | Consumir configuración ya validada, escuchar explícitamente en `0.0.0.0:$PORT`, registrar `APP_RELEASE` y conservar graceful shutdown con timeout acotado. No ejecutar migraciones ni bootstrap al arrancar.                                                                                             |
-| `apps/api/src/infrastructure/config/env.ts`             | Crear         | Definir con Zod el contrato tipado de variables, normalización y validaciones cruzadas por ambiente. Exportar una configuración inmutable en lugar de leer `process.env` de forma dispersa.                                                                                                              |
-| `apps/api/src/infrastructure/config/load-env.ts`        | Modificar     | Cargar archivos locales solo fuera de producción. En staging/production confiar exclusivamente en variables inyectadas por la plataforma y no buscar `.env` en rutas alternativas.                                                                                                                       |
-| `apps/api/src/infrastructure/http/cloudflare-access.ts` | Crear         | Middleware de infraestructura que valide JWT de Access mediante JWKS, algoritmo permitido, firma, issuer, audience y tiempo. Denegar por defecto y no convertir identidad de Cloudflare en autorización de negocio.                                                                                      |
-| `apps/api/src/infrastructure/http/allowed-hosts.ts`     | Crear         | Validar `Host`/`X-Forwarded-Host` conforme a proxies confiables. Permitir únicamente el dominio del ambiente; health checks internos tendrán una excepción mínima y comprobable.                                                                                                                         |
-| `apps/api/src/infrastructure/http/index.ts`             | Modificar     | Exportar los nuevos middlewares sin crear dependencias circulares ni mezclar configuración con HTTP.                                                                                                                                                                                                     |
-| `apps/api/src/infrastructure/logging/logger.ts`         | Modificar     | Incluir `APP_RELEASE` y mantener redacción de cookies, tokens, URLs, secretos y datos financieros. Producción usa JSON estructurado; formato legible se limita a desarrollo.                                                                                                                             |
-| `apps/api/package.json`                                 | Modificar     | Añadir `jose` para validación estándar de JWT/JWKS y scripts separados de `start`, `migrate:deploy` y validación de configuración. No añadir otra librería si `jose` cubre la necesidad.                                                                                                                 |
-| `package.json` y `package-lock.json`                    | Modificar     | Exponer comandos reproducibles de build productivo, validación y smoke tests; el lockfile cambia únicamente mediante npm 11.19.1.                                                                                                                                                                        |
-| `.env.example`                                          | Modificar     | Convertirlo en catálogo documentado de variables locales, sin credenciales reales, espacios ambiguos ni URLs con contraseñas plausibles. Clasificar cada variable como build-time, runtime o job-only.                                                                                                   |
-
-El resultado de `docker-compose.yml` deberá seguir estas reglas:
-
-- `db` usa PostgreSQL 16 fijado por versión/digest, volumen nombrado y health check; su puerto se publica solo en `127.0.0.1:${DATABASE_PORT}`.
-- `db-test` usa PostgreSQL 16, credenciales/base/volumen diferentes y el profile `test`; solo las pruebas pueden resetearlo y nunca comparte datos con `db`.
-- `migrate` es un servicio one-shot construido desde `apps/api/Dockerfile`, ejecuta `prisma migrate deploy` y termina con código distinto de cero ante cualquier error.
-- `api` espera `service_completed_successfully` de `migrate` y `service_healthy` de `db`; no publica el puerto 3000 al host.
-- `web` espera readiness de `api` y publica el puerto local únicamente en `127.0.0.1:${WEB_PORT}`.
-- `cloudflared` se mueve al profile `tunnel`, usa una versión fijada en lugar de `latest` y nunca arranca con `docker compose up` salvo que se solicite el profile explícitamente.
-- Definir redes `frontend` y `backend`: PostgreSQL pertenece solo a `backend`; web y tunnel no tienen acceso directo a la base.
-- Usar interpolación obligatoria `${VARIABLE:?message}` para credenciales y valores críticos; no definir contraseñas de fallback.
-- Mantener health checks con intervalos, timeouts, retries y `start_period` explícitos.
-- Añadir límites razonables de logging y políticas `restart` solo a servicios de larga duración; `migrate` no debe reiniciarse automáticamente.
-- Validar con `docker compose config` y probar desde un volumen vacío antes de considerar listo el stack.
-
-No se crearán `docker-compose.staging.yml` ni `docker-compose.prod.yml`. DigitalOcean App Specs son la única fuente de verdad para esos ambientes; duplicarlos en Compose permitiría divergencias de red, recursos, secretos y jobs.
-
-### Matriz de archivos de infraestructura y automatización
-
-| Archivo                                    | Acción futura | Responsabilidad y estándar                                                                                                                                                                      |
-| ------------------------------------------ | ------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `infra/digitalocean/app.production.yaml`   | Crear         | App Spec declarativo de producción: región, tamaño, imagen por digest, health checks, jobs, alertas y referencias a secretos. No incluir valores sensibles ni IDs copiados de staging.          |
-| `infra/digitalocean/app.staging.yaml`      | Crear         | App Spec independiente y de menor tamaño. Debe poder crear y destruir staging de manera repetible con PostgreSQL y secrets propios.                                                             |
-| `scripts/deployment/backup-postgres.sh`    | Crear         | Ejecutar `pg_dump`, cifrado, checksum y upload a R2 con `set -euo pipefail`, archivos temporales seguros, limpieza mediante trap y códigos de salida no ambiguos. Nunca imprimir URLs o claves. |
-| `scripts/deployment/verify-restore.sh`     | Crear         | Restaurar en una base aislada, ejecutar migraciones/diagnósticos y producir un resultado auditable. Debe rechazar explícitamente una URL que coincida con producción.                           |
-| `scripts/deployment/smoke-staging.mjs`     | Crear         | Smoke tests HTTP idempotentes o con datos sintéticos identificables. Aceptar URL y credenciales por entorno, nunca codificarlas.                                                                |
-| `.github/workflows/ci.yml`                 | Modificar     | Convertir el workflow de Release 1 en el gate general: permisos mínimos, acciones fijadas por SHA, timeouts, concurrency y todos los checks del plan.                                           |
-| `.github/workflows/build.yml`              | Retirar       | Eliminarlo solo después de integrar en `ci.yml` cobertura y SonarQube, evitando checks duplicados o contradictorios.                                                                            |
-| `.github/workflows/release.yml`            | Crear         | Tras merge a `main`, construir, escanear y publicar las imágenes `app-sha-*` y `backup-sha-*` en GHCR; desplegar el digest de aplicación en staging y ejecutar smoke tests.                     |
-| `.github/workflows/promote-production.yml` | Crear         | `workflow_dispatch` manual que valida versión, tag, SHA y digest antes de actualizar producción. No vuelve a construir la imagen.                                                               |
-
-Estándares para App Specs y workflows:
-
-- Revisar los App Specs mediante Pull Request igual que el código.
-- Usar nombres estables de recursos y referencias de variables proporcionadas por DigitalOcean.
-- Mantener staging y producción en archivos separados para impedir referencias cruzadas accidentales.
-- Validar los specs con `doctl apps spec validate` antes de aplicarlos.
-- Usar imágenes por digest `sha256:*`; los tags son metadatos y no la fuente de identidad del artefacto.
-- Fijar GitHub Actions de terceros por commit SHA y declarar `permissions` por job.
-- Los workflows de Pull Request no tendrán acceso a secrets de despliegue.
-- Configurar `concurrency` para impedir dos promociones o migraciones simultáneas del mismo ambiente.
-- Aplicar timeouts y conservar logs/artefactos suficientes para diagnóstico sin publicar secretos.
-- El token de DigitalOcean tendrá únicamente permisos de App Platform requeridos; las credenciales de R2 pertenecerán solo al job de backup.
-
-### Matriz de pruebas que acompañará la configuración
-
-| Archivo                                                       | Cobertura requerida                                                                                                               |
-| ------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| `apps/api/tests/unit/infrastructure/env.test.ts`              | Variables obligatorias, defaults seguros solo en local/test, rechazo de URLs locales en producción y validaciones cruzadas.       |
-| `apps/api/tests/unit/http/cloudflare-access.test.ts`          | JWT válido, firma inválida, issuer/audience incorrectos, expiración, ausencia de token, rotación de JWKS y errores del proveedor. |
-| `apps/api/tests/unit/http/allowed-hosts.test.ts`              | Host permitido, dominio técnico, encabezados falsificados, puertos locales y excepción limitada de health checks.                 |
-| `apps/api/tests/integration/http/production-boundary.test.ts` | Orden real de middlewares, acceso a SPA/API, bypass directo bloqueado, health público mínimo y cookies seguras.                   |
-| `apps/api/tests/integration/health/routes.test.ts`            | Readiness con PostgreSQL/migraciones y respuesta sin detalles internos.                                                           |
-| `apps/web/tests/unit/shared/config/capabilities.test.ts`      | Build HTTP con Release 2 más la funcionalidad financiera adelantada y controles demo desactivados.                                |
-
-Las pruebas verificarán comportamiento observable; no se debilitarán aserciones existentes para acomodar la infraestructura. Los tests de JWT usarán claves efímeras locales y no dependerán de Cloudflare real.
-
-### Matriz de ambientes
-
-| Configuración               | Local                                      | Test                                          | Staging                            | Production                             |
-| --------------------------- | ------------------------------------------ | --------------------------------------------- | ---------------------------------- | -------------------------------------- |
-| `NODE_ENV`                  | `development`                              | `test`                                        | `production`                       | `production`                           |
-| PostgreSQL                  | Contenedor/local reiniciable               | PostgreSQL 16 desechable por ejecución        | Base separada con datos sintéticos | Managed PostgreSQL 16 con datos reales |
-| `VITE_USE_MOCK_API`         | `false` por defecto; mock solo explícito   | Definido por suite                            | `false`                            | `false`                                |
-| `VITE_CAPABILITIES_PRESET`  | `release-2` para HTTP                      | Definido por prueba                           | `release-2`                        | `release-2`                            |
-| `VITE_ENABLE_DEMO_CONTROLS` | Opcional en desarrollo                     | Según prueba                                  | `false`                            | `false`                                |
-| Cloudflare Access           | Desactivado                                | Middleware inyectado/bypass explícito de test | Obligatorio                        | Obligatorio                            |
-| Allowed hosts               | `localhost`, `127.0.0.1` y puertos locales | Host de Supertest                             | `staging.DOMAIN`                   | `app.DOMAIN`                           |
-| Base URL API                | Same-origin local mediante Vite/nginx      | Supertest                                     | Same-origin HTTPS                  | Same-origin HTTPS                      |
-| Logs                        | Legibles, nivel `debug/info`               | `silent` salvo fallo                          | JSON `info`                        | JSON `info`, ajustable temporalmente   |
-| Datos                       | Desarrollo                                 | Fixtures desechables                          | Sintéticos y eliminables           | Reales; sin seeds demo                 |
-| Backups                     | No operativos                              | Prueba del script con dobles                  | Opcional para ensayo               | PITR + R2 obligatorio                  |
-
-Staging y producción usarán el mismo digest y los mismos valores Vite compilados. Sus diferencias serán exclusivamente runtime o recursos externos.
-
-### Propiedad y ubicación de secretos
-
-| Secreto                                   | Ubicación                               | Consumidor                                                       |
-| ----------------------------------------- | --------------------------------------- | ---------------------------------------------------------------- |
-| `DIGITALOCEAN_ACCESS_TOKEN`               | GitHub Actions secrets                  | Workflows de staging/promoción con permisos mínimos              |
-| Credencial de lectura de GHCR             | DigitalOcean encrypted secret           | App Platform para descargar la imagen privada                    |
-| `DATABASE_URL`                            | DigitalOcean encrypted runtime variable | Servicio Express con rol `runtime`                               |
-| `DATABASE_MIGRATION_URL`                  | DigitalOcean encrypted job variable     | Job `PRE_DEPLOY` con rol `migration`                             |
-| `BACKUP_DATABASE_URL`                     | DigitalOcean encrypted job variable     | Job de backup con rol `backup`                                   |
-| `INITIAL_PASSWORD`                        | DigitalOcean encrypted runtime variable | Creación administrativa de usuarios; valor distinto por ambiente |
-| `EXCHANGE_RATE_API_KEY`                   | DigitalOcean encrypted runtime variable | Adaptador server-side de ExchangeRate-API                        |
-| `CF_ACCESS_TEAM_DOMAIN` y `CF_ACCESS_AUD` | DigitalOcean runtime variables          | Validación de Access; audience diferente por ambiente            |
-| Credenciales R2 y clave de cifrado        | DigitalOcean encrypted job variables    | Job de backup exclusivamente                                     |
-| Service token de Better Stack             | Better Stack secret headers             | Monitor externo; separado de tokens de dispositivos              |
-
-Reglas obligatorias:
-
-- Nunca reutilizar credenciales entre local, test, staging y producción.
-- No exponer secretos como `VITE_*`, build args, outputs de Actions, logs o artefactos.
-- Rotar inmediatamente cualquier valor mostrado accidentalmente y registrar el incidente.
-- Mantener recovery codes fuera del equipo principal y verificar su acceso antes del go-live.
-- Documentar fecha, propietario, alcance y próxima revisión de cada credencial sin registrar su valor.
-
-### Estándares de base de datos, migraciones y backups
-
-- Aplicar least privilege con roles separados para runtime, migraciones y backup.
-- Exigir TLS y private networking; no habilitar el endpoint público salvo una operación temporal aprobada y auditada.
-- Ejecutar migraciones una sola vez mediante `PRE_DEPLOY`, nunca desde `CMD`, réplicas o health checks.
-- Validar cada release en una base limpia y en una copia representativa de staging.
-- Usar estrategia expand-migrate-contract para cambios incompatibles y posponer `DROP` destructivos a otro release.
-- No modificar migraciones ya aplicadas ni usar `prisma migrate reset` fuera de local/test.
-- Limitar el pool conforme al máximo de conexiones del plan y reservar conexiones para jobs/operación.
-- Cifrar backups antes de salir del job, calcular SHA-256 y verificar tamaño mayor que cero.
-- Conservar manifiesto con timestamp UTC, versión PostgreSQL, release SHA, checksum y ruta del objeto, sin URLs ni credenciales.
-- Hacer restores siempre en una base nueva y destruirla únicamente después de conservar el resultado de validación.
-
-## 4. Cloudflare, backups y observabilidad
-
-### Cloudflare Zero Trust
-
-- Crear cuenta con el correo personal aprobado, MFA y recovery codes guardados offline.
-- Migrar el DNS de `DOMAIN` a Cloudflare.
-- Crear `app.DOMAIN` y `staging.DOMAIN` apuntando a DigitalOcean y activar proxy.
-- Configurar TLS estricto y verificar certificados antes de habilitar HSTS.
-- Crear aplicaciones Access independientes para staging y producción.
-- Aplicar política default-deny y requerir WARP.
-- Entregar un token de inscripción distinto por dispositivo; nunca compartir un token entre equipos.
-- Documentar propietario, dispositivo, fecha y revocación de cada token.
-- Crear un service token independiente para Better Stack.
-- Validar criptográficamente el JWT en la aplicación porque no se usará Cloudflare Tunnel: [validación de Access JWT](https://developers.cloudflare.com/cloudflare-one/access-controls/applications/http-apps/authorization-cookie/application-token/).
-- Proteger login con WAF/rate limiting sin cachear `/api/*`, login, PDFs ni respuestas autenticadas.
-
-### Backups y recuperación
-
-- Habilitar backups automáticos y PITR antes de crear usuarios o facturas. DigitalOcean conserva backups diarios por siete días y permite restaurar a un clúster nuevo: [restauración de PostgreSQL](https://docs.digitalocean.com/products/databases/postgresql/how-to/restore-from-backups/).
-- Ejecutar diariamente un job de `pg_dump` en formato comprimido.
-- Cifrar antes de enviar, generar checksum y subir a R2.
-- Usar prefijos separados:
-  - `daily/`: eliminación automática después de 30 días.
-  - `monthly/`: copia del primer backup de cada mes y eliminación después de 365 días.
-- El job falla si dump, cifrado, checksum o upload no finalizan correctamente.
-- Alertar si el último backup exitoso supera 26 horas.
-- Ejecutar antes del go-live una restauración completa en una base aislada.
-- Medir el tiempo desde la declaración del incidente hasta readiness funcional; debe ser menor de una hora.
-- Repetir el restore drill trimestralmente.
-- Nunca restaurar directamente sobre producción ni considerar un volumen como backup.
-
-### Monitoreo
-
-Better Stack verificará cada cinco minutos:
-
-- `https://app.DOMAIN/api/health/live`
-- `https://app.DOMAIN/api/health/ready`
-
-Los chequeos usarán el service token de Cloudflare y alertarán por email y app móvil después de dos fallos consecutivos.
-
-DigitalOcean alertará sobre:
-
-- deployment o migración fallida;
-- CPU/memoria sostenida;
-- reinicios;
-- conexiones y almacenamiento PostgreSQL;
-- fallo de dominio/certificado;
-- backup o job fallido.
-
-Los logs incluirán release SHA, request ID, error ID, duración y resultado, pero nunca cookies, contraseñas, URLs firmadas, API keys ni información financiera innecesaria.
-
-## 5. CI/CD, validación y despliegue
-
-### CI y ramas
-
-- Mantener `develop → PR → main`.
-- Prohibir commits directos y force-push sobre `main`.
-- Consolidar los workflows duplicados y eliminar el nombre obsoleto `CI R1`.
-- Requerir antes del merge:
-  - instalación desde lockfile;
-  - Prettier check;
-  - lint;
-  - typecheck de API, web y tests;
-  - unit tests;
-  - integración sobre PostgreSQL 16 limpio;
-  - componentes web;
-  - build productivo;
-  - `prisma validate`;
-  - migraciones sobre base vacía;
-  - `npm audit --audit-level=high`;
-  - escaneo de secretos y contenedor.
-
-Después del merge a `main`:
-
-1. Construir la imagen de aplicación y la imagen operativa de backup.
-2. Etiquetarlas respectivamente como `app-sha-<commit>` y `backup-sha-<commit>`.
-3. Publicarlas en GHCR.
-4. Registrar los dos digest y sus SBOM.
-5. Crear/actualizar staging con ese digest.
-6. Ejecutar migraciones.
+Administración y monitoreo privado:
+
+```text
+Desktop/laptop del operador
+        |
+Tailscale
+        |
+        +-- SSH staging/producción
+        +-- Grafana en staging
+        +-- Prometheus/exporters
+```
+
+### 3.1 Aislamiento
+
+Los dos ambientes viven en VPS distintos:
+
+```text
+VPS staging — KVM 1
+  Nginx, web, API, PostgreSQL, Prometheus, Grafana y exporters
+
+VPS production — KVM 2
+  Nginx, web, API, PostgreSQL y exporters
+```
+
+Una caída de staging no debe afectar producción. Una caída total del VPS productivo interrumpe tanto la aplicación como su PostgreSQL; ese riesgo se acepta y se mitiga mediante backups externos horarios, snapshots semanales, imágenes reproducibles y restore drills.
+
+## 4. Capacidad y presupuesto
+
+Capacidad de referencia verificada al aprobar este plan:
+
+| Ambiente   | Plan  | vCPU | RAM  | NVMe   | Uso adicional                         |
+| ---------- | ----- | ---- | ---- | ------ | ------------------------------------- |
+| Staging    | KVM 1 | 1    | 4 GB | 50 GB  | Prometheus + Grafana para ambos VPS   |
+| Production | KVM 2 | 2    | 8 GB | 100 GB | Carga real y PostgreSQL de producción |
+
+Los precios promocionales no son el presupuesto autoritativo. Antes de contratar se registra el precio total pagado, duración, renovación, impuestos y costo de servicios externos.
+
+Staging debe reservar espacio para PostgreSQL, 30 días de métricas, Docker images y logs. Alertas de disco son obligatorias porque su volumen es menor.
+
+## 5. Archivos y responsabilidades futuras
+
+### 5.1 Archivos versionados
+
+| Archivo futuro                                | Responsabilidad                                                                          |
+| --------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| `infra/vps/compose.yaml`                      | Stack genérico de staging/producción, sin secretos ni valores exclusivos de un ambiente. |
+| `infra/vps/nginx/nginx.conf`                  | Routing same-origin, headers seguros, límites y configuración compartida.                |
+| `infra/vps/nginx/templates/app.conf.template` | Hosts del ambiente, TLS de origen, AOP y proxy a web/API.                                |
+| `infra/vps/prometheus/prometheus.yml`         | Scrape por Tailscale y retención documentada, sin tokens reales.                         |
+| `infra/vps/grafana/provisioning/*`            | Datasource y dashboards revisables, sin credenciales.                                    |
+| `scripts/deployment/bootstrap-ubuntu.sh`      | Preparación idempotente y auditable de un VPS nuevo.                                     |
+| `scripts/deployment/deploy.sh`                | Pull por digest, backup/verificación, migración y recreación controlada.                 |
+| `scripts/deployment/backup-postgres.sh`       | Dump, validación, cifrado, checksum, manifiesto y upload R2.                             |
+| `scripts/deployment/verify-restore.sh`        | Restauración segura en base nueva y validaciones.                                        |
+| `scripts/deployment/smoke-staging.mjs`        | Smoke tests repetibles de staging.                                                       |
+| `.github/workflows/ci.yml`                    | Gate de Pull Request.                                                                    |
+| `.github/workflows/release.yml`               | Build, scan, SBOM, publicación GHCR y deploy de staging.                                 |
+| `.github/workflows/promote-production.yml`    | Promoción manual del digest validado.                                                    |
+
+Los nombres definitivos pueden ajustarse durante implementación si se preserva una sola responsabilidad por archivo y no se crean fuentes de verdad duplicadas.
+
+### 5.2 Secretos fuera del repositorio
+
+```text
+/etc/solocamiones/staging.env
+/etc/solocamiones/production.env
+```
+
+Cada archivo pertenece a `root`, usa permisos `0600` y nunca se copia a Git, imágenes, tickets, logs o artefactos. La copia recuperable de credenciales, MFA y recovery codes vive en un password manager aprobado y fuera del equipo principal.
+
+### 5.3 Docker Compose
+
+El Compose de VPS define, como mínimo:
+
+- `edge`: Nginx productivo; único servicio que publica 80/443.
+- `web`: React compilado servido por Nginx interno; sin puerto público.
+- `api`: Express; sin puerto público.
+- `db`: PostgreSQL 16; sin puerto público.
+- `migrate`: servicio one-shot y profile operativo.
+- `backup`: servicio one-shot y ejecución programada.
+- `node-exporter`: métricas del host con acceso restringido.
+- `postgres-exporter`: métricas PostgreSQL con usuario de mínimo privilegio.
+- `prometheus` y `grafana`: únicamente activos en staging.
+- `assistant-purge`: operación programada diaria o ejecución mediante timer del host usando la misma imagen de API.
+
+Reglas:
+
+- No usar `container_name`; Compose aísla recursos por project name.
+- Imágenes por digest, no `latest`.
+- Redes `edge`, `application`, `database` y `monitoring` con acceso mínimo.
+- PostgreSQL pertenece solo a la red de base.
+- Solo API y jobs autorizados acceden a PostgreSQL.
+- Nginx accede a web/API, nunca a PostgreSQL.
+- Health checks explícitos con `start_period`, timeout y retries.
+- Límites de rotación de logs en todos los servicios persistentes.
+- `migrate` y `backup` no usan restart automático.
+- Volúmenes tienen nombres derivados del ambiente y nunca se comparten entre VPS.
+
+### 5.4 Compose local
+
+El `docker-compose.yml` raíz sigue representando desarrollo/test local. No contiene configuración productiva. Debe evolucionar para separar `db`, `db-test`, `migrate`, `api`, `web` y el tunnel opcional, pero no sustituye `infra/vps/compose.yaml`.
+
+## 6. Imágenes y GHCR
+
+Se publican al menos dos imágenes de aplicación por release:
+
+```text
+ghcr.io/<owner>/solocamiones-api@sha256:...
+ghcr.io/<owner>/solocamiones-web@sha256:...
+```
+
+La imagen de API también puede ejecutar comandos one-shot de migración, bootstrap y purge si el comando está soportado, pero su `CMD` normal arranca exclusivamente la API.
+
+Reglas:
+
+- GitHub Actions es la única fuente de imágenes publicadas.
+- No construir en los VPS.
+- No hacer `git pull` como mecanismo de despliegue.
+- No incluir `.env`, `.git`, tests, coverage ni secretos.
+- Ejecutar como usuario no root cuando la imagen lo permita.
+- Generar SBOM y escanear vulnerabilidades.
+- Bloquear release ante vulnerabilidad `CRITICAL` o `HIGH` sin excepción revisada.
+- Staging y producción usan los mismos digests.
+- El frontend se construye una vez con:
+
+```dotenv
+VITE_USE_MOCK_API=false
+VITE_CAPABILITIES_PRESET=release-2
+VITE_ENABLE_DEMO_CONTROLS=false
+```
+
+Las variables `VITE_*` son públicas y nunca contienen secretos.
+
+### 6.1 Autenticación privada de GHCR
+
+Antes del go-live, repositorio y packages pasan a privados. Cada VPS usa una credencial distinta limitada a lectura de packages. El login queda asociado únicamente al usuario de deployment. Una filtración de staging debe poder revocarse sin afectar producción.
+
+## 7. Ambientes y configuración
+
+| Configuración     | Local            | Test                    | Staging                             | Production                          |
+| ----------------- | ---------------- | ----------------------- | ----------------------------------- | ----------------------------------- |
+| `NODE_ENV`        | `development`    | `test`                  | `production`                        | `production`                        |
+| Datos             | Desarrollo/demo  | Fixtures desechables    | Sintéticos                          | Reales; base nueva                  |
+| PostgreSQL        | Local/contenedor | DB exclusiva reseteable | PostgreSQL 16 en VPS staging        | PostgreSQL 16 en VPS production     |
+| Dominio           | localhost        | Supertest               | `staging.solocamiones.com`          | `app.solocamiones.com`              |
+| Cloudflare Access | Desactivado      | Dobles                  | Obligatorio                         | Obligatorio                         |
+| WARP              | No               | No                      | Obligatorio para usuarios aprobados | Obligatorio para usuarios aprobados |
+| Backups           | No operativos    | Dobles                  | R2 horario + snapshot semanal       | R2 horario + snapshot semanal       |
+| IA                | Según `.env`     | Fakes                   | Habilitada                          | Habilitada                          |
+| Logs              | Legibles         | `silent` salvo fallo    | JSON a Better Stack                 | JSON a Better Stack                 |
+
+Staging no usa datos productivos. Producción no recibe seeds demo ni importación histórica.
+
+## 8. Contrato de variables y secretos
+
+La aplicación debe centralizar y validar su environment al arrancar. Local/test pueden cargar `.env`; staging/production solo consumen variables inyectadas por Compose desde archivos externos.
+
+### 8.1 Runtime API
+
+```text
+NODE_ENV
+PORT
+LOG_LEVEL
+APP_RELEASE
+DATABASE_URL
+INITIAL_PASSWORD
+EXCHANGE_RATE_API_KEY
+TRUST_PROXY
+ALLOWED_HOSTS
+CF_ACCESS_TEAM_DOMAIN
+CF_ACCESS_AUD
+ASSISTANT_ENABLED
+OPENAI_API_KEY
+OPENAI_CHAT_MODEL
+OPENAI_VECTOR_STORE_ID
+ASSISTANT_* límites y retención
+METRICS_BEARER_TOKEN
+```
+
+### 8.2 Jobs
+
+```text
+DATABASE_MIGRATION_URL
+BACKUP_DATABASE_URL
+R2_ENDPOINT
+R2_BUCKET
+R2_ACCESS_KEY_ID
+R2_SECRET_ACCESS_KEY
+BACKUP_AGE_RECIPIENT
+```
+
+### 8.3 Separación obligatoria
+
+- Staging y producción tienen keys OpenAI y vector stores distintos.
+- Buckets `solocamiones-staging-backups` y `solocamiones-production-backups`.
+- Cada bucket tiene credencial S3 exclusiva y limitada a ese bucket.
+- Audiences Cloudflare Access diferentes.
+- Tokens Prometheus diferentes.
+- Passwords PostgreSQL diferentes.
+- `INITIAL_PASSWORD` diferente por ambiente.
+
+## 9. PostgreSQL autogestionado
+
+### 9.1 Roles por ambiente
+
+- `migration`: DDL y migraciones; solo jobs de deploy.
+- `runtime`: DML mínimo de la API y lectura requerida de `_prisma_migrations`.
+- `backup`: lectura para `pg_dump`.
+- `monitoring`: vistas/métricas estrictamente necesarias para exporter.
+
+Se verifican pruebas negativas: runtime no crea/elimina tablas; backup no modifica datos; monitoring no accede a datos de negocio innecesarios.
+
+### 9.2 Seguridad y persistencia
+
+- PostgreSQL no publica 5432.
+- Administración manual mediante Tailscale y `docker exec`/túnel explícito.
+- Volumen nombrado exclusivo del ambiente.
+- Contraseñas generadas y guardadas en password manager.
+- Pool acorde al máximo de conexiones y recursos de cada VPS.
+- Alertas de disco, conexiones, reinicios y fallos de backup.
+- Upgrades minor primero en staging.
+- Upgrade major mediante procedimiento y restore verificable, nunca actualización improvisada del volumen.
+
+## 10. Migraciones
+
+### 10.1 Staging
+
+1. Pull por digest.
+2. Ejecutar `prisma migrate deploy` con rol `migration`.
+3. Detener el deployment ante código distinto de cero.
+4. Actualizar API/web.
+5. Esperar readiness.
+6. Ejecutar smoke tests.
+
+### 10.2 Producción
+
+1. Aprobación manual.
+2. Confirmar backup horario reciente y procedimiento de rollback/forward fix.
+3. Pull de los digests verificados.
+4. Ejecutar `prisma migrate deploy` por GitHub Actions sobre SSH/Tailscale con rol `migration`.
+5. Detenerse ante cualquier error.
+6. Actualizar API/web.
 7. Esperar readiness.
-8. Ejecutar smoke tests.
-9. Detener la promoción ante cualquier fallo.
+8. Ejecutar pruebas no destructivas.
 
-GitHub Free privado usará un `workflow_dispatch` exclusivo del propietario con entradas obligatorias:
+Reglas:
 
-- versión esperada `v1.1.0`;
-- SHA validado;
-- digest validado;
-- confirmación literal de producción.
+- Nunca ejecutar migraciones desde el `CMD` normal.
+- Nunca `prisma migrate reset` fuera de local/test.
+- No editar migraciones ya aplicadas.
+- Usar expand-migrate-contract para cambios incompatibles.
+- Una reversión de imagen no revierte datos automáticamente.
 
-El workflow rechazará la promoción si tag, SHA y digest no coinciden.
+## 11. Red y seguridad
 
-### Smoke tests de staging
+### 11.1 Cloudflare
 
-Validar:
+- DNS proxied para ambos dominios.
+- TLS `Full (strict)`.
+- Aplicaciones Access separadas y default-deny.
+- WARP obligatorio para usuarios humanos autorizados.
+- Token/inscripción individual por dispositivo.
+- Audience distinto por ambiente.
+- Service token exclusivo para Better Stack.
+- WAF/rate limit para login.
+- No cachear `/api/*`, login, PDFs ni respuestas autenticadas.
+- HSTS solo después de verificar ambos ambientes.
 
-- Cloudflare bloquea dispositivos no inscritos.
-- El dominio técnico de DigitalOcean no permite saltar Access.
-- Login, logout, sesión y cambio de contraseña.
-- Matriz negativa de Administrator y Seller.
-- Creación y edición de clientes.
-- `Cliente contado`.
+### 11.2 Origen Nginx
+
+- Certificado Cloudflare Origin válido para cada hostname.
+- Authenticated Origin Pulls con certificado propio por zona/hostname cuando sea viable.
+- Validación estricta de SNI/Host.
+- Rechazo de host desconocido.
+- Headers forwarding reemplazados, no concatenados desde el cliente.
+- Límites de body y timeouts compatibles con API/PDF/SSE.
+- Logs sin cookies, authorization headers ni query strings sensibles.
+
+### 11.3 Firewall
+
+- Hostinger firewall y UFW aplican defensa en profundidad.
+- 80/443 solo desde rangos oficiales de Cloudflare.
+- SSH solo por Tailscale.
+- 5432, 3000, 8081, Grafana, Prometheus y exporters no son públicos.
+- Automatización/revisión periódica actualiza rangos Cloudflare sin abrir temporalmente el origen al mundo.
+
+### 11.4 Express
+
+- Validar firma, issuer, expiración y audience del JWT Access.
+- `ALLOWED_HOSTS` exacto por ambiente.
+- `TRUST_PROXY` limitado al hop Nginx inmediato.
+- Helmet, payload limits y rate limiting.
+- Health checks mínimos pueden tener excepción controlada para Better Stack/service token.
+- Autenticación Solo Camiones y roles permanecen separados de Cloudflare Access.
+
+### 11.5 Administración
+
+- Tailscale en desktop, laptop y ambos VPS.
+- SSH por llave; passwords y root login deshabilitados.
+- UFW no depende de IP pública dinámica del operador.
+- Fail2ban como control complementario.
+- Actualizaciones automáticas de seguridad del OS.
+- Docker/imágenes se actualizan manualmente después de staging durante el primer release.
+
+## 12. Backups y recuperación
+
+### 12.1 Frecuencia y retención
+
+Ambos ambientes:
+
+- `hourly/`: 48 horas.
+- `daily/`: 30 días.
+- `monthly/`: 12 meses.
+- Snapshot Hostinger: semanal.
+
+R2 usa buckets y credenciales separados. Ningún backup permanece únicamente en el VPS origen.
+
+### 12.2 Pipeline
+
+1. `pg_dump --format=custom` con rol `backup`.
+2. Verificar exit code y tamaño mayor que cero.
+3. Cifrar con `age` antes de salir del VPS.
+4. Calcular SHA-256 del archivo cifrado.
+5. Crear manifiesto sin secretos con ambiente, UTC, versión PostgreSQL, release SHA, tamaño y checksum.
+6. Upload a R2.
+7. Verificar objeto remoto.
+8. Limpiar temporales mediante `trap` incluso ante fallo.
+
+La clave privada `age` permanece en password manager y copia offline; los jobs reciben solo el recipient público.
+
+### 12.3 Alertas
+
+- Backup horario fallido: crítica inmediata.
+- Sin backup válido dentro de 75–90 minutos: crítica.
+- Snapshot semanal faltante: warning/crítica según antigüedad.
+
+### 12.4 Restore drill
+
+Antes del go-live y cada tres meses:
+
+1. Preparar VPS/base aislada.
+2. Descargar backup R2.
+3. Verificar checksum.
+4. Descifrar controladamente.
+5. Restaurar en base nueva, nunca sobre producción.
+6. Aplicar diagnóstico y migraciones necesarias.
+7. Validar usuarios, clientes, ventas, pagos, CxC, cancelaciones, history y Assistant.
+8. Levantar aplicación con imágenes por digest.
+9. Confirmar readiness y smoke tests de lectura.
+10. Registrar tiempo y resultado.
+
+Gate: menos de 60 minutos y cero errores de integridad. Si no se demuestra, el RTO no está cumplido y el go-live queda bloqueado.
+
+## 13. Observabilidad
+
+### 13.1 Better Stack
+
+- Logs JSON centralizados de ambos ambientes.
+- Uptime externo de liveness y readiness mediante Cloudflare service token.
+- Alertas por email y aplicación móvil.
+- Ningún prompt, respuesta, token, cookie, password, connection string o dato financiero innecesario en logs.
+
+### 13.2 Prometheus y Grafana
+
+- Prometheus/Grafana viven en staging.
+- Scrape de producción viaja por Tailscale.
+- Retención Prometheus: 30 días.
+- Grafana solo accesible por Tailscale.
+- Si staging cae, Better Stack mantiene detección externa.
+
+Métricas mínimas:
+
+- CPU, memoria, disco, load y reinicios.
+- PostgreSQL: conexiones, tamaño, locks, transacciones y disponibilidad sin exponer datos comerciales.
+- API: 5xx, latencia, rate limiting y readiness.
+- Assistant: runs, errores, TTFT, latencia, tokens, cuotas, tools y sync failures.
+- Backup: último éxito, duración y tamaño.
+
+Alertas iniciales:
+
+- Críticas: disco 85%, memoria sostenida 90%, 5xx sostenidos, DB no disponible, backup atrasado/fallido, migración/deploy fallido.
+- Warning: disco 75%, memoria 80%, CPU 80% sostenida, latencia p95 > 1 s sostenida, conexiones DB 70%.
+- Ajustar umbrales después de métricas reales; no escalar por un pico aislado.
+
+## 14. Feature 17 AI Assistant
+
+Decisión del dueño (2026-09-30): el asistente se habilita desde el primer día productivo para `ADMINISTRATOR`. La evaluación `AI-010` no bloquea el despliegue ni el flag; permanece como control periódico de calidad y seguridad.
+
+Requisitos operativos:
+
+- `ASSISTANT_ENABLED=true` en staging y producción.
+- API keys y vector stores separados.
+- Corpus sincronizado explícitamente en cada ambiente antes de abrir acceso.
+- Purga diaria de conversaciones vencidas.
+- Retención 90 días, con residual limitado por retención de backup.
+- Kill switch documentado y probado.
+- Readiness independiente de OpenAI.
+- Alertas de 429, timeouts, errores, cuotas y sync.
+- Desactivar inmediatamente ante exposición de datos, mutación comercial o respuestas peligrosas repetibles.
+- Ejecutar evaluación y revisión humana después de cambios de modelo, prompt, corpus, tools o límites; el resultado no es un gate previo al primer enablement aprobado.
+
+## 15. CI/CD y ramas
+
+### 15.1 Flujo
+
+```text
+feature/* o fix/*
+        |
+Pull Request
+        v
+develop
+        |
+build + deploy automático
+        v
+staging
+        |
+Pull Request develop -> main
+        |
+build del SHA final + validación staging
+        |
+aprobación manual
+        v
+production
+```
+
+`develop` es una rama de integración cuya versión se despliega en staging; no es el ambiente mismo. Trabajo local vive en ramas cortas feature/fix.
+
+### 15.2 CI de Pull Request
+
+- Instalación desde lockfile.
+- Prettier check.
+- Lint.
+- Typecheck API, web y tests.
+- Unit, integration y component tests.
+- PostgreSQL 16 limpio.
+- Build de imágenes.
+- `prisma validate` y migraciones sobre base vacía.
+- `npm audit --audit-level=high`.
+- Secret scan, container scan y SBOM.
+
+### 15.3 Release a staging
+
+Todo push aprobado a `develop`:
+
+1. Construye API/web una vez.
+2. Publica tags por SHA en GHCR.
+3. Resuelve digests.
+4. Conecta al VPS staging usando secreto SSH/Tailscale aprobado.
+5. Ejecuta migración one-shot.
+6. Actualiza servicios.
+7. Espera health checks.
+8. Ejecuta smoke tests.
+9. Conserva evidencia del release.
+
+Para candidato productivo, el SHA final de `main` se despliega primero en staging. Solo ese digest puede promoverse.
+
+### 15.4 Producción
+
+`promote-production.yml` requiere:
+
+- versión `v2.0.0`;
+- SHA;
+- digests API/web;
+- backup reciente;
+- confirmación literal;
+- aprobación manual de GitHub Environment.
+
+No reconstruye imágenes. La automatización futura sin aprobación manual se documentará en `FUTURE_ROADMAP.md` y no se activa en el primer release.
+
+## 16. Smoke tests de staging
+
+Como mínimo:
+
+- Origen directo bloqueado.
+- Dispositivo sin Access/WARP bloqueado.
+- Audience cruzado staging/production rechazado.
+- Better Stack solo accede a health.
+- Login, logout, sesión y cambio de password.
+- Matriz negativa de Administrator/Seller/Mechanic.
+- Clientes y `Cliente contado`.
 - Catálogo de servicios.
-- Borradores con líneas `GENERIC`, `SERVICE`, `DELIVERY` y `EXTERNAL`.
-- Rechazo `409` de líneas `ITEM` y `QTY`.
-- Confirmación DOP y USD.
-- FAC único y no reutilizable.
-- ITBIS, redondeo y snapshot de cliente.
-- Generación y regeneración de PDF.
-- Rentabilidad exclusiva de Administrator.
-- ExchangeRate-API actual, histórica y reintento.
-- Pago inicial y posterior.
-- CxC.
-- Cancelación y reembolso no inventariable.
-- Idempotencia y conflictos de autorización.
-- Reinicio del servicio sin pérdida de sesiones.
+- Cotizaciones, conduces y facturas.
+- DOP/USD, ITBIS, redondeo, FAC/CON únicos.
+- PDF y regeneración.
+- Rentabilidad/FX.
+- Pagos, CxC, cancelación y reembolso.
+- Idempotencia y conflictos.
+- Reinicio sin pérdida de sesiones/datos.
+- Assistant documental, tool read-only, fuentes, cuota, purge y kill switch.
 - Backup, descarga, checksum, descifrado y restore aislado.
-- Rollback de aplicación sin revertir datos.
-
-### Go-live
-
-1. Confirmar CI, staging, restore drill, backups y alertas.
-2. Crear tag anotado `v1.1.0` apuntando al SHA probado.
-3. Tomar/verificar backup inmediatamente antes de producción.
-4. Ejecutar manualmente la promoción del mismo digest.
-5. Ejecutar migraciones mediante el job `PRE_DEPLOY`.
-6. Esperar liveness y readiness.
-7. Configurar `app.DOMAIN`.
-8. Crear el primer Administrator con `npm run bootstrap:admin` desde una consola interactiva segura.
-9. Verificar login y cambiar inmediatamente la contraseña inicial.
-10. Confirmar que no existen cuentas demo ni datos sintéticos.
-11. Ejecutar en producción solo smoke tests no destructivos: Access, login, sesión, permisos, health, catálogos vacíos y FX.
-12. Abrir el acceso a los dispositivos aprobados.
-13. Registrar versión, SHA, digest, migration set, hora y resultado.
-
-### Rollback
-
-- Fallo antes de aceptar tráfico: bloquear Access y revertir el deployment.
-- Fallo de código compatible con el esquema: usar rollback de App Platform al deployment anterior. DigitalOcean conserva los diez últimos despliegues exitosos: [rollback de App Platform](https://docs.digitalocean.com/products/app-platform/how-to/manage-deployments/).
-- Fallo de migración: el job debe detener el despliegue; no editar una migración aplicada.
-- Corrupción o migración irreversible: detener escrituras, restaurar PITR en un clúster nuevo, validar integridad y cambiar `DATABASE_URL`.
-- Durante el primer go-live, si todavía no existen datos reales, cerrar Access y corregir hacia adelante; nunca resetear una base después de iniciar operaciones.
-- Toda migración futura debe ser backward-compatible o incluir un runbook específico de recuperación.
-
-## 6. Criterios finales de aceptación
-
-El go-live solo se considera completado cuando:
-
-- CI y build de imagen están en verde.
-- Staging usó el mismo digest que producción.
-- Producción y staging tienen bases, secrets y dominios separados.
-- PostgreSQL no es público.
-- Cloudflare Access no puede omitirse usando el dominio técnico.
-- Cookies seguras funcionan detrás de Cloudflare y DigitalOcean.
-- Migraciones no se ejecutan durante el arranque normal.
-- Backups automáticos, PITR y copia externa están activos.
-- El restore drill cumple RTO de una hora.
-- Better Stack y DigitalOcean entregan alertas por ambos canales.
-- El Administrator inicial puede operar y no existen cuentas demo.
-- Los flujos de Billing Core y finanzas adelantadas pasaron en staging.
-- El tag `v1.1.0`, SHA, digest y deployment coinciden.
-- El procedimiento de rollback fue ensayado.
-- CPU, memoria, errores, latencia, WAF y backups se revisan durante 2 horas, 24 horas, 72 horas y 7 días.
-
-Supuestos aceptados:
-
-- La falta de un operador de respaldo es un riesgo consciente; MFA y recovery codes son obligatorios.
-- El dominio real se sustituirá antes de crear DNS o certificados.
-- No se necesitan fotos ni object storage de aplicación en este release; R2 se usa solo para backups.
-- Los filtros todavía pendientes de Release 3 no bloquean el lanzamiento.
-- Si el restore drill supera una hora o la estimación excede US$100/mes, el go-live queda bloqueado hasta redimensionar o aprobar una excepción.
-
-## 7. Guía paso a paso para un primer despliegue
-
-Esta guía es el orden obligatorio de ejecución para un ingeniero que nunca ha realizado un despliegue. No se debe saltar a DigitalOcean antes de completar la preparación local y CI. Cada etapa termina con un **gate**: si el resultado no coincide con lo indicado, se detiene el proceso y se corrige antes de continuar.
-
-### 7.1 Conceptos mínimos
-
-- **Local:** entorno de desarrollo en la computadora. Puede reiniciarse y usar datos descartables.
-- **Test:** entorno automático aislado. Cada ejecución crea o limpia sus datos.
-- **Staging:** copia funcional de producción con recursos pequeños y datos sintéticos; se usa para probar el release real.
-- **Production:** ambiente con usuarios y datos reales. No se experimenta ni se ejecutan resets.
-- **CI:** controles automáticos que validan el repositorio.
-- **CD:** automatización que entrega un artefacto ya validado a un ambiente.
-- **Imagen:** paquete ejecutable del servicio.
-- **Tag:** nombre legible de una imagen o commit; puede cambiar y no prueba identidad por sí solo.
-- **Digest:** huella `sha256` inmutable de una imagen. Es la identidad usada para promoción.
-- **Migración:** cambio versionado de la estructura PostgreSQL.
-- **PITR:** restauración de PostgreSQL a un instante específico.
-- **RPO 1 hora:** no se acepta perder más de una hora de datos.
-- **RTO 1 hora:** el servicio debe recuperarse en menos de una hora.
-- **Secret:** credencial o valor sensible. Nunca se copia al repositorio, capturas, tickets o logs.
-
-Todo texto en mayúsculas como `DOMAIN`, `APP_IMAGE_DIGEST` o `PRODUCTION_DATABASE_URL` es un placeholder. Debe sustituirse en el proveedor correspondiente, no mediante búsqueda/reemplazo indiscriminado dentro del repositorio.
-
-### 7.2 Etapa 0 — Hoja de control y requisitos
-
-Antes de escribir código:
-
-1. Crear un issue privado de release llamado `Deployment v1.1.0`.
-2. Registrar sin secretos:
-   - dominio real;
-   - ventana de go-live y zona horaria `America/Santo_Domingo`;
-   - propietario de GitHub, DigitalOcean, Cloudflare y Better Stack;
-   - presupuesto estimado;
-   - SHA candidato;
-   - enlaces a ejecuciones de CI, staging, restore drill y producción.
-3. Crear entradas en un password manager para cada cuenta y ambiente.
-4. Activar MFA en todas las cuentas y guardar recovery codes fuera de la computadora principal.
-5. Confirmar una tarjeta/método de pago y alertas de facturación en DigitalOcean y Cloudflare.
-6. Sustituir `DOMAIN` en la copia de trabajo del plan antes de configurar DNS.
-
-**Gate 0:** no continuar si no se controla el dominio, falta MFA, no existe método de recuperación de cuentas o el estimado excede US$100/mes.
-
-### 7.3 Etapa 1 — Preparar la estación de trabajo
-
-Instalar desde sus fuentes oficiales:
-
-- Git.
-- Node.js 22.
-- npm 11.19.1.
-- Docker Desktop con Docker Compose v2.
-- `doctl`, CLI oficial de DigitalOcean.
-- un cliente PostgreSQL 16 que incluya `psql`, `pg_dump` y `pg_restore`.
-- `age` para cifrado.
-
-Verificar desde PowerShell:
-
-```powershell
-git --version
-node --version
-npm --version
-docker version
-docker compose version
-doctl version
-psql --version
-pg_dump --version
-age --version
-```
+- Rollback de imagen compatible sin revertir datos.
 
-Resultados esperados:
+## 17. Go-live v2.0.0
 
-- Node comienza con `v22`.
-- npm comienza con `11.19.1`.
-- `pg_dump` y `pg_restore` tienen major version 16.
-- `docker version` muestra cliente y servidor, no solo cliente.
-- Ningún comando devuelve `command not found`, `Access denied` o error de conexión al engine.
+### 17.1 Veinticuatro horas antes
 
-**Gate 1:** resolver primero el acceso denegado a Docker y los permisos de `apps/api/dist` ya detectados. No usar ejecución como Administrator como solución permanente; corregir propietario/permisos del directorio y confirmar que un usuario normal puede construir.
+- CI y staging en verde.
+- Restore drill < 60 minutos.
+- Backups horarios y snapshot verificados.
+- DNS, Access, WARP, TLS, AOP y firewall verificados.
+- Secrets y password manager recuperables.
+- OpenAI corpus sincronizado y kill switch probado.
+- Tag/SHA/digests coinciden.
+- No hay cambios nuevos después del candidato.
+- Ventana nocturna comunicada.
 
-### 7.4 Etapa 2 — Crear la rama y establecer la línea base
-
-1. Actualizar referencias remotas sin modificar trabajo local.
-2. Crear desde `develop` una rama enfocada, por ejemplo `chore/deployment-v1.1.0`.
-3. Confirmar que no existen cambios ajenos antes de comenzar.
-4. Crear `.env` a partir de `.env.example`, completar únicamente valores locales y confirmar que Git lo ignora.
-5. Arrancar PostgreSQL de desarrollo y test. `DATABASE_URL` debe apuntar a `db`; `DATABASE_URL_TEST` debe apuntar exclusivamente a `db-test`:
+### 17.2 Durante la ventana
 
-```powershell
-docker compose --profile test up --detach db db-test
-docker compose ps
-```
-
-6. Instalar exactamente el lockfile y ejecutar la línea base:
-
-```powershell
-npm ci --ignore-scripts
-npm run format:check
-npm run lint
-npm run typecheck
-npm run test
-$env:VITE_USE_MOCK_API = 'false'
-$env:VITE_CAPABILITIES_PRESET = 'release-2'
-$env:VITE_ENABLE_DEMO_CONTROLS = 'false'
-npm run build
-```
+1. Mantener acceso humano cerrado.
+2. Confirmar backup reciente.
+3. Ejecutar workflow manual de promoción.
+4. Observar migración y detenerse ante error.
+5. Esperar liveness/readiness.
+6. Confirmar SHA/digests en logs/config.
+7. Crear primer Administrator interactivamente.
+8. Cambiar su password inicial.
+9. Confirmar base sin demo ni historia importada.
+10. Sincronizar/verificar corpus Assistant y habilitarlo.
+11. Ejecutar solo smoke tests productivos no destructivos.
+12. Abrir Access a dispositivos aprobados.
+13. Verificar Better Stack, Prometheus y alertas.
 
-7. Guardar en el issue el resultado, los nueve warnings conocidos de lint y cualquier fallo nuevo.
-8. No mezclar correcciones funcionales no relacionadas con el despliegue.
-
-**Gate 2:** tests, typecheck y build deben finalizar con código 0. ESLint puede conservar temporalmente solo los nueve warnings ya inventariados; no se aceptan errores ni warnings nuevos.
+No crear facturas reales de prueba para borrarlas luego.
 
-### 7.5 Etapa 3 — Implementar configuración y seguridad en orden
+### 17.3 Observación
 
-La implementación se divide en commits revisables en este orden:
+Durante 24 horas el operador permanece disponible y revisa errores, latencia, reinicios, CPU, memoria, disco, conexiones DB, backups, FX, sesiones, Access, Assistant y costos iniciales.
 
-1. **Contrato de environment:** crear `env.ts`, sus pruebas y actualizar `.env.example`.
-2. **Frontera HTTP:** implementar allowed hosts y validación de Cloudflare Access con tests unitarios.
-3. **Servidor unificado:** servir la SPA desde Express, proteger rutas y conservar health checks.
-4. **Contenedores:** crear `.dockerignore`, `Dockerfile.production` y `Dockerfile.backup`.
-5. **Compose local:** separar migración, API, web, base y profile de tunnel.
-6. **Scripts operativos:** backup, restore y smoke tests.
-7. **App Specs:** staging primero y producción después.
-8. **CI/CD:** consolidar CI, luego release a staging y finalmente promoción manual.
-
-Después de cada bloque ejecutar sus tests específicos, typecheck y lint. Después del último bloque ejecutar la suite completa.
-
-**Gate 3:** la aplicación debe fallar al arrancar si una variable productiva obligatoria falta, pero local/test deben seguir siendo fáciles de ejecutar con valores explícitos y seguros.
-
-### 7.6 Etapa 4 — Validar Docker Compose local
-
-Validar primero la configuración resuelta, sin mostrarla en tickets porque puede contener valores locales:
-
-```powershell
-docker compose config --quiet
-docker compose build
-docker compose up
-```
+## 18. Rollback y recuperación
 
-En otra terminal verificar:
-
-```powershell
-docker compose ps --all
-curl.exe -i http://127.0.0.1:5173/api/health/live
-curl.exe -i http://127.0.0.1:5173/api/health/ready
-```
+1. **Migración falla antes de actualizar servicios:** mantener versión anterior, inspeccionar `_prisma_migrations` y corregir con migración nueva.
+2. **Código falla y esquema es compatible:** volver a digests anteriores.
+3. **Código nuevo escribió datos incompatibles:** cerrar acceso/escrituras y aplicar forward fix; no rollback ciego.
+4. **Corrupción o pérdida:** cerrar acceso, preservar logs, levantar entorno/base nueva, restaurar R2/snapshot, validar y cambiar el stack al volumen recuperado.
+5. **Cloudflare falla:** no abrir IP directa como bypass; tratar como incidente de acceso.
+6. **OpenAI falla:** mantener comercio operativo; usar kill switch si el error es sostenido o riesgoso.
 
-Estado esperado:
+Objetivos:
 
-- `db`: healthy.
-- `db-test`: healthy cuando se usa `--profile test`; no arranca en el uso local normal.
-- `migrate`: exited con código 0.
-- `api`: healthy, sin puerto publicado al host.
-- `web`: healthy y accesible solo desde loopback.
-- `cloudflared`: no creado en el arranque normal.
-- liveness y readiness: HTTP 200 con respuesta genérica.
+- detección < 10 minutos;
+- decisión < 15 minutos;
+- recuperación funcional total < 60 minutos.
 
-Probar el profile opcional por separado:
+## 19. Milestones de implementación
 
-```powershell
-docker compose --profile tunnel up
-```
+Esta secuencia convierte el plan operativo en bloques implementables. Una dependencia indica el trabajo que debe estar terminado antes de comenzar la tarea; no implica que todo el milestone anterior deba bloquear trabajo independiente. Cada milestone termina con un gate y evidencia conservada. Producción no se configura hasta que staging demuestre la misma ruta de despliegue, seguridad, backup y recuperación.
 
-El quick tunnel es exclusivamente una demostración local. Su URL no se registra como staging ni producción.
+### M0 — Cerrar los gates funcionales previos a ambientes
 
-Para validar desde cero, usar una base local descartable nueva. Nunca eliminar un volumen que pueda contener datos necesarios sin comprobar primero su ruta y propósito.
+**Objetivo:** asegurar que la infraestructura se construye para un alcance funcional estable y autorizado, no para un candidato que todavía cambia.
 
-**Gate 4:** no continuar si API o PostgreSQL están expuestos más allá de loopback, si la migración se ejecuta en cada restart o si la app depende del tunnel para funcionar localmente.
+**Dependencias del milestone:** ninguna; es el punto de entrada obligatorio.
 
-### 7.7 Etapa 5 — Construir y probar imágenes
+| Paso | Tarea y qué cumple                                                                                                                                                                                            | Dependencias                                    |
+| ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------- |
+| M0.1 | Completar el Paso 10 de `docs/pre_production_business_changes/IMPLEMENTATION_PLAN.md`; demuestra migraciones sobre una copia realista, regresión, concurrencia y suites completas antes de separar ambientes. | Ninguna.                                        |
+| M0.2 | Obtener el `Verificado` formal de Feature 16 conduces; convierte el walkthrough ya aprobado en autorización explícita para el primer release productivo.                                                      | Ninguna; puede ejecutarse en paralelo con M0.1. |
+| M0.3 | Registrar el alcance exacto de `v2.0.0`, sus exclusiones y los flujos habilitados; evita desplegar por accidente inventario, Work Orders o CxP que continúan fuera del release.                               | M0.1 y M0.2.                                    |
+| M0.4 | Levantar una línea base del repositorio y de los checks actuales; identifica qué piezas ya existen, cuáles deben endurecerse y qué evidencia debe conservar cada milestone.                                   | M0.3.                                           |
 
-La imagen de aplicación se construye con valores Vite no sensibles:
+**Gate de salida:** Paso 10 cerrado, conduces formalmente verificados, alcance `v2.0.0` aprobado y cero cambio funcional pendiente que invalide la configuración de ambientes.
 
-```powershell
-$releaseSha = git rev-parse HEAD
-docker build --file Dockerfile.production `
-  --build-arg VITE_USE_MOCK_API=false `
-  --build-arg VITE_CAPABILITIES_PRESET=release-2 `
-  --build-arg VITE_ENABLE_DEMO_CONTROLS=false `
-  --tag "solocamiones-app:$releaseSha" .
-docker build --file Dockerfile.backup `
-  --tag "solocamiones-backup:$releaseSha" .
-```
+### M1 — Contrato de runtime y frontera HTTP segura
 
-Pruebas mínimas:
+**Objetivo:** hacer que la API falle de forma segura ante configuración inválida y que solo acepte tráfico del ambiente y de Cloudflare Access previstos.
 
-- inspeccionar que el proceso no use UID 0;
-- arrancar la imagen de aplicación contra PostgreSQL local;
-- confirmar que no ejecuta migraciones al arrancar;
-- comprobar SPA, API, liveness, readiness y graceful shutdown;
-- comprobar que la imagen de backup contiene versiones compatibles de `pg_dump`, `age` y cliente S3;
-- escanear ambas imágenes y generar SBOM.
+**Dependencias del milestone:** M0.
 
-Los comandos manuales solo validan. GitHub Actions será la única fuente de imágenes publicadas en GHCR.
+| Paso | Tarea y qué cumple                                                                                                                                                                         | Dependencias |
+| ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------ |
+| M1.1 | Centralizar y validar el contrato de environment, incluidas validaciones cruzadas por ambiente; impide iniciar con secretos, URLs, hosts o flags incompletos/inseguros.                    | M0.4.        |
+| M1.2 | Limitar la carga de `.env` a local/test y consumir solo variables inyectadas en staging/producción; evita fallbacks silenciosos y archivos locales en servidores.                          | M1.1.        |
+| M1.3 | Implementar `ALLOWED_HOSTS` y `TRUST_PROXY` exactos; bloquea Host spoofing y evita confiar en una cadena de proxies no declarada.                                                          | M1.1.        |
+| M1.4 | Validar firma, issuer, expiración y audience del JWT de Cloudflare Access; garantiza que alcanzar el origen no omita el control perimetral.                                                | M1.1.        |
+| M1.5 | Integrar Helmet, límites de payload, rate limiting y cookies seguras respetando la autenticación/roles propios; completa el hardening HTTP sin mezclar Access con autorización de negocio. | M1.3 y M1.4. |
+| M1.6 | Confirmar liveness/readiness mínimos, logging JSON con `APP_RELEASE` y redacción de datos sensibles; permite operar y diagnosticar sin filtrar secretos o datos financieros.               | M1.1 y M1.5. |
+| M1.7 | Añadir pruebas unitarias e integración de environment, hosts, JWT, proxy, health y cookies; demuestra los rechazos y excepciones controladas antes de empaquetar.                          | M1.2–M1.6.   |
 
-**Gate 5:** ninguna vulnerabilidad `CRITICAL` conocida sin excepción documentada; la imagen de aplicación no contiene `.env`, `.git`, código de tests, herramientas de backup ni dependencias de desarrollo innecesarias.
+**Gate de salida:** la API arranca solo con configuración válida, rechaza host/JWT/proxy incorrectos y las pruebas negativas de la frontera HTTP están verdes.
 
-### 7.8 Etapa 6 — Configurar GitHub y CI/CD
+### M2 — Imágenes, Compose y proxy reproducibles
 
-En GitHub:
+**Objetivo:** producir un stack versionado que pueda levantarse igual en hosts limpios, con responsabilidades y redes separadas.
 
-1. Proteger `main`: Pull Request obligatorio, CI requerido, force-push y borrado bloqueados.
-2. Habilitar GitHub Packages/GHCR para el repositorio privado.
-3. Crear secrets con nombres explícitos; no usar un único JSON con todas las credenciales.
-4. Dar `packages: write` solo al job que publica imágenes.
-5. Dar acceso al token de DigitalOcean únicamente a los workflows de release/promoción.
-6. Configurar SonarQube antes de retirar `build.yml`.
-7. Ejecutar el nuevo `ci.yml` en la Pull Request y confirmar todos los gates.
-8. Mergear a `main` solo después de revisión.
+**Dependencias del milestone:** M1.
 
-`release.yml` debe:
+| Paso | Tarea y qué cumple                                                                                                                                                                          | Dependencias      |
+| ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------- |
+| M2.1 | Retirar `prisma migrate deploy` del `CMD` de la API y exponer la migración como comando one-shot; evita que cada arranque o réplica modifique el esquema.                                   | M1.1.             |
+| M2.2 | Endurecer las imágenes API/web y `.dockerignore`; crea artefactos mínimos, no-root, sin tests, coverage, `.git`, `.env` ni secretos.                                                        | M2.1.             |
+| M2.3 | Evolucionar el Compose local para separar `db`, `db-test`, `migrate`, `api`, `web` y tunnel opcional; mantiene desarrollo/test reproducible sin convertirlo en configuración productiva.    | M2.1 y M2.2.      |
+| M2.4 | Crear `infra/vps/compose.yaml` con servicios, redes, volúmenes, health checks, rotación de logs y profiles definidos en 5.3; materializa el stack común de staging/producción sin secretos. | M2.2.             |
+| M2.5 | Crear la configuración Nginx del origen con same-origin, TLS, AOP, hosts estrictos, headers reemplazados y límites para API/PDF/SSE; expone solo el edge y mantiene API, web y DB privadas. | M1.3–M1.6 y M2.4. |
+| M2.6 | Probar build, arranque, migración one-shot, health checks y aislamiento de redes desde un host limpio; demuestra que Compose es reproducible y que ningún servicio interno publica puertos. | M2.3–M2.5.        |
 
-1. leer el SHA de `main`;
-2. construir ambas imágenes una sola vez;
-3. ejecutar tests y escaneos;
-4. publicar `app-sha-<SHA>` y `backup-sha-<SHA>`;
-5. resolver y guardar sus digest;
-6. generar SBOM y resumen de release;
-7. aplicar el App Spec de staging con el digest de aplicación;
-8. ejecutar smoke tests;
-9. detenerse sin tocar producción si cualquier paso falla.
+**Gate de salida:** las imágenes se construyen limpiamente, el `CMD` de API no migra, Compose VPS levanta por project name y solo Nginx publica 80/443.
 
-`promote-production.yml` debe:
+### M3 — Persistencia, backup, restore y jobs operativos
 
-1. requerir `v1.1.0`, SHA, digest y confirmación literal;
-2. verificar que el tag apunta al SHA;
-3. verificar que el digest pertenece al artefacto probado en staging;
-4. aplicar el App Spec productivo sin volver a construir;
-5. esperar migración, readiness y verificación post-deploy;
-6. publicar un resumen sin secrets.
+**Objetivo:** proteger los datos antes de desplegar usuarios reales y demostrar que pueden recuperarse dentro del RTO.
 
-**Gate 6:** una Pull Request de prueba debe demostrar que CI no puede desplegar; un release de prueba debe demostrar que staging sí se actualiza; producción solo puede cambiar mediante el workflow manual.
+**Dependencias del milestone:** M2.4; puede avanzar en paralelo con M4 y M5 donde no comparta archivos.
 
-### 7.9 Etapa 7 — Crear cuentas y proyectos externos
+| Paso | Tarea y qué cumple                                                                                                                                                                           | Dependencias |
+| ---- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------ |
+| M3.1 | Definir bootstrap de PostgreSQL para roles `migration`, `runtime`, `backup` y `monitoring`, con pruebas negativas; aplica mínimo privilegio y separa DDL, DML, lectura de backup y métricas. | M2.4.        |
+| M3.2 | Implementar `backup-postgres.sh` con `pg_dump`, validación, cifrado `age`, checksum, manifiesto, upload R2 y limpieza segura; cumple el backup externo cifrado y auditable.                  | M3.1.        |
+| M3.3 | Implementar `verify-restore.sh` sobre una base nueva y con rechazo explícito de destinos productivos; demuestra recuperación sin sobrescribir el origen.                                     | M3.2.        |
+| M3.4 | Configurar scheduler, retención `hourly/daily/monthly` y verificación de snapshots; convierte los scripts en una protección continua y medible.                                              | M3.2 y M3.3. |
+| M3.5 | Adaptar `assistant-purge` a un job diario con la imagen API y sin afectar readiness; hace cumplir la retención de 90 días del Assistant.                                                     | M2.4.        |
+| M3.6 | Ensayar backup, checksum, descifrado, restore y purge con datos no productivos; valida códigos de salida, limpieza y evidencia antes de depender de los jobs.                                | M3.3–M3.5.   |
 
-Orden recomendado:
+**Gate de salida:** roles y pruebas negativas aprobados, backup cifrado recuperable en una base aislada y jobs programables con fallos observables.
 
-1. Crear equipo/proyecto `Solo Camiones` en DigitalOcean, región principal `NYC3`.
-2. Crear zona DNS y organización Zero Trust en Cloudflare.
-3. Crear bucket privado de R2.
-4. Crear proyecto y monitor en Better Stack.
-5. Conectar GitHub con DigitalOcean/GHCR usando credenciales de mínimo alcance.
-6. Activar alertas de gasto al 50 %, 75 %, 90 % y 100 % del techo mensual.
+### M4 — Observabilidad y respuesta operativa
 
-No reutilizar tokens personales amplios cuando el proveedor permita tokens de servicio acotados. Guardar en el issue únicamente el nombre/ID no sensible de cada recurso.
+**Objetivo:** detectar fallos dentro de los objetivos definidos y dar al operador información suficiente para actuar sin exponer datos sensibles.
 
-**Gate 7:** MFA activo, recuperación comprobada, facturación configurada y ningún secreto almacenado en el issue o repositorio.
+**Dependencias del milestone:** M1.6, M2.4 y contrato de resultados de M3.2; puede implementarse en paralelo con el resto de M3 y M5.
 
-### 7.10 Etapa 8 — Crear PostgreSQL y sus roles
+| Paso | Tarea y qué cumple                                                                                                                                                 | Dependencias       |
+| ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------ |
+| M4.1 | Exponer/proteger las métricas de API y Assistant con token por ambiente; permite medir 5xx, latencia, cuotas, tools y sync sin un endpoint público abierto.        | M1.6.              |
+| M4.2 | Versionar Prometheus, Grafana, `node-exporter` y `postgres-exporter` con retención de 30 días; centraliza salud de hosts, contenedores y PostgreSQL desde staging. | M2.4, M3.1 y M4.1. |
+| M4.3 | Configurar logs JSON y uptime de Better Stack mediante service token; mantiene detección externa incluso si staging y su Prometheus fallan.                        | M1.6 y M2.5.       |
+| M4.4 | Implementar alertas de recursos, DB, API, Assistant, backup y deploy con los umbrales iniciales del plan; convierte métricas en avisos accionables al operador.    | M3.2, M4.2 y M4.3. |
+| M4.5 | Documentar y probar rutas de triage, kill switch del Assistant y escalamiento/rollback; enlaza cada alerta con una respuesta segura.                               | M4.4.              |
 
-Producción usa un clúster Managed PostgreSQL 16 de un nodo en `NYC3`. Crear dentro de él la base `solocamiones`; no usar `defaultdb` para datos de aplicación. Staging usa una base descartable distinta llamada `solocamiones_staging`. Ambos ambientes deben utilizar private networking y `sslmode=require`.
+**Gate de salida:** una falla simulada de health, backup y Assistant genera alerta sin revelar secretos, y el operador puede seguir el runbook correspondiente.
 
-Antes de la primera migración, conectarse como usuario administrador y crear roles separados. Las contraseñas se asignan con el mecanismo interactivo seguro del cliente, nunca dentro de un archivo SQL versionado:
+### M5 — CI, cadena de suministro y workflows de release
 
-```sql
-CREATE ROLE sc_migration LOGIN;
-CREATE ROLE sc_runtime LOGIN;
-CREATE ROLE sc_backup LOGIN;
+**Objetivo:** convertir un commit aprobado en imágenes identificables, verificadas y promovibles sin reconstruirlas.
 
-GRANT CONNECT ON DATABASE solocamiones TO sc_migration, sc_runtime, sc_backup;
-GRANT USAGE, CREATE ON SCHEMA public TO sc_migration;
-GRANT USAGE ON SCHEMA public TO sc_runtime, sc_backup;
+**Dependencias del milestone:** M1, M2 y las interfaces de scripts de M3; puede implementarse en paralelo con M4.
 
-ALTER DEFAULT PRIVILEGES FOR ROLE sc_migration IN SCHEMA public
-  GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO sc_runtime;
-ALTER DEFAULT PRIVILEGES FOR ROLE sc_migration IN SCHEMA public
-  GRANT USAGE, SELECT ON SEQUENCES TO sc_runtime;
-ALTER DEFAULT PRIVILEGES FOR ROLE sc_migration IN SCHEMA public
-  GRANT SELECT ON TABLES TO sc_backup;
-```
+| Paso | Tarea y qué cumple                                                                                                                                                                             | Dependencias            |
+| ---- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------- |
+| M5.1 | Consolidar `build.yml` en `ci.yml` sin perder coverage/Sonar y añadir format, lint, types, suites, build y migración sobre PostgreSQL 16 limpio; establece un único gate de Pull Request.      | M1.7, M2.2 y M2.3.      |
+| M5.2 | Añadir `npm audit`, secret scan, container scan y SBOM con bloqueo `HIGH`/`CRITICAL`; controla dependencias, secretos y vulnerabilidades antes de publicar.                                    | M5.1.                   |
+| M5.3 | Crear `release.yml` para construir una vez API/web, publicar tags por SHA y registrar digests en GHCR; garantiza artefactos inmutables y trazables.                                            | M2.2 y M5.2.            |
+| M5.4 | Automatizar deploy de `develop` a staging: pull por digest, migración one-shot, actualización, readiness, smoke y evidencia; hace repetible la ruta normal de integración.                     | M2.4–M2.6, M3.1 y M5.3. |
+| M5.5 | Crear `promote-production.yml` manual con versión, SHA, digests, backup reciente, confirmación literal y GitHub Environment; impide reconstruir o promover un artefacto distinto del validado. | M3.2, M5.3 y M5.4.      |
+| M5.6 | Fijar permisos mínimos, acciones por SHA, timeouts, concurrency y artefactos de diagnóstico; evita ejecuciones simultáneas y reduce la superficie de CI/CD.                                    | M5.1–M5.5.              |
 
-Asignar cada contraseña desde la sesión interactiva de `psql`, que evita escribirla en el archivo o en el historial del shell:
+**Gate de salida:** un commit de prueba supera CI, publica ambas imágenes con SBOM/digest y los workflows validan entradas sin acceso de secretos desde Pull Requests.
+
+### M6 — Provisionar y desplegar staging
+
+**Objetivo:** crear el primer ambiente real y usarlo para probar toda la ruta antes de tocar producción.
+
+**Dependencias del milestone:** M3, M4 y M5; además requiere cuentas operativas, MFA y medios de pago/recovery disponibles.
+
+| Paso | Tarea y qué cumple                                                                                                                                                                  | Dependencias                                             |
+| ---- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------- |
+| M6.1 | Confirmar disponibilidad regional y contratar KVM 1 en New York o, si no está disponible, Boston; fija región y costo real antes de exigir que producción quede en la misma región. | M5 gate y decisión regional ya definida en la sección 2. |
+| M6.2 | Ejecutar el bootstrap idempotente de Ubuntu, Docker, Tailscale, UFW, Fail2ban, usuario de deployment y SSH por llave; crea un host administrable solo por la red privada aprobada.  | M6.1.                                                    |
+| M6.3 | Configurar DNS proxied, Access/WARP, audience de staging, TLS `Full (strict)`, Origin Certificate, AOP y allowlist Cloudflare; cierra el acceso público directo al origen.          | M2.5 y M6.2.                                             |
+| M6.4 | Crear `/etc/solocamiones/staging.env`, roles/DB, bucket y credencial R2, token de métricas, key OpenAI y vector store exclusivos; materializa la separación de secretos y datos.    | M3.1 y M6.2.                                             |
+| M6.5 | Configurar credencial GHCR read-only exclusiva de staging y desplegar Compose por digest; demuestra pull privado y arranque sin build ni `git pull` en el VPS.                      | M5.3, M6.2 y M6.4.                                       |
+| M6.6 | Activar backups horarios, snapshot semanal, exporters, Prometheus/Grafana y Better Stack; hace observable y recuperable el ambiente desde su primer uso.                            | M3.4, M4 gate y M6.5.                                    |
+| M6.7 | Sincronizar el corpus de staging, habilitar Assistant y programar purge; valida que IA usa credenciales, vector store y retención propios del ambiente.                             | M3.5, M6.4 y M6.5.                                       |
+
+**Gate de salida:** staging es accesible solo por Access/WARP, ejecuta imágenes privadas por digest, tiene datos sintéticos, backups/alertas activos y Assistant aislado.
+
+### M7 — Validar staging y aprobar el candidato operativo
+
+**Objetivo:** demostrar con evidencia que seguridad, negocio, despliegue, rollback y recuperación funcionan juntos.
+
+**Dependencias del milestone:** M6.
+
+| Paso | Tarea y qué cumple                                                                                                                                                                           | Dependencias |
+| ---- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------ |
+| M7.1 | Desplegar un SHA candidato desde `develop` mediante el workflow completo; valida migración, readiness y conservación de evidencia sin pasos manuales ocultos.                                | M6 gate.     |
+| M7.2 | Ejecutar pruebas negativas de origen, WARP/Access, audience cruzado, hosts, puertos, roles y Better Stack; demuestra que no existe bypass de red o autorización.                             | M7.1.        |
+| M7.3 | Ejecutar los smoke tests comerciales de la sección 16 con datos sintéticos; confirma que facturación, conduces, pagos, CxC, PDFs, cancelación y rentabilidad sobreviven al empaquetado real. | M7.1.        |
+| M7.4 | Probar Assistant documental/live, fuentes, cuotas, purge, sync y kill switch; confirma su operación segura sin convertir AI-010 en gate previo.                                              | M6.7 y M7.1. |
+| M7.5 | Ejecutar backup, descarga, checksum, descifrado y restore aislado; mide por primera vez la ruta de recuperación y corrige cualquier paso no reproducible.                                    | M6.6 y M7.1. |
+| M7.6 | Ensayar rollback de imagen compatible, reinicio del stack y persistencia de sesiones/datos; demuestra recuperación operativa sin revertir datos a ciegas.                                    | M7.1 y M7.5. |
+| M7.7 | Registrar resultados, riesgos residuales y aprobación para provisionar producción; impide avanzar con fallos conocidos o evidencia incompleta.                                               | M7.2–M7.6.   |
+
+**Gate de salida:** smoke y pruebas negativas verdes, restore reproducible, rollback ensayado y autorización explícita para crear producción.
+
+### M8 — Provisionar producción y demostrar recuperación
+
+**Objetivo:** preparar el ambiente productivo aislado sin abrirlo todavía a usuarios.
+
+**Dependencias del milestone:** M7 completo; no se admite configurar producción antes de este gate.
+
+| Paso | Tarea y qué cumple                                                                                                                                                                                                    | Dependencias                                  |
+| ---- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------- |
+| M8.1 | Contratar KVM 2 en la misma región registrada para staging y documentar costo/renovación; cumple capacidad y aislamiento físico por VPS.                                                                              | M7.7.                                         |
+| M8.2 | Ejecutar el mismo bootstrap validado, con credenciales y dispositivo Tailscale propios; evita configuración artesanal divergente entre ambientes.                                                                     | M8.1 y evidencia de M6.2.                     |
+| M8.3 | Crear DB/roles, `/etc/solocamiones/production.env`, bucket R2, tokens, key OpenAI, vector store y GHCR read-only exclusivos; impide referencias cruzadas con staging.                                                 | M8.2 y procedimientos validados en M6.4–M6.5. |
+| M8.4 | Configurar `app.solocamiones.com`, Access, WARP, TLS, AOP, allowlist y firewall manteniendo cerrado el acceso humano; asegura el perímetro antes de cargar la aplicación.                                             | M8.2.                                         |
+| M8.5 | Desplegar temporalmente el stack por digest, sin seeds ni importación histórica, y activar backups, snapshots, exporters y Better Stack; verifica la base operativa productiva sin generar negocio real.              | M8.3 y M8.4.                                  |
+| M8.6 | Ejecutar el restore drill completo en una base/entorno aislado y registrar tiempo e integridad; demuestra el RTO menor de 60 minutos antes del go-live.                                                               | M8.5.                                         |
+| M8.7 | Verificar recuperación del password manager, MFA, recovery codes, llaves `age`, rollback/forward fix y contacto del operador; evita que la respuesta a incidentes dependa del equipo principal o de memoria informal. | M8.3–M8.6.                                    |
+
+**Gate de salida:** producción permanece cerrada, separada de staging, con backup/snapshot/alertas activos y restore drill menor de 60 minutos sin errores de integridad.
+
+### M9 — Construir, validar y promover `v2.0.0`
+
+**Objetivo:** promover exactamente el candidato verificado y abrirlo de forma controlada.
+
+**Dependencias del milestone:** M8 y ventana de go-live aprobada.
+
+| Paso | Tarea y qué cumple                                                                                                                                                                                                      | Dependencias                     |
+| ---- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------- |
+| M9.1 | Congelar cambios, revisar/mergear `develop -> main` y registrar SHA/tag `v2.0.0`; fija la identidad del candidato que se permitirá promover.                                                                            | M8 gate.                         |
+| M9.2 | Construir el SHA final una sola vez, publicar API/web y resolver digests; crea los artefactos definitivos sin reutilizar tags mutables.                                                                                 | M9.1 y M5.3.                     |
+| M9.3 | Desplegar esos digests finales primero en staging y repetir smoke, seguridad y verificaciones operativas; demuestra que el artefacto exacto de `main` es el aprobado.                                                   | M9.2 y procedimientos M7.2–M7.6. |
+| M9.4 | Ejecutar el checklist de 24 horas antes: backups, snapshot, DNS, Access/WARP, TLS/AOP, secrets, corpus, kill switch y coincidencia tag/SHA/digests; autoriza la ventana solo si todos los prerequisitos siguen válidos. | M9.3.                            |
+| M9.5 | Ejecutar `promote-production.yml` con aprobación manual, migración one-shot y los mismos digests; realiza el go-live sin reconstruir ni omitir el gate humano.                                                          | M9.4.                            |
+| M9.6 | Crear el primer Administrator interactivamente y cambiar su password inicial; establece acceso de negocio sin seeds ni credenciales permanentes predefinidas.                                                           | M9.5 y readiness verde.          |
+| M9.7 | Sincronizar/verificar el corpus productivo, habilitar Assistant y confirmar purge/kill switch; activa la capacidad aprobada con recursos exclusivos de producción.                                                      | M9.5 y M8.3.                     |
+| M9.8 | Ejecutar smoke productivo no destructivo, verificar monitoreo y abrir Access solo a dispositivos aprobados; confirma salud antes de permitir trabajo real sin crear facturas de prueba para borrarlas.                  | M9.6 y M9.7.                     |
+
+**Gate de salida:** `v2.0.0` sirve desde los digests registrados, Administrator y Assistant están operativos, las validaciones no destructivas pasan y el acceso humano queda limitado a dispositivos aprobados.
+
+### M10 — Observar, estabilizar y cerrar el release
+
+**Objetivo:** comprobar el comportamiento real durante las primeras 24 horas y dejar evidencia suficiente para operación y releases posteriores.
+
+**Dependencias del milestone:** M9.
+
+| Paso  | Tarea y qué cumple                                                                                                                                                                    | Dependencias                                 |
+| ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------- |
+| M10.1 | Monitorear durante 24 horas errores, latencia, reinicios, CPU, memoria, disco, DB, FX, sesiones, Access, Assistant y costos; detecta degradaciones que los smoke tests no reproducen. | M9.8.                                        |
+| M10.2 | Verificar que backups horarios, snapshot, manifiestos y alertas continúan funcionando con el release activo; confirma que la protección de datos sobrevivió al go-live.               | M10.1 en curso y M8.5.                       |
+| M10.3 | Aplicar el runbook ante incidentes y registrar toda mitigación, rollback o forward fix; preserva trazabilidad y evita correcciones improvisadas.                                      | Solo si M10.1 o M10.2 detectan un incidente. |
+| M10.4 | Registrar resultados, SHA/tag/digests, restore drill, evidencia de smoke, riesgos residuales y costos reales; crea el expediente auditable del release.                               | M10.1–M10.3.                                 |
+| M10.5 | Cerrar `v2.0.0` solo si se cumplen todos los criterios de la sección 20; convierte la observación satisfactoria en aceptación formal.                                                 | M10.4.                                       |
+
+**Gate de salida:** 24 horas satisfactorias, sin incidente crítico abierto, backups y alertas confirmados, evidencia archivada y criterios finales aceptados.
+
+### 19.1 Camino crítico y paralelismo permitido
 
 ```text
-\password sc_migration
-\password sc_runtime
-\password sc_backup
+M0 -> M1 -> M2 -> M3 -----+
+                 \-> M4 --+-> M6 -> M7 -> M8 -> M9 -> M10
+                 \-> M5 --+
 ```
 
-Ejecutar los grants conectado específicamente a la base `solocamiones`; repetir con nombres de roles terminados en `_staging` dentro del ambiente de staging para evitar cualquier reutilización accidental.
+- M3, M4 y M5 pueden avanzar parcialmente en paralelo después de M2, pero M6 requiere los tres gates completos.
+- La contratación/configuración de producción (M8) está bloqueada por la validación completa de staging (M7).
+- La promoción (M9) usa los mismos digests verificados; nunca reconstruye en producción.
+- Un gate fallido devuelve el trabajo al milestone responsable. No se compensa relajando seguridad, tests, backup o aislamiento.
 
-Después de la migración inicial, otorgar permisos sobre objetos ya creados:
+## 20. Criterios finales de aceptación
 
-```sql
-GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO sc_runtime;
-GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO sc_runtime;
-GRANT SELECT ON ALL TABLES IN SCHEMA public TO sc_backup;
-```
+El despliegue está terminado solo cuando:
 
-Luego:
+- VPS separados y región documentada.
+- KVM 1/KVM 2 y costos reales registrados.
+- CI verde desde instalación limpia.
+- Imágenes privadas promovidas por digest.
+- Compose VPS reproducible desde host limpio.
+- PostgreSQL sin puerto público y roles con pruebas negativas.
+- Nginx, Full strict, AOP, allowlist Cloudflare y JWT Access probados.
+- SSH únicamente por Tailscale.
+- Staging/production con secrets, buckets, DB y vector stores separados.
+- Migraciones fuera del `CMD`.
+- Backups R2 horarios y snapshots semanales activos.
+- Restore drill < 60 minutos.
+- Better Stack y Grafana/Prometheus alertan al operador.
+- Assistant habilitado con corpus, purge, métricas y kill switch operativos.
+- Producción sin datos demo/importados y Administrator inicial operativo.
+- Tag `v2.0.0`, SHA y digests registrados.
+- Smoke tests staging y validaciones no destructivas producción completos.
+- Observación de 24 horas satisfactoria.
 
-- construir `DATABASE_MIGRATION_URL` con `sc_migration`;
-- construir `DATABASE_URL` con `sc_runtime`;
-- construir `BACKUP_DATABASE_URL` con `sc_backup`;
-- guardarlas directamente como encrypted variables en DigitalOcean;
-- retirar cualquier trusted source temporal usada para administración.
+## 21. Fuera de alcance actual
 
-Verificar negativamente que `sc_runtime` no puede crear/eliminar tablas y que `sc_backup` no puede insertar, actualizar ni eliminar registros.
-
-**Gate 8:** migraciones limpias con `sc_migration`, readiness con `sc_runtime`, dump con `sc_backup` y pruebas negativas de permisos exitosas.
-
-### 7.11 Etapa 9 — Configurar R2 y cifrado
-
-1. Crear bucket privado `solocamiones-production-backups`.
-2. Bloquear acceso público y public listing.
-3. Crear credencial S3 limitada a leer/escribir/listar únicamente ese bucket.
-4. Generar un par de claves `age` en una estación segura.
-5. Guardar la clave privada de descifrado en el password manager y una copia offline.
-6. Entregar al job únicamente el recipient público de `age`.
-7. Crear lifecycle de 30 días para `daily/` y 365 días para `monthly/`.
-8. Configurar alertas ante fallo del job o ausencia de backup nuevo durante 26 horas.
-
-Cada ejecución debe generar:
-
-```text
-daily/YYYY/MM/DD/solocamiones-UTC_TIMESTAMP.dump.age
-daily/YYYY/MM/DD/solocamiones-UTC_TIMESTAMP.dump.age.sha256
-daily/YYYY/MM/DD/solocamiones-UTC_TIMESTAMP.manifest.json
-```
-
-El primer día de cada mes se conserva además una copia bajo `monthly/YYYY/MM/`. El manifiesto no contiene secretos y registra SHA del release, versión PostgreSQL, timestamp UTC, tamaño y checksum.
-
-**Gate 9:** descargar un objeto, validar checksum, descifrarlo y comprobar que `pg_restore --list` puede leerlo.
-
-### 7.12 Etapa 10 — Completar App Specs
-
-Crear primero staging. Cada spec debe declarar explícitamente:
-
-- nombre del app;
-- región `nyc`/`NYC3` según el valor exigido por el schema de DigitalOcean;
-- imagen por digest;
-- tamaño e instance count;
-- puerto HTTP;
-- readiness y liveness;
-- variables públicas no sensibles;
-- referencias/placeholders de encrypted variables;
-- deployment job `PRE_DEPLOY` para Prisma;
-- scheduled backup job solo en producción;
-- alertas;
-- dominio del ambiente.
-
-Valores mínimos:
-
-| Recurso    | Staging                   | Production                            |
-| ---------- | ------------------------- | ------------------------------------- |
-| App        | `solocamiones-staging`    | `solocamiones-production`             |
-| Compute    | 512 MB, 1 instancia       | 1 GB, 1 instancia                     |
-| Database   | PostgreSQL 16 descartable | Managed PostgreSQL 16                 |
-| Datos      | Sintéticos                | Reales                                |
-| Backup job | Manual para ensayo        | Diario, 02:15 `America/Santo_Domingo` |
-| Dominio    | `staging.DOMAIN`          | `app.DOMAIN`                          |
-
-Validar sin aplicar:
-
-```powershell
-doctl apps spec validate infra/digitalocean/app.staging.yaml
-doctl apps spec validate infra/digitalocean/app.production.yaml
-```
-
-Revisar el diff del spec antes de cada `doctl apps update`. No copiar el spec productivo y reemplazar solo el nombre: revisar cada referencia a DB, audience, dominio, secrets y tamaño.
-
-**Gate 10:** ambos specs válidos, staging no referencia ningún recurso productivo y producción no contiene valores secretos en texto plano.
-
-### 7.13 Etapa 11 — Configurar Cloudflare
-
-1. Añadir `DOMAIN` a Cloudflare y cambiar nameservers en el registrador.
-2. Esperar estado `Active`; no borrar registros existentes durante la migración.
-3. Añadir primero los dominios custom en DigitalOcean.
-4. Crear DNS proxied para `staging.DOMAIN` y `app.DOMAIN` hacia los targets indicados por DigitalOcean.
-5. Configurar TLS `Full (strict)` y verificar certificados.
-6. Crear dos Access applications con audiences diferentes.
-7. Crear política humana default-deny que requiera dispositivo WARP inscrito.
-8. Emitir un token distinto por dispositivo, registrarlo sin guardar su valor en el issue y comprobar revocación.
-9. Crear una política `Service Auth` separada para Better Stack.
-10. Configurar WAF y rate limiting para login, sin cachear `/api/*` ni contenido autenticado.
-11. Habilitar HSTS únicamente después de comprobar todos los subdominios por HTTPS.
-
-Pruebas obligatorias:
-
-- dispositivo no inscrito: bloqueado por Cloudflare;
-- dispositivo inscrito: llega al login de Solo Camiones;
-- token revocado: acceso bloqueado;
-- `ondigitalocean.app`: rutas privadas devuelven 403 porque falta JWT válido;
-- JWT con audience de staging contra producción: rechazado;
-- Better Stack: puede consultar health con su service token y no puede usar rutas de negocio.
-
-**Gate 11:** no abrir producción si el dominio técnico permite bypass, si se comparte un token entre dispositivos o si TLS no está en modo estricto.
-
-### 7.14 Etapa 12 — Desplegar y validar staging
-
-1. Ejecutar CI y mergear la Pull Request a `main`.
-2. Esperar publicación de ambas imágenes y registrar digest.
-3. Crear staging mediante `release.yml`.
-4. Confirmar que el deployment job aplica migraciones antes de readiness.
-5. Crear el Administrator de staging mediante la consola interactiva y una contraseña exclusiva.
-6. Cargar únicamente datos sintéticos identificados como `STAGING`.
-7. Ejecutar todos los smoke tests de la sección 5.
-8. Reiniciar el servicio y verificar persistencia de sesiones y datos.
-9. Ejecutar rollback al deployment anterior y volver al candidato para ensayar ambos sentidos.
-10. Conservar logs, resultados y tiempos en el issue.
-
-No destruir staging hasta completar el restore drill y la promoción productiva. Después puede destruirse para controlar costos; el App Spec debe permitir recrearlo.
-
-**Gate 12:** cero fallos en smoke tests, misma imagen candidata que se promoverá, migraciones correctas y rollback ensayado.
-
-### 7.15 Etapa 13 — Ejecutar el restore drill
-
-1. Disparar manualmente el job de backup.
-2. Confirmar dump, cifrado, checksum, manifiesto y upload.
-3. Crear una base PostgreSQL aislada que no sea staging ni producción.
-4. Iniciar cronómetro.
-5. Descargar y verificar checksum.
-6. Descifrar mediante la clave privada offline.
-7. Restaurar con:
-
-```text
-pg_restore --exit-on-error --no-owner --no-acl --dbname RESTORE_DATABASE_URL BACKUP.dump
-```
-
-8. Ejecutar readiness, consultas de consistencia y smoke tests de lectura.
-9. Verificar usuarios/roles, clientes, catálogos, facturas, FAC, pagos, cancelaciones, history y estados PDF/FX.
-10. Detener cronómetro cuando la aplicación restaurada esté lista.
-11. Registrar resultado y destruir la base temporal solo después de conservar evidencia.
-
-**Gate 13:** tiempo total inferior a 60 minutos, cero errores de integridad y procedimiento reproducible por el documento. Si falla, el RTO/RPO no está demostrado y producción queda bloqueada.
-
-### 7.16 Etapa 14 — Promover a producción
-
-#### Veinticuatro horas antes
-
-- Confirmar dominio, cuentas, facturación, secrets, PITR y alertas.
-- Confirmar que no hay cambios nuevos en `main` después del SHA probado.
-- Notificar la ventana de mantenimiento.
-- Preparar procedimiento de cierre de Access y rollback.
-
-#### Una hora antes
-
-- Revisar estado de DigitalOcean, Cloudflare, GitHub y ExchangeRate-API.
-- Confirmar último backup válido.
-- Mantener staging disponible.
-- Crear tag solo sobre el SHA probado:
-
-```powershell
-git tag --annotate v1.1.0 RELEASE_SHA --message "Solo Camiones v1.1.0"
-git push origin v1.1.0
-```
-
-#### Durante la ventana
-
-1. Mantener la política humana de producción cerrada.
-2. Ejecutar `promote-production.yml` con versión, SHA y digest comprobados.
-3. Observar deployment job y detenerse ante cualquier error de migración.
-4. Esperar HTTP 200 de liveness y readiness.
-5. Confirmar release SHA en logs.
-6. Crear el primer Administrator mediante consola interactiva.
-7. Iniciar sesión, cambiar la contraseña y verificar sesión/cookies.
-8. Confirmar base sin cuentas demo ni datos sintéticos.
-9. Probar permisos y operaciones de solo lectura.
-10. Abrir Access únicamente a dispositivos aprobados.
-11. Verificar Better Stack y alertas de DigitalOcean.
-
-No crear una factura real de prueba que luego deba borrarse. Las pruebas financieras completas ya ocurrieron en staging; producción conserva solo validaciones no destructivas.
-
-**Gate 14:** versión, SHA y digest coinciden; migración, Access, login, health, backups y alertas están operativos antes de permitir usuarios.
-
-### 7.17 Etapa 15 — Decidir rollback sin improvisar
-
-Usar esta secuencia:
-
-1. **¿El fallo ocurre antes de datos reales?** Cerrar Access, conservar logs y revertir el deployment o corregir hacia adelante.
-2. **¿Solo falla el código y el esquema sigue siendo compatible?** Rollback de App Platform al último deployment sano.
-3. **¿Falló `PRE_DEPLOY` sin aplicar cambios completos?** Mantener la versión anterior, inspeccionar `_prisma_migrations` y corregir con una migración nueva; no editar la aplicada.
-4. **¿La app nueva escribió datos que la vieja no entiende?** No hacer rollback ciego. Cerrar escrituras y aplicar forward fix.
-5. **¿Existe corrupción o pérdida?** Cerrar escrituras, restaurar PITR/backup en un clúster nuevo, validar y cambiar conexión.
-6. **¿Cloudflare falla pero el origen está sano?** No publicar el dominio técnico como bypass; tratarlo como incidente de acceso.
-
-Objetivo temporal:
-
-- detección: menos de 10 minutos;
-- decisión: menos de 15 minutos desde detección;
-- restauración de servicio: menos de 60 minutos total.
-
-### 7.18 Etapa 16 — Monitoreo posterior
-
-Umbrales iniciales:
-
-- uptime: alertar después de dos fallos consecutivos de cinco minutos;
-- error rate HTTP 5xx: advertir sobre 2 % y crítico sobre 5 % durante cinco minutos;
-- p95 de latencia: advertir sobre 1 segundo y crítico sobre 2 segundos durante diez minutos;
-- CPU: advertir sobre 80 % durante quince minutos;
-- memoria: advertir sobre 85 % durante diez minutos;
-- almacenamiento PostgreSQL: advertir al 75 % y crítico al 85 %;
-- conexiones PostgreSQL: advertir al 70 % del máximo disponible;
-- backup: crítico si no existe uno válido en 26 horas;
-- migración/deployment/job fallido: crítico inmediato;
-- certificado: advertir con menos de 30 días si la renovación no está confirmada;
-- login: revisar más de 10 fallos por origen o 25 globales en diez minutos;
-- rentabilidad FX pendiente: alertar si permanece sin resolver durante 30 minutos;
-- Feature 17 (cuando `ASSISTANT_ENABLED=true`): alertar por tasa de `assistant_errors_total` (5xx/timeout/provider), `PROVIDER_RATE_LIMIT` / 429, rechazo de cuota (`assistant_quota_rejections_total`), y `assistant_knowledge_sync_failures_total`; job `assistant-purge` fallido = crítico. Detalle en `docs/assistant-ops/OPERATIONS.md`. Fragmento de job: `docs/assistant-ops/purge.job.fragment.yaml` (fusionar en App Specs futuros).
-
-Revisiones manuales:
-
-- primeras 2 horas: permanecer disponible y observar logs/latencia;
-- 24 horas: revisar errores, FX, sesiones, backups y facturación;
-- 72 horas: revisar tendencias de CPU, memoria y DB;
-- 7 días: confirmar costos reales, ajustar thresholds y cerrar el issue de release.
-
-No aumentar recursos ante un único pico aislado. Escalar después de confirmar una tendencia y conservar la métrica que justificó el cambio.
-
-### 7.19 Definición de terminado para la implementación
-
-La implementación completa, no solo el documento, termina cuando existen evidencias de:
-
-- todos los archivos de las matrices creados/modificados y revisados;
-- CI verde desde una instalación limpia;
-- imágenes escaneadas y promovidas por digest;
-- Compose local reproducible desde base vacía;
-- App Specs validados y ambientes separados;
-- Cloudflare sin bypass del origen;
-- roles PostgreSQL y pruebas negativas de permisos;
-- backup cifrado, lifecycle y restore drill menor a una hora;
-- staging con smoke tests completos;
-- producción con validaciones no destructivas;
-- alertas recibidas por email y aplicación móvil;
-- tag `v1.1.0`, SHA y digest registrados;
-- monitoreo satisfactorio durante siete días.
+- Importar facturas físicas anteriores o saldos de apertura.
+- Kubernetes, Swarm, Nomad, service mesh o microservicios.
+- Alta disponibilidad multi-VPS de PostgreSQL.
+- Failover automático entre regiones.
+- Despliegue productivo totalmente automático sin aprobación.
+- Base administrada externa.
+- Acceso directo público al origen o bypass temporal de Cloudflare.
+- Restaurar directamente sobre una base productiva dañada.

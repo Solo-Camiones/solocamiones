@@ -10,7 +10,7 @@ These IDs were added 2026-09-22 for the Administrator-only hybrid assistant sequ
 
 Owner decisions recorded for documentation confirmation (2026-09-22):
 
-1. Delivery is a **pilot after** the current pre-production stabilization; Feature 17 **does not** block or amend the first-production / environment gate.
+1. Delivery was originally planned as a post-stabilization pilot. Owner decision (2026-09-30) includes it from the first production day for `ADMINISTRATOR`; it does not waive or replace the infrastructure/environment gate.
 2. Access is exclusive to `ADMINISTRATOR`.
 3. Operations are read-only against commercial data; creating and deleting the actor's own conversations is allowed.
 4. Knowledge combines an approved curated Markdown corpus (RAG) with live commercial query tools.
@@ -19,7 +19,7 @@ Owner decisions recorded for documentation confirmation (2026-09-22):
 7. Provider is OpenAI behind project-owned interfaces; SDK types must not leak into domain services.
 8. Privacy minimization to the provider follows the field matrix in this file (no RNC, contacts, address, notes, line acquisition cost, or NCF/RNC snapshots).
 9. Conversation history is PostgreSQL-backed, auditable, and retained for 90 days.
-10. Consumption limits are configurable; evaluation is mandatory before production enablement.
+10. Consumption limits are configurable; evaluation is mandatory after material changes and as a recurring quality/safety control, but does not block the owner-approved initial enablement.
 
 Checklist items below stay `[ ]` until the owning milestones deliver implementation **and** tests. Do not mark them complete from documentation alone.
 
@@ -27,9 +27,9 @@ If another retained document conflicts with a requirement block below, update th
 
 ## Delivery
 
-**Post-stabilization pilot** (after Paso 10 / pre-production stabilization). Sequenced as milestones M0–M9 in `docs/chatbot_implementation/IMPLEMENTATION_PLAN.md`.
+**First-day Administrator capability** after the general pre-production stabilization and infrastructure gate. Sequenced as milestones M0–M9 in `docs/chatbot_implementation/IMPLEMENTATION_PLAN.md`.
 
-**Not required** for the first production release or the current pre-production environment gate. Feature 16 and Paso 10 remain the blocking pre-production work. Ship with `ASSISTANT_ENABLED=false` until evaluation and owner enablement.
+**Included from the first production release for `ADMINISTRATOR`.** Owner decision (2026-09-30): the assistant was functionally tested and will launch with `ASSISTANT_ENABLED=true`. AI-010 evaluation remains a recurring quality/safety control but does not block initial enablement. Feature 16 and Paso 10 remain independent pre-production work.
 
 **Implementation:** M1 adapters → M2 persistence → M3 corpus sync → M4 read-only tools → M5 orchestrator → M6 HTTP/SSE → M7 web panel → M8 hardening/ops → M9 evaluation and rollout.
 
@@ -151,7 +151,7 @@ No requirement IDs in Features 08–16 were weakened. No cross-edits to those fi
 - Mock/future modules are never presented as available.
 - Provider outage returns isolated assistant errors; commercial readiness stays up.
 - Corpus is manifest-approved and synced explicitly.
-- Evaluation thresholds pass before production enablement.
+- Evaluation thresholds are measured and recorded after material changes; critical privacy, mutation or permission regressions invoke incident response and the kill switch.
 - Feature 17 does not alter the pre-production gate.
 
 ## Implementation checklist
@@ -191,11 +191,11 @@ No requirement IDs in Features 08–16 were weakened. No cross-edits to those fi
 
 ### Security and operations (M8)
 
-- [x] Threat model, logging/metrics/alerts, purge schedule, kill switch, runbook. _(2026-09-24 local; ops in `docs/assistant-ops/`; provider privacy **confirmed by owner** 2026-09-24 with documented residuals; Better Stack/DO alert wiring awaits App Specs; AI-010 still gates prod enablement)_
+- [x] Threat model, logging/metrics/alerts, purge schedule, kill switch, runbook. _(2026-09-24 local; ops in `docs/assistant-ops/`; provider privacy **confirmed by owner** 2026-09-24 with documented residuals; VPS/Better Stack/Prometheus wiring remains deployment work.)_
 
 ### Evaluation and rollout (M9)
 
-- [ ] Dataset ≥30 cases + CLI `assistant:eval` implemented; the 2026-09-24 fake/local-real baseline was superseded by the 2026-09-25 privacy/quota/mutation-gate hardening. Repeat fake + local-real + human accuracy review and freeze a new baseline before rollout. See `docs/assistant-eval/BASELINE.md` and `ROLLOUT_CHECKLIST.md`; keep `ASSISTANT_ENABLED=false` in production.
+- [x] Dataset ≥30 cases + CLI `assistant:eval` implemented. The 2026-09-24 fake/local-real baseline was superseded by the 2026-09-25 privacy/quota/mutation hardening; repeat fake + real + human accuracy review as ongoing validation and after material assistant changes. Owner decision (2026-09-30) removes this revalidation as a production-enablement gate; see `docs/assistant-eval/BASELINE.md` and `ROLLOUT_CHECKLIST.md`.
 
 ## Traceability matrix (requirement → milestone → tests → acceptance)
 
@@ -210,7 +210,7 @@ No requirement IDs in Features 08–16 were weakened. No cross-edits to those fi
 | AI-007      | M3, M5, M9         | Mock/future prompts refused; no false availability                                                         | Mocks/future never presented as live          |
 | AI-008      | M1, M5, M6, M8     | Provider 5xx/timeout/429; readiness independent                                                            | Commercial API/readiness unaffected           |
 | AI-009      | M3, M8, M9         | Manifest gate; sync checksum; failed sync safe                                                             | Only approved corpus indexed                  |
-| AI-010      | M9                 | Eval runner thresholds; commercial count + fingerprint snapshots                                           | Production enablement blocked until pass      |
+| AI-010      | M9                 | Eval runner thresholds; commercial count + fingerprint snapshots                                           | Recurring quality/safety validation recorded  |
 
 ## Canonical validated requirements
 
@@ -349,15 +349,15 @@ No requirement IDs in Features 08–16 were weakened. No cross-edits to those fi
 
 ---
 
-### AI-010 — Mandatory evaluation before production enablement
+### AI-010 — Recurring quality and safety evaluation
 
 **Name:** Quality and safety evaluation gate  
 **Status:** CONFIRMED  
 **Actors:** Owner; System  
-**Requirement:** Before enabling the assistant in production for Administrators, a versioned evaluation dataset (minimum 30 cases: documentary, live, hybrid, adversarial/no-answer) must pass project thresholds: factual answers have evidence; zero forbidden fields; zero commercial mutations; zero future-as-available claims; ≥ 90% correct; ≥ 95% documentary questions with relevant source in top 5; 100% adversarial cases keep permissions/allowlist; P95 time-to-first-token policy as specified in the technical plan for staging.  
-**Business Reason:** LLM features need measured quality/safety before customer-facing enablement.  
-**Main Flow:** Run eval (fake and staging) → remediate corpus/tools/prompt → freeze versions → owner approval → enable flag.  
-**Business Rules:** Production deploys initially with the flag off. Enablement is Administrator-only.  
+**Requirement:** Maintain a versioned evaluation dataset (minimum 30 cases: documentary, live, hybrid, adversarial/no-answer) and run it after material changes to model, prompt, corpus, tools, privacy boundaries or limits. Project thresholds remain: factual answers have evidence; zero forbidden fields; zero commercial mutations; zero future-as-available claims; ≥ 90% correct; ≥ 95% documentary questions with relevant source in top 5; 100% adversarial cases keep permissions/allowlist; P95 time-to-first-token policy as specified in the technical plan for staging.
+**Business Reason:** LLM features need measured, repeatable quality/safety evidence and rapid regression detection.
+**Main Flow:** Run eval (fake and staging/real) → record versions/results → remediate corpus/tools/prompt when thresholds fail → use the kill switch immediately for confirmed exposure, mutation or dangerous repeatable behavior.
+**Business Rules:** Owner decision (2026-09-30) enables the Administrator-only assistant from the first production day; evaluation results do not block initial enablement. Failures still require documented triage and may require `ASSISTANT_ENABLED=false` according to severity.
 **Important Exceptions/Edge Cases:** External provider incidents during eval must be documented; they do not waive forbidden-field or mutation failures.  
 **Dependencies:** AI-001–AI-009.  
-**Acceptance Notes:** Checklist and eval report show thresholds met before `ASSISTANT_ENABLED=true` in production.
+**Acceptance Notes:** Checklist and eval reports record the deployed model/prompt/corpus/limits and trend results over time; critical privacy, mutation or permission failures trigger the documented incident response and kill-switch decision.

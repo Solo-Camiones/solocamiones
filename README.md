@@ -6,7 +6,7 @@ Sistema web de **facturación, cobros y cuentas por cobrar** para el negocio de 
 
 Este snapshot **no** es el MVP completo de inventario y órdenes de trabajo. Incluye el subset comercial de preproducción: acceso, clientes, catálogo de servicios, cotizaciones, conduces y facturas no inventariadas, documentos PDF, pagos, CxC, cancelación financiera, rentabilidad y un asistente de IA opcional para Administradores.
 
-La especificación de producto vive en [`docs/`](docs/). Este README describe el árbol actual; la autorización formal del primer despliegue y el piloto del asistente conservan sus propios gates documentados.
+La especificación de producto vive en [`docs/`](docs/). Este README describe el árbol actual; la autorización formal del primer despliegue y los controles operativos del asistente se documentan por separado.
 
 ---
 
@@ -24,7 +24,7 @@ Con `VITE_USE_MOCK_API` distinto de `true` (el valor por defecto y el de producc
 | Cancelación         | Anulación de factura o conduce no inventariado (Administrador), reembolso entre cero y el neto cobrado, PDF de cancelación                                                            |
 | Rentabilidad        | Costo DOP, ganancia, equivalencia USD (tasa externa no bloquea la venta). Visible solo a Administrador                                                                                |
 | Historial comercial | Actividad de cotización, conduce o factura: emisión/conversión, pago, PDF y cancelación; utilidad/FX solo Administrador                                                               |
-| Asistente de IA     | Panel global solo para Administrador, RAG sobre corpus aprobado y seis herramientas comerciales de lectura. Deshabilitado por defecto y pendiente del gate AI-010 antes de producción |
+| Asistente de IA     | Panel global solo para Administrador, RAG sobre corpus aprobado y seis herramientas comerciales de lectura. Se habilitará para Administradores desde el primer día productivo; AI-010 continuará como evaluación periódica |
 
 Roles: **Administrador** y **Vendedor**. El Mecánico y su app móvil no forman parte de esta versión.
 
@@ -38,7 +38,6 @@ No están en API de producción (las pantallas del prototipo mock no cuentan):
 - Cuentas por pagar (alcance no confirmado)
 - Recuperación administrativa, correcciones protegidas, diagnóstico de consistencia
 - Aging avanzado, gestión de cobranzas y conciliación bancaria
-- Habilitación del asistente en producción hasta repetir la evaluación y cerrar `docs/assistant-eval/ROLLOUT_CHECKLIST.md`
 
 El prototipo completo (`VITE_USE_MOCK_API=true`) sigue disponible **solo en desarrollo** para demos. No usar mocks en producción.
 
@@ -132,7 +131,7 @@ Variables relevantes del `.env` (nunca commitear `.env`):
 - `DATABASE_URL` / `DATABASE_URL_TEST` — host local (puerto publicado, 5433 en el ejemplo)
 - `DATABASE_URL_DOCKER` — red interna Compose (`db:5432`)
 - `EXCHANGE_RATE_API_KEY` — rentabilidad USD; si falta, la confirmación sigue y el FX queda pendiente
-- `ASSISTANT_ENABLED=false` — kill switch del asistente; mantener apagado hasta cerrar AI-010
+- `ASSISTANT_ENABLED=false` — valor local seguro por defecto y kill switch; staging/producción lo sobrescriben explícitamente a `true` desde el primer despliegue aprobado
 - `OPENAI_API_KEY` / `OPENAI_VECTOR_STORE_ID` — requeridos para sync/evaluación real y para ejecutar el asistente habilitado
 - `METRICS_BEARER_TOKEN` — habilita y protege `GET /metrics`; vacío devuelve 404
 - `VITE_USE_MOCK_API=false` en el build de producción
@@ -233,7 +232,7 @@ routes → controller → service → repository
 | [`docs/INFRASTRUCTURE_PLAN.md`](docs/INFRASTRUCTURE_PLAN.md)     | Hosting, backups, HTTPS, secretos                                       |
 | [`docs/TESTING.md`](docs/TESTING.md)                             | Inventario y cómo correr pruebas                                        |
 | [`docs/assistant-ops/README.md`](docs/assistant-ops/README.md)   | Seguridad, operación, métricas, sync, purge y kill switch del asistente |
-| [`docs/assistant-eval/README.md`](docs/assistant-eval/README.md) | Dataset, runner y gate AI-010                                           |
+| [`docs/assistant-eval/README.md`](docs/assistant-eval/README.md) | Dataset, runner y evaluación continua AI-010                            |
 | [`docs/done_api/release-1.md`](docs/done_api/release-1.md)       | Cierre Access/Users                                                     |
 | [`docs/done_api/release_2.md`](docs/done_api/release_2.md)       | Cierre Billing Core                                                     |
 | [`docs/done_api/release_3.md`](docs/done_api/release_3.md)       | Cierre del slice financiero adelantado de Release 3                     |

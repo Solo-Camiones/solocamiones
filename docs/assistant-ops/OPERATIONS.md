@@ -23,7 +23,7 @@ Zona horaria de negocio y jobs: **`America/Santo_Domingo`**.
 ## 1. Rotación de `OPENAI_API_KEY`
 
 1. Crear una nueva API key en la cuenta OpenAI del entorno (staging o producción).
-2. Actualizar el secreto cifrado en App Platform / secret store del entorno (**no** commit).
+2. Actualizar `OPENAI_API_KEY` en el archivo root-owned `0600` del VPS afectado y en su copia recuperable del password manager (**no** commit).
 3. Desplegar o reiniciar el servicio API para que lea el nuevo valor.
 4. Smoke: una pregunta documental y una consulta tool (solo si `ASSISTANT_ENABLED=true` en ese entorno).
 5. Revocar la key anterior en el panel de OpenAI.
@@ -91,7 +91,7 @@ ASSISTANT_ENABLED=false
 - Deshabilita la feature sin rollback de imagen (cambio de config).
 - Clientes deben recibir `503` / `ASSISTANT_DISABLED` en la superficie del asistente.
 - Credenciales OpenAI ausentes **no** deben impedir el boot mientras el flag esté en `false`.
-- Re-enable en producción solo tras mitigación y gate de evaluación/aprobación del dueño.
+- Re-enable en producción solo tras mitigar y documentar el incidente. Repetir AI-010 cuando el problema afecte modelo, prompt, corpus, tools o privacidad; no constituye un gate independiente tras la aprobación del dueño del 2026-09-30.
 
 Detalle de pasos: `RUNBOOK.md` → sección Kill switch.
 
@@ -131,7 +131,7 @@ Los logs de aplicación asociados al run deben incluir IDs, modelo, latencia, to
 
 ## 6. Ideas de alertas
 
-Configurar en el stack de monitoreo (DigitalOcean + Better Stack u equivalente). Umbrales exactos: ajustar en piloto.
+Configurar en Prometheus/Grafana y Better Stack. Umbrales exactos: ajustar con métricas reales.
 
 | Alerta            | Condición sugerida                                       | Severidad   | Acción                                         |
 | ----------------- | -------------------------------------------------------- | ----------- | ---------------------------------------------- |
@@ -150,7 +150,7 @@ Alertas de plataforma existentes (CPU, memoria, health checks) siguen aplicando;
 - Retención: **90 días** (`ASSISTANT_RETENTION_DAYS`).
 - Comando: `npm run assistant:purge` (probar antes con `--dry-run`).
 - Schedule objetivo: diario ~**03:00** `America/Santo_Domingo`.
-- Fragmento App Platform: `purge.job.fragment.yaml` (debe **mergearse** en App Specs futuros; no es un spec completo).
+- Fragmento Compose: `purge.compose.fragment.yaml` (referencia documental para integrar un servicio one-shot; el scheduler del VPS dispara la ejecución diaria).
 
 ### Retención residual en backups
 
@@ -173,6 +173,6 @@ La purge elimina filas assistant en la base primaria. **Copias residuales** pued
 - `docs/assistant-ops/RUNBOOK.md`
 - `docs/assistant-ops/THREAT_MODEL.md`
 - `docs/assistant-ops/PROVIDER_PRIVACY.md`
-- `docs/assistant-ops/purge.job.fragment.yaml`
+- `docs/assistant-ops/purge.compose.fragment.yaml`
 - `docs/FEATURES/17_AI_ASSISTANT.md`
 - `docs/INFRASTRUCTURE_PLAN.md` (dependencia opcional OpenAI)
