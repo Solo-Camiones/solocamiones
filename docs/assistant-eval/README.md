@@ -1,12 +1,12 @@
 # Assistant evaluation (Feature 17 / AI-010 / M9)
 
-Dataset versionado y runner local para el gate de calidad antes de habilitar el asistente en producción.
+Dataset versionado y runner para validación continua de calidad y seguridad. Desde la decisión del dueño del 2026-09-30, AI-010 no bloquea la habilitación inicial; se ejecuta después de cambios materiales y como evidencia periódica de regresión.
 
 ## Decisiones de este paquete
 
 | Tema           | Decisión                                                                   |
 | -------------- | -------------------------------------------------------------------------- |
-| Entorno “real” | Local con OpenAI (`local-real`), no staging DO (aún sin App Specs en repo) |
+| Entorno “real” | Local o staging VPS con OpenAI y recursos exclusivos del ambiente          |
 | Exactitud ≥90% | Heurística automática + **revisión humana** del reporte real (5B)          |
 | Datos vivos    | Fixtures deterministas sembradas por el runner                             |
 | Costo          | Estimación vía `pricing.json`                                              |

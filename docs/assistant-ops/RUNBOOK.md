@@ -10,7 +10,7 @@ Guía operativa para diagnosticar fallos del asistente sin exponer secretos. Zon
 
 1. Confirmar entorno (local / staging / producción).
 2. Verificar `ASSISTANT_ENABLED` **sin** imprimir otros secretos:
-   - En App Platform: UI de variables → solo el valor booleano.
+   - En VPS: modificar únicamente el valor booleano en el archivo de environment root-owned del ambiente y recrear la API de forma controlada.
    - Local: `echo` del nombre de variable, no del resto del `.env`.
 3. Confirmar rol: solo `ADMINISTRATOR` (AI-001).
 4. Confirmar que ventas/CxC/health siguen OK (el outage del asistente no debe tumbar comercio).
@@ -182,7 +182,7 @@ npm run assistant:purge
 
 1. Correr dry-run; capturar conteos, no contenidos.
 2. Verificar `DATABASE_URL` del job (rol con DML suficiente; no usar credenciales de backup write).
-3. Confirmar que el schedule del job (~03:00 `America/Santo_Domingo`) está mergeado en el App Spec — ver `purge.job.fragment.yaml`.
+3. Confirmar que el scheduler del VPS ejecuta el servicio one-shot ~03:00 `America/Santo_Domingo` — ver `purge.compose.fragment.yaml`.
 4. Reintentar una vez; si persiste, abrir incidente (crecimiento de tablas assistant).
 
 **No hacer:** `prisma migrate reset` ni borrar tablas comerciales.
@@ -202,13 +202,13 @@ npm run assistant:purge
 
 **Pasos**
 
-1. En el entorno afectado, set `ASSISTANT_ENABLED=false` (secret/variable de App Platform).
+1. En el VPS afectado, set `ASSISTANT_ENABLED=false` en el archivo root-owned del ambiente.
 2. Redeploy o restart según cómo el runtime lea env (sin rollback de imagen si solo cambia config).
 3. Verificar: `POST/GET` assistant → `503` con razón `ASSISTANT_DISABLED`; launcher oculto o capability off.
 4. Verificar: health ready y rutas comerciales OK.
 5. Registrar incidente (qué, cuándo, `errorId`s).
 
-**Re-habilitar:** solo tras mitigación + (en producción) gate AI-010 / aprobación del dueño según proceso M9.
+**Re-habilitar:** solo tras mitigación, smoke test y registro del incidente. Repetir AI-010 cuando cambie un límite técnico relevante; el dueño ya aprobó el enablement inicial el 2026-09-30.
 
 ---
 
@@ -231,5 +231,5 @@ npm run assistant:purge
 
 - `docs/assistant-ops/THREAT_MODEL.md`
 - `docs/assistant-ops/OPERATIONS.md`
-- `docs/assistant-ops/purge.job.fragment.yaml`
+- `docs/assistant-ops/purge.compose.fragment.yaml`
 - `docs/FEATURES/17_AI_ASSISTANT.md`

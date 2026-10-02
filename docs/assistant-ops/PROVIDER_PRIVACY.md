@@ -1,10 +1,10 @@
 # Privacidad del proveedor (OpenAI) — checklist pre-producción
 
-Checklist para controles de privacidad, retención, entrenamiento, DPA y región **antes** de habilitar el asistente en producción (`ASSISTANT_ENABLED=true`).
+Checklist previo y continuo para controles de privacidad, retención, entrenamiento, DPA y región del asistente en producción (`ASSISTANT_ENABLED=true`).
 
 **Estado general:** **Confirmado por el dueño** — 2026-09-24 (`America/Santo_Domingo`).
 
-Alineado con AI-004 (minimización), AI-005 (retención propia) y AI-010 (evaluación antes de enablement).
+Alineado con AI-004 (minimización), AI-005 (retención propia) y AI-010 (evaluación continua).
 
 ---
 
@@ -16,9 +16,9 @@ Alineado con AI-004 (minimización), AI-005 (retención propia) y AI-010 (evalua
 | Quién                 | Dueño del producto (confirmación explícita en sesión de implementación M8)                                                                                                                                       |
 | Alcance               | Piloto Feature 17 / cuenta API OpenAI del proyecto                                                                                                                                                               |
 | Base                  | Política pública OpenAI API ([Data controls](https://developers.openai.com/api/docs/guides/your-data), [Business data](https://openai.com/business-data/)) + controles propios (Feature 17) + decisión del dueño |
-| Excepciones aceptadas | Ver § Residual risks abajo. **AI-010** sigue bloqueando `ASSISTANT_ENABLED=true` en producción hasta M9.                                                                                                         |
+| Excepciones aceptadas | Ver § Residual risks abajo. AI-010 se conserva como validación continua; el dueño aprobó `ASSISTANT_ENABLED=true` desde el primer día productivo el 2026-09-30.                                               |
 
-Hasta completar M9 / AI-010, el valor por defecto de despliegue permanece: **`ASSISTANT_ENABLED=false`**.
+Decisión del dueño (2026-09-30): staging y producción se despliegan con **`ASSISTANT_ENABLED=true`** desde el primer día, usando keys y vector stores separados. El kill switch permanece obligatorio.
 
 ---
 
@@ -45,7 +45,7 @@ Hasta completar M9 / AI-010, el valor por defecto de despliegue permanece: **`AS
 | 7   | **Files / vector store**         | ¿Retención/borrado del corpus conocida?                           | **Confirmado**                                | Files/vector store: retención de application state **until deleted**. Operación: sync explícito, reemplazo de store y recovery en `OPERATIONS.md`. No hay indexación automática en restart.                                                                                                                                                                                  |
 | 8   | **Incident response**            | ¿Proceso si el proveedor reporta incidente?                       | **Confirmado**                                | Kill switch inmediato (`ASSISTANT_ENABLED=false`); seguir `RUNBOOK.md` (outage/privacidad); contactar soporte/trust de OpenAI con la org ID del proyecto; notificar al dueño.                                                                                                                                                                                                |
 | 9   | **Minimización verificada**      | ¿AI-004 (campos prohibidos) verificado?                           | **Confirmado (técnico)**                      | Tests unitarios/integración de tools con `ASSISTANT_FORBIDDEN_OUTPUT_KEYS`; allowlist en proyecciones. Walkthrough staging completo queda en M9.                                                                                                                                                                                                                             |
-| 10  | **Enablement**                   | ¿Checklist + AI-010 antes de prod on?                             | **Confirmado checklist; AI-010 pendiente M9** | Privacidad proveedor **sí** confirmada. **No** habilitar producción hasta pasar evaluación AI-010 (M9).                                                                                                                                                                                                                                                                      |
+| 10  | **Enablement**                   | ¿Cómo se autoriza y controla prod on?                             | **Aprobado por el dueño 2026-09-30**           | Habilitado desde el primer día para Administrator. AI-010 continúa como validación periódica y el kill switch responde a incidentes críticos.                                                                                                                                                                                                                                 |
 
 ---
 
@@ -54,7 +54,7 @@ Hasta completar M9 / AI-010, el valor por defecto de despliegue permanece: **`AS
 1. **Sin ZDR org-level:** prompts/completions del Responses path pueden entrar en abuse-monitoring logs hasta 30 días (política default OpenAI).
 2. **Vector store / files:** no cubiertos por ZDR; el corpus indexado permanece en OpenAI hasta sync/remove/replace.
 3. **Excepciones legales/safety** (p. ej. CSAM): retención/revisión según ley y políticas OpenAI, incluso bajo ZDR.
-4. **Enablement producción** sigue gated por M9 / AI-010.
+4. **Enablement producción** fue aprobado por el dueño; M9 / AI-010 continúa como control de regresión.
 
 Si más adelante se aprueba **Zero Data Retention** (o Modified Abuse Monitoring) para la org/proyecto, actualizar esta sección con fecha, org/project ID (no secrets) y captura/ticket de Data controls.
 
@@ -63,7 +63,7 @@ Si más adelante se aprueba **Zero Data Retention** (o Modified Abuse Monitoring
 ## Lo que este checklist no cubre
 
 - Controles **propios** de Solo Camiones: ver `THREAT_MODEL.md` y `OPERATIONS.md`.
-- Calidad de respuestas / umbrales de evaluación: gate AI-010 / milestone M9.
+- Calidad de respuestas / umbrales de evaluación: validación continua AI-010 / milestone M9.
 
 ---
 

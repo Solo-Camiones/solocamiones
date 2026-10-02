@@ -62,8 +62,13 @@ describe('ProfitabilityPage', () => {
     const user = userEvent.setup();
     renderWithProviders(<ProfitabilityPage />, { route: '/profitability' });
     await screen.findByLabelText('Período');
-    // Seed invoices are dated August 2026; previous month stays stable as the calendar advances.
-    await chooseSelectOption(user, 'Período', 'Mes anterior');
+    // Seed invoices are dated August 2026; use a fixed custom range so KPIs stay stable
+    // when "previous month" rolls past that seed month.
+    await chooseSelectOption(user, 'Período', 'Rango personalizado');
+    await user.clear(screen.getByLabelText('Desde'));
+    await user.type(screen.getByLabelText('Desde'), '2026-08-01');
+    await user.clear(screen.getByLabelText('Hasta'));
+    await user.type(screen.getByLabelText('Hasta'), '2026-08-31');
 
     expect(await screen.findByText('Ventas al contado')).toBeVisible();
     expect(screen.getByText('Ventas a crédito')).toBeVisible();

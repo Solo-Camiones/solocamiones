@@ -13,11 +13,11 @@ Milestones **M0–M8** cerrados. El trabajo de producto en código (API, persist
 1. Suites/gates de validación de rama (`M9-T18`–`M9-T21`: `test`, `build`, `format:check`, revisión de diff/migración).
 2. Abrir/revisar el PR con alcance acotado al asistente.
 
-**Fuera del PR / post-merge** (no bloquean cerrar la implementación de código; se siguen en `docs/assistant-eval/ROLLOUT_CHECKLIST.md` y Feature 17 `AI-010`):
+**Fuera del PR / operación continua** (no bloquean cerrar la implementación ni el enablement inicial aprobado; se siguen en `docs/assistant-eval/ROLLOUT_CHECKLIST.md` y Feature 17 `AI-010`):
 
 - Revalidar y congelar baseline de evaluación (`M9-T07`, `M9-T24`).
 - Staging enablement (`M9-T08`–`M9-T14`).
-- Rollout producción con flag y monitoreo (`M9-T25`–`M9-T27`).
+- Validación productiva con flag, kill switch y monitoreo (`M9-T25`–`M9-T27`).
 
 ## 1. Propósito y alcance
 
@@ -36,7 +36,7 @@ No indexará transacciones en vectores, no tendrá herramientas de escritura y n
 
 | Área         | Decisión                                                                     |
 | ------------ | ---------------------------------------------------------------------------- |
-| Entrega      | Piloto posterior a la estabilización actual; no bloquea el primer despliegue |
+| Entrega      | Habilitado para Administrator desde el primer día productivo (decisión 2026-09-30) |
 | Usuarios     | Solo `ADMINISTRATOR`                                                         |
 | Operaciones  | Solo lectura; crear/eliminar conversaciones sí está permitido                |
 | Conocimiento | Base documental curada + datos comerciales vivos                             |
@@ -62,11 +62,11 @@ No indexará transacciones en vectores, no tendrá herramientas de escritura y n
 
 ### Estado deseado (piloto)
 
-Un Administrator podrá preguntar cómo operar el sistema o consultar datos comerciales. Cada respuesta deberá incluir evidencia, indicar frescura de datos, respetar permisos, reconocer evidencia insuficiente y evitar presentar prototipos como funcionalidad disponible. Habilitación en staging/prod sigue gated por `AI-010` y `ROLLOUT_CHECKLIST.md`.
+Un Administrator podrá preguntar cómo operar el sistema o consultar datos comerciales. Cada respuesta deberá incluir evidencia, indicar frescura de datos, respetar permisos, reconocer evidencia insuficiente y evitar presentar prototipos como funcionalidad disponible. AI-010 y `ROLLOUT_CHECKLIST.md` continúan como validación operativa, no como gate de habilitación.
 
 ### Brecha restante
 
-Ninguna de implementación de código para v1. Pendiente solo: validación de rama para PR; luego baseline AI-010 + enablement controlado post-merge.
+Ninguna de implementación de código. Pendiente: validación de rama, infraestructura VPS, baseline continua y enablement operativo aprobado.
 
 ## 4. Arquitectura objetivo
 
@@ -242,7 +242,7 @@ El repository tendrá `createConversation`, `listConversations`, `listMessages`,
 - [x] `M0-T08` Definir `AI-007` rechazo de mocks/futuro.
 - [x] `M0-T09` Definir `AI-008` degradación segura ante outage.
 - [x] `M0-T10` Definir `AI-009` corpus aprobado y sincronización.
-- [x] `M0-T11` Definir `AI-010` evaluación obligatoria antes de producción.
+- [x] `M0-T11` Definir `AI-010`; decisión posterior del dueño (2026-09-30) lo convierte de gate previo en validación continua.
 - [x] `M0-T12` Documentar preguntas soportadas/no soportadas.
 - [x] `M0-T13` Crear matriz de campos permitidos/prohibidos por tool.
 - [x] `M0-T14` Actualizar índice de features y Development Plan.
@@ -600,8 +600,8 @@ Notas de implementación (decisiones del dueño 2026-09-24):
 
 - Límite global de emergencia `ASSISTANT_GLOBAL_DAILY_MESSAGE_LIMIT` default **100** (mismo business day que la cuota por usuario).
 - Métricas con `@prometheus-io/client`; scrape `GET /metrics` solo con `METRICS_BEARER_TOKEN` (404 si ausente).
-- Ops docs en `docs/assistant-ops/` (threat model, runbook, provider privacy pendiente dueño, operations, fragmento job purge).
-- Sync sigue siendo CLI explícito; purge diario documentado como fragmento DO (App Specs aún no en repo).
+- Ops docs en `docs/assistant-ops/` (threat model, runbook, provider privacy, operations y programación de purge para VPS).
+- Sync sigue siendo CLI explícito; purge diario se integra al scheduler/Compose de cada VPS.
 
 ### Tareas
 
@@ -613,12 +613,12 @@ Notas de implementación (decisiones del dueño 2026-09-24):
 - [x] `M8-T06` Añadir límite global de emergencia además del límite por usuario.
 - [x] `M8-T07` Verificar sanitización Markdown/source labels/appPaths. _(regresión M7)_
 - [x] `M8-T08` Ejecutar dependency/security scan. _(`npm audit --audit-level=high` → 0)_
-- [x] `M8-T09` Revisar controles de privacidad/retención del proveedor antes de producción. _(confirmado dueño 2026-09-24; residual vector store / abuse logs 30d documentado; AI-010 sigue bloqueando enablement prod)_
+- [x] `M8-T09` Revisar controles de privacidad/retención del proveedor antes de producción. _(confirmado dueño 2026-09-24; residual vector store / abuse logs 30d documentado)_
 - [x] `M8-T10` Definir logs por run: IDs, modelo, latencia, tokens, tools, status y errorCode.
 - [x] `M8-T11` Definir métricas: éxito, TTFT, latencia, tokens, errores, cuota y tool usage.
-- [x] `M8-T12` Crear alertas para 5xx, timeout, 429, cuota y sync fallido. _(umbrales documentados en ops; cableado Better Stack/DO pendiente App Spec)_
+- [x] `M8-T12` Crear alertas para 5xx, timeout, 429, cuota y sync fallido. _(umbrales documentados en ops; cableado Better Stack/Prometheus pendiente infraestructura VPS)_
 - [x] `M8-T13` Mantener readiness independiente.
-- [x] `M8-T14` Programar purga diaria. _(fragmento job + runbook; merge a App Spec futuro)_
+- [x] `M8-T14` Definir purga diaria. _(runbook y unidad futura de scheduler VPS; cableado de infraestructura pendiente)_
 - [x] `M8-T15` Mantener sync como operación explícita, no en cada restart.
 - [x] `M8-T16` Documentar rotación de key, creación/reemplazo de vector store y recuperación.
 - [x] `M8-T17` Documentar feature kill switch.
@@ -635,16 +635,16 @@ Notas de implementación (decisiones del dueño 2026-09-24):
 
 **Objetivo:** demostrar calidad/costo y habilitar el piloto con rollback inmediato.
 
-**Estado:** Implementación de código **terminada** (2026-09-28). Harness, dataset, docs de eval/ops y gates parciales de cierre ya existen. **Siguiente paso de repo: dejar la rama ready para PR** (`M9-T18`–`M9-T21`). Staging/prod y congelado AI-010 siguen en `ROLLOUT_CHECKLIST.md` (post-merge; no son trabajo de implementación pendiente).
+**Estado:** Implementación de código **terminada** (2026-09-28). Harness, dataset y docs de eval/ops existen. **Siguiente paso de repo: dejar la rama ready para PR** (`M9-T18`–`M9-T21`) e implementar la infraestructura VPS. Staging/producción y baseline continua se siguen en `ROLLOUT_CHECKLIST.md`; por decisión del dueño (2026-09-30), AI-010 no bloquea el enablement inicial.
 
 Notas:
 
 - Dataset: `docs/assistant-eval/dataset/v1/cases.json` (15 doc / 12 live / 5 hybrid / 7 adversarial).
 - Runner: `npm run assistant:eval -w @solocamiones/api -- --mode=fake|real`.
 - Exactitud ≥90%: campo `humanAccuracyReview` en el reporte (no exit code).
-- “Real” = local-real OpenAI hasta existir staging DO.
+- “Real” = local-real OpenAI o staging VPS cuando esté disponible.
 - Rollout dueño: `docs/assistant-eval/ROLLOUT_CHECKLIST.md`.
-- Baseline del 2026-09-24 quedó superseded por hardening 2026-09-25; revalidar fake + local-real + revisión humana **antes de enablement**, no como requisito para abrir el PR con flag apagado.
+- Baseline del 2026-09-24 quedó superseded por hardening 2026-09-25; revalidar fake + real + revisión humana como control continuo y después de cambios materiales. No bloquea el enablement inicial aprobado.
 
 ### Tareas de evaluación
 
@@ -654,11 +654,11 @@ Notas:
 - [x] `M9-T04` Crear runner con modo fake y staging real. _(local-fake / local-real)_
 - [x] `M9-T05` Medir precision@5, exactitud (heurística + humana), evidencia, rechazos, PII, TTFT, latencia, tokens y costo.
 - [x] `M9-T06` Corregir primero corpus/tools; ajustar prompt solo si corresponde. _(scorer negation + tool routing + prompt v1.2; 2026-09-24)_
-- [ ] `M9-T07` Congelar prompt version y corpus version aprobados. _(post-PR / pre-enablement; baseline anterior superseded)_
+- [ ] `M9-T07` Registrar prompt version y corpus version evaluados. _(baseline anterior superseded; validación continua)_
 
 ### Tareas de staging _(post-merge; ver `ROLLOUT_CHECKLIST.md`)_
 
-- [ ] `M9-T08` Desplegar inicialmente con flag apagado.
+- [ ] `M9-T08` Desplegar con configuración exclusiva de staging y kill switch disponible.
 - [ ] `M9-T09` Aplicar migración y verificar índices.
 - [ ] `M9-T10` Sincronizar corpus aprobado.
 - [ ] `M9-T11` Habilitar para cuenta Administrator de prueba.
@@ -666,7 +666,7 @@ Notas:
 - [ ] `M9-T13` Probar outage, 429, timeout, abort, cuota y purga.
 - [ ] `M9-T14` Obtener aprobación del dueño.
 
-### Umbrales obligatorios
+### Umbrales de calidad y seguridad
 
 - 100% de respuestas factuales con evidencia.
 - 0 campos prohibidos.
@@ -689,11 +689,11 @@ Notas:
 - [x] `M9-T22` Actualizar `docs/TESTING.md` y snapshot de Development Plan.
 - [x] `M9-T23` Marcar checklist Feature 17 solo con implementación + pruebas. _(parcial: eval harness; no prod on)_
 
-### Tareas de cierre — enablement _(post-PR; no bloquean marcar implementación terminada)_
+### Tareas operativas de enablement _(post-PR; no constituyen un gate previo por decisión del dueño)_
 
-- [ ] `M9-T24` Registrar modelo, prompt, corpus y límites desplegados. _(baseline 2026-09-24 superseded; congelar nueva pre-enablement)_
-- [ ] `M9-T25` Desplegar producción con flag apagado y ejecutar smoke tests.
-- [ ] `M9-T26` Habilitar solo para Administrator.
+- [ ] `M9-T24` Registrar modelo, prompt, corpus y límites desplegados. _(baseline 2026-09-24 superseded; registrar nueva baseline continua)_
+- [ ] `M9-T25` Desplegar producción con recursos exclusivos, flag encendido y ejecutar smoke tests.
+- [x] `M9-T26` Aprobación del dueño para habilitar solo a Administrator. _(2026-09-30)_
 - [ ] `M9-T27` Monitorear 24/72 horas y apagar ante exposición o respuesta sin evidencia.
 
 ### Definición de terminado
@@ -702,7 +702,7 @@ Notas:
 
 **Ready para PR:** suites completas de rama (`M9-T18`–`M9-T21`) + revisión de alcance.
 
-**Piloto habilitado (AI-010):** corpus sincronizado en el entorno, baseline congelada, runbook/alertas/purga/kill switch verificados en staging, aprobación del dueño registrada.
+**Operación habilitada:** corpus sincronizado, runbook/alertas/purga/kill switch verificados, aprobación del dueño registrada. La baseline se mantiene como evidencia continua y no bloquea el flag inicial.
 
 ## 8. Mapa probable de archivos
 
@@ -774,7 +774,7 @@ Notas:
 7. ~~Ejecutar hardening/operación M8.~~
 8. ~~Entregar harness/docs de M9 en código.~~
 9. **Ahora:** validar rama (`test` / `build` / `format:check` / revisión de diff) y abrir PR.
-10. Después del merge: baseline AI-010 + staging/prod según `docs/assistant-eval/ROLLOUT_CHECKLIST.md`.
+10. Después del merge: infraestructura VPS, validación AI-010 continua y staging/producción según `docs/assistant-eval/ROLLOUT_CHECKLIST.md`.
 
 ---
 

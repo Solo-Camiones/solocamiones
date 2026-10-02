@@ -1,6 +1,6 @@
-# Baseline histórica — revalidación requerida (AI-010 / M9-T07)
+# Baseline histórica — revalidación continua (AI-010 / M9-T07)
 
-La baseline del 2026-09-24 queda **superseded** por el hardening del 2026-09-25: minimización server-side de prompt/history/RAG/tool context y reemplazo del gate de conteos netos por fingerprints de todas las tablas comerciales relevantes. Los resultados siguientes se conservan como evidencia histórica, pero ya no autorizan rollout hasta repetir fake + local-real y la revisión humana sobre el código corregido.
+La baseline del 2026-09-24 queda **superseded** por el hardening del 2026-09-25: minimización server-side de prompt/history/RAG/tool context y reemplazo del control de conteos netos por fingerprints de todas las tablas comerciales relevantes. Los resultados siguientes se conservan como evidencia histórica. Deben repetirse fake + real y la revisión humana para establecer una baseline vigente, pero por decisión del dueño (2026-09-30) esa repetición no bloquea el enablement inicial.
 
 | Campo                      | Valor                                                                                                                                                                                                                                                                                             |
 | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -14,11 +14,11 @@ La baseline del 2026-09-24 queda **superseded** por el hardening del 2026-09-25:
 | Reporte real histórico     | `docs/assistant-eval/reports/report-2026-09-25T01-19-46-067Z.json` (hard gates PASS con el gate anterior; heurística 17/39; ~USD 0.054; gitignored)                                                                                                                                               |
 | Exactitud humana histórica | approved (≥90%, decision 5B) sobre el reporte real superseded                                                                                                                                                                                                                                     |
 | Hard gates real históricos | evidencia 100%; PII/mutaciones/forbidden 0; adversarial 100%; precision@5 doc 95%; P95 TTFT 4938 ms (&lt; 8000)                                                                                                                                                                                   |
-| Notas                      | El runner corregido tiene pruebas unitarias e integración PostgreSQL de fingerprints. La CLI fake no pudo reejecutarse en esta sesión por `uv_os_get_passwd ENOMEM` del runtime `tsx`; local-real no se ejecutó para evitar costo externo sin una baseline fake nueva. Piloto prod sigue apagado. |
+| Notas                      | El runner corregido tiene pruebas unitarias e integración PostgreSQL de fingerprints. La CLI fake no pudo reejecutarse en esa sesión por `uv_os_get_passwd ENOMEM` del runtime `tsx`; local-real no se ejecutó para evitar costo externo sin una baseline fake nueva. El dueño aprobó enablement inicial el 2026-09-30; esta baseline sigue siendo histórica. |
 
-## Condiciones para congelar la nueva baseline
+## Condiciones para registrar la nueva baseline
 
 1. [ ] `assistant:eval --mode=fake` → hard gates PASS con minimización y fingerprints
 2. [ ] `assistant:eval --mode=real` → hard gates PASS (P95 TTFT local-real)
 3. [ ] Revisión humana de exactitud ≥90% sobre el nuevo reporte real (decision 5B)
-4. [ ] Aprobación del dueño para **habilitar** el piloto en el entorno desplegado (ver `ROLLOUT_CHECKLIST.md` M9-T14 / T26)
+4. [x] Aprobación del dueño para habilitar desde el primer día productivo (2026-09-30); la revisión humana pendiente se registra como control continuo, no como gate

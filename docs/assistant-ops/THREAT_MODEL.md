@@ -38,9 +38,9 @@ Modelo de amenazas para el asistente híbrido RAG (milestones M8). Alineado con 
 
 | Amenaza                          | Impacto                               | Mitigación prevista                                                            |
 | -------------------------------- | ------------------------------------- | ------------------------------------------------------------------------------ |
-| Key en código, imagen o frontend | Uso no autorizado y costo             | Solo secretos de entorno/App Platform; nunca `VITE_*`                          |
+| Key en código, imagen o frontend | Uso no autorizado y costo             | Solo archivos `0600` fuera del repo + password manager; nunca `VITE_*`         |
 | Key en logs o errores de cliente | Filtración                            | Errores tipados/`errorId`; sin stack ni mensaje crudo del proveedor al cliente |
-| Key válida con feature apagada   | Uso accidental vía sync mal ejecutado | `ASSISTANT_ENABLED=false` por defecto; sync es CLI explícito, no arranque      |
+| Key válida fuera del runtime esperado | Uso accidental vía sync mal ejecutado | Credencial exclusiva por ambiente; sync es CLI explícito, no arranque        |
 
 **Kill switch:** `ASSISTANT_ENABLED=false` deshabilita la superficie HTTP del asistente sin rollback de la app.
 

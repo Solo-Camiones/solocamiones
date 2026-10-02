@@ -2,9 +2,9 @@
 
 Documentación de **seguridad y operaciones** del asistente híbrido RAG (milestone M8).
 
-La especificación de producto sigue siendo `docs/FEATURES/17_AI_ASSISTANT.md`. El plan técnico de secuencia vive en `docs/chatbot_implementation/IMPLEMENTATION_PLAN.md`. Este directorio no sustituye esos documentos: describe amenazas, runbook, privacidad del proveedor, operación diaria y un fragmento de job de purge.
+La especificación de producto sigue siendo `docs/FEATURES/17_AI_ASSISTANT.md`. El plan técnico de secuencia vive en `docs/chatbot_implementation/IMPLEMENTATION_PLAN.md`. Este directorio no sustituye esos documentos: describe amenazas, runbook, privacidad del proveedor, operación diaria y un fragmento Compose para la purga.
 
-**Estado de privacidad OpenAI:** ver `PROVIDER_PRIVACY.md` — **Confirmado por el dueño (2026-09-24)**; AI-010 / M9 sigue bloqueando enablement en producción.
+**Estado de privacidad OpenAI:** ver `PROVIDER_PRIVACY.md` — **Confirmado por el dueño (2026-09-24)**. El dueño aprobó habilitación desde el primer día productivo el 2026-09-30; AI-010 permanece como validación continua, no como gate.
 
 ---
 
@@ -16,7 +16,7 @@ La especificación de producto sigue siendo `docs/FEATURES/17_AI_ASSISTANT.md`. 
 | [RUNBOOK.md](./RUNBOOK.md)                           | Diagnóstico: 401/403, 429, timeout, outage OpenAI, sync, purge, kill switch                 |
 | [PROVIDER_PRIVACY.md](./PROVIDER_PRIVACY.md)         | Checklist pre-producción OpenAI (retention/training/DPA/región)                             |
 | [OPERATIONS.md](./OPERATIONS.md)                     | Rotación de key, vector store, recovery, métricas, alertas, purga, sync explícito           |
-| [purge.job.fragment.yaml](./purge.job.fragment.yaml) | Fragmento App Platform para `npm run assistant:purge` diario ~03:00 `America/Santo_Domingo` |
+| [purge.compose.fragment.yaml](./purge.compose.fragment.yaml) | Fragmento documental de servicio one-shot para integrar la purga al Compose/scheduler VPS |
 
 ---
 
