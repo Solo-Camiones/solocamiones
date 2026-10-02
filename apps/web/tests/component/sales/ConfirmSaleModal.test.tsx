@@ -6,6 +6,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import type { PosDraftView } from '../../../src/api/contracts/sales';
 import { ConfirmSaleModal } from '../../../src/features/sales/ConfirmSaleModal';
+import { businessDateString } from '../../../src/shared/domain/business-date';
 import { createAuthValue, renderWithProviders } from '../../support/render';
 import '../../support/dom';
 
@@ -160,16 +161,19 @@ describe('ConfirmSaleModal', () => {
 
     expect(screen.getByText(/Documento no fiscal/)).toBeVisible();
     const dialog = screen.getByRole('dialog', { name: 'Emitir conduce' });
+    // CON-002: dueDate must be on or after the emission business day — use today so the
+    // assertion stays valid as the calendar advances.
+    const dueDate = businessDateString(new Date());
     await user.click(screen.getByLabelText('Pago inicial'));
     await user.clear(screen.getByLabelText('Monto'));
     await user.type(screen.getByLabelText('Monto'), '40');
-    await user.type(screen.getByLabelText('Fecha de vencimiento'), '2026-09-30');
+    await user.type(screen.getByLabelText('Fecha de vencimiento'), dueDate);
     await user.click(within(dialog).getByRole('button', { name: 'Emitir conduce' }));
 
     expect(onConfirm).toHaveBeenCalledWith(
       expect.objectContaining({
         payment: expect.objectContaining({ amount: 40 }),
-        dueDate: '2026-09-30',
+        dueDate,
       }),
     );
   });

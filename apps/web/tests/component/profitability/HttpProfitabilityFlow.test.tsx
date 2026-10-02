@@ -10,10 +10,18 @@ vi.hoisted(() => vi.stubEnv('VITE_USE_MOCK_API', 'false'));
 import { router as appRouter } from '../../../src/router';
 import { AuthProvider } from '../../../src/features/auth/AuthContext';
 import { CapabilitiesProvider } from '../../../src/shared/config/CapabilitiesProvider';
+import { businessDateString } from '../../../src/shared/domain/business-date';
 import { ToastProvider, Toaster, money } from '../../../src/shared/ui';
 import type { Role } from '../../../src/api/contracts/entities';
 import { chooseSelectOption } from '../../support/select-menu';
 import '../../support/dom';
+
+/** Calendar day `YYYY-MM-DD` offset from the business timezone "today". */
+function businessDayOffset(days: number): string {
+  const [year, month, day] = businessDateString(new Date()).split('-').map(Number);
+  const utc = new Date(Date.UTC(year, month - 1, day + days));
+  return utc.toISOString().slice(0, 10);
+}
 
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status });
 
@@ -66,6 +74,10 @@ let fetchMock: ReturnType<typeof vi.fn>;
 
 beforeEach(() => {
   role = 'ADMINISTRATOR';
+  // Keep fixture days inside the "30 días" window regardless of wall-clock date.
+  // T16:00Z maps to the same calendar day in America/Santo_Domingo.
+  const inWindowDay = businessDayOffset(-5);
+  const inWindowAt = `${inWindowDay}T16:00:00.000Z`;
   invoices = [
     {
       id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
@@ -73,10 +85,10 @@ beforeEach(() => {
       number: 'FAC-000001',
       currency: 'DOP',
       customer,
-      confirmedAt: '2026-09-01T16:00:00.000Z',
+      confirmedAt: inWindowAt,
       saleCondition: 'CASH',
       totals: { gross: '18000.00', base: '18000.00', itbis: '0.00' },
-      payments: [{ kind: 'PAYMENT', amount: '18000.00', method: 'CASH', effectiveDate: '2026-09-01' }],
+      payments: [{ kind: 'PAYMENT', amount: '18000.00', method: 'CASH', effectiveDate: inWindowDay }],
       profitability: {
         status: 'CALCULATED',
         reason: null,
@@ -90,7 +102,7 @@ beforeEach(() => {
       number: 'FAC-000002',
       currency: 'USD',
       customer,
-      confirmedAt: '2026-09-01T16:00:00.000Z',
+      confirmedAt: inWindowAt,
       saleCondition: 'CREDIT',
       totals: { gross: '1200.00', base: '1200.00', itbis: '0.00' },
       payments: [],
@@ -107,7 +119,7 @@ beforeEach(() => {
       number: 'FAC-000003',
       currency: 'DOP',
       customer,
-      confirmedAt: '2026-09-01T16:00:00.000Z',
+      confirmedAt: inWindowAt,
       saleCondition: 'CREDIT',
       totals: { gross: '2000.00', base: '2000.00', itbis: '0.00' },
       payments: [],
