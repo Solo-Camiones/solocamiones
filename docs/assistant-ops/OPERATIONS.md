@@ -108,9 +108,12 @@ Authorization: Bearer <METRICS_BEARER_TOKEN>
 
 **Uso**
 
-- Scraping desde el sistema de monitoreo (p. ej. Better Stack / exporter interno).
-- **No** exponer en el edge público de Cloudflare sin el secreto; **no** poner el token en el frontend.
+- Scraping desde Prometheus en la red Docker/`monitoring` o vía Tailscale (M4).
+- En staging/production, `GET /metrics` está **exento** de Cloudflare Access y de `ALLOWED_HOSTS` para permitir scrape interno; sigue exigiendo bearer.
+- **No** publicar `/metrics` en el Nginx edge; **no** poner el token en el frontend.
 - Readiness (`/api/health/ready`) permanece independiente de OpenAI y de este endpoint.
+- Series HTTP adicionales (M4.1): `http_requests_total`, `http_request_duration_seconds`, `http_rate_limit_rejections_total`.
+- Operación del stack: `infra/vps/docs/OBSERVABILITY.md`.
 
 **Series del asistente**
 

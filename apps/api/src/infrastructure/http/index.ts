@@ -2,6 +2,7 @@ export { createAllowedHostsMiddleware } from './allowed-hosts.js';
 export {
   CF_ACCESS_JWT_HEADER,
   createCloudflareAccessMiddleware,
+  isMetricsScrapePath,
   verifyCloudflareAccessJwt,
 } from './cloudflare-access.js';
 export type {

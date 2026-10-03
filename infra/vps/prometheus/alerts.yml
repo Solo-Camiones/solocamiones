@@ -1,0 +1,170 @@
+# Initial alert thresholds from deployment_plan §13.2 (M4.4).
+# Tune after real baseline metrics; avoid paging on a single spike.
+
+groups:
+  - name: solocamiones.resources
+    rules:
+      - alert: HostDiskCritical
+        expr: (1 - (node_filesystem_avail_bytes{fstype!~"tmpfs|overlay"} / node_filesystem_size_bytes{fstype!~"tmpfs|overlay"})) * 100 > 85
+        for: 10m
+        labels:
+          severity: critical
+        annotations:
+          summary: 'Disk usage above 85% on {{ $labels.instance }}'
+          runbook: 'infra/vps/docs/PLATFORM_RUNBOOK.md#disco'
+
+      - alert: HostDiskWarning
+        expr: (1 - (node_filesystem_avail_bytes{fstype!~"tmpfs|overlay"} / node_filesystem_size_bytes{fstype!~"tmpfs|overlay"})) * 100 > 75
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: 'Disk usage above 75% on {{ $labels.instance }}'
+          runbook: 'infra/vps/docs/PLATFORM_RUNBOOK.md#disco'
+
+      - alert: HostMemoryCritical
+        expr: (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100 > 90
+        for: 10m
+        labels:
+          severity: critical
+        annotations:
+          summary: 'Memory usage above 90% on {{ $labels.instance }}'
+          runbook: 'infra/vps/docs/PLATFORM_RUNBOOK.md#memoria-cpu'
+
+      - alert: HostMemoryWarning
+        expr: (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100 > 80
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: 'Memory usage above 80% on {{ $labels.instance }}'
+          runbook: 'infra/vps/docs/PLATFORM_RUNBOOK.md#memoria-cpu'
+
+      - alert: HostCpuWarning
+        expr: 100 - (avg by (instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 80
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: 'CPU usage above 80% on {{ $labels.instance }}'
+          runbook: 'infra/vps/docs/PLATFORM_RUNBOOK.md#memoria-cpu'
+
+  - name: solocamiones.database
+    rules:
+      - alert: PostgresDown
+        expr: up{job=~"postgres|production-postgres"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: 'PostgreSQL exporter/target down ({{ $labels.job }})'
+          runbook: 'infra/vps/docs/PLATFORM_RUNBOOK.md#base-de-datos'
+
+      - alert: PostgresConnectionsWarning
+        expr: sum by (env) (pg_stat_activity_count) / sum by (env) (pg_settings_max_connections) * 100 > 70
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: 'PostgreSQL connections above 70% (env={{ $labels.env }})'
+          runbook: 'infra/vps/docs/PLATFORM_RUNBOOK.md#base-de-datos'
+
+  - name: solocamiones.api
+    rules:
+      - alert: ApiDown
+        expr: up{job=~"api|production-api"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: 'API scrape target down ({{ $labels.job }})'
+          runbook: 'infra/vps/docs/PLATFORM_RUNBOOK.md#api-health'
+
+      - alert: ApiHttp5xxCritical
+        expr: sum by (env) (rate(http_requests_total{status_class="5xx"}[5m])) / clamp_min(sum by (env) (rate(http_requests_total[5m])), 0.001) > 0.05
+        for: 10m
+        labels:
+          severity: critical
+        annotations:
+          summary: 'Sustained HTTP 5xx ratio above 5% (env={{ $labels.env }})'
+          runbook: 'infra/vps/docs/PLATFORM_RUNBOOK.md#api-5xx'
+
+      - alert: ApiLatencyP95Warning
+        expr: histogram_quantile(0.95, sum by (env, le) (rate(http_request_duration_seconds_bucket{route_group!="metrics"}[5m]))) > 1
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: 'API p95 latency above 1s (env={{ $labels.env }})'
+          runbook: 'infra/vps/docs/PLATFORM_RUNBOOK.md#api-latencia'
+
+  - name: solocamiones.assistant
+    rules:
+      - alert: AssistantErrorsHigh
+        expr: sum by (env) (rate(assistant_errors_total[10m])) > 0.1
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: 'Elevated Assistant error rate (env={{ $labels.env }})'
+          runbook: 'docs/assistant-ops/RUNBOOK.md'
+
+      - alert: AssistantQuotaRejections
+        expr: sum by (env) (increase(assistant_quota_rejections_total[30m])) > 20
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: 'Assistant quota rejections elevated (env={{ $labels.env }})'
+          runbook: 'docs/assistant-ops/RUNBOOK.md#429--rate-limit-y-cuotas-diarias'
+
+      - alert: AssistantKnowledgeSyncFailures
+        expr: increase(assistant_knowledge_sync_failures_total[30m]) > 0
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: 'Assistant knowledge sync failure detected'
+          runbook: 'docs/assistant-ops/RUNBOOK.md'
+
+  - name: solocamiones.backup
+    rules:
+      - alert: BackupFailed
+        expr: solocamiones_backup_last_status == 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: 'Last backup reported failure (env={{ $labels.app_env }})'
+          runbook: 'infra/vps/docs/PLATFORM_RUNBOOK.md#backup'
+
+      - alert: BackupTooOld
+        # Critical when no successful backup within 90 minutes (plan: 75–90 min).
+        expr: (time() - solocamiones_backup_last_success_timestamp_seconds) > 5400 and solocamiones_backup_last_success_timestamp_seconds > 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: 'No successful backup within 90 minutes (env={{ $labels.app_env }})'
+          runbook: 'infra/vps/docs/PLATFORM_RUNBOOK.md#backup'
+
+      - alert: BackupNeverSucceeded
+        expr: solocamiones_backup_last_success_timestamp_seconds == 0 and solocamiones_backup_last_finish_timestamp_seconds > 0
+        for: 15m
+        labels:
+          severity: critical
+        annotations:
+          summary: 'Backup has finished but never succeeded (env={{ $labels.app_env }})'
+          runbook: 'infra/vps/docs/PLATFORM_RUNBOOK.md#backup'
+
+  - name: solocamiones.deploy
+    rules:
+      # Until M5 wires deploy webhooks, treat prolonged API absence after scrape loss as deploy/runtime failure.
+      - alert: DeployOrRuntimeApiAbsent
+        expr: up{job="api"} == 0
+        for: 10m
+        labels:
+          severity: critical
+        annotations:
+          summary: 'API unreachable for 10m — check deploy/migration/rollback'
+          runbook: 'infra/vps/docs/PLATFORM_RUNBOOK.md#deploy-rollback'

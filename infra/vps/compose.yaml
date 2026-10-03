@@ -4,7 +4,8 @@
 #
 # Scope M2 critical path: edge, web, api, db, migrate.
 # M3 adds: bootstrap-db, backup, verify-restore, assistant-purge (+ systemd timers).
-# M4 adds: exporters / prometheus / grafana (profile observability).
+# M4 adds: postgres-exporter (always), node-exporter (profile host-metrics),
+#          prometheus/grafana (profile observability), vector (profile logs).
 #
 # Images must be digests in real deploys (set API_IMAGE / WEB_IMAGE).
 # Local smoke may build from Dockerfiles via the optional build contexts below.
@@ -119,15 +120,20 @@ services:
       ASSISTANT_REQUEST_TIMEOUT_MS: ${ASSISTANT_REQUEST_TIMEOUT_MS:-45000}
     expose:
       - '3000'
+    # Optional host publish for Tailscale scrape of GET /metrics (production → staging Prometheus).
+    # Default binds loopback only. Set METRICS_SCRAPE_BIND to the Tailscale IP on production; never 0.0.0.0.
+    ports:
+      - '${METRICS_SCRAPE_BIND:-127.0.0.1}:3000:3000'
     networks:
       - application
       - database
+      - monitoring
     depends_on:
       db:
         condition: service_healthy
     # HTTP /api/health/* requires Cloudflare Access JWT in staging/production (M1).
     # Container probes therefore only check that the process accepts TCP on PORT.
-    # External readiness (Better Stack / smoke with Access) is validated in later milestones.
+    # External readiness: Better Stack via Cloudflare Access service token (M4.3 / M6).
     healthcheck:
       test:
         [
@@ -266,9 +272,11 @@ services:
       BACKUP_RETENTION_HOURLY_HOURS: ${BACKUP_RETENTION_HOURLY_HOURS:-48}
       BACKUP_RETENTION_DAILY_DAYS: ${BACKUP_RETENTION_DAILY_DAYS:-30}
       BACKUP_RETENTION_MONTHLY_MONTHS: ${BACKUP_RETENTION_MONTHLY_MONTHS:-12}
+      BACKUP_METRICS_DIR: /var/lib/node_exporter/textfile
     volumes:
       - ../../scripts/deployment/backup-postgres.sh:/scripts/backup-postgres.sh:ro
       - backup-tmp:/tmp/solocamiones-backup
+      - backup-metrics:/var/lib/node_exporter/textfile
     entrypoint: ['/bin/bash', '/scripts/backup-postgres.sh']
     networks:
       - database
@@ -276,6 +284,115 @@ services:
     depends_on:
       db:
         condition: service_healthy
+    logging: *default-logging
+
+  # PostgreSQL metrics with monitoring role (M3.1 / M4.2). Not publicly published.
+  postgres-exporter:
+    image: prometheuscommunity/postgres-exporter:v0.15.0
+    restart: unless-stopped
+    environment:
+      DATA_SOURCE_NAME: postgresql://${ROLE_MONITORING_NAME:-monitoring}:${ROLE_MONITORING_PASSWORD:?ROLE_MONITORING_PASSWORD is required}@db:5432/${POSTGRES_DB:?POSTGRES_DB is required}?sslmode=disable
+    ports:
+      - '${EXPORTER_BIND:-127.0.0.1}:9187:9187'
+    networks:
+      - monitoring
+      - database
+    depends_on:
+      db:
+        condition: service_healthy
+    logging: *default-logging
+
+  # Host metrics + backup textfile collector. Linux VPS only (bind-mounts /proc /sys).
+  # docker compose --profile host-metrics up -d node-exporter
+  node-exporter:
+    image: prom/node-exporter:v1.8.2
+    profiles: ['host-metrics']
+    restart: unless-stopped
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.sysfs=/host/sys'
+      - '--path.rootfs=/host'
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+      - '--collector.textfile.directory=/textfile'
+    ports:
+      - '${EXPORTER_BIND:-127.0.0.1}:9100:9100'
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/host:ro,rslave
+      - backup-metrics:/textfile:ro
+    networks:
+      - monitoring
+    logging: *default-logging
+
+  # Staging-only metrics UI/backend. Retention 30d.
+  # docker compose --profile observability up -d prometheus grafana
+  prometheus:
+    image: prom/prometheus:v2.54.1
+    profiles: ['observability']
+    restart: unless-stopped
+    entrypoint: ['/bin/sh', '/etc/prometheus/docker-entrypoint.sh']
+    environment:
+      APP_ENV: ${APP_ENV:?APP_ENV is required}
+      METRICS_BEARER_TOKEN: ${METRICS_BEARER_TOKEN:?METRICS_BEARER_TOKEN is required}
+      PRODUCTION_METRICS_BEARER_TOKEN: ${PRODUCTION_METRICS_BEARER_TOKEN:-}
+      PRODUCTION_TAILSCALE_HOST: ${PRODUCTION_TAILSCALE_HOST:-}
+    volumes:
+      - ./prometheus/prometheus.yml.template:/etc/prometheus/prometheus.yml.template:ro
+      - ./prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
+      - ./prometheus/docker-entrypoint.sh:/etc/prometheus/docker-entrypoint.sh:ro
+      - prometheus-data:/prometheus
+    ports:
+      - '${MONITORING_BIND:-127.0.0.1}:9090:9090'
+    networks:
+      - monitoring
+      - application
+    depends_on:
+      api:
+        condition: service_healthy
+      postgres-exporter:
+        condition: service_started
+    logging: *default-logging
+
+  grafana:
+    image: grafana/grafana:11.2.0
+    profiles: ['observability']
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      # Set a strong password on the VPS; smoke may use a local throwaway value.
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-smoke-grafana-change-me}
+      GF_USERS_ALLOW_SIGN_UP: 'false'
+      GF_SERVER_ROOT_URL: ${GRAFANA_ROOT_URL:-http://127.0.0.1:3001}
+      GF_ANALYTICS_REPORTING_ENABLED: 'false'
+      GF_ANALYTICS_CHECK_FOR_UPDATES: 'false'
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - grafana-data:/var/lib/grafana
+    ports:
+      - '${MONITORING_BIND:-127.0.0.1}:3001:3000'
+    networks:
+      - monitoring
+    depends_on:
+      prometheus:
+        condition: service_started
+    logging: *default-logging
+
+  # Ship Docker JSON logs to Better Stack. Requires BETTERSTACK_SOURCE_TOKEN.
+  # docker compose --profile logs up -d vector
+  vector:
+    image: timberio/vector:0.41.1-alpine
+    profiles: ['logs']
+    restart: unless-stopped
+    environment:
+      # Required for a working sink; empty token fails at runtime (not at compose parse).
+      BETTERSTACK_SOURCE_TOKEN: ${BETTERSTACK_SOURCE_TOKEN:-}
+    volumes:
+      - ./vector/vector.toml:/etc/vector/vector.toml:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    command: ['--config', '/etc/vector/vector.toml']
+    networks:
+      - monitoring
     logging: *default-logging
 
   # Isolated restore drill. Never points at live DATABASE_URL. M3.3.
@@ -342,9 +459,16 @@ networks:
   application:
   database:
     internal: true
+  monitoring:
 
 volumes:
   pgdata:
     name: ${POSTGRES_VOLUME_NAME:-solocamiones_pgdata}
   backup-tmp:
     name: ${BACKUP_TMP_VOLUME_NAME:-solocamiones_backup_tmp}
+  backup-metrics:
+    name: ${BACKUP_METRICS_VOLUME_NAME:-solocamiones_backup_metrics}
+  prometheus-data:
+    name: ${PROMETHEUS_VOLUME_NAME:-solocamiones_prometheus_data}
+  grafana-data:
+    name: ${GRAFANA_VOLUME_NAME:-solocamiones_grafana_data}

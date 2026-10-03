@@ -703,17 +703,19 @@ Esta secuencia convierte el plan operativo en bloques implementables. Una depend
 
 **Objetivo:** detectar fallos dentro de los objetivos definidos y dar al operador información suficiente para actuar sin exponer datos sensibles.
 
+**Estado:** **Implementado en repositorio 2026-10-02** (activación Better Stack/VPS real: M6.6; evidencia §9 de `docs/RELEASES/v2.0.0.md`). Decisiones owner: scrape `/metrics` exento de Access+Host con bearer (1A); uptime Better Stack vía Access service token sin excepción Express (2A); métricas HTTP Prometheus (3A); backup textfile+node_exporter (4A); Vector sidecar (5A); gate repo+smoke local (6A); exporters ambos envs / Prometheus+Grafana solo staging (7).
+
 **Dependencias del milestone:** M1.6, M2.4 y contrato de resultados de M3.2; puede implementarse en paralelo con el resto de M3 y M5.
 
 | Paso | Tarea y qué cumple                                                                                                                                                 | Dependencias       |
 | ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------ |
-| M4.1 | Exponer/proteger las métricas de API y Assistant con token por ambiente; permite medir 5xx, latencia, cuotas, tools y sync sin un endpoint público abierto.        | M1.6.              |
-| M4.2 | Versionar Prometheus, Grafana, `node-exporter` y `postgres-exporter` con retención de 30 días; centraliza salud de hosts, contenedores y PostgreSQL desde staging. | M2.4, M3.1 y M4.1. |
-| M4.3 | Configurar logs JSON y uptime de Better Stack mediante service token; mantiene detección externa incluso si staging y su Prometheus fallan.                        | M1.6 y M2.5.       |
-| M4.4 | Implementar alertas de recursos, DB, API, Assistant, backup y deploy con los umbrales iniciales del plan; convierte métricas en avisos accionables al operador.    | M3.2, M4.2 y M4.3. |
-| M4.5 | Documentar y probar rutas de triage, kill switch del Assistant y escalamiento/rollback; enlaza cada alerta con una respuesta segura.                               | M4.4.              |
+| M4.1 | Exponer/proteger las métricas de API y Assistant con token por ambiente; permite medir 5xx, latencia, cuotas, tools y sync sin un endpoint público abierto.        | M1.6. **Hecho 2026-10-02.** |
+| M4.2 | Versionar Prometheus, Grafana, `node-exporter` y `postgres-exporter` con retención de 30 días; centraliza salud de hosts, contenedores y PostgreSQL desde staging. | M2.4, M3.1 y M4.1. **Hecho 2026-10-02.** |
+| M4.3 | Configurar logs JSON y uptime de Better Stack mediante service token; mantiene detección externa incluso si staging y su Prometheus fallan.                        | M1.6 y M2.5. **Hecho 2026-10-02** (Vector + procedimiento uptime; cuenta/monitores en M6). |
+| M4.4 | Implementar alertas de recursos, DB, API, Assistant, backup y deploy con los umbrales iniciales del plan; convierte métricas en avisos accionables al operador.    | M3.2, M4.2 y M4.3. **Hecho 2026-10-02.** |
+| M4.5 | Documentar y probar rutas de triage, kill switch del Assistant y escalamiento/rollback; enlaza cada alerta con una respuesta segura.                               | M4.4. **Hecho 2026-10-02** (runbooks + procedimiento de simulación; ensayo con cuenta Better Stack = operador/M6). |
 
-**Gate de salida:** una falla simulada de health, backup y Assistant genera alerta sin revelar secretos, y el operador puede seguir el runbook correspondiente.
+**Gate de salida:** una falla simulada de health, backup y Assistant genera alerta sin revelar secretos, y el operador puede seguir el runbook correspondiente. **Código/docs listos 2026-10-02;** simulación local según `infra/vps/docs/PLATFORM_RUNBOOK.md`; cableado VPS/Better Stack en M6.6.
 
 ### M5 — CI, cadena de suministro y workflows de release
 

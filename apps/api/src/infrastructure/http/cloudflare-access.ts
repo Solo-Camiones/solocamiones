@@ -40,8 +40,17 @@ export type CloudflareAccessMiddlewareOptions = {
 };
 
 /**
+ * Internal Prometheus scrape path. Bearer auth is enforced by the metrics controller.
+ * Must never be published on the public Nginx edge (Compose keeps /metrics off edge).
+ */
+export function isMetricsScrapePath(req: Pick<Request, 'method' | 'path'>): boolean {
+  return req.method === 'GET' && req.path === '/metrics';
+}
+
+/**
  * Perimeter gate only. Does not establish Solo Camiones sessions or roles.
- * Applies to every mounted route when enabled, including health probes.
+ * Applies to mounted routes when enabled, including health probes.
+ * Exempts GET /metrics so in-network scrapers can authenticate with METRICS_BEARER_TOKEN only.
  */
 export function createCloudflareAccessMiddleware(
   options: CloudflareAccessMiddlewareOptions,
@@ -64,6 +73,12 @@ export function createCloudflareAccessMiddleware(
     _res: Response,
     next: NextFunction,
   ): Promise<void> {
+    // M4.1: scrape stays on the Docker/Tailscale network; public edge does not proxy /metrics.
+    if (isMetricsScrapePath(req)) {
+      next();
+      return;
+    }
+
     const headerValue = req.headers[CF_ACCESS_JWT_HEADER];
     const token =
       typeof headerValue === 'string' && headerValue.trim().length > 0

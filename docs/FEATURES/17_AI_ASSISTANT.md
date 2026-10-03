@@ -191,7 +191,7 @@ No requirement IDs in Features 08–16 were weakened. No cross-edits to those fi
 
 ### Security and operations (M8)
 
-- [x] Threat model, logging/metrics/alerts, purge schedule, kill switch, runbook. _(2026-09-24 local; ops in `docs/assistant-ops/`; provider privacy **confirmed by owner** 2026-09-24 with documented residuals; VPS/Better Stack/Prometheus wiring remains deployment work.)_
+- [x] Threat model, logging/metrics/alerts, purge schedule, kill switch, runbook. _(2026-09-24 local; ops in `docs/assistant-ops/`; provider privacy **confirmed by owner** 2026-09-24 with documented residuals; Prometheus/Grafana/Vector/alertas versionados en M4 2026-10-02 — activación VPS/Better Stack en M6.6.)_
 
 ### Evaluation and rollout (M9)
 

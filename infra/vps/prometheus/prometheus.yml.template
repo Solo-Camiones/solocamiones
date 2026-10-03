@@ -1,0 +1,83 @@
+# Rendered at container start via envsubst (no secrets committed).
+# Retention: 30d (also set on the Prometheus CLI flag).
+#
+# Production jobs use PRODUCTION_TAILSCALE_HOST. When empty, targets become ":port"
+# and are dropped by relabel_configs (safe for single-host smoke).
+
+global:
+  scrape_interval: 30s
+  evaluation_interval: 30s
+  external_labels:
+    app: solocamiones
+    env: ${APP_ENV}
+
+rule_files:
+  - /etc/prometheus/alerts.yml
+
+scrape_configs:
+  - job_name: prometheus
+    static_configs:
+      - targets: ['localhost:9090']
+
+  - job_name: api
+    metrics_path: /metrics
+    scheme: http
+    authorization:
+      type: Bearer
+      credentials_file: /etc/prometheus/secrets/metrics_bearer_token
+    static_configs:
+      - targets: ['api:3000']
+        labels:
+          env: ${APP_ENV}
+
+  - job_name: node
+    static_configs:
+      - targets: ['node-exporter:9100']
+        labels:
+          env: ${APP_ENV}
+
+  - job_name: postgres
+    static_configs:
+      - targets: ['postgres-exporter:9187']
+        labels:
+          env: ${APP_ENV}
+
+  # Production exporters + API /metrics via Tailscale (staging Prometheus only).
+  # On production VPS set METRICS_SCRAPE_BIND to the Tailscale IP (never 0.0.0.0).
+  - job_name: production-node
+    scrape_interval: 60s
+    static_configs:
+      - targets: ['${PRODUCTION_TAILSCALE_HOST}:9100']
+        labels:
+          env: production
+    relabel_configs:
+      - source_labels: [__address__]
+        regex: '^:9100$'
+        action: drop
+
+  - job_name: production-postgres
+    scrape_interval: 60s
+    static_configs:
+      - targets: ['${PRODUCTION_TAILSCALE_HOST}:9187']
+        labels:
+          env: production
+    relabel_configs:
+      - source_labels: [__address__]
+        regex: '^:9187$'
+        action: drop
+
+  - job_name: production-api
+    metrics_path: /metrics
+    scheme: http
+    scrape_interval: 60s
+    authorization:
+      type: Bearer
+      credentials_file: /etc/prometheus/secrets/production_metrics_bearer_token
+    static_configs:
+      - targets: ['${PRODUCTION_TAILSCALE_HOST}:3000']
+        labels:
+          env: production
+    relabel_configs:
+      - source_labels: [__address__]
+        regex: '^:3000$'
+        action: drop

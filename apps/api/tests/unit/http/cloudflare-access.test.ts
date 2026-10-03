@@ -61,4 +61,25 @@ describe('cloudflare access middleware', () => {
   it('exports the real JWKS verifier for deployed use', () => {
     expect(typeof verifyCloudflareAccessJwt).toBe('function');
   });
+
+  it('exempts GET /metrics from Access while keeping bearer protection', async () => {
+    process.env.METRICS_BEARER_TOKEN = 'metrics-secret';
+    const verifyJwt = vi.fn(async () => ({}));
+
+    const app = createApp({
+      cloudflareAccess: {
+        teamDomain: 'example.cloudflareaccess.com',
+        audience: 'aud-1',
+      },
+      verifyCloudflareAccessJwt: verifyJwt,
+    });
+
+    const ok = await request(app)
+      .get('/metrics')
+      .set('Authorization', 'Bearer metrics-secret');
+    expect(ok.status).toBe(200);
+    expect(verifyJwt).not.toHaveBeenCalled();
+
+    delete process.env.METRICS_BEARER_TOKEN;
+  });
 });

@@ -33,6 +33,7 @@ import {
 } from './infrastructure/http/index.js';
 import type { CloudflareAccessConfig } from './infrastructure/config/index.js';
 import { isTrustProxyEnabled } from './infrastructure/config/index.js';
+import { httpMetricsMiddleware } from './infrastructure/metrics/index.js';
 import { createFxRateProvider, type FxRateProvider } from './infrastructure/fx/index.js';
 import {
   pdfkitInvoicePdfRenderer,
@@ -142,9 +143,11 @@ export function createApp(options: CreateAppOptions = {}): express.Application {
   );
   app.use(helmet());
   app.use(requestLoggingMiddleware);
+  app.use(httpMetricsMiddleware);
   app.use(express.json({ limit: JSON_BODY_LIMIT_BYTES }));
   app.use('/api/health', healthRouter);
   // Scrape path is intentional outside /api/health so readiness stays DB-only (AI-008).
+  // Not proxied by public Nginx; Access/Host exempt; METRICS_BEARER_TOKEN required (M4.1).
   app.use('/metrics', metricsRouter);
   app.use('/api/auth', apiRateLimiter, accessRouter);
   app.use('/api/admin/users', apiRateLimiter, usersRouter);

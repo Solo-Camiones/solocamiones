@@ -18,6 +18,7 @@
 #   BACKUP_RETENTION_DAILY_DAYS (30)
 #   BACKUP_RETENTION_MONTHLY_MONTHS (12)
 #   BACKUP_TZ (America/Santo_Domingo)
+#   BACKUP_METRICS_DIR (default /var/lib/node_exporter/textfile) — Prometheus textfile for node_exporter
 set -euo pipefail
 
 require_env() {
@@ -43,6 +44,9 @@ BACKUP_RETENTION_HOURLY_HOURS="${BACKUP_RETENTION_HOURLY_HOURS:-48}"
 BACKUP_RETENTION_DAILY_DAYS="${BACKUP_RETENTION_DAILY_DAYS:-30}"
 BACKUP_RETENTION_MONTHLY_MONTHS="${BACKUP_RETENTION_MONTHLY_MONTHS:-12}"
 BACKUP_TZ="${BACKUP_TZ:-America/Santo_Domingo}"
+BACKUP_METRICS_DIR="${BACKUP_METRICS_DIR:-/var/lib/node_exporter/textfile}"
+BACKUP_STARTED_EPOCH="$(date -u +%s)"
+BACKUP_METRICS_WRITTEN=0
 
 export AWS_ACCESS_KEY_ID="${R2_ACCESS_KEY_ID}"
 export AWS_SECRET_ACCESS_KEY="${R2_SECRET_ACCESS_KEY}"
@@ -57,8 +61,51 @@ AGE_FILE="${WORKDIR}/backup.dump.age"
 CHECKSUM_FILE="${WORKDIR}/backup.dump.age.sha256"
 MANIFEST_FILE="${WORKDIR}/backup.dump.age.manifest.json"
 
+# Atomic Prometheus textfile for node_exporter (M4.4). No secrets in labels/values.
+write_backup_textfile() {
+  local status="$1"
+  local cipher_bytes="${2:-0}"
+  local now_epoch duration metrics_tmp metrics_file success_ts=0
+  now_epoch="$(date -u +%s)"
+  duration=$((now_epoch - BACKUP_STARTED_EPOCH))
+  if [[ "${duration}" -lt 0 ]]; then
+    duration=0
+  fi
+  if [[ "${status}" == "1" ]]; then
+    success_ts="${now_epoch}"
+  fi
+
+  mkdir -p "${BACKUP_METRICS_DIR}"
+  metrics_file="${BACKUP_METRICS_DIR}/solocamiones_backup.prom"
+  metrics_tmp="${metrics_file}.$$.$RANDOM.tmp"
+
+  cat >"${metrics_tmp}" <<EOF
+# HELP solocamiones_backup_last_status 1 if the last backup finished successfully, else 0
+# TYPE solocamiones_backup_last_status gauge
+solocamiones_backup_last_status{app_env="${APP_ENV}"} ${status}
+# HELP solocamiones_backup_last_success_timestamp_seconds Unix time of the last successful backup
+# TYPE solocamiones_backup_last_success_timestamp_seconds gauge
+solocamiones_backup_last_success_timestamp_seconds{app_env="${APP_ENV}"} ${success_ts}
+# HELP solocamiones_backup_last_duration_seconds Wall time of the last backup attempt
+# TYPE solocamiones_backup_last_duration_seconds gauge
+solocamiones_backup_last_duration_seconds{app_env="${APP_ENV}"} ${duration}
+# HELP solocamiones_backup_last_cipher_bytes Size of the last encrypted backup object in bytes
+# TYPE solocamiones_backup_last_cipher_bytes gauge
+solocamiones_backup_last_cipher_bytes{app_env="${APP_ENV}"} ${cipher_bytes}
+# HELP solocamiones_backup_last_finish_timestamp_seconds Unix time when the last backup attempt finished
+# TYPE solocamiones_backup_last_finish_timestamp_seconds gauge
+solocamiones_backup_last_finish_timestamp_seconds{app_env="${APP_ENV}"} ${now_epoch}
+EOF
+
+  mv -f "${metrics_tmp}" "${metrics_file}"
+  BACKUP_METRICS_WRITTEN=1
+}
+
 cleanup() {
   local exit_code=$?
+  if [[ "${exit_code}" -ne 0 ]] && [[ "${BACKUP_METRICS_WRITTEN}" != "1" ]]; then
+    write_backup_textfile 0 0 || true
+  fi
   rm -rf "${WORKDIR}"
   exit "${exit_code}"
 }
@@ -209,4 +256,5 @@ delete_older_than "hourly/${APP_ENV}/" "${hourly_seconds}" "hourly"
 delete_older_than "daily/${APP_ENV}/" "${daily_seconds}" "daily"
 delete_older_than "monthly/${APP_ENV}/" "${monthly_seconds}" "monthly"
 
+write_backup_textfile 1 "${age_bytes}"
 echo "backup-postgres: success key=${hourly_age_key} sha256=${checksum}"
