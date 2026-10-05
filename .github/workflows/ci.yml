@@ -1,4 +1,4 @@
-name: CI R1
+name: CI
 
 on:
   pull_request:
@@ -11,21 +11,25 @@ permissions:
   contents: read
 
 concurrency:
-  group: ci-r1-${{ github.event.pull_request.number || github.ref }}
+  group: ci-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
+
+env:
+  NODE_VERSION: '22'
+  NPM_VERSION: '11.19.1'
 
 jobs:
   quality:
-    name: R1 quality
+    name: Quality gate
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    timeout-minutes: 35
 
     services:
       postgres:
         image: postgres:16-alpine
         env:
           POSTGRES_USER: postgres
-          # Disposable CI credentials, unrelated to the developer's database.
+          # Disposable CI credentials, unrelated to developer databases.
           POSTGRES_PASSWORD: postgres
           POSTGRES_DB: truck_parts_test
         ports:
@@ -41,28 +45,33 @@ jobs:
       LOG_LEVEL: silent
       DATABASE_URL_TEST: postgresql://postgres:postgres@localhost:5432/truck_parts_test
       VITE_USE_MOCK_API: 'true'
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
     steps:
-      - name: Check out the pull request merge revision
-        uses: actions/checkout@v7
+      - name: Check out revision
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
         with:
+          fetch-depth: 0
           persist-credentials: false
 
       - name: Set up Node.js
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
-          node-version: '22'
+          node-version: ${{ env.NODE_VERSION }}
           cache: npm
           cache-dependency-path: package-lock.json
 
-      - name: Use npm with workspace override fixes
-        run: npm --ignore-scripts install --global npm@11.19.1
+      - name: Use required npm version
+        run: npm --ignore-scripts install --global npm@${{ env.NPM_VERSION }}
 
       - name: Install locked dependencies
-        run: npm --ignore-scripts ci 
+        run: npm ci --ignore-scripts
 
       - name: Generate Prisma Client
         run: npm exec --ignore-scripts --workspace @solocamiones/api -- prisma generate
+
+      - name: Format check
+        run: npm run format:check
 
       - name: Lint
         run: npm run lint
@@ -76,17 +85,176 @@ jobs:
       - name: Unit tests
         run: npm run test:unit
 
-      - name: Clean migrations and integration tests
+      - name: Integration tests
         run: npm run test:integration
 
       - name: Web component tests
         run: npm run test:web:component
 
+      - name: Test with coverage
+        run: npm run test:coverage
+
+      - name: Verify coverage reports
+        run: |
+          test -s apps/api/coverage/unit/lcov.info
+          test -s apps/api/coverage/integration/lcov.info
+          test -s apps/web/coverage/lcov.info
+
+      - name: SonarQube Scan
+        if: ${{ env.SONAR_TOKEN != '' }}
+        uses: SonarSource/sonarqube-scan-action@7006c4492b2e0ee0f816d36501671557c97f5995 # v8.1.0
+        env:
+          SONAR_TOKEN: ${{ env.SONAR_TOKEN }}
+
+      - name: Install PostgreSQL client
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client
+
+      - name: Prisma validate and migrate on clean database
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/truck_parts_migrate
+          PGPASSWORD: postgres
+        run: |
+          npm exec --ignore-scripts --workspace @solocamiones/api -- prisma validate
+          psql -h localhost -U postgres -d postgres -c "CREATE DATABASE truck_parts_migrate;"
+          npm exec --ignore-scripts --workspace @solocamiones/api -- prisma migrate deploy
+
       - name: Build API and web
         run: npm run build
         env:
-          # Build the actual Release 1 HTTP surface; tests keep their isolated mock baseline.
           VITE_USE_MOCK_API: 'false'
 
       - name: Audit dependencies
         run: npm audit --audit-level=high
+
+      - name: Secret scan (Gitleaks)
+        run: |
+          docker run --rm \
+            -v "$PWD:/path" \
+            zricethezav/gitleaks:v8.24.3 \
+            detect --source=/path --verbose --redact
+
+  container-security:
+    name: Container build and scan
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    permissions:
+      contents: read
+
+    steps:
+      - name: Check out revision
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@b5ca514318bd6ebac0fb2aedd5d36ec1b5c232a2 # v3.10.0
+
+      - name: Generate Trivy ignorefile from reviewed allowlist
+        run: node scripts/deployment/generate-trivyignore.mjs
+
+      - name: Build API image (no push)
+        uses: docker/build-push-action@471d1dc4e07e5cdedd4c2171150001c434f0b7a4 # v6.15.0
+        with:
+          context: .
+          file: apps/api/Dockerfile
+          push: false
+          load: true
+          tags: solocamiones-api:ci
+          cache-from: type=gha,scope=api
+          cache-to: type=gha,mode=max,scope=api
+
+      - name: Build web image (no push)
+        uses: docker/build-push-action@471d1dc4e07e5cdedd4c2171150001c434f0b7a4 # v6.15.0
+        with:
+          context: .
+          file: apps/web/Dockerfile
+          push: false
+          load: true
+          tags: solocamiones-web:ci
+          build-args: |
+            VITE_USE_MOCK_API=false
+            VITE_CAPABILITIES_PRESET=release-2
+            VITE_ENABLE_DEMO_CONTROLS=false
+          cache-from: type=gha,scope=web
+          cache-to: type=gha,mode=max,scope=web
+
+      - name: Build backup image (no push)
+        uses: docker/build-push-action@471d1dc4e07e5cdedd4c2171150001c434f0b7a4 # v6.15.0
+        with:
+          context: infra/vps/backup
+          file: infra/vps/backup/Dockerfile
+          push: false
+          load: true
+          tags: solocamiones-backup:ci
+          cache-from: type=gha,scope=backup
+          cache-to: type=gha,mode=max,scope=backup
+
+      - name: Scan API image (Trivy)
+        uses: aquasecurity/trivy-action@6c175e9c4083a92bbca2f9724c8a5e33bc2d97a5 # v0.30.0
+        with:
+          image-ref: solocamiones-api:ci
+          format: sarif
+          output: trivy-api.sarif
+          exit-code: '1'
+          severity: HIGH,CRITICAL
+          ignore-unfixed: false
+          trivyignores: .trivyignore.generated
+
+      - name: Scan web image (Trivy)
+        uses: aquasecurity/trivy-action@6c175e9c4083a92bbca2f9724c8a5e33bc2d97a5 # v0.30.0
+        with:
+          image-ref: solocamiones-web:ci
+          format: sarif
+          output: trivy-web.sarif
+          exit-code: '1'
+          severity: HIGH,CRITICAL
+          ignore-unfixed: false
+          trivyignores: .trivyignore.generated
+
+      - name: Scan backup image (Trivy)
+        uses: aquasecurity/trivy-action@6c175e9c4083a92bbca2f9724c8a5e33bc2d97a5 # v0.30.0
+        with:
+          image-ref: solocamiones-backup:ci
+          format: sarif
+          output: trivy-backup.sarif
+          exit-code: '1'
+          severity: HIGH,CRITICAL
+          ignore-unfixed: false
+          trivyignores: .trivyignore.generated
+
+      - name: Generate SBOMs (Trivy)
+        uses: aquasecurity/trivy-action@6c175e9c4083a92bbca2f9724c8a5e33bc2d97a5 # v0.30.0
+        with:
+          image-ref: solocamiones-api:ci
+          format: cyclonedx
+          output: sbom-api.cdx.json
+          exit-code: '0'
+          severity: HIGH,CRITICAL
+
+      - name: Generate web SBOM
+        uses: aquasecurity/trivy-action@6c175e9c4083a92bbca2f9724c8a5e33bc2d97a5 # v0.30.0
+        with:
+          image-ref: solocamiones-web:ci
+          format: cyclonedx
+          output: sbom-web.cdx.json
+          exit-code: '0'
+
+      - name: Generate backup SBOM
+        uses: aquasecurity/trivy-action@6c175e9c4083a92bbca2f9724c8a5e33bc2d97a5 # v0.30.0
+        with:
+          image-ref: solocamiones-backup:ci
+          format: cyclonedx
+          output: sbom-backup.cdx.json
+          exit-code: '0'
+
+      - name: Upload scan and SBOM artifacts
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: container-security-${{ github.sha }}
+          path: |
+            trivy-*.sarif
+            sbom-*.cdx.json
+            .trivyignore.generated
+          if-no-files-found: warn
+          retention-days: 14

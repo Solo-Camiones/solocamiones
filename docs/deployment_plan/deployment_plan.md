@@ -721,18 +721,20 @@ Esta secuencia convierte el plan operativo en bloques implementables. Una depend
 
 **Objetivo:** convertir un commit aprobado en imágenes identificables, verificadas y promovibles sin reconstruirlas.
 
+**Estado:** **Implementado en repositorio 2026-10-05** (publish GHCR al empujar `develop`; SSH/Tailscale y Environment `production` reales: M6+/operador). Evidencia: §10 de `docs/RELEASES/v2.0.0.md`. Decisiones owner: Trivy+Gitleaks (1A), smoke mínimo (2A), gate sin VPS (3A), scaffold SSH (4C), confirmación `promote-production` (5), imagen backup en GHCR (6B), backup age+key (7C), allowlist (8B).
+
 **Dependencias del milestone:** M1, M2 y las interfaces de scripts de M3; puede implementarse en paralelo con M4.
 
 | Paso | Tarea y qué cumple                                                                                                                                                                             | Dependencias            |
 | ---- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------- |
-| M5.1 | Consolidar `build.yml` en `ci.yml` sin perder coverage/Sonar y añadir format, lint, types, suites, build y migración sobre PostgreSQL 16 limpio; establece un único gate de Pull Request.      | M1.7, M2.2 y M2.3.      |
-| M5.2 | Añadir `npm audit`, secret scan, container scan y SBOM con bloqueo `HIGH`/`CRITICAL`; controla dependencias, secretos y vulnerabilidades antes de publicar.                                    | M5.1.                   |
-| M5.3 | Crear `release.yml` para construir una vez API/web, publicar tags por SHA y registrar digests en GHCR; garantiza artefactos inmutables y trazables.                                            | M2.2 y M5.2.            |
-| M5.4 | Automatizar deploy de `develop` a staging: pull por digest, migración one-shot, actualización, readiness, smoke y evidencia; hace repetible la ruta normal de integración.                     | M2.4–M2.6, M3.1 y M5.3. |
-| M5.5 | Crear `promote-production.yml` manual con versión, SHA, digests, backup reciente, confirmación literal y GitHub Environment; impide reconstruir o promover un artefacto distinto del validado. | M3.2, M5.3 y M5.4.      |
-| M5.6 | Fijar permisos mínimos, acciones por SHA, timeouts, concurrency y artefactos de diagnóstico; evita ejecuciones simultáneas y reduce la superficie de CI/CD.                                    | M5.1–M5.5.              |
+| M5.1 | Consolidar `build.yml` en `ci.yml` sin perder coverage/Sonar y añadir format, lint, types, suites, build y migración sobre PostgreSQL 16 limpio; establece un único gate de Pull Request.      | M1.7, M2.2 y M2.3. **Hecho 2026-10-05.** |
+| M5.2 | Añadir `npm audit`, secret scan, container scan y SBOM con bloqueo `HIGH`/`CRITICAL`; controla dependencias, secretos y vulnerabilidades antes de publicar.                                    | M5.1. **Hecho 2026-10-05.** |
+| M5.3 | Crear `release.yml` para construir una vez API/web, publicar tags por SHA y registrar digests en GHCR; garantiza artefactos inmutables y trazables.                                            | M2.2 y M5.2. **Hecho 2026-10-05** (incluye imagen backup). |
+| M5.4 | Automatizar deploy de `develop` a staging: pull por digest, migración one-shot, actualización, readiness, smoke y evidencia; hace repetible la ruta normal de integración.                     | M2.4–M2.6, M3.1 y M5.3. **Scaffold 2026-10-05**; SSH real en M6. |
+| M5.5 | Crear `promote-production.yml` manual con versión, SHA, digests, backup reciente, confirmación literal y GitHub Environment; impide reconstruir o promover un artefacto distinto del validado. | M3.2, M5.3 y M5.4. **Hecho 2026-10-05.** |
+| M5.6 | Fijar permisos mínimos, acciones por SHA, timeouts, concurrency y artefactos de diagnóstico; evita ejecuciones simultáneas y reduce la superficie de CI/CD.                                    | M5.1–M5.5. **Hecho 2026-10-05.** |
 
-**Gate de salida:** un commit de prueba supera CI, publica ambas imágenes con SBOM/digest y los workflows validan entradas sin acceso de secretos desde Pull Requests.
+**Gate de salida:** un commit de prueba supera CI, publica ambas imágenes con SBOM/digest y los workflows validan entradas sin acceso de secretos desde Pull Requests. **Código/workflows listos 2026-10-05;** primera publicación GHCR al merge/push a `develop`.
 
 ### M6 — Provisionar y desplegar staging
 
