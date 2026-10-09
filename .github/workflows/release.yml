@@ -197,6 +197,10 @@ jobs:
       STAGING_SSH_HOST: ${{ secrets.STAGING_SSH_HOST }}
       STAGING_SSH_USER: ${{ secrets.STAGING_SSH_USER }}
       STAGING_SSH_KEY: ${{ secrets.STAGING_SSH_KEY }}
+      STAGING_SSH_KNOWN_HOSTS: ${{ secrets.STAGING_SSH_KNOWN_HOSTS }}
+      TS_OAUTH_CLIENT_ID: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+      TS_OAUTH_SECRET: ${{ secrets.TS_OAUTH_SECRET }}
+      TS_TAGS: ${{ secrets.TS_TAGS }}
 
     steps:
       - name: Check out revision
@@ -219,16 +223,42 @@ jobs:
             --ghcr-owner '${{ needs.build-and-publish.outputs.image_owner }}' \
             --dry-run
 
-      - name: Skip remote deploy when Tailscale/SSH secrets are absent
+      # SSH is Tailscale-only (UFW). Without mesh credentials the runner times out on :22.
+      - name: Skip remote deploy when SSH secrets are absent
         id: gate
         run: |
           if [[ -z "${STAGING_SSH_HOST}" || -z "${STAGING_SSH_USER}" || -z "${STAGING_SSH_KEY}" ]]; then
             echo "present=false" >> "$GITHUB_OUTPUT"
-            echo "Staging SSH/Tailscale secrets are not configured yet."
-            echo "Publish + input validation only. Wire STAGING_SSH_* after M6 host bootstrap."
+            echo "Staging SSH secrets are not configured yet."
+            echo "Publish + input validation only. Wire STAGING_SSH_* + Tailscale CI secrets after M6."
           else
             echo "present=true" >> "$GITHUB_OUTPUT"
           fi
+
+      - name: Require Tailscale mesh credentials for remote deploy
+        if: steps.gate.outputs.present == 'true'
+        run: |
+          missing=()
+          [[ -z "${TS_OAUTH_CLIENT_ID}" ]] && missing+=('TS_OAUTH_CLIENT_ID')
+          [[ -z "${TS_OAUTH_SECRET}" ]] && missing+=('TS_OAUTH_SECRET')
+          [[ -z "${TS_TAGS}" ]] && missing+=('TS_TAGS')
+          [[ -z "${STAGING_SSH_KNOWN_HOSTS}" ]] && missing+=('STAGING_SSH_KNOWN_HOSTS')
+          if ((${#missing[@]} > 0)); then
+            echo "Remote staging deploy needs Tailscale on the runner (SSH is not public)." >&2
+            echo "Missing secrets: ${missing[*]}" >&2
+            echo "See infra/vps/docs/STAGING_PROVISIONING.md §7." >&2
+            exit 1
+          fi
+
+      - name: Connect runner to Tailscale
+        if: steps.gate.outputs.present == 'true'
+        uses: tailscale/github-action@780049a30b6ff5c378a9e7b389d15ece7a204888 # v4.1.3
+        with:
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+          tags: ${{ secrets.TS_TAGS }}
+          version: '1.94.2'
+          ping: ${{ secrets.STAGING_SSH_HOST }}
 
       - name: Deploy to staging over SSH
         if: steps.gate.outputs.present == 'true'
@@ -239,9 +269,12 @@ jobs:
           chmod 700 "${HOME}/.ssh"
           install -m 600 /dev/null "${HOME}/.ssh/staging_key"
           printf '%s\n' "${STAGING_SSH_KEY}" > "${HOME}/.ssh/staging_key"
+          printf '%s\n' "${STAGING_SSH_KNOWN_HOSTS}" > "${HOME}/.ssh/known_hosts"
+          chmod 600 "${HOME}/.ssh/known_hosts"
           ssh -i "${HOME}/.ssh/staging_key" \
             -o IdentitiesOnly=yes \
             -o StrictHostKeyChecking=yes \
+            -o UserKnownHostsFile="${HOME}/.ssh/known_hosts" \
             "${STAGING_SSH_USER}@${STAGING_SSH_HOST}" \
             "export RELEASE_SHA='${RELEASE_SHA}' GITHUB_REPOSITORY_OWNER='${{ needs.build-and-publish.outputs.image_owner }}'; \
              /opt/solocamiones/scripts/deployment/deploy.sh \

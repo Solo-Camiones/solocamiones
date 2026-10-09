@@ -211,11 +211,32 @@ echo "$STAGING_GHCR_PAT" | docker login ghcr.io -u YOUR_GITHUB_USER --password-s
 ```
 
 4. Merge/push a `develop` para que `release.yml` publique digests.
-5. Secrets de GitHub Actions (Environment / repo):
+5. Secrets de GitHub Actions (repo; el job `deploy-staging` no usa Environment aún):
 
-- `STAGING_SSH_HOST` = IP/hostname de Tailscale
+**SSH (destino):**
+
+- `STAGING_SSH_HOST` = IP/hostname de Tailscale del VPS (p. ej. `100.x.x.x` o MagicDNS). **Nunca** la IP pública: el 22 solo escucha en `tailscale0`.
 - `STAGING_SSH_USER` = `deploy`
-- `STAGING_SSH_KEY` = clave privada con SSH al host
+- `STAGING_SSH_KEY` = clave privada cuyo pubkey está en `/home/deploy/.ssh/authorized_keys`
+- `STAGING_SSH_KNOWN_HOSTS` = línea(s) de `known_hosts` del host (obligatorio: el workflow usa `StrictHostKeyChecking=yes`)
+
+Desde una máquina ya en el tailnet:
+
+```bash
+ssh-keyscan -t ed25519 100.x.x.x
+# Copia la salida completa al secreto STAGING_SSH_KNOWN_HOSTS
+```
+
+**Tailscale en el runner de GitHub Actions** (sin esto el SSH hace timeout en el puerto 22):
+
+- `TS_OAUTH_CLIENT_ID` / `TS_OAUTH_SECRET` = [OAuth client](https://tailscale.com/s/oauth-clients) del tailnet con scope **writable** `auth_keys`
+- `TS_TAGS` = tag(s) del cliente OAuth, p. ej. `tag:ci` (debe coincidir con los tags permitidos en el OAuth client y con las ACLs)
+
+El workflow une el runner con `tailscale/github-action` (pinneado por SHA), hace `ping` a `STAGING_SSH_HOST` y recién entonces ejecuta SSH. No abras el 22 a Internet para “arreglar” Actions.
+
+ACL mínima (ejemplo): nodos con `tag:ci` pueden SSH al host de staging. Revoca/rota el OAuth secret si se filtra.
+
+Para `promote-production.yml` (M8/M9): mismos `TS_*` + `PRODUCTION_SSH_*` / `PRODUCTION_SSH_KNOWN_HOSTS`.
 
 6. Confirmar path del entrypoint remoto:
 
