@@ -12,30 +12,9 @@ Guía operativa del stack de métricas, logs y uptime. Secretos reales viven sol
 | `vector` | profile `logs` | Staging y producción (Better Stack) |
 | `GET /metrics` (API) | servicio `api` | Scrape interno con `METRICS_BEARER_TOKEN` |
 
-## Arranque local (smoke, sin Better Stack real)
+## Arranque en el host de staging
 
-Prerrequisitos: stack M2/M3 ya usable (`infra/vps/.env.smoke`), roles DB bootstrapados.
-
-```bash
-# API + DB + postgres-exporter + Prometheus + Grafana
-docker compose --env-file infra/vps/.env.smoke -f infra/vps/compose.yaml \
-  --profile observability up -d db api postgres-exporter prometheus grafana
-
-# Scrape API (Access/Host exempt; bearer required)
-curl -sS -H "Authorization: Bearer smoke-metrics-token-change-me" http://127.0.0.1:3000/metrics | head
-
-# Prometheus UI (solo loopback)
-# http://127.0.0.1:9090
-# Grafana UI (solo loopback) admin / valor de GRAFANA_ADMIN_PASSWORD
-# http://127.0.0.1:3001
-```
-
-`node-exporter` requiere Linux:
-
-```bash
-docker compose --env-file infra/vps/.env.smoke -f infra/vps/compose.yaml \
-  --profile host-metrics up -d node-exporter
-```
+El smoke Compose en laptop (`.env.smoke` / certs de desarrollo) se retiró por decisión del operador: la verificación de observabilidad se hace en el VPS/VM de staging. Ver `STAGING_PROVISIONING.md`.
 
 ## Staging VPS (perfil completo)
 

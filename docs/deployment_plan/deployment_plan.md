@@ -740,6 +740,8 @@ Esta secuencia convierte el plan operativo en bloques implementables. Una depend
 
 **Objetivo:** crear el primer ambiente real y usarlo para probar toda la ruta antes de tocar producción.
 
+**Estado:** **En curso en host Azure (2026-10-06).** Repo + bootstrap + Tailscale + sync + `staging.env` + PostgreSQL/roles listos. Bloqueado en cambio de nameservers DNS → Cloudflare antes de Origin/Access/edge. Detalle: `docs/RELEASES/v2.0.0.md` §11 y `infra/vps/docs/STAGING_PROVISIONING.md` (Progreso). Hostinger KVM 1 sigue siendo el camino canónico post-ensayo.
+
 **Dependencias del milestone:** M3, M4 y M5; además requiere cuentas operativas, MFA y medios de pago/recovery disponibles.
 
 | Paso | Tarea y qué cumple                                                                                                                                                                  | Dependencias                                             |

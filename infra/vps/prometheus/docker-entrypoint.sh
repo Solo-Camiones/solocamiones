@@ -30,15 +30,7 @@ APP_ENV_ESCAPED="$(escape_sed "${APP_ENV_VALUE}")"
 PRODUCTION_HOST_ESCAPED="$(escape_sed "${PRODUCTION_HOST_VALUE}")"
 
 # Point credentials_file paths at the writable secrets dir.
-sed \
-  -e "s|\${APP_ENV}|${APP_ENV_ESCAPED}|g" \
-  -e "s|\${PRODUCTION_TAILSCALE_HOST}|${PRODUCTION_HOST_ESCAPED}|g" \
-  -e "s|/etc/prometheus/secrets/|${SECRETS_DIR}/|g" \
-  "${TEMPLATE}" >"${OUTPUT}"
+# Avoid `\` line continuations: CRLF checkouts turn the next flag into a command.
+sed -e "s|\${APP_ENV}|${APP_ENV_ESCAPED}|g" -e "s|\${PRODUCTION_TAILSCALE_HOST}|${PRODUCTION_HOST_ESCAPED}|g" -e "s|/etc/prometheus/secrets/|${SECRETS_DIR}/|g" "${TEMPLATE}" >"${OUTPUT}"
 
-exec /bin/prometheus \
-  --config.file="${OUTPUT}" \
-  --storage.tsdb.path=/prometheus \
-  --storage.tsdb.retention.time=30d \
-  --web.enable-lifecycle \
-  --web.listen-address=0.0.0.0:9090
+exec /bin/prometheus --config.file="${OUTPUT}" --storage.tsdb.path=/prometheus --storage.tsdb.retention.time=30d --web.enable-lifecycle --web.listen-address=0.0.0.0:9090

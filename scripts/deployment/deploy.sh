@@ -23,6 +23,13 @@
 #   env file with Compose variables (never committed).
 set -euo pipefail
 
+# Windows CRLF breaks bash line continuations; fail early with a clear fix.
+if grep -q $'\r' "${BASH_SOURCE[0]}" 2>/dev/null; then
+  echo "deploy.sh: script has Windows CRLF line endings." >&2
+  echo "deploy.sh: fix with: sed -i 's/\\r\$//' ${BASH_SOURCE[0]}" >&2
+  exit 1
+fi
+
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 
 APP_ENV=""

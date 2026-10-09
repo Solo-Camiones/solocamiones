@@ -179,7 +179,7 @@ jobs:
             -o StrictHostKeyChecking=yes \
             "${PRODUCTION_SSH_USER}@${PRODUCTION_SSH_HOST}" \
             "export RELEASE_SHA='${RELEASE_SHA}' GITHUB_REPOSITORY_OWNER='${owner}'; \
-             /opt/solocamiones/repo/scripts/deployment/deploy.sh \
+             /opt/solocamiones/scripts/deployment/deploy.sh \
                --env production \
                --api-digest '${{ inputs.api_digest }}' \
                --web-digest '${{ inputs.web_digest }}' \

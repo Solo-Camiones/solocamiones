@@ -141,7 +141,7 @@ La imagen de API **no** ejecuta `prisma migrate deploy` en su `CMD`. Las migraci
 
 ### VPS (`infra/vps/compose.yaml`)
 
-Stack genérico de staging/producción (camino crítico M2): `edge` (Nginx TLS/AOP, únicos puertos 80/443), `web`, `api`, `db`, `migrate`. Secretos vía `--env-file` fuera de Git. Ver `infra/vps/.env.smoke.example` y `scripts/deployment/generate-dev-origin-certs.sh` para smoke local.
+Stack genérico de staging/producción (camino crítico M2): `edge` (Nginx TLS/AOP, únicos puertos 80/443), `web`, `api`, `db`, `migrate`. Secretos vía `--env-file` fuera de Git (`/etc/solocamiones/<env>.env`). Plantilla: `infra/vps/.env.staging.example`. Guía: `infra/vps/docs/STAGING_PROVISIONING.md`.
 
 Variables relevantes del `.env` (nunca commitear `.env`):
 

@@ -14,6 +14,11 @@
 #   AWS_DEFAULT_REGION (default auto)
 set -euo pipefail
 
+if grep -q $'\r' "${BASH_SOURCE[0]}" 2>/dev/null; then
+  echo "verify-backup-freshness: script has Windows CRLF line endings; run: sed -i 's/\\r\$//' ${BASH_SOURCE[0]}" >&2
+  exit 1
+fi
+
 require_env() {
   local name="$1"
   if [[ -z "${!name:-}" ]]; then

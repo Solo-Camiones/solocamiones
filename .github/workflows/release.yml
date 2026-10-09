@@ -179,7 +179,7 @@ jobs:
           retention-days: 30
 
   deploy-staging:
-    name: Deploy staging (scaffold until M6)
+    name: Deploy staging
     needs: build-and-publish
     runs-on: ubuntu-24.04
     timeout-minutes: 20
@@ -211,13 +211,13 @@ jobs:
             --ghcr-owner '${{ needs.build-and-publish.outputs.image_owner }}' \
             --dry-run
 
-      - name: Skip remote deploy when Tailscale/SSH secrets are absent (M5 → M6)
+      - name: Skip remote deploy when Tailscale/SSH secrets are absent
         id: gate
         run: |
           if [[ -z "${STAGING_SSH_HOST}" || -z "${STAGING_SSH_USER}" || -z "${STAGING_SSH_KEY}" ]]; then
             echo "present=false" >> "$GITHUB_OUTPUT"
             echo "Staging SSH/Tailscale secrets are not configured yet."
-            echo "M5 gate: publish + input validation only. Wire secrets in M6."
+            echo "Publish + input validation only. Wire STAGING_SSH_* after M6 host bootstrap."
           else
             echo "present=true" >> "$GITHUB_OUTPUT"
           fi
@@ -236,7 +236,7 @@ jobs:
             -o StrictHostKeyChecking=yes \
             "${STAGING_SSH_USER}@${STAGING_SSH_HOST}" \
             "export RELEASE_SHA='${RELEASE_SHA}' GITHUB_REPOSITORY_OWNER='${{ needs.build-and-publish.outputs.image_owner }}'; \
-             /opt/solocamiones/repo/scripts/deployment/deploy.sh \
+             /opt/solocamiones/scripts/deployment/deploy.sh \
                --env staging \
                --api-digest '${{ needs.build-and-publish.outputs.api_digest }}' \
                --web-digest '${{ needs.build-and-publish.outputs.web_digest }}' \

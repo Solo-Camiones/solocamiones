@@ -8,7 +8,7 @@
 #          prometheus/grafana (profile observability), vector (profile logs).
 #
 # Images must be digests in real deploys (set API_IMAGE / WEB_IMAGE).
-# Local smoke may build from Dockerfiles via the optional build contexts below.
+# Optional build contexts below are for exceptional local image builds only.
 #
 # Role bootstrap order on a new volume:
 #   1) up db

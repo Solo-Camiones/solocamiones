@@ -13,6 +13,11 @@
 #   ROLE_MIGRATION_NAME, ROLE_RUNTIME_NAME, ROLE_BACKUP_NAME, ROLE_MONITORING_NAME
 set -euo pipefail
 
+if grep -q $'\r' "${BASH_SOURCE[0]}" 2>/dev/null; then
+  echo "bootstrap-postgres: script has Windows CRLF line endings; run: sed -i 's/\\r\$//' ${BASH_SOURCE[0]}" >&2
+  exit 1
+fi
+
 sql_quote() {
   # Double single-quotes for safe inclusion inside SQL string literals.
   printf "%s" "${1}" | sed "s/'/''/g"
