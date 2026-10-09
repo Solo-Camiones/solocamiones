@@ -18,7 +18,8 @@ describe('deployShUsesHostShellSmoke', () => {
   });
 
   it('rejects Node smoke invocation', () => {
-    const text = 'node "${ROOT_DIR}/scripts/deployment/smoke-staging.mjs" --base-url "${SMOKE_BASE_URL}"';
+    const text =
+      'node "${ROOT_DIR}/scripts/deployment/smoke-staging.mjs" --base-url "${SMOKE_BASE_URL}"';
     assert.equal(deployShUsesHostShellSmoke(text), false);
   });
 
