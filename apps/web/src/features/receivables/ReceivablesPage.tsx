@@ -65,7 +65,7 @@ export function ReceivablesPage() {
   useEffect(() => {
     if (!hasAppliedFilters || customerFilterOptions.length > 0) return;
     let cancelled = false;
-    salesRepository.listReceivables(1, {}).then((response) => {
+    void salesRepository.listReceivables(1, {}).then((response) => {
       if (cancelled || !response.ok) return;
       setCustomerFilterOptions(uniqueCustomerOptions(response.value.customers));
     });

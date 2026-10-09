@@ -24,7 +24,7 @@ export function useRecovery() {
     let cancelled = false;
     setQuery(beginQueryReload);
 
-    recoveryRepository.getSnapshot().then((response) => {
+    void recoveryRepository.getSnapshot().then((response) => {
       if (cancelled) {
         return;
       }

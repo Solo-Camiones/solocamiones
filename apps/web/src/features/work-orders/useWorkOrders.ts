@@ -25,7 +25,7 @@ export function useWorkOrders(tab: WorkOrderListTab) {
     let cancelled = false;
     setResult(beginQueryReload);
 
-    workOrderRepository.list(tab).then((response) => {
+    void workOrderRepository.list(tab).then((response) => {
       if (cancelled) {
         return;
       }
@@ -46,7 +46,7 @@ export function useWorkOrders(tab: WorkOrderListTab) {
   useEffect(() => {
     let cancelled = false;
 
-    workOrderRepository.getCreateOptions().then((response) => {
+    void workOrderRepository.getCreateOptions().then((response) => {
       if (cancelled || !response.ok) {
         return;
       }

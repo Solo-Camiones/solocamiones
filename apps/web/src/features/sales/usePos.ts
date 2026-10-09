@@ -177,7 +177,7 @@ export function usePos(draftId: string | undefined, creationKind: 'sale' | 'quot
       setResult({ status: 'loading' });
       draftCreationRef.current ??=
         creationKind === 'quote' ? salesRepository.createQuote() : salesRepository.createDraft();
-      draftCreationRef.current.then((response) => {
+      void draftCreationRef.current.then((response) => {
         if (cancelled) {
           return;
         }
@@ -185,7 +185,7 @@ export function usePos(draftId: string | undefined, creationKind: 'sale' | 'quot
           setResult({ status: 'error', error: response.error });
           return;
         }
-        navigate(
+        void navigate(
           creationKind === 'quote'
             ? `/sales/quote/${response.value.draftId}`
             : `/sales/draft/${response.value.draftId}`,
@@ -201,7 +201,7 @@ export function usePos(draftId: string | undefined, creationKind: 'sale' | 'quot
 
     let cancelled = false;
     setResult({ status: 'loading' });
-    salesRepository.getDraft(draftId).then((response) => {
+    void salesRepository.getDraft(draftId).then((response) => {
       if (cancelled) {
         return;
       }
@@ -364,7 +364,7 @@ export function usePos(draftId: string | undefined, creationKind: 'sale' | 'quot
         if (!response.ok) {
           return response;
         }
-        navigate(`/sales/${draftId}`, { replace: true });
+        void navigate(`/sales/${draftId}`, { replace: true });
         return { ok: true, value: undefined };
       });
     },
@@ -385,7 +385,7 @@ export function usePos(draftId: string | undefined, creationKind: 'sale' | 'quot
     return runExclusive(async () => {
       const response = await salesRepository.duplicateQuote(draftId);
       if (!response.ok) return response;
-      navigate(`/sales/quote/${response.value.draftId}`);
+      void navigate(`/sales/quote/${response.value.draftId}`);
       return { ok: true, value: undefined };
     });
   }, [draftId, navigate, runExclusive]);
@@ -398,7 +398,7 @@ export function usePos(draftId: string | undefined, creationKind: 'sale' | 'quot
       return runExclusive(async () => {
         const response = await salesRepository.convertQuote(draftId, payment);
         if (!response.ok) return response;
-        navigate(`/sales/${draftId}`, { replace: true });
+        void navigate(`/sales/${draftId}`, { replace: true });
         return { ok: true, value: undefined };
       });
     },
@@ -413,7 +413,7 @@ export function usePos(draftId: string | undefined, creationKind: 'sale' | 'quot
       return runExclusive(async () => {
         const response = await salesRepository.convertQuoteToConduce(draftId, input);
         if (!response.ok) return response;
-        navigate(`/sales/${draftId}`, { replace: true });
+        void navigate(`/sales/${draftId}`, { replace: true });
         return { ok: true, value: undefined };
       });
     },
@@ -436,7 +436,7 @@ export function usePos(draftId: string | undefined, creationKind: 'sale' | 'quot
       if (!response.ok) {
         return response;
       }
-      navigate('/sales');
+      void navigate('/sales');
       return { ok: true, value: undefined };
     });
   }, [draftId, navigate, runExclusive]);

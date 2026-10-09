@@ -23,7 +23,7 @@ export function useMechanicOrders() {
     let cancelled = false;
     setResult(beginQueryReload);
 
-    workOrderRepository.listForMechanic().then((response) => {
+    void workOrderRepository.listForMechanic().then((response) => {
       if (cancelled) {
         return;
       }
@@ -90,7 +90,7 @@ export function useMechanicOrder(id: string | undefined) {
 
     let cancelled = false;
 
-    workOrderRepository.getForMechanic(id).then((response) => {
+    void workOrderRepository.getForMechanic(id).then((response) => {
       if (cancelled) {
         return;
       }

@@ -183,7 +183,7 @@ export function PosPage() {
               pushToast(toPosUserMessage(restored.error), 'error');
               return;
             }
-            navigate(`/sales/draft/${restored.value}`);
+            void navigate(`/sales/draft/${restored.value}`);
           });
         },
       },

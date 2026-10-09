@@ -60,7 +60,7 @@ export function useUsers(page: number) {
     let cancelled = false;
     setResult(beginQueryReload);
 
-    listUsers(page, query).then((response) => {
+    void listUsers(page, query).then((response) => {
       if (cancelled) {
         return;
       }
