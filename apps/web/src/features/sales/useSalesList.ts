@@ -169,7 +169,7 @@ export function useSalesList(
     let cancelled = false;
     setResult(beginQueryReload);
 
-    listSales(tab, page, q, { today, outstanding, payments }, { dateFrom, dateTo }).then(
+    void listSales(tab, page, q, { today, outstanding, payments }, { dateFrom, dateTo }).then(
       (response) => {
         if (cancelled) {
           return;
