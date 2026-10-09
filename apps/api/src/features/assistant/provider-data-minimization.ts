@@ -4,22 +4,17 @@ const REDACTED_VALUE = '[REDACTED]';
 // `[A-Z0-9.-]+` / `\.[A-Z]{2,}` partitions (super-linear on long dotted strings).
 const EMAIL_PATTERN = /\b[A-Z0-9._%+-]+@[A-Z0-9-]+(?:\.[A-Z0-9-]+)+\b/giu;
 
-const FREE_TEXT_LABEL =
-  String.raw`\b(direcci[oó]n|domicilio|notas?|observaci[oó]n(?:es)?)`;
+const FREE_TEXT_LABEL = String.raw`\b(direcci[oó]n|domicilio|notas?|observaci[oó]n(?:es)?)`;
 const LABELED_FREE_TEXT_PATTERNS = [
   new RegExp(String.raw`${FREE_TEXT_LABEL}\s*[=:]\s*([^\n;]+)`, 'giu'),
   new RegExp(String.raw`${FREE_TEXT_LABEL}\s+es\s+([^\n;]+)`, 'giu'),
   new RegExp(String.raw`${FREE_TEXT_LABEL}\s+([^\n:;=]+)`, 'giu'),
 ] as const;
 
-const IDENTITY_OR_CONTACT_LABEL =
-  String.raw`\b(rnc|c[eé]dula|tel[eé]fono|celular|correo(?:\s+electr[oó]nico)?|email)`;
+const IDENTITY_OR_CONTACT_LABEL = String.raw`\b(rnc|c[eé]dula|tel[eé]fono|celular|correo(?:\s+electr[oó]nico)?|email)`;
 const LABELED_IDENTITY_OR_CONTACT_PATTERNS = [
   new RegExp(String.raw`${IDENTITY_OR_CONTACT_LABEL}\s*[=:#]\s*([^\n;,]+)`, 'giu'),
-  new RegExp(
-    String.raw`${IDENTITY_OR_CONTACT_LABEL}\s+(?:n(?:ú|u)mero|no\.?)\s*([^\n;,]+)`,
-    'giu',
-  ),
+  new RegExp(String.raw`${IDENTITY_OR_CONTACT_LABEL}\s+(?:n(?:ú|u)mero|no\.?)\s*([^\n;,]+)`, 'giu'),
   new RegExp(String.raw`${IDENTITY_OR_CONTACT_LABEL}\s+([^\n:;,=]+)`, 'giu'),
 ] as const;
 
@@ -47,10 +42,7 @@ export function minimizeProviderText(value: string): string {
     value.replace(EMAIL_PATTERN, REDACTED_VALUE),
     LABELED_FREE_TEXT_PATTERNS,
   );
-  const afterIdentity = redactLabeledMatches(
-    afterFreeText,
-    LABELED_IDENTITY_OR_CONTACT_PATTERNS,
-  );
+  const afterIdentity = redactLabeledMatches(afterFreeText, LABELED_IDENTITY_OR_CONTACT_PATTERNS);
 
   return afterIdentity
     .replace(ADDRESS_PATTERN, REDACTED_VALUE)
