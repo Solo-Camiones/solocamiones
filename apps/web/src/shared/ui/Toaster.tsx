@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 
 import { Button } from './Button';
 import {
@@ -20,6 +20,28 @@ const DEFAULT_TOAST_DURATION_MS = 4000;
 
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([]);
+  // Auto-dismiss timers must be cleared on dismiss/unmount so setState never runs after teardown
+  // (Vitest workers can drop `window` after cleanup, which otherwise surfaces as ReferenceError).
+  const timeoutIdsRef = useRef(new Map<string, number>());
+
+  const clearToastTimeout = useCallback((id: string) => {
+    const timeoutId = timeoutIdsRef.current.get(id);
+    if (timeoutId === undefined) {
+      return;
+    }
+    window.clearTimeout(timeoutId);
+    timeoutIdsRef.current.delete(id);
+  }, []);
+
+  useEffect(() => {
+    const timeoutIds = timeoutIdsRef.current;
+    return () => {
+      for (const timeoutId of timeoutIds.values()) {
+        window.clearTimeout(timeoutId);
+      }
+      timeoutIds.clear();
+    };
+  }, []);
 
   const pushToast = useCallback(
     (message: string, tone: ToastTone = 'info', options?: ToastOptions) => {
@@ -29,16 +51,22 @@ export function ToastProvider({ children }: { children: ReactNode }) {
         ...current,
         { id, message, tone, durationMs, action: options?.action },
       ]);
-      window.setTimeout(() => {
+      const timeoutId = window.setTimeout(() => {
+        timeoutIdsRef.current.delete(id);
         setToasts((current) => current.filter((toast) => toast.id !== id));
       }, durationMs);
+      timeoutIdsRef.current.set(id, timeoutId);
     },
     [],
   );
 
-  const dismissToast = useCallback((id: string) => {
-    setToasts((current) => current.filter((toast) => toast.id !== id));
-  }, []);
+  const dismissToast = useCallback(
+    (id: string) => {
+      clearToastTimeout(id);
+      setToasts((current) => current.filter((toast) => toast.id !== id));
+    },
+    [clearToastTimeout],
+  );
 
   const value = useMemo(
     () => ({ toasts, pushToast, dismissToast }),
