@@ -31,7 +31,10 @@ export function CustomerOutstandingTable({
 
   // Totals grouped by currency — mixing currencies would produce meaningless sums.
   const totalsByCurrency = rows.reduce<
-    Map<CustomerOutstandingRow['currency'], { invoiced: number; paid: number; balance: number; invoiceCount: number }>
+    Map<
+      CustomerOutstandingRow['currency'],
+      { invoiced: number; paid: number; balance: number; invoiceCount: number }
+    >
   >((acc, row) => {
     const entry = acc.get(row.currency) ?? { invoiced: 0, paid: 0, balance: 0, invoiceCount: 0 };
     entry.invoiced += row.invoiced;

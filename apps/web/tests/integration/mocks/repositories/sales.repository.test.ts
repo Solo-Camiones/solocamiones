@@ -175,7 +175,9 @@ describe('MockSalesRepository', () => {
     expect(created.ok).toBe(true);
     if (!created.ok) return;
     const quoteId = created.value.draftId;
-    expect((await mockSalesRepository.setDraftMeta({ draftId: quoteId, customerId: 'C1' })).ok).toBe(true);
+    expect(
+      (await mockSalesRepository.setDraftMeta({ draftId: quoteId, customerId: 'C1' })).ok,
+    ).toBe(true);
     expect(
       (
         await mockSalesRepository.addLine({
@@ -198,7 +200,9 @@ describe('MockSalesRepository', () => {
     expect(converted.ok && converted.value.quoteNumber).toBe('COT-000001');
 
     const listed = await mockSalesRepository.listInvoices();
-    expect(listed.ok && listed.value.items.some((row) => row.quoteNumber === 'COT-000001')).toBe(true);
+    expect(listed.ok && listed.value.items.some((row) => row.quoteNumber === 'COT-000001')).toBe(
+      true,
+    );
     const retry = await mockSalesRepository.convertQuote(quoteId);
     expect(retry.ok && retry.value.number).toBe('FAC-000100');
     expect(getMockState().invoices.find((entry) => entry.id === quoteId)?.lines).toHaveLength(1);

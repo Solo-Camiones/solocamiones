@@ -1,19 +1,21 @@
 # Fragmento documental de Compose — purge one-shot del assistant
 #
 # IMPORTANTE:
-# - No es el Compose VPS completo.
-# - Debe integrarse a `infra/vps/compose.yaml` durante la implementación.
+# - El servicio canónico vive en `infra/vps/compose.yaml` (profile `operations`).
+# - Este archivo permanece como referencia operativa del Assistant.
 # - No contiene secretos ni ejecuta por sí solo un horario.
-# - Un systemd timer o cron root-owned del VPS dispara el servicio cerca de
-#   las 03:00 `America/Santo_Domingo` en cada ambiente.
+# - Un systemd timer del VPS (`infra/vps/systemd/solocamiones-assistant-purge.timer`)
+#   dispara el servicio cerca de las 03:00 `America/Santo_Domingo` en cada ambiente.
 # - Usa la misma imagen/digest de API desplegada en el ambiente.
+# - En la imagen runtime se usa `assistant:purge:runtime` (node/dist), no `tsx`.
 
 services:
   assistant-purge:
     image: ${API_IMAGE:?API_IMAGE is required}
-    command: ['npm', 'run', 'assistant:purge']
+    command: ['npm', 'run', 'assistant:purge:runtime', '-w', '@solocamiones/api']
     restart: 'no'
     environment:
+      APP_ENV: ${APP_ENV:?APP_ENV is required}
       NODE_ENV: production
       LOG_LEVEL: ${LOG_LEVEL:-info}
       DATABASE_URL: ${DATABASE_URL:?DATABASE_URL is required}

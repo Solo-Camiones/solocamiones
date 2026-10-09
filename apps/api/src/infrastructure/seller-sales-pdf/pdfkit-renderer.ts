@@ -1,5 +1,12 @@
 import { CORPORATE_PROFILE } from '../document-profile/index.js';
-import { BORDER, BRAND_BLUE, BRAND_NAVY, LIGHT_BLUE, LOGO_PATH, MUTED } from '../document-pdf/brand-tokens.js';
+import {
+  BORDER,
+  BRAND_BLUE,
+  BRAND_NAVY,
+  LIGHT_BLUE,
+  LOGO_PATH,
+  MUTED,
+} from '../document-pdf/brand-tokens.js';
 import { formatBusinessDateTime, formatCalendarDate } from '../document-pdf/formatters.js';
 import { renderPdfBuffer, type PdfDocument } from '../document-pdf/render-pdf-buffer.js';
 import { SELLER_SALES_PDF_EMPTY_MESSAGE } from './constants.js';
@@ -204,13 +211,11 @@ function drawTotals(document: PdfDocument, facts: SellerSalesPdfFacts, startY: n
       .fontSize(7.5)
       .text(total.sellerName, boxX + 10, lineY, { width: 140, lineBreak: false });
     document.text(total.currency, boxX + 150, lineY, { width: 50, lineBreak: false });
-    document
-      .font('Helvetica-Bold')
-      .text(total.grossLabel, boxX + 200, lineY, {
-        width: boxWidth - 210,
-        align: 'right',
-        lineBreak: false,
-      });
+    document.font('Helvetica-Bold').text(total.grossLabel, boxX + 200, lineY, {
+      width: boxWidth - 210,
+      align: 'right',
+      lineBreak: false,
+    });
   });
 }
 
@@ -234,11 +239,7 @@ function writeReport(facts: SellerSalesPdfFacts, document: PdfDocument): void {
     if (index % 2 === 1) {
       document.rect(left, y, tableWidth(), ROW_HEIGHT).fill('#f7fafc');
     }
-    document
-      .rect(left, y, tableWidth(), ROW_HEIGHT)
-      .strokeColor(BORDER)
-      .lineWidth(0.5)
-      .stroke();
+    document.rect(left, y, tableWidth(), ROW_HEIGHT).strokeColor(BORDER).lineWidth(0.5).stroke();
 
     const values = [
       row.documentTypeLabel,

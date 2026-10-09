@@ -76,24 +76,26 @@ Seller and Administrator must not capture or receive acquisition cost on ordinar
 ## Implementation checklist
 
 ### Domain / persistence
+
 - [x] Define cost amount + actual/estimated/unknown provenance.
 - [x] Snapshot applicable cost basis on completed sale lines.
-- [x] Implement DOP gross-profit calculation. *(API R2 M13: derivado del snapshot completed, Administrator-only)*
-- [x] Implement FX adapter interface and normalization to DOP-per-USD. *(API R2 M15: ExchangeRate-API Pair USD/DOP)*
-- [x] Persist FX provenance and profitability status. *(API R2 M15: tasa persistida; pending derivado si falta)*
-- [x] Implement pending-profitability retry command. *(API R2 M16: `POST /api/profitability/:invoiceId/retry`, tasa histórica del día UTC de `confirmedAt`; HTTP UI M24)*
+- [x] Implement DOP gross-profit calculation. _(API R2 M13: derivado del snapshot completed, Administrator-only)_
+- [x] Implement FX adapter interface and normalization to DOP-per-USD. _(API R2 M15: ExchangeRate-API Pair USD/DOP)_
+- [x] Persist FX provenance and profitability status. _(API R2 M15: tasa persistida; pending derivado si falta)_
+- [x] Implement pending-profitability retry command. _(API R2 M16: `POST /api/profitability/:invoiceId/retry`, tasa histórica del día UTC de `confirmedAt`; HTTP UI M24)_
 - [ ] Implement protected acquisition-cost correction with history. _(Prototype mock may exist; production API not started — inventory INV-006 / Release 8)_
-- [x] Enforce Administrator-only profitability projections. *(API R2 M13: GET/confirm/list omiten profit para Seller)*
-- [x] Persist Administrator-recorded DOP gross profit when calculation is unavailable. *(API R2 M14: COST-005, `POST /api/profitability/:invoiceId/manual-gross-profit`)*
+- [x] Enforce Administrator-only profitability projections. _(API R2 M13: GET/confirm/list omiten profit para Seller)_
+- [x] Persist Administrator-recorded DOP gross profit when calculation is unavailable. _(API R2 M14: COST-005, `POST /api/profitability/:invoiceId/manual-gross-profit`)_
 
 ### Tests
-- [x] Known/estimated/unknown cost cases. *(API R2 M13: unit + HTTP. PATCH de línea: un cambio de precio no pisa provenance; UNKNOWN no persiste como cero — `cost-provenance-http.test.ts`)*
-- [x] DOP calculation. *(API R2 M13)*
-- [x] USD division/rate-direction tests. *(API R2 M15)*
-- [x] FX timeout/error still confirms sale. *(API R2 M15)*
-- [x] Retry never reruns sale or changes payments. *(API R2 M16)*
-- [x] Seller profit endpoint/field denial. *(API R2 M13: omisión de campos en GET/confirm/list)*
-- [x] Administrator-recorded unknown-cost profit; denial for seller, pending FX, and already-calculated invoices. *(API R2 M14)*
+
+- [x] Known/estimated/unknown cost cases. _(API R2 M13: unit + HTTP. PATCH de línea: un cambio de precio no pisa provenance; UNKNOWN no persiste como cero — `cost-provenance-http.test.ts`)_
+- [x] DOP calculation. _(API R2 M13)_
+- [x] USD division/rate-direction tests. _(API R2 M15)_
+- [x] FX timeout/error still confirms sale. _(API R2 M15)_
+- [x] Retry never reruns sale or changes payments. _(API R2 M16)_
+- [x] Seller profit endpoint/field denial. _(API R2 M13: omisión de campos en GET/confirm/list)_
+- [x] Administrator-recorded unknown-cost profit; denial for seller, pending FX, and already-calculated invoices. _(API R2 M14)_
 
 ### Pre-production billing cost capture
 

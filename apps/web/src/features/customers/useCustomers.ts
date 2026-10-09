@@ -1,6 +1,10 @@
 import { useCallback, useEffect, useState } from 'react';
 
-import type { CustomerListRow, CustomerType, SaveCustomerInput } from '../../api/contracts/customers';
+import type {
+  CustomerListRow,
+  CustomerType,
+  SaveCustomerInput,
+} from '../../api/contracts/customers';
 import type { AppError, Result } from '../../shared/auth/types';
 import { customerRepository } from '../../api/repositories';
 import { beginQueryReload } from '../../shared/query/begin-query-reload';
@@ -60,18 +64,21 @@ export function useCustomers(page: number, customerType?: CustomerType) {
     setReloadToken((token) => token + 1);
   }, []);
 
-  const save = useCallback(async (input: SaveCustomerInput): Promise<Result<CustomerListRow['id']>> => {
-    setIsSaving(true);
-    const response = await customerRepository.save(input);
-    setIsSaving(false);
+  const save = useCallback(
+    async (input: SaveCustomerInput): Promise<Result<CustomerListRow['id']>> => {
+      setIsSaving(true);
+      const response = await customerRepository.save(input);
+      setIsSaving(false);
 
-    if (!response.ok) {
-      return response;
-    }
+      if (!response.ok) {
+        return response;
+      }
 
-    setReloadToken((token) => token + 1);
-    return { ok: true, value: response.value.id };
-  }, []);
+      setReloadToken((token) => token + 1);
+      return { ok: true, value: response.value.id };
+    },
+    [],
+  );
 
   return {
     query,

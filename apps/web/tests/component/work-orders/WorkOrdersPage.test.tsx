@@ -77,7 +77,10 @@ describe('WorkOrdersPage', () => {
     });
 
     expect(await screen.findByText('OD-DEMO-061')).toBeVisible();
-    expect(screen.getByRole('button', { name: 'Pendiente' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: 'Pendiente' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
     expect(screen.getByText(/Tipo: Desmonte/)).toBeVisible();
     expect(screen.queryByText('OD-DEMO-060')).not.toBeInTheDocument();
     expect(screen.queryByText('OD-DEMO-062')).not.toBeInTheDocument();

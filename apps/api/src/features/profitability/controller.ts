@@ -20,7 +20,11 @@ function invoiceId(req: Request): string {
 
 export async function postManualGrossProfit(req: Request, res: Response) {
   res.json(
-    await profitabilityServiceOf(req).recordManualGrossProfit(actor(req), invoiceId(req), req.validated?.body),
+    await profitabilityServiceOf(req).recordManualGrossProfit(
+      actor(req),
+      invoiceId(req),
+      req.validated?.body,
+    ),
   );
 }
 

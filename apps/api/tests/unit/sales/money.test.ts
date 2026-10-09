@@ -92,7 +92,12 @@ describe('calculateLineMoney', () => {
       quantity: '1',
       applyItbis: true,
     });
-    const qty = calculateLineMoney({ type: 'QTY', unitPrice: '59', quantity: '2', applyItbis: true });
+    const qty = calculateLineMoney({
+      type: 'QTY',
+      unitPrice: '59',
+      quantity: '2',
+      applyItbis: true,
+    });
 
     expectMoney(item.itbis, '21.24');
     expectMoney(qty.base, '118.00');
@@ -114,7 +119,11 @@ describe('calculateLineMoney', () => {
 
   it('does not add ITBIS when applyItbis is off', () => {
     const generic = calculateLineMoney({ type: 'GENERIC', unitPrice: '118', applyItbis: false });
-    const external = calculateLineMoney({ type: 'EXTERNAL', unitPrice: '19.50', applyItbis: false });
+    const external = calculateLineMoney({
+      type: 'EXTERNAL',
+      unitPrice: '19.50',
+      applyItbis: false,
+    });
 
     expectMoney(generic.itbis, '0.00');
     expectMoney(generic.base, '118.00');
@@ -153,9 +162,9 @@ describe('calculateLineMoney', () => {
     expect(() =>
       calculateLineMoney({ type: 'GENERIC', unitPrice: 'N/A', applyItbis: true }),
     ).toThrow(AppError);
-    expect(() =>
-      calculateLineMoney({ type: 'GENERIC', unitPrice: '', applyItbis: true }),
-    ).toThrow(AppError);
+    expect(() => calculateLineMoney({ type: 'GENERIC', unitPrice: '', applyItbis: true })).toThrow(
+      AppError,
+    );
     expect(() =>
       calculateLineMoney({
         type: 'GENERIC',
@@ -543,9 +552,7 @@ describe('sumCalculatedProfit', () => {
     const allKnown = sumCalculatedProfit([
       { profitability: known, sellingPrice: money('18000.00') },
     ]);
-    const none = sumCalculatedProfit([
-      { profitability: unknown, sellingPrice: money('100.00') },
-    ]);
+    const none = sumCalculatedProfit([{ profitability: unknown, sellingPrice: money('100.00') }]);
 
     expectMoney(allKnown.profitDop as Prisma.Decimal, '5700.00');
     expectMoney(allKnown.margin as Prisma.Decimal, '31.67');

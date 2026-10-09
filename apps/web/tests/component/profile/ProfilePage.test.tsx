@@ -63,9 +63,7 @@ describe('ProfilePage', () => {
     renderWithProviders(<ProfilePage />, { route: '/profile', auth });
 
     expect(screen.getByText('Debe cambiar su contraseña')).toBeVisible();
-    expect(
-      screen.getByText(/Esta cuenta usa una contraseña inicial o temporal/),
-    ).toBeVisible();
+    expect(screen.getByText(/Esta cuenta usa una contraseña inicial o temporal/)).toBeVisible();
   });
 
   it('toggles visibility independently on each password field', async () => {

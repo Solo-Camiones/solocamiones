@@ -22,7 +22,9 @@ export class MockUserRepository implements UserRepository {
       return permission;
     }
 
-    return ok(toListPage(cloneForRead(sortManagedUsers(getMockState().users.map(toManagedUser))), page));
+    return ok(
+      toListPage(cloneForRead(sortManagedUsers(getMockState().users.map(toManagedUser))), page),
+    );
   }
 
   async save(input: SaveUserInput): Promise<Result<SaveUserResult>> {

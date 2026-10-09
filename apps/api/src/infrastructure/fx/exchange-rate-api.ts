@@ -9,7 +9,12 @@ import {
   exchangeRateApiHistoryPath,
   isSameUtcCalendarDay,
 } from './constants.js';
-import type { FxRateLookupQuery, FxRateLookupResult, FxRateProvider, FxRateQuote } from './types.js';
+import type {
+  FxRateLookupQuery,
+  FxRateLookupResult,
+  FxRateProvider,
+  FxRateQuote,
+} from './types.js';
 
 type ExchangeRateApiClientOptions = {
   apiKey: string | undefined;
@@ -88,7 +93,10 @@ function parseHistoricalRateDate(payload: ExchangeRateApiPayload): Date | null {
 }
 
 function parseRateUpdatedAt(payload: ExchangeRateApiPayload): Date | null {
-  if (typeof payload.time_last_update_unix === 'number' && Number.isFinite(payload.time_last_update_unix)) {
+  if (
+    typeof payload.time_last_update_unix === 'number' &&
+    Number.isFinite(payload.time_last_update_unix)
+  ) {
     return new Date(payload.time_last_update_unix * 1000);
   }
   if (typeof payload.time_last_update_utc === 'string') {
@@ -134,13 +142,17 @@ export class ExchangeRateApiClient implements FxRateProvider {
       if (isTimeoutError(error)) {
         return { ok: false, reason: 'timeout' };
       }
-      const message = error instanceof Error ? redactSecret(error.message, this.apiKey) : 'http-error';
+      const message =
+        error instanceof Error ? redactSecret(error.message, this.apiKey) : 'http-error';
       logger.warn({ reason: message }, 'ExchangeRate-API lookup failed');
       return { ok: false, reason: 'http-error' };
     }
   }
 
-  private parsePayload(payload: ExchangeRateApiPayload | null, historical: boolean): FxRateLookupResult {
+  private parsePayload(
+    payload: ExchangeRateApiPayload | null,
+    historical: boolean,
+  ): FxRateLookupResult {
     if (payload == null) {
       return { ok: false, reason: 'invalid-payload' };
     }
@@ -152,7 +164,9 @@ export class ExchangeRateApiClient implements FxRateProvider {
     const rate = historical
       ? parsePositiveRate(conversionRatesRecord(payload.conversion_rates)?.DOP)
       : parsePositiveRate(payload.conversion_rate);
-    const rateUpdatedAt = historical ? parseHistoricalRateDate(payload) : parseRateUpdatedAt(payload);
+    const rateUpdatedAt = historical
+      ? parseHistoricalRateDate(payload)
+      : parseRateUpdatedAt(payload);
     if (rate == null || rateUpdatedAt == null) {
       return { ok: false, reason: 'invalid-payload' };
     }

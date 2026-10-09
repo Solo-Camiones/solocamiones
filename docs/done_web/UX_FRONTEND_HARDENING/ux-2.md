@@ -1,13 +1,13 @@
 # Milestone UX-2 — Navegación y arquitectura de información
 
-| Campo | Valor |
-|---|---|
-| **ID plan** | UX-2 |
-| **Estado** | Completado |
-| **Fecha** | 2026-09-02 |
+| Campo          | Valor                                                                                                  |
+| -------------- | ------------------------------------------------------------------------------------------------------ |
+| **ID plan**    | UX-2                                                                                                   |
+| **Estado**     | Completado                                                                                             |
+| **Fecha**      | 2026-09-02                                                                                             |
 | **Referencia** | [`docs/plans_web/UX_FRONTEND_HARDENING_PLAN.md`](../../plans_web/UX_FRONTEND_HARDENING_PLAN.md) § UX-2 |
-| **Alcance** | Solo frontend (`apps/web`). No cambia reglas de negocio ni el backend. |
-| **Siguiente** | UX-4 — Inventario: jerarquía visual e interacción |
+| **Alcance**    | Solo frontend (`apps/web`). No cambia reglas de negocio ni el backend.                                 |
+| **Siguiente**  | UX-4 — Inventario: jerarquía visual e interacción                                                      |
 
 ---
 
@@ -23,11 +23,11 @@ El corte de negocio sigue siendo **Release 1 ACTIVE** en [`docs/DEVELOPMENT_PLAN
 
 Fuente de verdad: `navGroupsForRole()` en `navigation.ts`.
 
-| Grupo | Secciones |
-|---|---|
-| Operación | Inicio, Inventario, Ventas y Facturas, Clientes, Órdenes de Trabajo |
-| Administración | Catálogos, Usuarios |
-| Finanzas y control | Rentabilidad, Administración y Recuperación |
+| Grupo              | Secciones                                                           |
+| ------------------ | ------------------------------------------------------------------- |
+| Operación          | Inicio, Inventario, Ventas y Facturas, Clientes, Órdenes de Trabajo |
+| Administración     | Catálogos, Usuarios                                                 |
+| Finanzas y control | Rentabilidad, Administración y Recuperación                         |
 
 Los encabezados solo aparecen cuando hay **más de un grupo visible**. El Vendedor ve un único grupo (Operación), así que su menú permanece plano. Un grupo vacío por capabilities no se renderiza (p. ej. Release 1 no muestra Finanzas y control).
 

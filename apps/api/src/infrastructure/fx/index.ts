@@ -10,4 +10,9 @@ export {
 export { createFxRateProvider } from './create-provider.js';
 export { ExchangeRateApiClient } from './exchange-rate-api.js';
 export { UNAVAILABLE_FX_RATE_REASON, unavailableFxRateProvider } from './unavailable-provider.js';
-export type { FxRateLookupQuery, FxRateLookupResult, FxRateProvider, FxRateQuote } from './types.js';
+export type {
+  FxRateLookupQuery,
+  FxRateLookupResult,
+  FxRateProvider,
+  FxRateQuote,
+} from './types.js';

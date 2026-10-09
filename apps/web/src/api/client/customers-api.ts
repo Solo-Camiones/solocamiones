@@ -1,5 +1,14 @@
-import type { CustomerListRow, SaveCustomerContactInput, SaveCustomerInput } from '../contracts/customers';
-import type { CreditTermDays, Customer, CustomerContact, CustomerType } from '../contracts/entities';
+import type {
+  CustomerListRow,
+  SaveCustomerContactInput,
+  SaveCustomerInput,
+} from '../contracts/customers';
+import type {
+  CreditTermDays,
+  Customer,
+  CustomerContact,
+  CustomerType,
+} from '../contracts/entities';
 import { LIST_PAGE_SIZE, type ListPage } from '../contracts/pagination';
 import type { Result } from '../../shared/auth/types';
 import { httpClient } from './http-client';

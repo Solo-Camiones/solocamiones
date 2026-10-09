@@ -1,5 +1,13 @@
 import type { PasswordRecoveryRequest } from '../../api/contracts/users';
-import { Button, Empty, Info, LoadingOverlay, SectionTitle, Skeleton, toPageLoadMessage } from '../../shared/ui';
+import {
+  Button,
+  Empty,
+  Info,
+  LoadingOverlay,
+  SectionTitle,
+  Skeleton,
+  toPageLoadMessage,
+} from '../../shared/ui';
 import type { RecoveryRequestsQuery } from './useRecoveryRequests';
 
 type Props = {

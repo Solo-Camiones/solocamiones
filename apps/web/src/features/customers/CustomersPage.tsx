@@ -1,7 +1,11 @@
 import { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 
-import type { CustomerListRow, CustomerType, SaveCustomerInput } from '../../api/contracts/customers';
+import type {
+  CustomerListRow,
+  CustomerType,
+  SaveCustomerInput,
+} from '../../api/contracts/customers';
 import { useAuth } from '../auth/useAuth';
 import { parseListPage, setListPageParam } from '../../api/contracts/pagination';
 import { presentAppError } from '../../shared/errors/present-app-error';
@@ -149,11 +153,7 @@ export function CustomersPage() {
         <Skeleton label="Cargando clientes" />
       ) : (
         <LoadingOverlay active={result.isRefreshing} label="Actualizando clientes">
-          <CustomerTable
-            rows={result.rows}
-            canManageCredit={canManageCredit}
-            onEdit={openEdit}
-          />
+          <CustomerTable rows={result.rows} canManageCredit={canManageCredit} onEdit={openEdit} />
           <PaginationBar
             page={result.page}
             pageSize={result.pageSize}

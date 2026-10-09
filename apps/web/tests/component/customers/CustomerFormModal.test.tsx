@@ -16,9 +16,12 @@ function renderModal(
   },
 ) {
   const { role = 'SELLER', ...modalProps } = props;
-  return renderWithProviders(<CustomerFormModal canManageCredit={role === 'ADMINISTRATOR'} {...modalProps} />, {
-    auth: createAuthValue(role),
-  });
+  return renderWithProviders(
+    <CustomerFormModal canManageCredit={role === 'ADMINISTRATOR'} {...modalProps} />,
+    {
+      auth: createAuthValue(role),
+    },
+  );
 }
 
 describe('CustomerFormModal', () => {

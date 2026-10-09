@@ -1,0 +1,8 @@
+# Reviewed exceptions for Gitleaks (supply-chain gate).
+# Fingerprints only — do not silence rules wholesale.
+#
+# Historical documented smoke placeholder `smoke-metrics-token-change-me`
+# (M4 local curl examples). Removed from HEAD in Milestone 6 (402871f).
+# Never a staging/production credential.
+1d082387d1c0874947eb218fbfc2886f5fd151da:docs/RELEASES/v2.0.0.md:curl-auth-header:232
+1d082387d1c0874947eb218fbfc2886f5fd151da:infra/vps/docs/OBSERVABILITY.md:curl-auth-header:25

@@ -1,13 +1,18 @@
 import { describe, expect, it } from 'vitest';
 
-import { fillDailyRange, lastCalendarMonths, sumAmounts, toChartView } from '../../../../src/features/profitability/chart-data';
+import {
+  fillDailyRange,
+  lastCalendarMonths,
+  sumAmounts,
+  toChartView,
+} from '../../../../src/features/profitability/chart-data';
 
 describe('profitability chart-data', () => {
   it('fills missing days in the selected range with zero', () => {
-    const points = fillDailyRange(
-      [{ key: '2026-09-02', label: '2 sept', amount: 100 }],
-      { from: '2026-09-01', to: '2026-09-03' },
-    );
+    const points = fillDailyRange([{ key: '2026-09-02', label: '2 sept', amount: 100 }], {
+      from: '2026-09-01',
+      to: '2026-09-03',
+    });
     expect(points.map((point) => [point.key, point.amount])).toEqual([
       ['2026-09-01', 0],
       ['2026-09-02', 100],

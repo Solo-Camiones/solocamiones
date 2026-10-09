@@ -1,13 +1,13 @@
 # Milestone UX-7 — Responsive y comportamiento en distintos tamaños
 
-| Campo | Valor |
-|---|---|
-| **ID plan** | UX-7 |
-| **Estado** | Completado |
-| **Fecha** | 2026-09-02 |
+| Campo          | Valor                                                                                                  |
+| -------------- | ------------------------------------------------------------------------------------------------------ |
+| **ID plan**    | UX-7                                                                                                   |
+| **Estado**     | Completado                                                                                             |
+| **Fecha**      | 2026-09-02                                                                                             |
 | **Referencia** | [`docs/plans_web/UX_FRONTEND_HARDENING_PLAN.md`](../../plans_web/UX_FRONTEND_HARDENING_PLAN.md) § UX-7 |
-| **Alcance** | Solo frontend (`apps/web`). No cambia reglas de negocio ni el backend. |
-| **Siguiente** | UX-8 — Validación final de usabilidad y consistencia |
+| **Alcance**    | Solo frontend (`apps/web`). No cambia reglas de negocio ni el backend.                                 |
+| **Siguiente**  | UX-8 — Validación final de usabilidad y consistencia                                                   |
 
 ---
 
@@ -21,11 +21,11 @@ El corte de negocio sigue siendo **Release 1 ACTIVE**. Las capabilities (UX-0) n
 
 Tres modos alineados a Tailwind `xl` / `md`:
 
-| Ancho | Modo | Comportamiento |
-|---|---|---|
-| ≥ 1280px | `full` | Sidebar persistente `w-64` (1920, 1440, 1366, 1280). |
-| 768–1279px | `compact` | Sidebar `w-52`, colapsable. Cubre 1024×768. |
-| < 768px | `drawer` | Overlay con trap de foco. Incluye ~200% de 1280px (640 CSS px). |
+| Ancho      | Modo      | Comportamiento                                                  |
+| ---------- | --------- | --------------------------------------------------------------- |
+| ≥ 1280px   | `full`    | Sidebar persistente `w-64` (1920, 1440, 1366, 1280).            |
+| 768–1279px | `compact` | Sidebar `w-52`, colapsable. Cubre 1024×768.                     |
+| < 768px    | `drawer`  | Overlay con trap de foco. Incluye ~200% de 1280px (640 CSS px). |
 
 El `overflow-hidden` del shell ya no envuelve el viewport entero: el scroll vive en `main`, el drawer se porta a `document.body`.
 

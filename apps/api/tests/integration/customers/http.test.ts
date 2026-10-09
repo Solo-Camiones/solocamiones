@@ -107,11 +107,14 @@ describe('M2 customers HTTP (CUST-001/002)', () => {
 
   it('lets Seller and Administrator create, search and edit customers', async () => {
     const seller = await fixture('SELLER');
-    const created = await seller.agent.post(ROOT).set(CSRF).send({
-      name: ' Taller Norte ',
-      rnc: '1-31-12345-6',
-      contacts: [{ name: 'Ana', phone: '8091112222', isPrimary: true }],
-    });
+    const created = await seller.agent
+      .post(ROOT)
+      .set(CSRF)
+      .send({
+        name: ' Taller Norte ',
+        rnc: '1-31-12345-6',
+        contacts: [{ name: 'Ana', phone: '8091112222', isPrimary: true }],
+      });
     expect(created.status).toBe(201);
     expect(created.body).toMatchObject({
       name: 'Taller Norte',
@@ -145,7 +148,10 @@ describe('M2 customers HTTP (CUST-001/002)', () => {
     expect((await mechanic.agent.post(ROOT).set(CSRF).send({ name: 'X' })).status).toBe(403);
     const generic = await customers.findDefault();
     expect(generic).not.toBeNull();
-    const locked = await admin.agent.patch(`${ROOT}/${generic!.id}`).set(CSRF).send({ name: 'Cash' });
+    const locked = await admin.agent
+      .patch(`${ROOT}/${generic!.id}`)
+      .set(CSRF)
+      .send({ name: 'Cash' });
     expect(locked.status).toBe(409);
     expect(locked.body.error.message).toBe(GENERIC_CUSTOMER_LOCKED_MESSAGE);
     expect(await prisma.historyEvent.count({ where: { subjectId: generic!.id } })).toBe(0);
@@ -166,7 +172,9 @@ describe('M2 customers HTTP (CUST-001/002)', () => {
     const admin = await fixture();
     await service.create(admin.user.id, { name: 'A', rnc: '00112345678' });
     await clearTestHistory();
-    await expect(service.create(admin.user.id, { name: 'B', rnc: '00112345678' })).rejects.toMatchObject({
+    await expect(
+      service.create(admin.user.id, { name: 'B', rnc: '00112345678' }),
+    ).rejects.toMatchObject({
       code: 'CONFLICT',
     });
     expect(await prisma.historyEvent.count()).toBe(0);
@@ -232,7 +240,10 @@ describe('pre-production customers HTTP (CUST-004/005/006)', () => {
 
   it('lets Administrator create CREDIT customers and validates CASH/CREDIT integrity', async () => {
     const admin = await fixture('ADMINISTRATOR');
-    const created = await admin.agent.post(ROOT).set(CSRF).send(validCreditCustomerBody('Distribuidora'));
+    const created = await admin.agent
+      .post(ROOT)
+      .set(CSRF)
+      .send(validCreditCustomerBody('Distribuidora'));
     expect(created.status).toBe(201);
     expect(created.body).toMatchObject({
       name: 'Distribuidora',

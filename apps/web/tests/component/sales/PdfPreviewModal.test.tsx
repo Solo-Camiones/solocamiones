@@ -67,7 +67,9 @@ describe('PdfPreviewModal', () => {
 
   it('renders the PDF URL and downloads it with the server filename', async () => {
     const user = userEvent.setup();
-    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => undefined);
+    const click = vi
+      .spyOn(HTMLAnchorElement.prototype, 'click')
+      .mockImplementation(() => undefined);
     renderWithProviders(
       <PdfPreviewModal
         open
@@ -115,7 +117,9 @@ describe('PdfPreviewModal', () => {
 
   it('previews a quote PDF without invoice labels and downloads COT- filename', async () => {
     const user = userEvent.setup();
-    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => undefined);
+    const click = vi
+      .spyOn(HTMLAnchorElement.prototype, 'click')
+      .mockImplementation(() => undefined);
     renderWithProviders(
       <PdfPreviewModal
         open

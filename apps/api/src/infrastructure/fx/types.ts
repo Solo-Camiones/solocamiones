@@ -7,9 +7,7 @@ export type FxRateQuote = {
   obtainedAt: Date;
 };
 
-export type FxRateLookupResult =
-  | { ok: true; quote: FxRateQuote }
-  | { ok: false; reason: string };
+export type FxRateLookupResult = { ok: true; quote: FxRateQuote } | { ok: false; reason: string };
 
 export type FxRateLookupQuery = {
   /** UTC instant whose calendar day selects the historical USD/DOP rate. */

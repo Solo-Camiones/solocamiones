@@ -50,7 +50,9 @@ export function CategoryAttributeFields({
                 id={fieldId}
                 value={value}
                 required={definition.required}
-                onChange={(event) => onChange(patchValue(values, definition.key, event.target.value))}
+                onChange={(event) =>
+                  onChange(patchValue(values, definition.key, event.target.value))
+                }
               >
                 <option value="">Seleccione…</option>
                 {(definition.options ?? []).map((option) => (
@@ -68,7 +70,9 @@ export function CategoryAttributeFields({
             key={definition.key}
             label={label}
             htmlFor={fieldId}
-            hint={definition.type === 'number' ? categoryAttributeTypeLabel(definition.type) : undefined}
+            hint={
+              definition.type === 'number' ? categoryAttributeTypeLabel(definition.type) : undefined
+            }
           >
             <Input
               id={fieldId}

@@ -233,20 +233,20 @@ describe('M8 account management HTTP and transactions', () => {
     const target = await fixture('SELLER');
     const page = await admin.agent.get(`${ROOT}?page=1&pageSize=1`);
     expect(page.body).toMatchObject({ total: 2, page: 1, pageSize: 1 });
-      expect(page.body.items).toHaveLength(1);
-      expect(JSON.stringify(page.body)).not.toContain(INITIAL_PASSWORD);
-      expect((await admin.agent.get(`${ROOT}?pageSize=101`)).status).toBe(400);
-      const updated = await admin.agent
-        .patch(`${ROOT}/${target.user.id}`)
-        .set(CSRF)
-        .send({ username: ' EDITED ', role: 'MECHANIC', phone: '', email: '' });
-      expect(updated.body).toMatchObject({
-        username: 'edited',
-        role: 'MECHANIC',
-        phone: null,
-        email: null,
-      });
-      expect(JSON.stringify(updated.body)).not.toContain(INITIAL_PASSWORD);
+    expect(page.body.items).toHaveLength(1);
+    expect(JSON.stringify(page.body)).not.toContain(INITIAL_PASSWORD);
+    expect((await admin.agent.get(`${ROOT}?pageSize=101`)).status).toBe(400);
+    const updated = await admin.agent
+      .patch(`${ROOT}/${target.user.id}`)
+      .set(CSRF)
+      .send({ username: ' EDITED ', role: 'MECHANIC', phone: '', email: '' });
+    expect(updated.body).toMatchObject({
+      username: 'edited',
+      role: 'MECHANIC',
+      phone: null,
+      email: null,
+    });
+    expect(JSON.stringify(updated.body)).not.toContain(INITIAL_PASSWORD);
     expect(
       (
         await admin.agent

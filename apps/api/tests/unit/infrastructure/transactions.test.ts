@@ -56,28 +56,34 @@ describe('feature transaction retry policies', () => {
     prismaTransaction.mockReset();
   });
 
-  it.each(transactionCases)('$name returns work from the first successful transaction', async ({ run }) => {
-    executeTransactionCallback();
-    const work = vi.fn().mockResolvedValue('committed');
+  it.each(transactionCases)(
+    '$name returns work from the first successful transaction',
+    async ({ run }) => {
+      executeTransactionCallback();
+      const work = vi.fn().mockResolvedValue('committed');
 
-    await expect(run(work)).resolves.toBe('committed');
-    expect(work).toHaveBeenCalledTimes(1);
-    expect(prismaTransaction).toHaveBeenCalledTimes(1);
-    expect(prismaTransaction).toHaveBeenCalledWith(expect.any(Function), {
-      isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
-    });
-  });
+      await expect(run(work)).resolves.toBe('committed');
+      expect(work).toHaveBeenCalledTimes(1);
+      expect(prismaTransaction).toHaveBeenCalledTimes(1);
+      expect(prismaTransaction).toHaveBeenCalledWith(expect.any(Function), {
+        isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+      });
+    },
+  );
 
-  it.each(transactionCases)('$name retries P2034 and returns the later success', async ({ run }) => {
-    prismaTransaction
-      .mockRejectedValueOnce(prismaError('P2034'))
-      .mockImplementationOnce(async (callback: (tx: object) => Promise<unknown>) => callback({}));
-    const work = vi.fn().mockResolvedValue('committed-after-retry');
+  it.each(transactionCases)(
+    '$name retries P2034 and returns the later success',
+    async ({ run }) => {
+      prismaTransaction
+        .mockRejectedValueOnce(prismaError('P2034'))
+        .mockImplementationOnce(async (callback: (tx: object) => Promise<unknown>) => callback({}));
+      const work = vi.fn().mockResolvedValue('committed-after-retry');
 
-    await expect(run(work)).resolves.toBe('committed-after-retry');
-    expect(prismaTransaction).toHaveBeenCalledTimes(2);
-    expect(work).toHaveBeenCalledTimes(1);
-  });
+      await expect(run(work)).resolves.toBe('committed-after-retry');
+      expect(prismaTransaction).toHaveBeenCalledTimes(2);
+      expect(work).toHaveBeenCalledTimes(1);
+    },
+  );
 
   it.each(transactionCases)(
     '$name maps exhausted P2034 retries to its public conflict',
@@ -99,13 +105,16 @@ describe('feature transaction retry policies', () => {
     expect(prismaTransaction).toHaveBeenCalledTimes(1);
   });
 
-  it.each(transactionCases)('$name preserves an unknown error without retrying', async ({ run }) => {
-    const failure = new Error('unexpected transaction failure');
-    prismaTransaction.mockRejectedValue(failure);
+  it.each(transactionCases)(
+    '$name preserves an unknown error without retrying',
+    async ({ run }) => {
+      const failure = new Error('unexpected transaction failure');
+      prismaTransaction.mockRejectedValue(failure);
 
-    await expect(run(vi.fn())).rejects.toBe(failure);
-    expect(prismaTransaction).toHaveBeenCalledTimes(1);
-  });
+      await expect(run(vi.fn())).rejects.toBe(failure);
+      expect(prismaTransaction).toHaveBeenCalledTimes(1);
+    },
+  );
 
   it('customer maps a duplicate fiscal identifier to conflict', async () => {
     prismaTransaction.mockRejectedValue(prismaError('P2002'));

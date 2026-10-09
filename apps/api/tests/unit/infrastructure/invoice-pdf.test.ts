@@ -236,7 +236,9 @@ describe('invoice PDF renderer (SALE-004)', () => {
     expect(hexText).toContain(Buffer.from('829-627-3168').toString('hex'));
     expect(hexText).toContain(Buffer.from('solocamionessrl@gmail.com').toString('hex'));
     expect(hexText).toContain(Buffer.from('Av. Pdte.').toString('hex'));
-    expect(hexText).toContain(Buffer.from('Importadora de repuestos nuevos y usados').toString('hex'));
+    expect(hexText).toContain(
+      Buffer.from('Importadora de repuestos nuevos y usados').toString('hex'),
+    );
     expect(hexText).toContain(Buffer.from('@solocamionessrl').toString('hex'));
     expect(hexText).toContain(Buffer.from('solo.camiones.srl').toString('hex'));
     expect(hexText).toContain(Buffer.from('Términos y condiciones', 'latin1').toString('hex'));

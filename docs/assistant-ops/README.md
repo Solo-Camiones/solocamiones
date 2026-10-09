@@ -10,13 +10,13 @@ La especificación de producto sigue siendo `docs/FEATURES/17_AI_ASSISTANT.md`. 
 
 ## Índice
 
-| Documento                                            | Contenido                                                                                   |
-| ---------------------------------------------------- | ------------------------------------------------------------------------------------------- |
-| [THREAT_MODEL.md](./THREAT_MODEL.md)                 | Amenazas (secretos, PII, injection, corpus, tools, costos, outage) → mitigaciones previstas |
-| [RUNBOOK.md](./RUNBOOK.md)                           | Diagnóstico: 401/403, 429, timeout, outage OpenAI, sync, purge, kill switch                 |
-| [PROVIDER_PRIVACY.md](./PROVIDER_PRIVACY.md)         | Checklist pre-producción OpenAI (retention/training/DPA/región)                             |
-| [OPERATIONS.md](./OPERATIONS.md)                     | Rotación de key, vector store, recovery, métricas, alertas, purga, sync explícito           |
-| [purge.compose.fragment.yaml](./purge.compose.fragment.yaml) | Fragmento documental de servicio one-shot para integrar la purga al Compose/scheduler VPS |
+| Documento                                                    | Contenido                                                                                   |
+| ------------------------------------------------------------ | ------------------------------------------------------------------------------------------- |
+| [THREAT_MODEL.md](./THREAT_MODEL.md)                         | Amenazas (secretos, PII, injection, corpus, tools, costos, outage) → mitigaciones previstas |
+| [RUNBOOK.md](./RUNBOOK.md)                                   | Diagnóstico: 401/403, 429, timeout, outage OpenAI, sync, purge, kill switch                 |
+| [PROVIDER_PRIVACY.md](./PROVIDER_PRIVACY.md)                 | Checklist pre-producción OpenAI (retention/training/DPA/región)                             |
+| [OPERATIONS.md](./OPERATIONS.md)                             | Rotación de key, vector store, recovery, métricas, alertas, purga, sync explícito           |
+| [purge.compose.fragment.yaml](./purge.compose.fragment.yaml) | Fragmento documental de servicio one-shot para integrar la purga al Compose/scheduler VPS   |
 
 ---
 

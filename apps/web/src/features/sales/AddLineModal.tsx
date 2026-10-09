@@ -168,13 +168,13 @@ export function AddLineModal({
 
           {type === 'ITEM' && (
             <Field htmlFor="line-item" label={UX_TERMS.piece}>
-            <Select
-              id="line-item"
-              value={itemId}
-              searchable
-              searchPlaceholder="Buscar pieza"
-              onChange={(event) => setItemId(event.target.value)}
-            >
+              <Select
+                id="line-item"
+                value={itemId}
+                searchable
+                searchPlaceholder="Buscar pieza"
+                onChange={(event) => setItemId(event.target.value)}
+              >
                 {draft.items.length === 0 && <option value="">No hay piezas elegibles</option>}
                 {draft.items.map((item) => (
                   <option key={item.id} value={item.id}>

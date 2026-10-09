@@ -7,13 +7,7 @@ import type {
   ItemDetailView,
   QtyProductDetailView,
 } from '../../api/contracts/inventory';
-import type {
-  AppState,
-  Category,
-  Item,
-  QtyProduct,
-  WorkOrder,
-} from '../../api/contracts/entities';
+import type { AppState, Category, Item, QtyProduct, WorkOrder } from '../../api/contracts/entities';
 import {
   ancestorChain,
   availableToReserve,
@@ -154,8 +148,7 @@ function toQtyRow(state: AppState, product: QtyProduct): InventoryListRow {
 function activeWorkForPiece(state: AppState, pieceId: string) {
   const order = state.workOrders.find(
     (entry) =>
-      entry.pieceId === pieceId &&
-      (entry.status === 'PENDING' || entry.status === 'IN_PROGRESS'),
+      entry.pieceId === pieceId && (entry.status === 'PENDING' || entry.status === 'IN_PROGRESS'),
   );
   if (!order) {
     return undefined;

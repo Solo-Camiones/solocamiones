@@ -80,15 +80,12 @@ async function draftWithLine(
       fiscal: options.fiscal ?? false,
     });
   expect(draft.status).toBe(201);
-  const line = await agent
-    .post(`${ROOT}/${draft.body.id}/lines`)
-    .set(TEST_CSRF_HEADERS)
-    .send({
-      type: 'GENERIC',
-      description: 'Aceite',
-      notes: 'Nota conduce',
-      unitPrice: '100.00',
-    });
+  const line = await agent.post(`${ROOT}/${draft.body.id}/lines`).set(TEST_CSRF_HEADERS).send({
+    type: 'GENERIC',
+    description: 'Aceite',
+    notes: 'Nota conduce',
+    unitPrice: '100.00',
+  });
   expect(line.status).toBe(201);
   return line.body;
 }
@@ -99,15 +96,12 @@ async function issuedQuoteWithLine(agent: request.Agent, customerId: string) {
     .set(TEST_CSRF_HEADERS)
     .send({ customerId, applyItbis: true });
   expect(quote.status).toBe(201);
-  const withLine = await agent
-    .post(`${ROOT}/${quote.body.id}/lines`)
-    .set(TEST_CSRF_HEADERS)
-    .send({
-      type: 'GENERIC',
-      description: 'Filtro',
-      notes: 'Nota cotización',
-      unitPrice: '100.00',
-    });
+  const withLine = await agent.post(`${ROOT}/${quote.body.id}/lines`).set(TEST_CSRF_HEADERS).send({
+    type: 'GENERIC',
+    description: 'Filtro',
+    notes: 'Nota cotización',
+    unitPrice: '100.00',
+  });
   expect(withLine.status).toBe(201);
   const issued = await agent
     .post(`${ROOT}/${quote.body.id}/issue-quote`)
@@ -177,9 +171,11 @@ describe('conduce emission and conversion HTTP (CON-001/CON-003)', () => {
       ).body.error.message,
     ).toBe(DRAFT_ONLY_EDIT_MESSAGE);
 
-    expect(await prisma.historyEvent.count({ where: { subjectId: draft.id, eventType: 'CONDUCE_ISSUED' } })).toBe(
-      1,
-    );
+    expect(
+      await prisma.historyEvent.count({
+        where: { subjectId: draft.id, eventType: 'CONDUCE_ISSUED' },
+      }),
+    ).toBe(1);
 
     const retry = await agent
       .post(`${ROOT}/${draft.id}/issue-conduce`)
@@ -191,7 +187,9 @@ describe('conduce emission and conversion HTTP (CON-001/CON-003)', () => {
       nextValue: 2,
     });
     expect(
-      await prisma.historyEvent.count({ where: { subjectId: draft.id, eventType: 'CONDUCE_ISSUED' } }),
+      await prisma.historyEvent.count({
+        where: { subjectId: draft.id, eventType: 'CONDUCE_ISSUED' },
+      }),
     ).toBe(1);
   });
 
@@ -414,7 +412,10 @@ describe('conduce emission and conversion HTTP (CON-001/CON-003)', () => {
     expect(wrongQuoteCommand.status).toBe(409);
     expect(wrongQuoteCommand.body.error.message).toBe(QUOTE_ISSUED_ONLY_CONVERT_TO_CONDUCE_MESSAGE);
 
-    const quote = await issuedQuoteWithLine(agent, (await creditCustomer('Otro crédito', '13109876543')).id);
+    const quote = await issuedQuoteWithLine(
+      agent,
+      (await creditCustomer('Otro crédito', '13109876543')).id,
+    );
     const wrongDraftCommand = await agent
       .post(`${ROOT}/${quote.id}/issue-conduce`)
       .set(TEST_CSRF_HEADERS)

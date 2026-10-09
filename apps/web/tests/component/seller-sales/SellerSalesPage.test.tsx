@@ -127,7 +127,9 @@ describe('SellerSalesPage', () => {
     await user.type(screen.getByLabelText('Hasta'), '2026-09-01');
     await user.click(screen.getByRole('button', { name: 'Consultar' }));
 
-    expect(screen.getByText('La fecha desde debe ser anterior o igual a la fecha hasta.')).toBeVisible();
+    expect(
+      screen.getByText('La fecha desde debe ser anterior o igual a la fecha hasta.'),
+    ).toBeVisible();
     expect(listReport).not.toHaveBeenCalled();
   });
 

@@ -3,7 +3,12 @@ import { Prisma } from '@prisma/client';
 import { AppError } from '../../../infrastructure/errors/app-error.js';
 
 import { parseNonNegativeDecimal } from './parse.js';
-import { COST_PROVENANCES, type AcquisitionCost, type CostProvenance, type MoneyInput } from './types.js';
+import {
+  COST_PROVENANCES,
+  type AcquisitionCost,
+  type CostProvenance,
+  type MoneyInput,
+} from './types.js';
 
 /**
  * Cost is not used in ITBIS. This helper keeps UNKNOWN distinct from zero so
@@ -25,10 +30,13 @@ export function normalizeAcquisitionCost(input: {
   }
 
   if (input.amount === null || input.amount === undefined) {
-    throw AppError.validation('Acquisition cost amount is required when provenance is not UNKNOWN', {
-      field: 'amount',
-      provenance: input.provenance,
-    });
+    throw AppError.validation(
+      'Acquisition cost amount is required when provenance is not UNKNOWN',
+      {
+        field: 'amount',
+        provenance: input.provenance,
+      },
+    );
   }
 
   return {

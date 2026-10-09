@@ -1,13 +1,13 @@
 # Milestone 12 — WM12: Rentabilidad, recuperación, escenarios demo y preparación API
 
-| Campo          | Valor                                                           |
-| -------------- | --------------------------------------------------------------- |
-| **ID plan**    | WM12                                                            |
-| **Estado**     | Completado                                                      |
-| **Fecha**      | 2026-09-01                                                      |
-| **Referencia** | [`docs/plans_web/plan-001.md`](../../plans_web/plan-001.md) § WM12 |
+| Campo          | Valor                                                                                      |
+| -------------- | ------------------------------------------------------------------------------------------ |
+| **ID plan**    | WM12                                                                                       |
+| **Estado**     | Completado                                                                                 |
+| **Fecha**      | 2026-09-01                                                                                 |
+| **Referencia** | [`docs/plans_web/plan-001.md`](../../plans_web/plan-001.md) § WM12                         |
 | **Alcance**    | `/profitability`, `/recovery`, 12 escenarios demo, `VITE_USE_MOCK_API` + `Http*Repository` |
-| **Siguiente**  | Integración HTTP milestone a milestone cuando existan los endpoints API |
+| **Siguiente**  | Integración HTTP milestone a milestone cuando existan los endpoints API                    |
 
 ---
 
@@ -65,16 +65,16 @@ apps/web/src/
 
 ## 5. Criterios de aceptación
 
-| Criterio | Estado |
-| --- | --- |
-| 12 escenarios sin error | ✅ `runDemoScenario(1..12)` |
-| FAC-000096 pendiente FX hasta toggle + reintentar | ✅ 42000/61.50 → utilidad USD |
-| Liberar reserva descarta borrador y libera pieza | ✅ `INV-DRAFT-01` / `ALT-004`, solo desde 6 horas |
-| Corrección de moneda invalida ganancia manual obsoleta | ✅ conserva el valor anterior en el evento correctivo |
-| Escenario 5 permite confirmar ensamblaje completo | ✅ borrador limpio con `MOT-003` y su subárbol |
-| `VITE_USE_MOCK_API=false` arranca sin importar mocks en features | ✅ composition root + test de imports |
-| Walkthrough Part A/B/C reproducible | ✅ seed + escenarios 1, 7, 11–12 y flujos WM8–WM11 |
-| Checklist endurecimiento completado | ✅ policies en servicio, proyecciones por rol, demo sin bypass |
+| Criterio                                                         | Estado                                                         |
+| ---------------------------------------------------------------- | -------------------------------------------------------------- |
+| 12 escenarios sin error                                          | ✅ `runDemoScenario(1..12)`                                    |
+| FAC-000096 pendiente FX hasta toggle + reintentar                | ✅ 42000/61.50 → utilidad USD                                  |
+| Liberar reserva descarta borrador y libera pieza                 | ✅ `INV-DRAFT-01` / `ALT-004`, solo desde 6 horas              |
+| Corrección de moneda invalida ganancia manual obsoleta           | ✅ conserva el valor anterior en el evento correctivo          |
+| Escenario 5 permite confirmar ensamblaje completo                | ✅ borrador limpio con `MOT-003` y su subárbol                 |
+| `VITE_USE_MOCK_API=false` arranca sin importar mocks en features | ✅ composition root + test de imports                          |
+| Walkthrough Part A/B/C reproducible                              | ✅ seed + escenarios 1, 7, 11–12 y flujos WM8–WM11             |
+| Checklist endurecimiento completado                              | ✅ policies en servicio, proyecciones por rol, demo sin bypass |
 
 ## 6. Verificación
 

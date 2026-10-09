@@ -39,4 +39,3 @@ describe('numericDate', () => {
     expect(numericDate('2026-09-18T16:00:00.000Z')).toBe('18/09/2026');
   });
 });
-

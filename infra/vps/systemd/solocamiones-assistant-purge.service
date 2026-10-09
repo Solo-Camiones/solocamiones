@@ -1,0 +1,21 @@
+# Daily Assistant conversation purge (M3.5).
+# Business timezone: America/Santo_Domingo (~03:00). Single batch of 100 (owner decision).
+
+[Unit]
+Description=Solo Camiones Assistant retention purge
+Documentation=file:///opt/solocamiones/docs/assistant-ops/OPERATIONS.md
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/solocamiones
+EnvironmentFile=/etc/solocamiones/staging.env
+ExecStart=/usr/bin/docker compose --env-file /etc/solocamiones/staging.env -f infra/vps/compose.yaml --profile operations run --rm --no-deps assistant-purge
+Nice=10
+TimeoutStartSec=15min
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

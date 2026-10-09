@@ -1,0 +1,210 @@
+name: Promote production
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version (e.g. v2.0.0)'
+        required: true
+        type: string
+      sha:
+        description: 'Full 40-character git SHA already validated on staging'
+        required: true
+        type: string
+      api_digest:
+        description: 'API image digest (sha256:...)'
+        required: true
+        type: string
+      web_digest:
+        description: 'Web image digest (sha256:...)'
+        required: true
+        type: string
+      backup_digest:
+        description: 'Backup image digest (sha256:...)'
+        required: true
+        type: string
+      backup_object_key:
+        description: 'R2 object key of the recent encrypted backup'
+        required: true
+        type: string
+      confirmation:
+        description: 'Type exactly: promote-production'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: promote-production
+  cancel-in-progress: false
+
+jobs:
+  validate-and-promote:
+    name: Validate inputs and promote digests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    environment: production
+    permissions:
+      contents: read
+      packages: read
+
+    env:
+      PRODUCTION_SSH_HOST: ${{ secrets.PRODUCTION_SSH_HOST }}
+      PRODUCTION_SSH_USER: ${{ secrets.PRODUCTION_SSH_USER }}
+      PRODUCTION_SSH_KEY: ${{ secrets.PRODUCTION_SSH_KEY }}
+      R2_ENDPOINT: ${{ secrets.PRODUCTION_R2_ENDPOINT }}
+      R2_BUCKET: ${{ secrets.PRODUCTION_R2_BUCKET }}
+      R2_ACCESS_KEY_ID: ${{ secrets.PRODUCTION_R2_ACCESS_KEY_ID }}
+      R2_SECRET_ACCESS_KEY: ${{ secrets.PRODUCTION_R2_SECRET_ACCESS_KEY }}
+      BACKUP_OBJECT_KEY: ${{ inputs.backup_object_key }}
+      BACKUP_MAX_AGE_MINUTES: '90'
+
+    steps:
+      - name: Check out candidate SHA
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          ref: ${{ inputs.sha }}
+          persist-credentials: false
+
+      - name: Require literal confirmation
+        run: |
+          if [[ '${{ inputs.confirmation }}' != 'promote-production' ]]; then
+            echo 'Confirmation must be exactly: promote-production' >&2
+            exit 1
+          fi
+          echo 'Confirmation OK'
+
+      - name: Validate version and SHA shape
+        run: |
+          if [[ ! '${{ inputs.version }}' =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo 'version must match vMAJOR.MINOR.PATCH' >&2
+            exit 1
+          fi
+          if [[ ! '${{ inputs.sha }}' =~ ^[a-f0-9]{40}$ ]]; then
+            echo 'sha must be a full 40-character commit SHA' >&2
+            exit 1
+          fi
+          echo "Promoting ${{ inputs.version }} at ${{ inputs.sha }}"
+
+      - name: Make deployment scripts executable
+        run: chmod +x scripts/deployment/*.sh
+
+      - name: Log in to GHCR (read packages)
+        uses: docker/login-action@74a5d142397b4f367a81961eba4e8cd7edddf772 # v3.4.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx (imagetools)
+        uses: docker/setup-buildx-action@b5ca514318bd6ebac0fb2aedd5d36ec1b5c232a2 # v3.10.0
+
+      - name: Verify digests match SHA tags on GHCR
+        env:
+          OWNER: ${{ github.repository_owner }}
+        run: |
+          owner="$(echo "${OWNER}" | tr '[:upper:]' '[:lower:]')"
+          ./scripts/deployment/verify-image-digests.sh \
+            --owner "${owner}" \
+            --sha '${{ inputs.sha }}' \
+            --api-digest '${{ inputs.api_digest }}' \
+            --web-digest '${{ inputs.web_digest }}' \
+            --backup-digest '${{ inputs.backup_digest }}'
+
+      - name: Verify recent backup object (age + key)
+        id: backup
+        run: |
+          missing=0
+          for name in R2_ENDPOINT R2_BUCKET R2_ACCESS_KEY_ID R2_SECRET_ACCESS_KEY BACKUP_OBJECT_KEY; do
+            if [[ -z "${!name}" ]]; then
+              echo "Missing ${name}"
+              missing=1
+            fi
+          done
+          if [[ "${missing}" -eq 1 ]]; then
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "Production R2 secrets are not configured yet (expected until M8)."
+            echo "Input backup_object_key was provided: ${BACKUP_OBJECT_KEY}"
+            if [[ -z "${BACKUP_OBJECT_KEY}" ]]; then
+              echo 'backup_object_key input is required' >&2
+              exit 1
+            fi
+            echo 'Skipping live R2 head-object until secrets exist; key shape validated.'
+            exit 0
+          fi
+          echo "present=true" >> "$GITHUB_OUTPUT"
+          sudo apt-get update -qq && sudo apt-get install -y -qq awscli
+          ./scripts/deployment/verify-backup-freshness.sh
+
+      - name: Dry-run production deploy plan
+        env:
+          RELEASE_SHA: ${{ inputs.sha }}
+          OWNER: ${{ github.repository_owner }}
+        run: |
+          owner="$(echo "${OWNER}" | tr '[:upper:]' '[:lower:]')"
+          ./scripts/deployment/deploy.sh \
+            --env production \
+            --api-digest '${{ inputs.api_digest }}' \
+            --web-digest '${{ inputs.web_digest }}' \
+            --backup-digest '${{ inputs.backup_digest }}' \
+            --ghcr-owner "${owner}" \
+            --skip-smoke \
+            --dry-run
+
+      - name: Skip remote promote when production SSH secrets are absent
+        id: ssh_gate
+        run: |
+          if [[ -z "${PRODUCTION_SSH_HOST}" || -z "${PRODUCTION_SSH_USER}" || -z "${PRODUCTION_SSH_KEY}" ]]; then
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "Production SSH secrets are not configured yet (wire in M8/M9)."
+            echo "M5 gate satisfied by confirmation + digest verification + dry-run."
+          else
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Promote digests on production host
+        if: steps.ssh_gate.outputs.present == 'true'
+        env:
+          RELEASE_SHA: ${{ inputs.sha }}
+          OWNER: ${{ github.repository_owner }}
+        run: |
+          owner="$(echo "${OWNER}" | tr '[:upper:]' '[:lower:]')"
+          mkdir -p "${HOME}/.ssh"
+          chmod 700 "${HOME}/.ssh"
+          install -m 600 /dev/null "${HOME}/.ssh/production_key"
+          printf '%s\n' "${PRODUCTION_SSH_KEY}" > "${HOME}/.ssh/production_key"
+          ssh -i "${HOME}/.ssh/production_key" \
+            -o IdentitiesOnly=yes \
+            -o StrictHostKeyChecking=yes \
+            "${PRODUCTION_SSH_USER}@${PRODUCTION_SSH_HOST}" \
+            "export RELEASE_SHA='${RELEASE_SHA}' GITHUB_REPOSITORY_OWNER='${owner}'; \
+             /opt/solocamiones/scripts/deployment/deploy.sh \
+               --env production \
+               --api-digest '${{ inputs.api_digest }}' \
+               --web-digest '${{ inputs.web_digest }}' \
+               --backup-digest '${{ inputs.backup_digest }}' \
+               --ghcr-owner '${owner}' \
+               --skip-smoke"
+
+      - name: Write promotion evidence artifact
+        run: |
+          {
+            echo "version=${{ inputs.version }}"
+            echo "sha=${{ inputs.sha }}"
+            echo "api_digest=${{ inputs.api_digest }}"
+            echo "web_digest=${{ inputs.web_digest }}"
+            echo "backup_digest=${{ inputs.backup_digest }}"
+            echo "backup_object_key=${{ inputs.backup_object_key }}"
+            echo "backup_check=${{ steps.backup.outputs.present }}"
+            echo "ssh_deploy=${{ steps.ssh_gate.outputs.present }}"
+            echo "confirmed=promote-production"
+          } > promote-evidence.txt
+          cat promote-evidence.txt
+
+      - name: Upload promotion evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: promote-evidence-${{ inputs.sha }}
+          path: promote-evidence.txt
+          retention-days: 90

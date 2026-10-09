@@ -93,10 +93,7 @@ function pdfCustomerFields(invoice: InvoiceRecord) {
 }
 
 export function toInvoicePdfFacts(invoice: InvoiceRecord): InvoicePdfFacts | null {
-  if (
-    invoice.status !== 'COMPLETED' &&
-    invoice.status !== 'CANCELLED'
-  ) {
+  if (invoice.status !== 'COMPLETED' && invoice.status !== 'CANCELLED') {
     return null;
   }
   if (

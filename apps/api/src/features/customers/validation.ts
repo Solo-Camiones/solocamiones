@@ -66,14 +66,19 @@ export const creditLimitDopSchema = z.union([
   z.null(),
 ]);
 
-export const fiscalIdSchema = z.preprocess((value) => {
-  if (value === undefined) return undefined;
-  if (value === null) return null;
-  if (typeof value !== 'string') return value;
-  const trimmed = value.trim();
-  if (!trimmed) return null;
-  return fiscalIdDigits(trimmed);
-}, z.union([z.null(), z.string().refine(isValidFiscalId, FISCAL_IDENTIFIER_FORMAT_MESSAGE)]).optional());
+export const fiscalIdSchema = z.preprocess(
+  (value) => {
+    if (value === undefined) return undefined;
+    if (value === null) return null;
+    if (typeof value !== 'string') return value;
+    const trimmed = value.trim();
+    if (!trimmed) return null;
+    return fiscalIdDigits(trimmed);
+  },
+  z
+    .union([z.null(), z.string().refine(isValidFiscalId, FISCAL_IDENTIFIER_FORMAT_MESSAGE)])
+    .optional(),
+);
 
 export const customerContactInputSchema = z
   .strictObject({

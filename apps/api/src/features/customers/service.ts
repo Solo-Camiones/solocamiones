@@ -1,6 +1,9 @@
 import { AppError } from '../../infrastructure/errors/app-error.js';
 import { summarizePayments } from '../payments/summary.js';
-import { CREDIT_TO_CASH_OPEN_BALANCE_MESSAGE, GENERIC_CUSTOMER_LOCKED_MESSAGE } from './constants.js';
+import {
+  CREDIT_TO_CASH_OPEN_BALANCE_MESSAGE,
+  GENERIC_CUSTOMER_LOCKED_MESSAGE,
+} from './constants.js';
 import {
   assertCustomerCreditProfile,
   resolveCreateCreditProfile,

@@ -150,7 +150,12 @@ export function SelectMenu({
   useEffect(() => {
     if (open && !wasOpenRef.current) {
       setQuery('');
-      setActiveIndex(Math.max(0, options.findIndex((option) => option.value === value)));
+      setActiveIndex(
+        Math.max(
+          0,
+          options.findIndex((option) => option.value === value),
+        ),
+      );
       if (searchable) {
         searchRef.current?.focus();
       } else {
@@ -300,7 +305,9 @@ export function SelectMenu({
                       >
                         <span className="w-full truncate">{option.label}</span>
                         {option.description ? (
-                          <span className="w-full truncate text-xs text-navy-400">{option.description}</span>
+                          <span className="w-full truncate text-xs text-navy-400">
+                            {option.description}
+                          </span>
                         ) : null}
                       </button>
                     </li>
@@ -341,9 +348,7 @@ export function SelectMenu({
         }}
         onKeyDown={onTriggerKeyDown}
       >
-        <span className="min-w-0 flex-1 truncate text-left">
-          {selected?.label ?? 'Seleccione'}
-        </span>
+        <span className="min-w-0 flex-1 truncate text-left">{selected?.label ?? 'Seleccione'}</span>
         <ChevronDownIcon
           className={`h-4 w-4 shrink-0 text-navy-400 transition-transform ${open ? 'rotate-180' : ''}`}
         />

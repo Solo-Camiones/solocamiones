@@ -19,7 +19,10 @@ describe('feature import boundary', () => {
   it('does not import mock repositories from features', () => {
     const offenders = listTsFiles(featuresRoot).filter((filePath) => {
       const source = readFileSync(filePath, 'utf8');
-      return source.includes("from '../../mocks/repositories") || source.includes('from "../../../mocks/repositories');
+      return (
+        source.includes("from '../../mocks/repositories") ||
+        source.includes('from "../../../mocks/repositories')
+      );
     });
 
     expect(offenders).toEqual([]);

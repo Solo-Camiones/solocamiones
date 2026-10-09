@@ -67,7 +67,9 @@ export function SalesTable({
                 {row.quoteNumber && row.quoteNumber !== row.number ? (
                   <p className="mt-0.5 text-xs text-navy-400">Origen {row.quoteNumber}</p>
                 ) : null}
-                {row.fiscal && <p className="mt-0.5 text-xs text-navy-400">Con comprobante fiscal</p>}
+                {row.fiscal && (
+                  <p className="mt-0.5 text-xs text-navy-400">Con comprobante fiscal</p>
+                )}
               </td>
               <td className="px-4 py-3">{row.customerName}</td>
               <td className="px-4 py-3 text-navy-500">

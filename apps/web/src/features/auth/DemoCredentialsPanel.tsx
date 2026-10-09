@@ -15,7 +15,10 @@ export function DemoCredentialsPanel() {
 
       <ul className="space-y-1">
         {DEMO_CREDENTIALS.map((user) => (
-          <li key={user.id} className="flex flex-wrap items-baseline justify-center gap-x-1.5 gap-y-0.5">
+          <li
+            key={user.id}
+            className="flex flex-wrap items-baseline justify-center gap-x-1.5 gap-y-0.5"
+          >
             <span className="text-white/50">{roleLabel(user.role)}:</span>
             <Mono className="text-white/90">{user.username}</Mono>
             <span className="text-white/40">/</span>

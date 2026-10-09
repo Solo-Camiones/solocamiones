@@ -65,36 +65,38 @@ export function MechanicMinePage() {
       ) : (
         <LoadingOverlay active={result.isRefreshing} label="Actualizando mis órdenes">
           <div className="space-y-6">
-          <section className="space-y-3">
-            <h2 className="text-lg font-semibold">En proceso</h2>
-            {inProgress.length === 0 ? (
-              <p className="text-base text-navy-400">No hay trabajo en proceso. Tome una orden pendiente.</p>
-            ) : (
-              <OrderList orders={inProgress} />
-            )}
-          </section>
-
-          <section className="space-y-4">
-            <h2 className="text-lg font-semibold">Historial</h2>
-
-            <div className="space-y-3">
-              <h3 className="text-base font-semibold">Completadas</h3>
-              {completed.length === 0 ? (
-                <p className="text-base text-navy-400">Todavía no hay órdenes terminadas.</p>
+            <section className="space-y-3">
+              <h2 className="text-lg font-semibold">En proceso</h2>
+              {inProgress.length === 0 ? (
+                <p className="text-base text-navy-400">
+                  No hay trabajo en proceso. Tome una orden pendiente.
+                </p>
               ) : (
-                <OrderList orders={completed} />
+                <OrderList orders={inProgress} />
               )}
-            </div>
+            </section>
 
-            <div className="space-y-3">
-              <h3 className="text-base font-semibold">Canceladas</h3>
-              {cancelled.length === 0 ? (
-                <p className="text-base text-navy-400">No hay órdenes canceladas.</p>
-              ) : (
-                <OrderList orders={cancelled} />
-              )}
-            </div>
-          </section>
+            <section className="space-y-4">
+              <h2 className="text-lg font-semibold">Historial</h2>
+
+              <div className="space-y-3">
+                <h3 className="text-base font-semibold">Completadas</h3>
+                {completed.length === 0 ? (
+                  <p className="text-base text-navy-400">Todavía no hay órdenes terminadas.</p>
+                ) : (
+                  <OrderList orders={completed} />
+                )}
+              </div>
+
+              <div className="space-y-3">
+                <h3 className="text-base font-semibold">Canceladas</h3>
+                {cancelled.length === 0 ? (
+                  <p className="text-base text-navy-400">No hay órdenes canceladas.</p>
+                ) : (
+                  <OrderList orders={cancelled} />
+                )}
+              </div>
+            </section>
           </div>
         </LoadingOverlay>
       )}

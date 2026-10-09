@@ -13,3 +13,4 @@ coverage/
 .scannerwork/
 tmp/
 docs/assistant-eval/reports/*.json
+.trivyignore.generated

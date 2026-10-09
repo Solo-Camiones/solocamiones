@@ -56,7 +56,6 @@ Dismantling and Installation Work Orders, mobile Mechanic claiming/completion, B
 - Subscription management and SaaS billing.
 - Central platform administration and tenant support tools.
 
-
 ## Cuentas por pagar y compras
 
 Fuera del MVP actual:

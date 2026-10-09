@@ -42,13 +42,25 @@ describe('mechanic-copy', () => {
   it('names the next physical action without commercial language', () => {
     expect(mechanicNextAction(view())).toBe('Agregue al menos una foto de antes y una de después.');
     expect(
-      mechanicNextAction(view({ actions: { canTake: false, canAddEvidence: true, canComplete: true } })),
+      mechanicNextAction(
+        view({ actions: { canTake: false, canAddEvidence: true, canComplete: true } }),
+      ),
     ).toBe('Cuando termine, complete el desmonte.');
-    expect(mechanicNextAction(view({ status: 'COMPLETED', actions: { canTake: false, canAddEvidence: false, canComplete: false } }))).toBe(
-      'Trabajo terminado. La evidencia queda en el historial.',
-    );
     expect(
-      mechanicNextAction(view({ status: 'CANCELLED', actions: { canTake: false, canAddEvidence: false, canComplete: false } })),
+      mechanicNextAction(
+        view({
+          status: 'COMPLETED',
+          actions: { canTake: false, canAddEvidence: false, canComplete: false },
+        }),
+      ),
+    ).toBe('Trabajo terminado. La evidencia queda en el historial.');
+    expect(
+      mechanicNextAction(
+        view({
+          status: 'CANCELLED',
+          actions: { canTake: false, canAddEvidence: false, canComplete: false },
+        }),
+      ),
     ).toBe('Esta orden fue cancelada. Ya no se puede completar ni agregar evidencia.');
     expect(completeActionLabel('INSTALLATION')).toBe('Completar instalación');
     expect(completeActionLabel('DISMANTLING')).toBe('Completar desmonte');

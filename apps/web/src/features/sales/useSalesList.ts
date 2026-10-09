@@ -101,10 +101,7 @@ export function applySalesUrlFilters(
     // Open balance on FAC- or CON- (admin KPI / CxC parity).
     if (
       filters.outstanding &&
-      !(
-        (row.status === 'COMPLETED' || row.status === 'CONDUCE') &&
-        (row.balance ?? 0) > 0
-      )
+      !((row.status === 'COMPLETED' || row.status === 'CONDUCE') && (row.balance ?? 0) > 0)
     ) {
       return false;
     }
@@ -172,46 +169,32 @@ export function useSalesList(
     let cancelled = false;
     setResult(beginQueryReload);
 
-    listSales(
-      tab,
-      page,
-      q,
-      { today, outstanding, payments },
-      { dateFrom, dateTo },
-    ).then((response) => {
-      if (cancelled) {
-        return;
-      }
+    void listSales(tab, page, q, { today, outstanding, payments }, { dateFrom, dateTo }).then(
+      (response) => {
+        if (cancelled) {
+          return;
+        }
 
-      if (!response.ok) {
-        setResult({ status: 'error', error: response.error });
-        return;
-      }
+        if (!response.ok) {
+          setResult({ status: 'error', error: response.error });
+          return;
+        }
 
-      setResult({
-        status: 'ready',
-        rows: response.value.items,
-        total: response.value.total,
-        page: response.value.page,
-        pageSize: response.value.pageSize,
-        isRefreshing: false,
-      });
-    });
+        setResult({
+          status: 'ready',
+          rows: response.value.items,
+          total: response.value.total,
+          page: response.value.page,
+          pageSize: response.value.pageSize,
+          isRefreshing: false,
+        });
+      },
+    );
 
     return () => {
       cancelled = true;
     };
-  }, [
-    tab,
-    page,
-    q,
-    today,
-    outstanding,
-    payments,
-    dateFrom,
-    dateTo,
-    reloadToken,
-  ]);
+  }, [tab, page, q, today, outstanding, payments, dateFrom, dateTo, reloadToken]);
 
   const reload = useCallback(() => {
     setReloadToken((token) => token + 1);

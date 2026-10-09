@@ -1,4 +1,7 @@
-import type { CategoryAttributeDefinition, CategoryAttributeType } from '../../api/contracts/entities';
+import type {
+  CategoryAttributeDefinition,
+  CategoryAttributeType,
+} from '../../api/contracts/entities';
 import {
   CATEGORY_ATTRIBUTE_TYPES,
   categoryAttributeTypeLabel,
@@ -119,7 +122,10 @@ export function CategoryAttributeDefinitionsEditor({
                   ))}
                 </Select>
               </Field>
-              <label htmlFor={`${prefix}-required`} className="flex items-center gap-2 text-sm text-navy">
+              <label
+                htmlFor={`${prefix}-required`}
+                className="flex items-center gap-2 text-sm text-navy"
+              >
                 <input
                   id={`${prefix}-required`}
                   type="checkbox"

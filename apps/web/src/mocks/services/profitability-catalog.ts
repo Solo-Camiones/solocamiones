@@ -113,7 +113,9 @@ function saleConditionForInvoice(invoice: Invoice): SaleCondition | null {
     const confirmedAtMs = Date.parse(invoice.confirmedAt);
     const nearConfirm = invoice.payments.filter((payment) => {
       if (payment.kind === 'REFUND') return false;
-      return Math.abs(Date.parse(payment.createdAt) - confirmedAtMs) <= CONFIRMATION_PAYMENT_WINDOW_MS;
+      return (
+        Math.abs(Date.parse(payment.createdAt) - confirmedAtMs) <= CONFIRMATION_PAYMENT_WINDOW_MS
+      );
     });
     if (nearConfirm.length > 0) {
       initial = nearConfirm.reduce((sum, payment) => sum + payment.amount, 0);
@@ -131,7 +133,11 @@ function saleConditionForInvoice(invoice: Invoice): SaleCondition | null {
   return initial != null && roundMoney(initial) === roundMoney(gross) ? 'CASH' : 'CREDIT';
 }
 
-function toSeriesInvoice(state: AppState, invoice: Invoice, actor: User): ProfitabilitySeriesInvoice {
+function toSeriesInvoice(
+  state: AppState,
+  invoice: Invoice,
+  actor: User,
+): ProfitabilitySeriesInvoice {
   const view = profitabilityForInvoice(state, invoice, actor);
   const receipts: ProfitabilitySeriesReceipt[] = [];
   for (const payment of invoice.payments) {

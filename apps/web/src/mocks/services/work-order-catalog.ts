@@ -14,7 +14,12 @@ import type {
 } from '../../api/contracts/work-orders';
 import { can } from '../../shared/auth/policies';
 import { toHistoryEventView } from './history-view';
-import { effectiveLocation, isAssemblyItem, itemById, protectedAncestor } from './inventory-helpers';
+import {
+  effectiveLocation,
+  isAssemblyItem,
+  itemById,
+  protectedAncestor,
+} from './inventory-helpers';
 
 function itemName(state: AppState, id: string | undefined): string | undefined {
   if (!id) {
@@ -45,7 +50,11 @@ function hasActiveWorkOrder(state: AppState, pieceId: string): boolean {
   );
 }
 
-function toPieceOption(item: { id: string; name: string; parentId?: string }): WorkOrderPieceOption {
+function toPieceOption(item: {
+  id: string;
+  name: string;
+  parentId?: string;
+}): WorkOrderPieceOption {
   return {
     id: item.id,
     name: item.name,
@@ -90,10 +99,7 @@ export function buildWorkOrderList(
     .map((order) => toWorkOrderListRow(state, order));
 }
 
-function isLinkedWorkOrderEvent(
-  event: AppState['events'][number],
-  order: WorkOrder,
-): boolean {
+function isLinkedWorkOrderEvent(event: AppState['events'][number], order: WorkOrder): boolean {
   if (event.metadata?.workOrderId === order.id) {
     return true;
   }
@@ -158,10 +164,7 @@ export function buildWorkOrderCreateOptions(state: AppState): WorkOrderCreateOpt
   return { dismantlingPieces, installationPieces, destinations, mechanics };
 }
 
-export function findWorkOrder(
-  state: AppState,
-  id: string,
-): WorkOrder | undefined {
+export function findWorkOrder(state: AppState, id: string): WorkOrder | undefined {
   return state.workOrders.find((order) => order.id === id);
 }
 
@@ -222,10 +225,7 @@ export function toMechanicWorkOrderView(
   };
 }
 
-export function buildMechanicWorkOrderList(
-  state: AppState,
-  actor: User,
-): MechanicWorkOrderView[] {
+export function buildMechanicWorkOrderList(state: AppState, actor: User): MechanicWorkOrderView[] {
   return [...state.workOrders]
     .filter((order) => isVisibleToMechanic(order, actor.id))
     .sort((left, right) => right.createdAt.localeCompare(left.createdAt))

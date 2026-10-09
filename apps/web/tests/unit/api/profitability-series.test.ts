@@ -102,20 +102,22 @@ describe('buildProfitabilitySeries', () => {
     const converted = buildProfitabilitySeries([withRate], '2026-09-01');
     expect(converted.collectedDop).toBe(6150);
     expect(converted.omittedUsdReceiptCount).toBe(0);
-    expect(converted.charts?.collectedByDay.find((point) => point.key === '2026-09-01')?.amount).toBe(
-      6150,
-    );
-    expect(converted.charts?.invoicedCashByDay.find((point) => point.key === '2026-09-01')?.amount).toBe(
-      6150,
-    );
-    expect(converted.charts?.collectedByMethodByDay.find((point) => point.key === '2026-09-01')).toEqual(
-      expect.objectContaining({ CASH: 6150, TRANSFER: 0, CHECK: 0 }),
-    );
+    expect(
+      converted.charts?.collectedByDay.find((point) => point.key === '2026-09-01')?.amount,
+    ).toBe(6150);
+    expect(
+      converted.charts?.invoicedCashByDay.find((point) => point.key === '2026-09-01')?.amount,
+    ).toBe(6150);
+    expect(
+      converted.charts?.collectedByMethodByDay.find((point) => point.key === '2026-09-01'),
+    ).toEqual(expect.objectContaining({ CASH: 6150, TRANSFER: 0, CHECK: 0 }));
 
     const omitted = buildProfitabilitySeries([pendingFx], '2026-09-01');
     expect(omitted.collectedDop).toBe(0);
     expect(omitted.omittedUsdReceiptCount).toBe(1);
-    expect(omitted.charts?.invoicedCashByDay.find((point) => point.key === '2026-09-01')?.amount).toBe(0);
+    expect(
+      omitted.charts?.invoicedCashByDay.find((point) => point.key === '2026-09-01')?.amount,
+    ).toBe(0);
   });
 
   it('counts CONDUCE sales once without inventing a second row after status is still CONDUCE', () => {
@@ -133,10 +135,12 @@ describe('buildProfitabilitySeries', () => {
     );
 
     expect(series.invoicesMissingProfitCount).toBe(0);
-    expect(series.charts?.invoicedCreditByDay.find((point) => point.key === '2026-09-01')?.amount).toBe(
-      1000,
+    expect(
+      series.charts?.invoicedCreditByDay.find((point) => point.key === '2026-09-01')?.amount,
+    ).toBe(1000);
+    expect(series.charts?.profitByDay.find((point) => point.key === '2026-09-01')?.amount).toBe(
+      400,
     );
-    expect(series.charts?.profitByDay.find((point) => point.key === '2026-09-01')?.amount).toBe(400);
   });
 
   it('excludes cancelled invoices from profit, invoiced, and collected KPIs', () => {

@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
-import { formatConduceNumber, formatInvoiceNumber, formatQuoteNumber } from '../../../src/features/sales/constants.js';
+import {
+  formatConduceNumber,
+  formatInvoiceNumber,
+  formatQuoteNumber,
+} from '../../../src/features/sales/constants.js';
 import {
   addInvoiceLineSchema,
   addPaymentSchema,

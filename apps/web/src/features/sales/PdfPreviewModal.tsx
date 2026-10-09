@@ -29,13 +29,7 @@ function previewTitle(kind: SalesDocumentKind): string {
   return 'Vista previa de factura';
 }
 
-export function PdfPreviewModal({
-  open,
-  kind,
-  detail,
-  pdfFile,
-  onClose,
-}: PdfPreviewModalProps) {
+export function PdfPreviewModal({ open, kind, detail, pdfFile, onClose }: PdfPreviewModalProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const baseTotal = detail?.lines.reduce((sum, line) => sum + line.base, 0) ?? 0;
   const itbisTotal = detail?.lines.reduce((sum, line) => sum + line.itbis, 0) ?? 0;
@@ -67,7 +61,9 @@ export function PdfPreviewModal({
             </div>
             {detail?.number || detail?.quoteNumber ? (
               <div className="text-right">
-                <Mono className="text-base font-semibold">{detail.number ?? detail.quoteNumber}</Mono>
+                <Mono className="text-base font-semibold">
+                  {detail.number ?? detail.quoteNumber}
+                </Mono>
                 {kind === 'invoice' ? (
                   <p className="mt-1 font-mono text-sm text-navy">{BLANK_NCF}</p>
                 ) : null}
@@ -101,9 +97,7 @@ export function PdfPreviewModal({
             <p>Identificación fiscal / cédula: {formatFiscalId(detail.customerRnc) || '—'}</p>
             <p>Moneda: {currencyLabel(detail.currency)}</p>
             <p>
-              {detail.fiscal
-                ? 'Factura con comprobante fiscal'
-                : 'Sin comprobante fiscal'}
+              {detail.fiscal ? 'Factura con comprobante fiscal' : 'Sin comprobante fiscal'}
               {detail.applyItbis ? ' · ITBIS 18% sobre subtotal' : ''}
             </p>
           </div>

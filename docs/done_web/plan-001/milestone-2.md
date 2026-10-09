@@ -1,13 +1,13 @@
 ﻿# Milestone 2 — WM2: Autenticación, shell y navegación por rol
 
-| Campo | Valor |
-|---|---|
-| **ID plan** | WM2 |
-| **Estado** | Completado |
-| **Fecha** | 2026-08-27 |
-| **Referencia** | [`docs/plans_web/plan-001.md`](../../plans_web/plan-001.md) § WM2 |
-| **Alcance** | Login, sesión mock, shell desktop/mecánico, guards UX, policies en mutaciones |
-| **Siguiente** | WM3 — Dashboard operativo |
+| Campo          | Valor                                                                         |
+| -------------- | ----------------------------------------------------------------------------- |
+| **ID plan**    | WM2                                                                           |
+| **Estado**     | Completado                                                                    |
+| **Fecha**      | 2026-08-27                                                                    |
+| **Referencia** | [`docs/plans_web/plan-001.md`](../../plans_web/plan-001.md) § WM2             |
+| **Alcance**    | Login, sesión mock, shell desktop/mecánico, guards UX, policies en mutaciones |
+| **Siguiente**  | WM3 — Dashboard operativo                                                     |
 
 ---
 
@@ -48,12 +48,12 @@ WM2 reemplaza el flujo de verificación WM1 por login + shell operativo.
 
 **Decisión:**
 
-| Capa | Componente | Comportamiento |
-|---|---|---|
-| Auth + rol de layout | `ProtectedRoute` | Sin sesión → `/login` (guarda `from` para volver). Rol incorrecto para el shell → `UnauthorizedPage` standalone |
-| Permiso por ruta | `RouteAccessGuard` | Ruta conocida sin permiso → `UnauthorizedPage` dentro del shell. Ruta desconocida → `Outlet` → 404 |
-| Rutas no registradas | `CatchAllRoute` | Sin sesión → login. Con sesión → 404 standalone |
-| Mutaciones mock | `require-permission.ts` | Valida `can()` antes de mutar (ej. `MockUserRepository.save`) |
+| Capa                 | Componente              | Comportamiento                                                                                                  |
+| -------------------- | ----------------------- | --------------------------------------------------------------------------------------------------------------- |
+| Auth + rol de layout | `ProtectedRoute`        | Sin sesión → `/login` (guarda `from` para volver). Rol incorrecto para el shell → `UnauthorizedPage` standalone |
+| Permiso por ruta     | `RouteAccessGuard`      | Ruta conocida sin permiso → `UnauthorizedPage` dentro del shell. Ruta desconocida → `Outlet` → 404              |
+| Rutas no registradas | `CatchAllRoute`         | Sin sesión → login. Con sesión → 404 standalone                                                                 |
+| Mutaciones mock      | `require-permission.ts` | Valida `can()` antes de mutar (ej. `MockUserRepository.save`)                                                   |
 
 **Por qué:** El plan endurece el Make: ocultar menú ≠ seguridad. Los guards mejoran UX; los servicios son la fuente de verdad. Separar **401 (sin permiso)** de **404 (ruta inexistente)** evita confundir `/profitability` con `/profitability/profitability`.
 
@@ -148,17 +148,17 @@ sequenceDiagram
 
 ## 6. Criterios de aceptación
 
-| Criterio | Estado |
-|---|---|
-| Credenciales seed visibles y funcionan al escribirlas manualmente | ✅ |
-| Credenciales incorrectas → error, sin sesión | ✅ |
-| Admin: 9 secciones; Vendedor: 4; Mecánico: app separada | ✅ |
-| Usuario inactivo no entra (`user.active === false`) | ✅ |
-| Vendedor en `/users` o `/profitability` → `UnauthorizedPage` en shell (sin nombre de sección) | ✅ |
-| Ruta inexistente (ej. `/profitability/profitability`) → 404, sidebar sin ítem activo | ✅ |
-| Recarga conserva sesión y permanece en la misma URL | ✅ |
-| Servicios mock rechazan mutaciones sin permiso | ✅ (`MockUserRepository`) |
-| Interfaz lista para `POST /api/auth/login` futuro | ✅ (`auth-api.ts` + `AuthRepository`) |
+| Criterio                                                                                      | Estado                                |
+| --------------------------------------------------------------------------------------------- | ------------------------------------- |
+| Credenciales seed visibles y funcionan al escribirlas manualmente                             | ✅                                    |
+| Credenciales incorrectas → error, sin sesión                                                  | ✅                                    |
+| Admin: 9 secciones; Vendedor: 4; Mecánico: app separada                                       | ✅                                    |
+| Usuario inactivo no entra (`user.active === false`)                                           | ✅                                    |
+| Vendedor en `/users` o `/profitability` → `UnauthorizedPage` en shell (sin nombre de sección) | ✅                                    |
+| Ruta inexistente (ej. `/profitability/profitability`) → 404, sidebar sin ítem activo          | ✅                                    |
+| Recarga conserva sesión y permanece en la misma URL                                           | ✅                                    |
+| Servicios mock rechazan mutaciones sin permiso                                                | ✅ (`MockUserRepository`)             |
+| Interfaz lista para `POST /api/auth/login` futuro                                             | ✅ (`auth-api.ts` + `AuthRepository`) |
 
 ---
 
@@ -187,14 +187,14 @@ npm run build
 
 ## 8. Fuera de alcance (WM2)
 
-| Tema | Milestone |
-|---|---|
-| Dashboard KPIs reales | WM3 |
-| Pantallas de negocio (inventario, ventas, …) | WM3–WM12 |
-| Persistencia del estado mock de negocio (facturas, inventario, …) | WM12 / API |
-| Runner completo de 12 escenarios demo | WM12 |
-| `HttpAuthRepository` funcional | WM12 / API M10 |
-| Tests automatizados de auth | Recomendados; sin runner en `apps/web` aún |
+| Tema                                                              | Milestone                                  |
+| ----------------------------------------------------------------- | ------------------------------------------ |
+| Dashboard KPIs reales                                             | WM3                                        |
+| Pantallas de negocio (inventario, ventas, …)                      | WM3–WM12                                   |
+| Persistencia del estado mock de negocio (facturas, inventario, …) | WM12 / API                                 |
+| Runner completo de 12 escenarios demo                             | WM12                                       |
+| `HttpAuthRepository` funcional                                    | WM12 / API M10                             |
+| Tests automatizados de auth                                       | Recomendados; sin runner en `apps/web` aún |
 
 ---
 

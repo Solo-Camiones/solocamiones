@@ -21,14 +21,20 @@ const DEFAULT_TOAST_DURATION_MS = 4000;
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([]);
 
-  const pushToast = useCallback((message: string, tone: ToastTone = 'info', options?: ToastOptions) => {
-    const id = crypto.randomUUID();
-    const durationMs = options?.durationMs ?? DEFAULT_TOAST_DURATION_MS;
-    setToasts((current) => [...current, { id, message, tone, durationMs, action: options?.action }]);
-    window.setTimeout(() => {
-      setToasts((current) => current.filter((toast) => toast.id !== id));
-    }, durationMs);
-  }, []);
+  const pushToast = useCallback(
+    (message: string, tone: ToastTone = 'info', options?: ToastOptions) => {
+      const id = crypto.randomUUID();
+      const durationMs = options?.durationMs ?? DEFAULT_TOAST_DURATION_MS;
+      setToasts((current) => [
+        ...current,
+        { id, message, tone, durationMs, action: options?.action },
+      ]);
+      window.setTimeout(() => {
+        setToasts((current) => current.filter((toast) => toast.id !== id));
+      }, durationMs);
+    },
+    [],
+  );
 
   const dismissToast = useCallback((id: string) => {
     setToasts((current) => current.filter((toast) => toast.id !== id));

@@ -19,16 +19,16 @@
 
 ## Estado de milestones
 
-| ID | Milestone | Estado |
-|---|---|---|
-| M1 | Formalizar reglas y criterios de aceptación | Completado localmente (2026-09-20) |
-| M2 | Migración y modelo de dominio | Completado localmente (2026-09-20) |
-| M3 | Motor de emisión y conversión | Completado localmente (2026-09-20) |
-| M4 | Pagos, vencimiento, CxC y cancelación | Completado localmente (2026-09-20) |
-| M5 | PDFs y fiscalidad manual | Completado localmente (2026-09-20) |
-| M6 | Reportes, rentabilidad e historial | Completado localmente (2026-09-21) |
-| M7 | Integración web y mocks | Completado localmente (2026-09-21) |
-| M8 | Estabilización y exit gate preproducción | Completado localmente (2026-09-21) |
+| ID  | Milestone                                   | Estado                                                    |
+| --- | ------------------------------------------- | --------------------------------------------------------- |
+| M1  | Formalizar reglas y criterios de aceptación | Verificado (2026-10-01; Completado localmente 2026-09-20) |
+| M2  | Migración y modelo de dominio               | Verificado (2026-10-01; Completado localmente 2026-09-20) |
+| M3  | Motor de emisión y conversión               | Verificado (2026-10-01; Completado localmente 2026-09-20) |
+| M4  | Pagos, vencimiento, CxC y cancelación       | Verificado (2026-10-01; Completado localmente 2026-09-20) |
+| M5  | PDFs y fiscalidad manual                    | Verificado (2026-10-01; Completado localmente 2026-09-20) |
+| M6  | Reportes, rentabilidad e historial          | Verificado (2026-10-01; Completado localmente 2026-09-21) |
+| M7  | Integración web y mocks                     | Verificado (2026-10-01; Completado localmente 2026-09-21) |
+| M8  | Estabilización y exit gate preproducción    | Verificado (2026-10-01; Completado localmente 2026-09-21) |
 
 ---
 
@@ -56,19 +56,19 @@
 
 - Registrar la matriz de permisos (versión canónica en Feature 16 / CON-002):
 
-| Caso | Regla |
-|---|---|
-| Vendedor + `CASH` | Pago total obligatorio al emitir. |
-| Vendedor + `CREDIT` DOP | Sin pago inicial; aplica límite y plazo. |
-| Vendedor + USD | Pago total obligatorio. |
-| Administrador + `CASH` nombrado DOP/USD | Pago cero, parcial o total; si queda saldo, `dueDate` ≥ día local de emisión. |
-| Administrador + `Cliente contado` predeterminado | Pago total obligatorio (sin excepción). |
-| Administrador + `CREDIT` DOP | Pago cero, parcial o total; aplica límite y plazo. |
-| Administrador + `CREDIT` USD | Pago total obligatorio. |
-| Confirmación directa a factura (sin `CON-`) | Conserva SALE-005 / PAY-001 (contado siempre liquida completo). |
-| Abonos posteriores | Solo Administrador. |
-| Facturar conduce | Administrador y Vendedor. |
-| Cancelar/reembolsar | Solo Administrador; reembolso global `0…neto cobrado`. |
+| Caso                                             | Regla                                                                         |
+| ------------------------------------------------ | ----------------------------------------------------------------------------- |
+| Vendedor + `CASH`                                | Pago total obligatorio al emitir.                                             |
+| Vendedor + `CREDIT` DOP                          | Sin pago inicial; aplica límite y plazo.                                      |
+| Vendedor + USD                                   | Pago total obligatorio.                                                       |
+| Administrador + `CASH` nombrado DOP/USD          | Pago cero, parcial o total; si queda saldo, `dueDate` ≥ día local de emisión. |
+| Administrador + `Cliente contado` predeterminado | Pago total obligatorio (sin excepción).                                       |
+| Administrador + `CREDIT` DOP                     | Pago cero, parcial o total; aplica límite y plazo.                            |
+| Administrador + `CREDIT` USD                     | Pago total obligatorio.                                                       |
+| Confirmación directa a factura (sin `CON-`)      | Conserva SALE-005 / PAY-001 (contado siempre liquida completo).               |
+| Abonos posteriores                               | Solo Administrador.                                                           |
+| Facturar conduce                                 | Administrador y Vendedor.                                                     |
+| Cancelar/reembolsar                              | Solo Administrador; reembolso global `0…neto cobrado`.                        |
 
 - Actualizar el release activo y el gate preproducción en `DEVELOPMENT_PLAN.md`.
 - Actualizar `FEATURES/README.md`, roles, arquitectura y casos de uso.
@@ -84,29 +84,29 @@
 - Actualizar el estado y fecha de M1 en este archivo. **Hecho.**
 - Enumerar los documentos actualizados y las decisiones trasladadas a cada uno:
 
-  | Documento | Decisiones / cambios |
-  |---|---|
-  | `FEATURES/16_CONDUCES.md` | CREATE — `CON-001`…`CON-006`, matriz, checklists `[ ]` |
-  | `FEATURES/README.md` | Índice Feature 16 |
-  | `FEATURES/08_CUSTOMERS.md` | CUST-002: pago completo del default también en conduce; excepción Admin solo `CASH` nombrado |
-  | `FEATURES/10_SALES_AND_INVOICES.md` | SALE-005 / QUOTE-001 / DOC-001: camino directo vs conduce; convert-to-conduce planificado |
-  | `FEATURES/11_COST_AND_PROFITABILITY.md` | KPIs reconocen conduce una vez (CON-006) |
-  | `FEATURES/12_PAYMENTS_AND_ACCOUNTS_RECEIVABLE.md` | PAY-001 / AR: conduces y filtros `CON-` planificados |
-  | `FEATURES/13_CANCELLATION_AND_REFUNDS.md` | CANCEL-002 global `0…neto`; checklist runtime pendiente |
-  | `FEATURES/14_HISTORY_ADMIN_AND_RECOVERY.md` | Eventos `CONDUCE_*` planificados |
-  | `ROLES_AND_PERMISSIONS.md` | Filas emitir/facturar conduce; Admin saldo `CASH` nombrado; refund 0…neto |
-  | `ARCHITECTURE_PLAN.md` | Aggregate único; `CON-`; refund 0…neto |
-  | `USE_CASE_FLOWS.md` | Flujo conduce; quote→conduce; cancel/refund |
-  | `DEVELOPMENT_PLAN.md` | Snapshot + gate preproducción incluye Feature 16 |
+  | Documento                                         | Decisiones / cambios                                                                         |
+  | ------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+  | `FEATURES/16_CONDUCES.md`                         | CREATE — `CON-001`…`CON-006`, matriz, checklists `[ ]`                                       |
+  | `FEATURES/README.md`                              | Índice Feature 16                                                                            |
+  | `FEATURES/08_CUSTOMERS.md`                        | CUST-002: pago completo del default también en conduce; excepción Admin solo `CASH` nombrado |
+  | `FEATURES/10_SALES_AND_INVOICES.md`               | SALE-005 / QUOTE-001 / DOC-001: camino directo vs conduce; convert-to-conduce planificado    |
+  | `FEATURES/11_COST_AND_PROFITABILITY.md`           | KPIs reconocen conduce una vez (CON-006)                                                     |
+  | `FEATURES/12_PAYMENTS_AND_ACCOUNTS_RECEIVABLE.md` | PAY-001 / AR: conduces y filtros `CON-` planificados                                         |
+  | `FEATURES/13_CANCELLATION_AND_REFUNDS.md`         | CANCEL-002 global `0…neto`; checklist runtime pendiente                                      |
+  | `FEATURES/14_HISTORY_ADMIN_AND_RECOVERY.md`       | Eventos `CONDUCE_*` planificados                                                             |
+  | `ROLES_AND_PERMISSIONS.md`                        | Filas emitir/facturar conduce; Admin saldo `CASH` nombrado; refund 0…neto                    |
+  | `ARCHITECTURE_PLAN.md`                            | Aggregate único; `CON-`; refund 0…neto                                                       |
+  | `USE_CASE_FLOWS.md`                               | Flujo conduce; quote→conduce; cancel/refund                                                  |
+  | `DEVELOPMENT_PLAN.md`                             | Snapshot + gate preproducción incluye Feature 16                                             |
 
 - Registrar cualquier conflicto encontrado con reglas existentes:
 
-  | Conflicto previo | Resolución owner (2026-09-20) |
-  |---|---|
-  | Plan decía excepción Admin a cualquier `CASH` incl. `Cliente contado` | **No:** solo `CASH` nombrados; default siempre pago completo |
-  | Ambiguo si la excepción aplicaba a factura directa | **No:** solo emisión de conduce |
-  | CANCEL exigía reembolso neto completo | **Sí cambia:** regla global `0…neto cobrado` (runtime en M4) |
-  | SALE-005 / PAY-001 “CASH must settle in full” | Se mantiene para confirmación directa; CON-002 gobierna conduce |
+  | Conflicto previo                                                      | Resolución owner (2026-09-20)                                   |
+  | --------------------------------------------------------------------- | --------------------------------------------------------------- |
+  | Plan decía excepción Admin a cualquier `CASH` incl. `Cliente contado` | **No:** solo `CASH` nombrados; default siempre pago completo    |
+  | Ambiguo si la excepción aplicaba a factura directa                    | **No:** solo emisión de conduce                                 |
+  | CANCEL exigía reembolso neto completo                                 | **Sí cambia:** regla global `0…neto cobrado` (runtime en M4)    |
+  | SALE-005 / PAY-001 “CASH must settle in full”                         | Se mantiene para confirmación directa; CON-002 gobierna conduce |
 
 **Gate:** Documentación aprobada, IDs canónicos creados y matriz de permisos sin ambigüedades. **Cumplido en documentación local (2026-09-20).** Pendiente de aprobación explícita del owner si se requiere estado `Verificado`.
 
@@ -142,11 +142,11 @@
 
 ### Implementación
 
-| Artefacto | Detalle |
-|---|---|
-| `20260920000000_conduce_status_enum` | `ALTER TYPE … ADD VALUE 'CONDUCE'` (commit separado antes del CHECK) |
-| `20260920000001_conduce_domain` | Columnas, backfill `invoiceIssuedAt = confirmedAt` donde hay `FAC-`, format/pair CHECKs, `Invoice_number_status_check` ampliado, unique `conduceNumber`, índices `status+confirmedAt` y `recognized_customer_currency` (`COMPLETED`/`CONDUCE`), seed `InvoiceSequence` `CON` |
-| Domain | `formatConduceNumber`, `allocateNextConduceNumber`; confirmación directa setea `invoiceIssuedAt = confirmedAt` |
+| Artefacto                            | Detalle                                                                                                                                                                                                                                                                      |
+| ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `20260920000000_conduce_status_enum` | `ALTER TYPE … ADD VALUE 'CONDUCE'` (commit separado antes del CHECK)                                                                                                                                                                                                         |
+| `20260920000001_conduce_domain`      | Columnas, backfill `invoiceIssuedAt = confirmedAt` donde hay `FAC-`, format/pair CHECKs, `Invoice_number_status_check` ampliado, unique `conduceNumber`, índices `status+confirmedAt` y `recognized_customer_currency` (`COMPLETED`/`CONDUCE`), seed `InvoiceSequence` `CON` |
+| Domain                               | `formatConduceNumber`, `allocateNextConduceNumber`; confirmación directa setea `invoiceIssuedAt = confirmedAt`                                                                                                                                                               |
 
 ### Verificación
 
@@ -182,23 +182,23 @@
 
 ### Contratos HTTP
 
-| Método | Ruta | Body | Transición |
-|---|---|---|---|
-| `POST` | `/api/sales/:id/issue-conduce` | `confirmInvoiceSchema` (pago opcional; SALE-005) | `DRAFT` → `CONDUCE` |
-| `POST` | `/api/sales/:id/convert-quote-to-conduce` | `confirmInvoiceSchema` | `QUOTE_ISSUED` → `CONDUCE` |
-| `POST` | `/api/sales/:id/convert-conduce-to-invoice` | `{ fiscal: boolean }` | `CONDUCE` → `COMPLETED` |
+| Método | Ruta                                        | Body                                             | Transición                 |
+| ------ | ------------------------------------------- | ------------------------------------------------ | -------------------------- |
+| `POST` | `/api/sales/:id/issue-conduce`              | `confirmInvoiceSchema` (pago opcional; SALE-005) | `DRAFT` → `CONDUCE`        |
+| `POST` | `/api/sales/:id/convert-quote-to-conduce`   | `confirmInvoiceSchema`                           | `QUOTE_ISSUED` → `CONDUCE` |
+| `POST` | `/api/sales/:id/convert-conduce-to-invoice` | `{ fiscal: boolean }`                            | `CONDUCE` → `COMPLETED`    |
 
 Respuesta pública incluye `conduceNumber`, `conduceIssuedAt`, `invoiceIssuedAt`. Emisión fuerza `fiscal: false`. Reintentos idempotentes; retry de facturación con `fiscal` distinto → conflicto.
 
 ### Implementación
 
-| Artefacto | Detalle |
-|---|---|
-| Repository | `issueConduce`, `convertConduceToInvoice`; list search incluye `CON-` |
-| Service | `issueConduce` / `convertQuoteToConduce` / `convertConduceToInvoice` |
-| History | `CONDUCE_ISSUED`, `QUOTE_CONVERTED_TO_CONDUCE`, `CONDUCE_INVOICED` + timeline |
-| Customers | `findCompletedInvoicesWithPayments` incluye status `CONDUCE` (exposición crédito) |
-| Tests | `conduce-http.test.ts` (6); unit schema `convertConduceToInvoiceSchema` |
+| Artefacto  | Detalle                                                                           |
+| ---------- | --------------------------------------------------------------------------------- |
+| Repository | `issueConduce`, `convertConduceToInvoice`; list search incluye `CON-`             |
+| Service    | `issueConduce` / `convertQuoteToConduce` / `convertConduceToInvoice`              |
+| History    | `CONDUCE_ISSUED`, `QUOTE_CONVERTED_TO_CONDUCE`, `CONDUCE_INVOICED` + timeline     |
+| Customers  | `findCompletedInvoicesWithPayments` incluye status `CONDUCE` (exposición crédito) |
+| Tests      | `conduce-http.test.ts` (6); unit schema `convertConduceToInvoiceSchema`           |
 
 ### Verificación
 
@@ -257,13 +257,13 @@ Respuesta pública incluye `conduceNumber`, `conduceIssuedAt`, `invoiceIssuedAt`
 
 ### Implementación
 
-| Artefacto | Detalle |
-|---|---|
-| Policy | `assertConduceInitialPaymentPolicy`, `resolveConduceDueDate` (CON-002) |
-| Validation | `issueConduceSchema` (+`dueDate`); `cancelInvoiceSchema` (+`refundAmount`); receivables `FAC-`/`CON-` |
-| Service | Emisión conduce usa matriz CON-002; `addPayment`/`cancel` aceptan `CONDUCE`; cancel refund 0…neto |
-| CxC | `receivableBalances` incluye `CONDUCE`; statement PDF usa `number ?? conduceNumber` |
-| Tests | Unit policy/validation; integration `conduce-payments-cancellation-http` + regresión payments/cancel/conduce |
+| Artefacto  | Detalle                                                                                                      |
+| ---------- | ------------------------------------------------------------------------------------------------------------ |
+| Policy     | `assertConduceInitialPaymentPolicy`, `resolveConduceDueDate` (CON-002)                                       |
+| Validation | `issueConduceSchema` (+`dueDate`); `cancelInvoiceSchema` (+`refundAmount`); receivables `FAC-`/`CON-`        |
+| Service    | Emisión conduce usa matriz CON-002; `addPayment`/`cancel` aceptan `CONDUCE`; cancel refund 0…neto            |
+| CxC        | `receivableBalances` incluye `CONDUCE`; statement PDF usa `number ?? conduceNumber`                          |
+| Tests      | Unit policy/validation; integration `conduce-payments-cancellation-http` + regresión payments/cancel/conduce |
 
 ### Verificación
 
@@ -317,13 +317,13 @@ Cuando ITEM/QTY exista: emitir consume/reserva→vendido; cancelar restaura una 
 
 ### Implementación
 
-| Artefacto | Detalle |
-|---|---|
-| `infrastructure/conduce-pdf` | Renderer on-demand (patrón quote); título `CONDUCE`; sin NCF/`pdfStatus` |
-| `document-pdf` | Orígenes apilados `CON-` luego `COT-` |
-| Invoice PDF | `originConduceNumber`; `issuedAt` = `invoiceIssuedAt`; NCF blank `internal-v4` |
-| HTTP | `GET /api/sales/:id/conduce.pdf` (Admin/Seller); `/pdf` sigue siendo factura/cotización |
-| Tests | Unit `conduce-pdf`/proyección/`invoice-pdf`; integration `conduce-pdf-http` + regresión `pdf-http` |
+| Artefacto                    | Detalle                                                                                            |
+| ---------------------------- | -------------------------------------------------------------------------------------------------- |
+| `infrastructure/conduce-pdf` | Renderer on-demand (patrón quote); título `CONDUCE`; sin NCF/`pdfStatus`                           |
+| `document-pdf`               | Orígenes apilados `CON-` luego `COT-`                                                              |
+| Invoice PDF                  | `originConduceNumber`; `issuedAt` = `invoiceIssuedAt`; NCF blank `internal-v4`                     |
+| HTTP                         | `GET /api/sales/:id/conduce.pdf` (Admin/Seller); `/pdf` sigue siendo factura/cotización            |
+| Tests                        | Unit `conduce-pdf`/proyección/`invoice-pdf`; integration `conduce-pdf-http` + regresión `pdf-http` |
 
 ### Verificación
 
@@ -352,7 +352,7 @@ Cuando ITEM/QTY exista: emitir consume/reserva→vendido; cancelar restaura una 
 
 - Incluir conduces desde su emisión en:
   - rentabilidad;
-  - CxC *(ya M4)*;
+  - CxC _(ya M4)_;
   - KPIs de ventas y cobros;
   - reporte por vendedor;
   - historial de la operación.
@@ -369,15 +369,15 @@ Cuando ITEM/QTY exista: emitir consume/reserva→vendido; cancelar restaura una 
 
 ### Implementación
 
-| Artefacto | Detalle |
-|---|---|
-| `20260921000000_conduce_recognized_profitability` | CHECKs FX y ganancia manual admiten `CONDUCE` |
-| `sales/service` + `recordUsdFxRate` | `enrichUsdProfitability` tras emitir conduce; status `CONDUCE`\|`COMPLETED` |
-| `money/profit` | `calculatedCompletedProfitability` reconoce `CONDUCE` |
-| `profitability` | retry/manual en ventas reconocidas |
-| seller-sales | filas `CONDUCE`; tras convert `INVOICE` + `originNumber=CON-` |
-| web rentabilidad | series incluyen `CONDUCE`; labels Ventas |
-| Tests | unit money/timeline/pdf/series; integration `conduce-profitability-reports-http` + seller-sales + profitability |
+| Artefacto                                         | Detalle                                                                                                         |
+| ------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| `20260921000000_conduce_recognized_profitability` | CHECKs FX y ganancia manual admiten `CONDUCE`                                                                   |
+| `sales/service` + `recordUsdFxRate`               | `enrichUsdProfitability` tras emitir conduce; status `CONDUCE`\|`COMPLETED`                                     |
+| `money/profit`                                    | `calculatedCompletedProfitability` reconoce `CONDUCE`                                                           |
+| `profitability`                                   | retry/manual en ventas reconocidas                                                                              |
+| seller-sales                                      | filas `CONDUCE`; tras convert `INVOICE` + `originNumber=CON-`                                                   |
+| web rentabilidad                                  | series incluyen `CONDUCE`; labels Ventas                                                                        |
+| Tests                                             | unit money/timeline/pdf/series; integration `conduce-profitability-reports-http` + seller-sales + profitability |
 
 ### Verificación
 
@@ -441,15 +441,15 @@ Cuando ITEM/QTY exista: emitir consume/reserva→vendido; cancelar restaura una 
 
 ### Implementación
 
-| Artefacto | Detalle |
-|---|---|
-| Contratos / repository | `IssueConduceInput`, `getConducePdf`, issue/convert methods, tab `CONDUCE`, detail actions |
-| HTTP client | Map `CONDUCE` fields/actions; `/issue-conduce`, `/convert-quote-to-conduce`, `/convert-conduce-to-invoice`, `/conduce.pdf`; cancel envía `refundAmount` |
-| POS | `ConfirmSaleModal` mode invoice/conduce (CON-002 dueDate); dual CTAs; navigate to detail tras emitir |
-| Detalle | PDF conduce, Facturar (`ConvertConduceModal`), pago/cancel Admin; orígenes CON-/COT- |
-| Cancel UI | `refundAmount` 0…neto (CANCEL-002) |
-| Listados | Tab Conduce; `InvoiceStatusChip`; número primario FAC- > CON- > COT- |
-| Mocks | `issueConduce` / convert / PDF stub; cancel 0…neto; `invoiceBalance` reconoce CONDUCE; seed `INV-CON-01` / `CON-000001` |
+| Artefacto              | Detalle                                                                                                                                                 |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Contratos / repository | `IssueConduceInput`, `getConducePdf`, issue/convert methods, tab `CONDUCE`, detail actions                                                              |
+| HTTP client            | Map `CONDUCE` fields/actions; `/issue-conduce`, `/convert-quote-to-conduce`, `/convert-conduce-to-invoice`, `/conduce.pdf`; cancel envía `refundAmount` |
+| POS                    | `ConfirmSaleModal` mode invoice/conduce (CON-002 dueDate); dual CTAs; navigate to detail tras emitir                                                    |
+| Detalle                | PDF conduce, Facturar (`ConvertConduceModal`), pago/cancel Admin; orígenes CON-/COT-                                                                    |
+| Cancel UI              | `refundAmount` 0…neto (CANCEL-002)                                                                                                                      |
+| Listados               | Tab Conduce; `InvoiceStatusChip`; número primario FAC- > CON- > COT-                                                                                    |
+| Mocks                  | `issueConduce` / convert / PDF stub; cancel 0…neto; `invoiceBalance` reconoce CONDUCE; seed `INV-CON-01` / `CON-000001`                                 |
 
 ### Verificación
 
@@ -473,8 +473,8 @@ Cuando ITEM/QTY exista: emitir consume/reserva→vendido; cancelar restaura una 
 
 **Objetivo:** Verificar el feature completo antes del primer release.
 
-**Estado:** Completado localmente — 2026-09-21  
-**Alcance:** Gate técnico (migraciones `solocamiones_dev`, lint/typecheck/test/build), filtro CxC UI `CON-`, test concurrencia HTTP `CON-`, walkthrough browser Admin/Seller + PDFs (owner). Paso 10 del change set preproducción **fuera** de este milestone. Cierre como Completado localmente; Verificado queda a firma owner.
+**Estado:** Verificado — 2026-10-01 (Completado localmente — 2026-09-21)  
+**Alcance:** Gate técnico (migraciones `solocamiones_dev`, lint/typecheck/test/build), filtro CxC UI `CON-`, test concurrencia HTTP `CON-`, walkthrough browser Admin/Seller + PDFs (owner). Paso 10 del change set preproducción se cerró aparte el 2026-10-01 (`docs/RELEASES/v2.0.0.md`).
 
 ### Decisiones owner (2026-09-21)
 
@@ -488,39 +488,39 @@ Cuando ITEM/QTY exista: emitir consume/reserva→vendido; cancelar restaura una 
 
 ### Implementación (código mínimo de estabilización)
 
-| Artefacto | Detalle |
-|---|---|
-| CxC UI | `invoice-filter` acepta `FAC-`/`CON-`; labels Documento; tablas/copy alineados |
+| Artefacto | Detalle                                                                                 |
+| --------- | --------------------------------------------------------------------------------------- |
+| CxC UI    | `invoice-filter` acepta `FAC-`/`CON-`; labels Documento; tablas/copy alineados          |
 | Seed mock | Restaurado `EV-004` (DISMANTLING_COMPLETED) que M7 había reemplazado al añadir `EV-005` |
-| Tests web | Receivables `CON-`; expectativas seed (outstanding 31_100, KPIs, state length 6) |
-| Tests API | `assigns unique CON- numbers under concurrent issue-conduce` en `conduce-http` |
+| Tests web | Receivables `CON-`; expectativas seed (outstanding 31_100, KPIs, state length 6)        |
+| Tests API | `assigns unique CON- numbers under concurrent issue-conduce` en `conduce-http`          |
 
 ### Verificación técnica — evidencia
 
-| Comando / actividad | Resultado |
-|---|---|
-| `npm run db:migrate:deploy` → `solocamiones_dev` | Aplicó `20260921000000_conduce_recognized_profitability`; 24 migraciones al día |
-| `npm run lint` | OK (0 errors; warnings preexistentes) |
-| `npm run typecheck` | OK |
+| Comando / actividad                                                               | Resultado                                                                          |
+| --------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| `npm run db:migrate:deploy` → `solocamiones_dev`                                  | Aplicó `20260921000000_conduce_recognized_profitability`; 24 migraciones al día    |
+| `npm run lint`                                                                    | OK (0 errors; warnings preexistentes)                                              |
+| `npm run typecheck`                                                               | OK                                                                                 |
 | `npm run test` (API unit+integration + web; reset `solocamiones_test` autorizado) | API unit **51/51**; API integration **33/33** (**275**); web **114/114** (**798**) |
-| `npm run build` | OK |
-| Concurrencia `CON-` / crédito / idempotencia | Cubiertas por suites conduce (+ test HTTP concurrente nuevo) |
-| Walkthrough Admin/Seller + 6 PDFs | Owner: **todo bien** (2026-09-21) |
+| `npm run build`                                                                   | OK                                                                                 |
+| Concurrencia `CON-` / crédito / idempotencia                                      | Cubiertas por suites conduce (+ test HTTP concurrente nuevo)                       |
+| Walkthrough Admin/Seller + 6 PDFs                                                 | Owner: **todo bien** (2026-09-21)                                                  |
 
 ### Documentación al cerrar
 
 - Feature 16: walkthrough + estabilización `[x]`. **Hecho.**
 - Feature 12: UI CxC documento `FAC-`/`CON-` (M8). **Hecho.**
-- `DEVELOPMENT_PLAN.md` snapshot: M1–M8 Completado localmente; Paso 10 sigue abierto. **Hecho.**
-- Pendientes reales: Paso 10 preproducción; firma owner para estado `Verificado` / autorización explícita al primer release; ITEM/QTY inventario (releases posteriores).
+- `DEVELOPMENT_PLAN.md` snapshot: M1–M8 Completado localmente; Paso 10 sigue abierto. **Hecho al cierre M8; supersedido 2026-10-01 (Paso 10 cerrado + Verificado).**
+- Pendientes reales al cierre M8: Paso 10 preproducción (cerrado 2026-10-01); `Verificado` owner (otorgado 2026-10-01); ITEM/QTY inventario (releases posteriores).
 
 ### Migración / rollback / aprobación empresarial
 
 - Migraciones conduce son aditivas (enum `CONDUCE`, columnas, CHECKs FX/profit, secuencia `CON`).
 - Rollback de schema solo en no-productivo o con aprobación; no dropear fácilmente el valor de enum PostgreSQL.
-- **Aprobación empresarial / `Verificado`:** pendiente de firma explícita del owner (este cierre es Completado localmente).
+- **Aprobación empresarial / `Verificado`:** owner autorizó explícitamente el 2026-10-01 para incluir conduces en `v2.0.0` (`docs/RELEASES/v2.0.0.md`).
 
-**Gate final (técnico local):** Cero fallos conocidos en flujos aprobados tras suites + walkthrough owner. Autorización formal para incluir conduces en el primer release = pendiente `Verificado`.
+**Gate final:** Cero fallos conocidos en flujos aprobados tras suites + walkthrough owner. **Verificado 2026-10-01** — conduces autorizados en el primer release productivo.
 
 ---
 
@@ -543,4 +543,3 @@ Cuando ITEM/QTY exista: emitir consume/reserva→vendido; cancelar restaura una 
 - El PDF del conduce muestra precios y totales, pero no pagos ni saldo.
 - El reembolso de cancelación es **global**: Administrador indica monto real de `0` hasta el neto cobrado (CANCEL-002 / CON-005). _(Aclarado M1, 2026-09-20.)_
 - Se conserva el camino directo `DRAFT` / `QUOTE_ISSUED` → `COMPLETED` sin conduce.
-

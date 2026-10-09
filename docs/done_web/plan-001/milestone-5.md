@@ -5,7 +5,7 @@
 | **ID plan**    | WM5                                                                                                             |
 | **Estado**     | Completado                                                                                                      |
 | **Fecha**      | 2026-08-28                                                                                                      |
-| **Referencia** | [`docs/plans_web/plan-001.md`](../../plans_web/plan-001.md) § WM5                                                  |
+| **Referencia** | [`docs/plans_web/plan-001.md`](../../plans_web/plan-001.md) § WM5                                               |
 | **Alcance**    | Catálogo unificado (piezas + cantidad), búsqueda, detalle, chips de dominio, agregar a borrador, acciones admin |
 | **Siguiente**  | WM6 — Registro de inventario                                                                                    |
 

@@ -1230,7 +1230,8 @@ describe('HTTP sales draft contract', () => {
           status: 200,
           headers: {
             'Content-Type': 'application/pdf',
-            'Content-Disposition': 'attachment; filename="FAC-000002_Transportes-del-Caribe-SRL.pdf"',
+            'Content-Disposition':
+              'attachment; filename="FAC-000002_Transportes-del-Caribe-SRL.pdf"',
           },
         }),
     );

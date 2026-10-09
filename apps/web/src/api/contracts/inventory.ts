@@ -15,13 +15,7 @@ export type InventoryKind = 'ITEM' | 'QTY';
 
 /** Quick chips on the inventory list. Combined with AND. Distinct from advanced fields. */
 export type InventoryQuickFilter =
-  | 'available'
-  | 'installed'
-  | 'independent'
-  | 'reserved'
-  | 'assemblies'
-  | 'incomplete'
-  | 'quantity';
+  'available' | 'installed' | 'independent' | 'reserved' | 'assemblies' | 'incomplete' | 'quantity';
 
 /**
  * Inventory catalog filters.

@@ -1,6 +1,11 @@
 import type { AppState } from '../../api/contracts/entities';
 import { err, ok, type Result } from '../../shared/auth/types';
-import { addDraftLine, createDraft, discardDraft, setDraftMeta } from '../services/sales-pos-commands';
+import {
+  addDraftLine,
+  createDraft,
+  discardDraft,
+  setDraftMeta,
+} from '../services/sales-pos-commands';
 
 export type DemoScenario = {
   id: number;

@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useState } from 'react';
 
 import type { MechanicWorkOrderView, WorkOrderType } from '../../api/contracts/entities';
-import type { AddWorkOrderPhotoInput, CompleteWorkOrderInput } from '../../api/contracts/work-orders';
+import type {
+  AddWorkOrderPhotoInput,
+  CompleteWorkOrderInput,
+} from '../../api/contracts/work-orders';
 import type { AppError, Result } from '../../shared/auth/types';
 import { workOrderRepository } from '../../api/repositories';
 import { beginQueryReload } from '../../shared/query/begin-query-reload';

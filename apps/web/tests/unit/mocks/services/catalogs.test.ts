@@ -84,11 +84,7 @@ describe('prepareCategorySave', () => {
 
     expect(result.ok).toBe(true);
     if (result.ok) {
-      expect(result.value.expectedComponents).toEqual([
-        'Alternador',
-        'Turbo',
-        'Motor de arranque',
-      ]);
+      expect(result.value.expectedComponents).toEqual(['Alternador', 'Turbo', 'Motor de arranque']);
       expect(result.value.attributes).toEqual([
         { key: 'displacement', label: 'Cilindrada', type: 'text' },
       ]);
@@ -238,12 +234,24 @@ describe('catalog expected-component backfill', () => {
     const engine = state.categories.find((category) => category.id === 'CAT-ENG')!;
     const created = backfillPendingExpectedComponents(state, admin, engine, ['Bomba de aceite']);
 
-    expect(created.map((entry) => entry.parentId).sort()).toEqual(['MOT-001', 'MOT-002', 'MOT-003']);
+    expect(created.map((entry) => entry.parentId).sort()).toEqual([
+      'MOT-001',
+      'MOT-002',
+      'MOT-003',
+    ]);
     expect(
-      isComplete(state.items.find((item) => item.id === 'MOT-001')!, state.knownMissing, state.categories),
+      isComplete(
+        state.items.find((item) => item.id === 'MOT-001')!,
+        state.knownMissing,
+        state.categories,
+      ),
     ).toBe(true);
     expect(
-      isComplete(state.items.find((item) => item.id === 'MOT-002')!, state.knownMissing, state.categories),
+      isComplete(
+        state.items.find((item) => item.id === 'MOT-002')!,
+        state.knownMissing,
+        state.categories,
+      ),
     ).toBe(false);
     expect(
       state.knownMissing.some((entry) => entry.expectedComponentName === 'Bomba de aceite'),

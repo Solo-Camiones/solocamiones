@@ -28,7 +28,15 @@ const INACTIVE_LEGEND_COLOR = '#94a3b8';
 
 type SeriesKey = 'profit' | 'collected';
 
-function ChartCard({ title, subtitle, children }: { title: string; subtitle?: string; children: ReactNode }) {
+function ChartCard({
+  title,
+  subtitle,
+  children,
+}: {
+  title: string;
+  subtitle?: string;
+  children: ReactNode;
+}) {
   return (
     <Card padding="md" className="relative min-w-0 overflow-hidden">
       <SectionTitle title={title} subtitle={subtitle} />
@@ -37,9 +45,22 @@ function ChartCard({ title, subtitle, children }: { title: string; subtitle?: st
   );
 }
 
-function ChartViewport({ title, height, children }: { title: string; height: number; children: ReactNode }) {
+function ChartViewport({
+  title,
+  height,
+  children,
+}: {
+  title: string;
+  height: number;
+  children: ReactNode;
+}) {
   return (
-    <div className="relative w-full min-w-0 overflow-hidden" style={{ height }} role="img" aria-label={title}>
+    <div
+      className="relative w-full min-w-0 overflow-hidden"
+      style={{ height }}
+      role="img"
+      aria-label={title}
+    >
       {children}
     </div>
   );
@@ -85,8 +106,14 @@ function ChartTooltip({
       <p className="mb-1 font-medium text-navy">{label}</p>
       <ul className="space-y-0.5">
         {payload.map((entry) => (
-          <li key={String(entry.dataKey ?? entry.name)} className="flex items-center gap-2 text-navy-700">
-            <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: entry.color }} />
+          <li
+            key={String(entry.dataKey ?? entry.name)}
+            className="flex items-center gap-2 text-navy-700"
+          >
+            <span
+              className="h-2 w-2 shrink-0 rounded-full"
+              style={{ backgroundColor: entry.color }}
+            />
             {entry.name ? <span>{entry.name}</span> : null}
             <span className="ml-auto font-mono tabular-nums text-navy">
               {typeof entry.value === 'number' ? money(entry.value, 'DOP') : entry.value}
@@ -198,7 +225,12 @@ function MonthlyBarChart({
         <ResponsiveContainer width="100%" height={MONTHLY_CHART_HEIGHT_PX}>
           <BarChart data={points} margin={{ top: 8, right: 8, left: 4, bottom: 0 }}>
             <CartesianGrid stroke={GRID_COLOR} strokeDasharray="3 3" vertical={false} />
-            <XAxis dataKey="label" tick={{ fill: TICK_COLOR, fontSize: 11 }} axisLine={false} tickLine={false} />
+            <XAxis
+              dataKey="label"
+              tick={{ fill: TICK_COLOR, fontSize: 11 }}
+              axisLine={false}
+              tickLine={false}
+            />
             <YAxis
               tickFormatter={formatAxisMoney}
               tick={{ fill: TICK_COLOR, fontSize: 11 }}
@@ -211,7 +243,11 @@ function MonthlyBarChart({
           </BarChart>
         </ResponsiveContainer>
       </ChartViewport>
-      <HiddenSeriesTable caption={title} rows={points} columns={[{ key: 'amount', header: 'Monto' }]} />
+      <HiddenSeriesTable
+        caption={title}
+        rows={points}
+        columns={[{ key: 'amount', header: 'Monto' }]}
+      />
     </ChartCard>
   );
 }
@@ -236,7 +272,10 @@ export function ProfitabilityCharts({
 
   return (
     <div className="grid min-w-0 gap-4">
-      <ChartCard title="Evolución financiera" subtitle="Ganancia bruta y cobrado neto por día, en pesos.">
+      <ChartCard
+        title="Evolución financiera"
+        subtitle="Ganancia bruta y cobrado neto por día, en pesos."
+      >
         <ChartViewport title="Evolución financiera" height={EVOLUTION_CHART_HEIGHT_PX}>
           <ResponsiveContainer width="100%" height={EVOLUTION_CHART_HEIGHT_PX}>
             <AreaChart data={daily} margin={{ top: 8, right: 12, left: 4, bottom: 24 }}>
@@ -280,11 +319,18 @@ export function ProfitabilityCharts({
               <Legend
                 verticalAlign="bottom"
                 height={24}
-                wrapperStyle={{ fontSize: 13, color: '#0c1e3a', overflow: 'hidden', cursor: 'pointer' }}
+                wrapperStyle={{
+                  fontSize: 13,
+                  color: '#0c1e3a',
+                  overflow: 'hidden',
+                  cursor: 'pointer',
+                }}
                 formatter={(value, entry) => {
                   const key = entry.dataKey === 'collected' ? 'collected' : 'profit';
                   return (
-                    <span style={{ color: hidden[key] ? INACTIVE_LEGEND_COLOR : '#0c1e3a' }}>{value}</span>
+                    <span style={{ color: hidden[key] ? INACTIVE_LEGEND_COLOR : '#0c1e3a' }}>
+                      {value}
+                    </span>
                   );
                 }}
                 onClick={(entry) => {

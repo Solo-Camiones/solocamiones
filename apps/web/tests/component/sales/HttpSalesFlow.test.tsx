@@ -80,7 +80,13 @@ type ApiInvoice = {
   fiscal: boolean;
   applyItbis: boolean;
   discountPercent?: string;
-  customer: { id: string; name: string; rnc: string | null; isDefault: boolean; customerType?: 'CASH' | 'CREDIT' };
+  customer: {
+    id: string;
+    name: string;
+    rnc: string | null;
+    isDefault: boolean;
+    customerType?: 'CASH' | 'CREDIT';
+  };
   customerSnapshot: { name: string; rnc: string | null; phone: string | null } | null;
   confirmedAt: string | null;
   dueDate: string | null;
@@ -242,10 +248,7 @@ beforeEach(() => {
         const body = JSON.parse(String(init.body ?? '{}')) as {
           payment?: { amount: string; method: string };
         };
-        if (
-          body.payment == null &&
-          JSON.stringify(body) !== '{}'
-        ) {
+        if (body.payment == null && JSON.stringify(body) !== '{}') {
           throw new Error(`Unexpected confirm body: ${String(init.body)}`);
         }
         const number = `FAC-${String(nextFacNumber).padStart(6, '0')}`;
@@ -637,9 +640,7 @@ describe('M22 HTTP confirmation UI', () => {
 
     expect(await screen.findByRole('heading', { name: 'FAC-000009' })).toBeVisible();
     expect(screen.getByText(/Referencia: pdf-err-9/)).toBeVisible();
-    expect(
-      screen.queryByRole('button', { name: 'Ver factura' }),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Ver factura' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Regenerar documento' })).not.toBeInTheDocument();
     expect(screen.queryByText('Rentabilidad')).not.toBeInTheDocument();
   });

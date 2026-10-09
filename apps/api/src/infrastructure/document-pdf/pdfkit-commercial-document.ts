@@ -2,10 +2,7 @@ import { Prisma } from '@prisma/client';
 
 import { CORPORATE_PROFILE } from '../document-profile/index.js';
 import { BORDER, BRAND_BLUE, BRAND_NAVY, LIGHT_BLUE, LOGO_PATH, MUTED } from './brand-tokens.js';
-import {
-  COMMERCIAL_DOCUMENT_TERMS,
-  COMMERCIAL_DOCUMENT_TERMS_TITLE,
-} from './constants.js';
+import { COMMERCIAL_DOCUMENT_TERMS, COMMERCIAL_DOCUMENT_TERMS_TITLE } from './constants.js';
 import {
   formatBusinessDate,
   formatBusinessDateTime,
@@ -320,11 +317,7 @@ function drawTableHeader(document: PdfDocument, y: number): number {
   return y + 24;
 }
 
-function drawFooter(
-  document: PdfDocument,
-  page: number,
-  pageCount: number,
-): void {
+function drawFooter(document: PdfDocument, page: number, pageCount: number): void {
   const left = document.page.margins.left;
   const right = document.page.width - document.page.margins.right;
   const footerTop = contentBottom(document);

@@ -9,9 +9,7 @@ import '../../support/dom';
 
 describe('Button', () => {
   it('disables and marks itself busy when busy is set', () => {
-    renderWithProviders(
-      <Button busy>Guardar</Button>,
-    );
+    renderWithProviders(<Button busy>Guardar</Button>);
 
     const button = screen.getByRole('button', { name: 'Guardar' });
     expect(button).toBeDisabled();

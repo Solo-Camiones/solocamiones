@@ -25,8 +25,6 @@ describe('COST-005 manual gross profit validation', () => {
     expect(
       recordManualGrossProfitSchema.safeParse({ profitDop: '20.00', reason: 'x' }).success,
     ).toBe(false);
-    expect(profitabilityInvoiceIdSchema.safeParse({ invoiceId: 'not-a-uuid' }).success).toBe(
-      false,
-    );
+    expect(profitabilityInvoiceIdSchema.safeParse({ invoiceId: 'not-a-uuid' }).success).toBe(false);
   });
 });

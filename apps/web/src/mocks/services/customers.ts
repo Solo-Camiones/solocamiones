@@ -5,7 +5,14 @@ import {
   type SaveCustomerContactInput,
   type SaveCustomerInput,
 } from '../../api/contracts/customers';
-import type { AppState, Customer, CustomerContact, CustomerType, Invoice, Role } from '../../api/contracts/entities';
+import type {
+  AppState,
+  Customer,
+  CustomerContact,
+  CustomerType,
+  Invoice,
+  Role,
+} from '../../api/contracts/entities';
 import { err, ok, type Result } from '../../shared/auth/types';
 import {
   CASH_CREDIT_FIELDS_FORBIDDEN_MESSAGE,
@@ -239,7 +246,11 @@ function applyCreditFields(
 
   const rnc = optionalText(input.rnc) ?? existing?.rnc;
   if (!rnc || !isValidFiscalId(rnc)) {
-    return err({ code: 'VALIDATION', message: CREDIT_FISCAL_REQUIRED_MESSAGE, details: { issues: [{ path: 'rnc', message: CREDIT_FISCAL_REQUIRED_MESSAGE }] } });
+    return err({
+      code: 'VALIDATION',
+      message: CREDIT_FISCAL_REQUIRED_MESSAGE,
+      details: { issues: [{ path: 'rnc', message: CREDIT_FISCAL_REQUIRED_MESSAGE }] },
+    });
   }
 
   const limitSource = input.creditLimitDop ?? existing?.creditLimitDop;
@@ -250,7 +261,11 @@ function applyCreditFields(
 
   const term = input.creditTermDays ?? existing?.creditTermDays;
   if (term === undefined || !CREDIT_TERM_VALUES.has(term)) {
-    return err({ code: 'VALIDATION', message: CREDIT_TERM_REQUIRED_MESSAGE, details: { issues: [{ path: 'creditTermDays', message: CREDIT_TERM_REQUIRED_MESSAGE }] } });
+    return err({
+      code: 'VALIDATION',
+      message: CREDIT_TERM_REQUIRED_MESSAGE,
+      details: { issues: [{ path: 'creditTermDays', message: CREDIT_TERM_REQUIRED_MESSAGE }] },
+    });
   }
 
   return ok({ creditLimitDop: limit.value, creditTermDays: term });

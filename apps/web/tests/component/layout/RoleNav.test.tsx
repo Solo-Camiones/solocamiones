@@ -110,7 +110,9 @@ describe('AppShell sidebar', () => {
     expect(screen.getByRole('button', { name: 'Ocultar menú' })).toBeVisible();
 
     await user.click(screen.getByRole('button', { name: 'Ocultar menú' }));
-    expect(screen.queryByRole('navigation', { name: 'Navegación principal' })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('navigation', { name: 'Navegación principal' }),
+    ).not.toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: 'Abrir menú' }));
     expect(screen.getByRole('navigation', { name: 'Navegación principal' })).toBeVisible();
@@ -121,13 +123,17 @@ describe('AppShell sidebar', () => {
     const user = userEvent.setup();
     renderShell();
 
-    expect(screen.queryByRole('navigation', { name: 'Navegación principal' })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('navigation', { name: 'Navegación principal' }),
+    ).not.toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: 'Abrir menú' }));
     expect(screen.getByRole('navigation', { name: 'Navegación principal' })).toBeVisible();
 
     await user.click(screen.getByRole('link', { name: 'Usuarios' }));
-    expect(screen.queryByRole('navigation', { name: 'Navegación principal' })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('navigation', { name: 'Navegación principal' }),
+    ).not.toBeInTheDocument();
     expect(screen.getByText('Usuarios')).toBeVisible();
   });
 });

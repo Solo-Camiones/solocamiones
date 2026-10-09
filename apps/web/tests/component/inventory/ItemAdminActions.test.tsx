@@ -135,6 +135,8 @@ describe('ItemAdminActions', () => {
       capabilities: CAPABILITY_PRESETS['release-4'],
     });
 
-    expect(screen.queryByRole('button', { name: 'Orden de trabajo manual' })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Orden de trabajo manual' }),
+    ).not.toBeInTheDocument();
   });
 });

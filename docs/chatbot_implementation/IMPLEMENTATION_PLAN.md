@@ -34,20 +34,20 @@ No indexará transacciones en vectores, no tendrá herramientas de escritura y n
 
 ## 2. Decisiones confirmadas
 
-| Área         | Decisión                                                                     |
-| ------------ | ---------------------------------------------------------------------------- |
+| Área         | Decisión                                                                           |
+| ------------ | ---------------------------------------------------------------------------------- |
 | Entrega      | Habilitado para Administrator desde el primer día productivo (decisión 2026-09-30) |
-| Usuarios     | Solo `ADMINISTRATOR`                                                         |
-| Operaciones  | Solo lectura; crear/eliminar conversaciones sí está permitido                |
-| Conocimiento | Base documental curada + datos comerciales vivos                             |
-| Datos vivos  | Clientes, cotizaciones, conduces, facturas, pagos, CxC y rentabilidad        |
-| Exclusiones  | Usuarios, sesiones, credenciales, auditoría general, inventario/WO mock      |
-| Proveedor    | OpenAI detrás de interfaces propias                                          |
-| UI           | Panel lateral global montado en `AppShell`                                   |
-| Historial    | PostgreSQL, auditable, retención de 90 días                                  |
-| Privacidad   | Solo campos mínimos; sin RNC, contacto, dirección o notas                    |
-| Corpus       | Markdown versionado en Git y aprobado mediante manifest                      |
-| Consumo      | Límites configurables por usuario, respuesta, retrieval y tools              |
+| Usuarios     | Solo `ADMINISTRATOR`                                                               |
+| Operaciones  | Solo lectura; crear/eliminar conversaciones sí está permitido                      |
+| Conocimiento | Base documental curada + datos comerciales vivos                                   |
+| Datos vivos  | Clientes, cotizaciones, conduces, facturas, pagos, CxC y rentabilidad              |
+| Exclusiones  | Usuarios, sesiones, credenciales, auditoría general, inventario/WO mock            |
+| Proveedor    | OpenAI detrás de interfaces propias                                                |
+| UI           | Panel lateral global montado en `AppShell`                                         |
+| Historial    | PostgreSQL, auditable, retención de 90 días                                        |
+| Privacidad   | Solo campos mínimos; sin RNC, contacto, dirección o notas                          |
+| Corpus       | Markdown versionado en Git y aprobado mediante manifest                            |
+| Consumo      | Límites configurables por usuario, respuesta, retrieval y tools                    |
 
 ## 3. Estado actual y brecha
 

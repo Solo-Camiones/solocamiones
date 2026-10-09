@@ -26,7 +26,10 @@ export function useInvoiceDetail(id: string | undefined) {
 
   useEffect(() => {
     if (!id) {
-      setResult({ status: 'error', error: { code: 'VALIDATION', message: 'Falta el identificador' } });
+      setResult({
+        status: 'error',
+        error: { code: 'VALIDATION', message: 'Falta el identificador' },
+      });
       return;
     }
 
@@ -64,38 +67,47 @@ export function useInvoiceDetail(id: string | undefined) {
     setReloadToken((token) => token + 1);
   }, []);
 
-  const addPayment = useCallback(async (input: AddPaymentInput): Promise<Result<void>> => {
-    setIsMutating(true);
-    const response = await salesRepository.addPayment(input);
-    setIsMutating(false);
-    if (!response.ok) {
-      return response;
-    }
-    reload();
-    return { ok: true, value: undefined };
-  }, [reload]);
+  const addPayment = useCallback(
+    async (input: AddPaymentInput): Promise<Result<void>> => {
+      setIsMutating(true);
+      const response = await salesRepository.addPayment(input);
+      setIsMutating(false);
+      if (!response.ok) {
+        return response;
+      }
+      reload();
+      return { ok: true, value: undefined };
+    },
+    [reload],
+  );
 
-  const cancelInvoice = useCallback(async (input: CancelInvoiceInput): Promise<Result<void>> => {
-    setIsMutating(true);
-    const response = await salesRepository.cancelInvoice(input);
-    setIsMutating(false);
-    if (!response.ok) {
-      return response;
-    }
-    reload();
-    return { ok: true, value: undefined };
-  }, [reload]);
+  const cancelInvoice = useCallback(
+    async (input: CancelInvoiceInput): Promise<Result<void>> => {
+      setIsMutating(true);
+      const response = await salesRepository.cancelInvoice(input);
+      setIsMutating(false);
+      if (!response.ok) {
+        return response;
+      }
+      reload();
+      return { ok: true, value: undefined };
+    },
+    [reload],
+  );
 
-  const correctCurrency = useCallback(async (input: CorrectCurrencyInput): Promise<Result<void>> => {
-    setIsMutating(true);
-    const response = await salesRepository.correctCurrency(input);
-    setIsMutating(false);
-    if (!response.ok) {
-      return response;
-    }
-    reload();
-    return { ok: true, value: undefined };
-  }, [reload]);
+  const correctCurrency = useCallback(
+    async (input: CorrectCurrencyInput): Promise<Result<void>> => {
+      setIsMutating(true);
+      const response = await salesRepository.correctCurrency(input);
+      setIsMutating(false);
+      if (!response.ok) {
+        return response;
+      }
+      reload();
+      return { ok: true, value: undefined };
+    },
+    [reload],
+  );
 
   const convertConduceToInvoice = useCallback(
     async (invoiceId: string, input: ConvertConduceToInvoiceInput): Promise<Result<void>> => {
@@ -111,24 +123,33 @@ export function useInvoiceDetail(id: string | undefined) {
     [reload],
   );
 
-  const getInvoicePdf = useCallback(async (invoiceId: string): Promise<Result<InvoicePdfDownload>> => {
-    return salesRepository.getInvoicePdf(invoiceId);
-  }, []);
+  const getInvoicePdf = useCallback(
+    async (invoiceId: string): Promise<Result<InvoicePdfDownload>> => {
+      return salesRepository.getInvoicePdf(invoiceId);
+    },
+    [],
+  );
 
-  const getConducePdf = useCallback(async (invoiceId: string): Promise<Result<ConducePdfDownload>> => {
-    return salesRepository.getConducePdf(invoiceId);
-  }, []);
+  const getConducePdf = useCallback(
+    async (invoiceId: string): Promise<Result<ConducePdfDownload>> => {
+      return salesRepository.getConducePdf(invoiceId);
+    },
+    [],
+  );
 
-  const regenerateInvoicePdf = useCallback(async (invoiceId: string): Promise<Result<void>> => {
-    setIsMutating(true);
-    const response = await salesRepository.regenerateInvoicePdf(invoiceId);
-    setIsMutating(false);
-    if (!response.ok) {
-      return response;
-    }
-    reload();
-    return { ok: true, value: undefined };
-  }, [reload]);
+  const regenerateInvoicePdf = useCallback(
+    async (invoiceId: string): Promise<Result<void>> => {
+      setIsMutating(true);
+      const response = await salesRepository.regenerateInvoicePdf(invoiceId);
+      setIsMutating(false);
+      if (!response.ok) {
+        return response;
+      }
+      reload();
+      return { ok: true, value: undefined };
+    },
+    [reload],
+  );
 
   return {
     result,

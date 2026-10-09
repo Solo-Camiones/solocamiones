@@ -1,8 +1,4 @@
-import type {
-  Category,
-  Item,
-  KnownMissingComponent,
-} from '../../api/contracts/entities';
+import type { Category, Item, KnownMissingComponent } from '../../api/contracts/entities';
 
 export function itemById(items: Item[], id: string): Item | undefined {
   return items.find((entry) => entry.id === id);

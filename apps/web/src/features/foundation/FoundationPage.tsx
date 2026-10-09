@@ -8,16 +8,7 @@ import {
 } from '../../api/repositories';
 import { APP_NAME } from '../../shared/config/brand';
 import { AppLayout } from '../../shared/layout/AppLayout';
-import {
-  Button,
-  Card,
-  Chip,
-  Info,
-  Mono,
-  money,
-  SectionTitle,
-  useToast,
-} from '../../shared/ui';
+import { Button, Card, Chip, Info, Mono, money, SectionTitle, useToast } from '../../shared/ui';
 
 type SeedSummary = {
   users: number;
@@ -99,7 +90,10 @@ export function FoundationPage() {
             <span className="h-8 w-8 rounded-lg bg-brand-light" title="brand-light" />
             <span className="h-8 w-8 rounded-lg bg-shell" title="shell" />
             <span className="h-8 w-8 rounded-lg bg-navy" title="navy" />
-            <span className="h-8 w-8 rounded-lg border border-navy-200 bg-surface" title="surface" />
+            <span
+              className="h-8 w-8 rounded-lg border border-navy-200 bg-surface"
+              title="surface"
+            />
           </div>
           <div className="mt-4 flex flex-wrap items-center gap-3">
             <Button>Primario</Button>

@@ -913,15 +913,15 @@ Cierre documental del exit gate, más endurecimiento local **aún en alcance R2*
 
 ### Validación
 
-| Verificación | Resultado |
-|---|---|
-| Exit gate en navegador (owner) | Confirmado 2026-09-11 |
-| Unitarias API | **223 aprobadas** (35 archivos) |
-| Unitarias web | **349 aprobadas** (42 archivos) |
-| Integración web (mock) | **69 aprobadas** (10 archivos) |
-| Componentes web | **184 aprobadas** (39 archivos) |
-| Typecheck app + tests web | OK en el cierre M25; no reejecutado en la pasada de inventario posterior |
-| Integración API / PostgreSQL | **181** en inventario (22 archivos, incluye `cost-provenance-http`). Reejecución completa bloqueada aquí por `prisma migrate reset` |
+| Verificación                   | Resultado                                                                                                                           |
+| ------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------- |
+| Exit gate en navegador (owner) | Confirmado 2026-09-11                                                                                                               |
+| Unitarias API                  | **223 aprobadas** (35 archivos)                                                                                                     |
+| Unitarias web                  | **349 aprobadas** (42 archivos)                                                                                                     |
+| Integración web (mock)         | **69 aprobadas** (10 archivos)                                                                                                      |
+| Componentes web                | **184 aprobadas** (39 archivos)                                                                                                     |
+| Typecheck app + tests web      | OK en el cierre M25; no reejecutado en la pasada de inventario posterior                                                            |
+| Integración API / PostgreSQL   | **181** en inventario (22 archivos, incluye `cost-provenance-http`). Reejecución completa bloqueada aquí por `prisma migrate reset` |
 
 Total inventario: **148 archivos, 1006 pruebas**.
 

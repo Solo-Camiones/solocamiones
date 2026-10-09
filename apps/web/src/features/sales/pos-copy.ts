@@ -25,7 +25,9 @@ export function posLinePriceFieldId(lineId: string): string {
   return `pos-line-price-${lineId}`;
 }
 
-export function posLineSku(line: Pick<PosLineView, 'itemId' | 'qtyProductId' | 'serviceId'>): string | undefined {
+export function posLineSku(
+  line: Pick<PosLineView, 'itemId' | 'qtyProductId' | 'serviceId'>,
+): string | undefined {
   return line.itemId ?? line.qtyProductId ?? line.serviceId;
 }
 
@@ -43,10 +45,7 @@ export function posBlockedConfirmSummary(blockers: string[]): string | null {
 }
 
 function normalizeBlockerText(blocker: string): string {
-  return blocker
-    .normalize('NFD')
-    .replace(/\p{M}/gu, '')
-    .toLowerCase();
+  return blocker.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
 }
 
 function blockerMentions(blocker: string, ...needles: string[]): boolean {
@@ -79,7 +78,11 @@ export function firstPosProblemElementId(draft: {
     return POS_FIELD_IDS.currency;
   }
 
-  if (draft.blockers.some((blocker) => blockerMentions(blocker, 'fiscal', 'rnc', 'cedula', 'comprobante'))) {
+  if (
+    draft.blockers.some((blocker) =>
+      blockerMentions(blocker, 'fiscal', 'rnc', 'cedula', 'comprobante'),
+    )
+  ) {
     return POS_FIELD_IDS.fiscal;
   }
 

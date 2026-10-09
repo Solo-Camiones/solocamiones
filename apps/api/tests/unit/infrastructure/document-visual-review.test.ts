@@ -159,7 +159,10 @@ async function expectRasterizedPages(imagePaths: string[]): Promise<void> {
 describe('document visual review (DOC-001 / Paso 9 fase 14)', () => {
   it('extracts real text and rasterizes a short invoice without ITBIS', async () => {
     const pdf = await pdfkitInvoicePdfRenderer.render(invoiceBase);
-    const reviewed = await reviewPdfDocument(pdf, path.join(PDF_VISUAL_REVIEW_ROOT, 'invoice-short-no-itbis'));
+    const reviewed = await reviewPdfDocument(
+      pdf,
+      path.join(PDF_VISUAL_REVIEW_ROOT, 'invoice-short-no-itbis'),
+    );
 
     expect(reviewed.fullText.length).toBeGreaterThan(80);
     expect(reviewed.fullText).toContain('FACTURA');
@@ -199,7 +202,10 @@ describe('document visual review (DOC-001 / Paso 9 fase 14)', () => {
         discountPercent: '0.00',
       },
     });
-    const reviewed = await reviewPdfDocument(pdf, path.join(PDF_VISUAL_REVIEW_ROOT, 'invoice-with-itbis'));
+    const reviewed = await reviewPdfDocument(
+      pdf,
+      path.join(PDF_VISUAL_REVIEW_ROOT, 'invoice-with-itbis'),
+    );
 
     expect(reviewed.fullText).toContain('FAC-000102');
     expect(reviewed.fullText).toContain('ITBIS');
@@ -215,7 +221,10 @@ describe('document visual review (DOC-001 / Paso 9 fase 14)', () => {
       number: 'FAC-000103',
       originQuoteNumber: 'COT-000201',
     });
-    const reviewed = await reviewPdfDocument(pdf, path.join(PDF_VISUAL_REVIEW_ROOT, 'invoice-from-quote'));
+    const reviewed = await reviewPdfDocument(
+      pdf,
+      path.join(PDF_VISUAL_REVIEW_ROOT, 'invoice-from-quote'),
+    );
 
     expect(reviewed.fullText).toContain('FAC-000103');
     expect(reviewed.fullText).toContain('COT-000201');
@@ -232,7 +241,10 @@ describe('document visual review (DOC-001 / Paso 9 fase 14)', () => {
       cancelReason: 'Solicitud del cliente',
       cancelledByName: 'Ana Administradora',
     });
-    const reviewed = await reviewPdfDocument(pdf, path.join(PDF_VISUAL_REVIEW_ROOT, 'invoice-cancelled'));
+    const reviewed = await reviewPdfDocument(
+      pdf,
+      path.join(PDF_VISUAL_REVIEW_ROOT, 'invoice-cancelled'),
+    );
 
     expect(reviewed.fullText).toContain('CANCELADA');
     expect(reviewed.fullText).toContain('Solicitud del cliente');
@@ -250,7 +262,10 @@ describe('document visual review (DOC-001 / Paso 9 fase 14)', () => {
         description: `Repuesto ${index + 1}`,
       })),
     });
-    const reviewed = await reviewPdfDocument(pdf, path.join(PDF_VISUAL_REVIEW_ROOT, 'invoice-many-lines'));
+    const reviewed = await reviewPdfDocument(
+      pdf,
+      path.join(PDF_VISUAL_REVIEW_ROOT, 'invoice-many-lines'),
+    );
 
     expect(reviewed.pageCount).toBeGreaterThan(1);
     expect(reviewed.fullText).toContain('Repuesto 1');
@@ -280,7 +295,10 @@ describe('document visual review (DOC-001 / Paso 9 fase 14)', () => {
         },
       ],
     });
-    const reviewed = await reviewPdfDocument(pdf, path.join(PDF_VISUAL_REVIEW_ROOT, 'invoice-multiline-notes'));
+    const reviewed = await reviewPdfDocument(
+      pdf,
+      path.join(PDF_VISUAL_REVIEW_ROOT, 'invoice-multiline-notes'),
+    );
 
     expect(reviewed.fullText).toContain('Kit de bomba de agua');
     expect(reviewed.fullText).toContain('Instalar junto con el kit de empaques.');
@@ -291,7 +309,10 @@ describe('document visual review (DOC-001 / Paso 9 fase 14)', () => {
 
   it('extracts real text and rasterizes a current issued quote', async () => {
     const pdf = await pdfkitQuotePdfRenderer.render(quoteBase);
-    const reviewed = await reviewPdfDocument(pdf, path.join(PDF_VISUAL_REVIEW_ROOT, 'quote-current'));
+    const reviewed = await reviewPdfDocument(
+      pdf,
+      path.join(PDF_VISUAL_REVIEW_ROOT, 'quote-current'),
+    );
 
     expect(reviewed.fullText).toContain('COTIZACIÓN');
     expect(reviewed.fullText).toContain('COT-000201');
@@ -313,7 +334,10 @@ describe('document visual review (DOC-001 / Paso 9 fase 14)', () => {
       quoteIssuedAt: new Date('2026-07-01T18:00:00.000Z'),
       quoteExpiresAt: new Date('2026-08-01T16:00:00.000Z'),
     });
-    const reviewed = await reviewPdfDocument(pdf, path.join(PDF_VISUAL_REVIEW_ROOT, 'quote-expired'));
+    const reviewed = await reviewPdfDocument(
+      pdf,
+      path.join(PDF_VISUAL_REVIEW_ROOT, 'quote-expired'),
+    );
 
     expect(reviewed.fullText).toContain('COTIZACIÓN');
     expect(reviewed.fullText).toContain('COT-000202');
@@ -344,7 +368,10 @@ describe('document visual review (DOC-001 / Paso 9 fase 14)', () => {
         balance: '59600.00',
       },
     });
-    const reviewed = await reviewPdfDocument(pdf, path.join(PDF_VISUAL_REVIEW_ROOT, 'statement-multipage'));
+    const reviewed = await reviewPdfDocument(
+      pdf,
+      path.join(PDF_VISUAL_REVIEW_ROOT, 'statement-multipage'),
+    );
 
     expect(reviewed.pageCount).toBeGreaterThan(1);
     expect(reviewed.fullText).toContain('ESTADO DE CUENTA');

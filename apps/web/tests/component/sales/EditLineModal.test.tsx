@@ -44,12 +44,17 @@ const draft: PosDraftView = {
   createdWorkOrderIds: [],
 };
 
-function renderModal(options: {
-  line?: PosLineView | null;
-  isSaving?: boolean;
-  error?: string | null;
-  onSubmit?: (line: PosLineView, patch: Parameters<Parameters<typeof EditLineModal>[0]['onSubmit']>[1]) => Promise<void>;
-} = {}) {
+function renderModal(
+  options: {
+    line?: PosLineView | null;
+    isSaving?: boolean;
+    error?: string | null;
+    onSubmit?: (
+      line: PosLineView,
+      patch: Parameters<Parameters<typeof EditLineModal>[0]['onSubmit']>[1],
+    ) => Promise<void>;
+  } = {},
+) {
   const onSubmit = options.onSubmit ?? vi.fn().mockResolvedValue(undefined);
   const onClose = vi.fn();
   renderWithProviders(

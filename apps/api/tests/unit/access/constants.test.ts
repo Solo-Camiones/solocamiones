@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
-import { isSessionCookieSecure, SESSION_COOKIE_SAME_SITE } from '../../../src/features/access/constants.js';
+import {
+  isSessionCookieSecure,
+  SESSION_COOKIE_SAME_SITE,
+} from '../../../src/features/access/constants.js';
 
 describe('session cookie policy', () => {
   it('keeps SameSite explicit and disables Secure outside production HTTPS', () => {

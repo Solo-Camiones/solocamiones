@@ -33,13 +33,9 @@ export function resetTestDatabase(
   }
   // Use the current Node binary and the local Prisma CLI so the reset does not
   // resolve `npx`/`prisma` through PATH (Sonar S4036).
-  execFileSync(
-    process.execPath,
-    [prismaCli, 'migrate', 'reset', '--force', '--skip-generate'],
-    {
-      cwd: apiRoot,
-      env: { ...environment, DATABASE_URL: databaseUrl },
-      stdio: 'pipe',
-    },
-  );
+  execFileSync(process.execPath, [prismaCli, 'migrate', 'reset', '--force', '--skip-generate'], {
+    cwd: apiRoot,
+    env: { ...environment, DATABASE_URL: databaseUrl },
+    stdio: 'pipe',
+  });
 }

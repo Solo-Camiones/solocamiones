@@ -25,16 +25,8 @@ const TABS: { id: CatalogTab; label: string }[] = [
 ];
 
 export function CatalogsPage() {
-  const {
-    tab,
-    setTab,
-    showCategories,
-    categories,
-    services,
-    isSaving,
-    saveCategory,
-    saveService,
-  } = useCatalogs();
+  const { tab, setTab, showCategories, categories, services, isSaving, saveCategory, saveService } =
+    useCatalogs();
   const { pushToast } = useToast();
   const [categoryModalOpen, setCategoryModalOpen] = useState(false);
   const [serviceModalOpen, setServiceModalOpen] = useState(false);
@@ -158,11 +150,7 @@ export function CatalogsPage() {
     <>
       <PageHeader
         title="Catálogos"
-        description={
-          showCategories
-            ? 'Categorías y servicios.'
-            : 'Servicios mecánicos.'
-        }
+        description={showCategories ? 'Categorías y servicios.' : 'Servicios mecánicos.'}
         actions={
           showCategories && tab === 'categories' ? (
             <Button onClick={openCreateCategory} disabled={isLoading}>

@@ -293,8 +293,7 @@ export function buildInvoiceDetail(
       .map((event) => toHistoryEventView(event, state.users)),
     profitability: profitabilityForInvoice(state, invoice, actor),
     actions: {
-      canPay:
-        openBalance && actor.role === 'ADMINISTRATOR' && can(actor, 'sales.manage'),
+      canPay: openBalance && actor.role === 'ADMINISTRATOR' && can(actor, 'sales.manage'),
       canCancel: recognized && can(actor, 'sales.cancel'),
       canCorrectCurrency:
         completed &&

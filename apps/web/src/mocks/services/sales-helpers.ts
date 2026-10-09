@@ -10,8 +10,7 @@ export const USD_INVOICE_MUST_BE_PAID_IN_FULL_MESSAGE =
   'Las facturas en USD deben pagarse por completo al confirmar';
 export const SELLER_CREDIT_PAYMENT_FORBIDDEN_MESSAGE =
   'El Vendedor no puede registrar un pago al confirmar una venta a crédito';
-export const CREDIT_LIMIT_EXCEEDED_MESSAGE =
-  'El límite de crédito del cliente sería excedido';
+export const CREDIT_LIMIT_EXCEEDED_MESSAGE = 'El límite de crédito del cliente sería excedido';
 
 const ACTIVE_WORK_STATUSES = new Set(['PENDING', 'IN_PROGRESS']);
 
@@ -129,9 +128,7 @@ export function confirmationDueDate(
   confirmedAtIso: string,
 ): string {
   const termDays =
-    customer.customerType === 'CREDIT' && currency === 'DOP'
-      ? (customer.creditTermDays ?? 0)
-      : 0;
+    customer.customerType === 'CREDIT' && currency === 'DOP' ? (customer.creditTermDays ?? 0) : 0;
   const date = new Date(`${businessDateString(new Date(confirmedAtIso))}T00:00:00.000Z`);
   date.setUTCDate(date.getUTCDate() + termDays);
   return date.toISOString().slice(0, 10);

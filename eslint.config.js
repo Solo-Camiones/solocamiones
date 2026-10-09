@@ -44,4 +44,13 @@ export default tseslint.config(
       globals: globals.node,
     },
   },
+  // Node CLI/ops scripts (e.g. deployment smoke) use process/console/fetch;
+  // without this block, eslint.configs.recommended flags them as no-undef.
+  {
+    files: ['scripts/**/*.{js,mjs,cjs}'],
+    languageOptions: {
+      ecmaVersion: 2022,
+      globals: globals.node,
+    },
+  },
 );

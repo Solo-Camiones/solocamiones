@@ -103,7 +103,9 @@ describe('MockWorkOrderRepository', () => {
     const ownInProgress = await mockWorkOrderRepository.getForMechanic('OD-DEMO-060');
     const pending = await mockWorkOrderRepository.getForMechanic('OD-DEMO-061');
 
-    const otherMechanicOrder = getMockState().workOrders.find((order) => order.id === 'OD-DEMO-060');
+    const otherMechanicOrder = getMockState().workOrders.find(
+      (order) => order.id === 'OD-DEMO-060',
+    );
     expect(otherMechanicOrder).toBeDefined();
     otherMechanicOrder!.assignedMechanicId = 'U-CARLOS';
     const otherInProgress = await mockWorkOrderRepository.getForMechanic('OD-DEMO-060');

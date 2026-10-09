@@ -63,6 +63,7 @@ Mechanic endpoints and UI must never return customer, invoice, price, cost, paym
 ## Implementation checklist
 
 ### Domain / persistence
+
 - [x] Define Work Order type/state/assignment/version.
 - [x] Implement manual Administrator creation rules.
 - [x] Implement automatic Dismantling create-or-reuse hook used by Sales.
@@ -75,6 +76,7 @@ Mechanic endpoints and UI must never return customer, invoice, price, cost, paym
 - [x] Prevent duplicate active physical operations.
 
 ### Frontend
+
 - [x] Desktop administrator list, detail, manual create, reassign and cancel (WM9). Seller does not see the WO queue (nav, dashboard KPIs, inventory WO list); prototype mock 2.0-M1.2.
 - [x] Mobile-first Pending queue.
 - [x] Take-order action with conflict refresh.
@@ -83,6 +85,7 @@ Mechanic endpoints and UI must never return customer, invoice, price, cost, paym
 - [x] Completion validation and clear error recovery.
 
 ### Tests
+
 - [x] Two-Mechanic claim race.
 - [x] Duplicate active operation race.
 - [x] Wrong-Mechanic action denial.

@@ -2,10 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { useSearchParams } from 'react-router-dom';
 
 import type { ManagedUser } from '../../api/contracts/users';
-import type {
-  SellerSalesReport,
-  SellerSalesReportFilters,
-} from '../../api/contracts/sales';
+import type { SellerSalesReport, SellerSalesReportFilters } from '../../api/contracts/sales';
 import { parseListPage, setListPageParam } from '../../api/contracts/pagination';
 import { fetchAllPages } from '../../api/client/paginate-all';
 import { salesRepository, userRepository } from '../../api/repositories';
@@ -233,7 +230,10 @@ export function SellerSalesPage() {
   }
 
   return (
-    <LoadingOverlay active={isQuerying || isDownloading} label={isDownloading ? 'Generando PDF…' : 'Consultando…'}>
+    <LoadingOverlay
+      active={isQuerying || isDownloading}
+      label={isDownloading ? 'Generando PDF…' : 'Consultando…'}
+    >
       <PageHeader
         title="Ventas por vendedor"
         description="Consulta facturas completadas y cotizaciones emitidas por vendedor en un rango de fechas."
@@ -376,7 +376,10 @@ export function SellerSalesPage() {
                 </thead>
                 <tbody className="divide-y divide-navy-100">
                   {report.totals.map((total) => (
-                    <tr key={`${total.sellerUserId}:${total.currency}`} className="text-sm text-navy">
+                    <tr
+                      key={`${total.sellerUserId}:${total.currency}`}
+                      className="text-sm text-navy"
+                    >
                       <td className="px-4 py-3 font-medium">{total.sellerName}</td>
                       <td className="px-4 py-3">{total.currency}</td>
                       <td className="px-4 py-3 text-right font-mono">

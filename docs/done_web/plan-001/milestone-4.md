@@ -1,13 +1,13 @@
 ﻿# Milestone 4 — WM4: Clientes
 
-| Campo | Valor |
-|---|---|
-| **ID plan** | WM4 |
-| **Estado** | Completado |
-| **Fecha** | 2026-08-28 |
-| **Referencia** | [`docs/plans_web/plan-001.md`](../../plans_web/plan-001.md) § WM4 |
-| **Alcance** | CRUD de clientes: búsqueda, listado con conteo de facturas, modal crear/editar, C0 protegido |
-| **Siguiente** | WM5 — Inventario: listado, búsqueda y detalle |
+| Campo          | Valor                                                                                        |
+| -------------- | -------------------------------------------------------------------------------------------- |
+| **ID plan**    | WM4                                                                                          |
+| **Estado**     | Completado                                                                                   |
+| **Fecha**      | 2026-08-28                                                                                   |
+| **Referencia** | [`docs/plans_web/plan-001.md`](../../plans_web/plan-001.md) § WM4                            |
+| **Alcance**    | CRUD de clientes: búsqueda, listado con conteo de facturas, modal crear/editar, C0 protegido |
+| **Siguiente**  | WM5 — Inventario: listado, búsqueda y detalle                                                |
 
 ---
 
@@ -77,21 +77,21 @@ apps/web/
 
 ## 5. Números esperados tras reinicio
 
-| Cliente | Id | Facturas | Editable |
-|---|---|---|---|
-| Cliente Contado | C0 | 1 (FAC-000097) | No · chip Predeterminado |
-| Logística Norte SA | C2 | 1 | Sí |
-| Transportes del Caribe SRL | C1 | 3 (borrador + FAC-000098 + FAC-000099) | Sí |
+| Cliente                    | Id  | Facturas                               | Editable                 |
+| -------------------------- | --- | -------------------------------------- | ------------------------ |
+| Cliente Contado            | C0  | 1 (FAC-000097)                         | No · chip Predeterminado |
+| Logística Norte SA         | C2  | 1                                      | Sí                       |
+| Transportes del Caribe SRL | C1  | 3 (borrador + FAC-000098 + FAC-000099) | Sí                       |
 
 ---
 
 ## 6. Criterios de aceptación
 
-| Criterio | Estado |
-|---|---|
-| CRUD persiste en sesión mock | ✅ `save` muta `getMockState().customers`; cubierto por tests |
-| C0 no editable | ✅ servicio + UI |
-| Cliente nuevo aparece en selector POS | ⏳ WM8 — el registro ya vive en el mismo estado mock |
+| Criterio                              | Estado                                                        |
+| ------------------------------------- | ------------------------------------------------------------- |
+| CRUD persiste en sesión mock          | ✅ `save` muta `getMockState().customers`; cubierto por tests |
+| C0 no editable                        | ✅ servicio + UI                                              |
+| Cliente nuevo aparece en selector POS | ⏳ WM8 — el registro ya vive en el mismo estado mock          |
 
 ---
 
@@ -119,12 +119,12 @@ npm run dev
 
 ## 8. Fuera de alcance (WM4)
 
-| Tema | Milestone |
-|---|---|
-| Selector de cliente en POS / default en borrador | WM8 |
-| Validación fiscal RNC al confirmar | WM8 |
-| Snapshot inmutable en factura completada | WM7 |
-| Listado/detalle de inventario | WM5 |
+| Tema                                             | Milestone |
+| ------------------------------------------------ | --------- |
+| Selector de cliente en POS / default en borrador | WM8       |
+| Validación fiscal RNC al confirmar               | WM8       |
+| Snapshot inmutable en factura completada         | WM7       |
+| Listado/detalle de inventario                    | WM5       |
 
 ---
 

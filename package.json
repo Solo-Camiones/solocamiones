@@ -31,12 +31,15 @@
     "format:check": "prettier --check .",
     "db:generate": "npm run db:generate -w @solocamiones/api",
     "db:migrate": "npm run db:migrate -w @solocamiones/api",
-    "db:migrate:deploy": "npm run db:migrate:deploy -w @solocamiones/api"
+    "db:migrate:deploy": "npm run db:migrate:deploy -w @solocamiones/api",
+    "db:migrate:deploy:runtime": "npm run db:migrate:deploy:runtime -w @solocamiones/api"
   },
   "overrides": {
     "@prisma/config@6.19.3": {
       "deepmerge-ts": "8.0.0"
-    }
+    },
+    "proxy-addr": "2.0.8",
+    "source-map-js": "1.2.2"
   },
   "devDependencies": {
     "@eslint/js": "^9.34.0",

@@ -1,0 +1,12 @@
+[Unit]
+Description=Hourly Solo Camiones PostgreSQL backup timer
+Documentation=file:///opt/solocamiones/docs/deployment_plan/deployment_plan.md
+
+[Timer]
+OnCalendar=hourly
+Persistent=true
+RandomizedDelaySec=5min
+Unit=solocamiones-backup.service
+
+[Install]
+WantedBy=timers.target

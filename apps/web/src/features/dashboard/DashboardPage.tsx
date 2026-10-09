@@ -9,7 +9,14 @@ import { UX_TERMS } from '../../shared/copy/glossary';
 import { KpiCard } from '../../shared/layout/KpiCard';
 import { PageHeader } from '../../shared/layout/PageHeader';
 import { OPERATIONAL_HREFS } from '../../shared/navigation/operational-hrefs';
-import { Info, LoadingOverlay, money, SectionTitle, Skeleton, toPageLoadMessage } from '../../shared/ui';
+import {
+  Info,
+  LoadingOverlay,
+  money,
+  SectionTitle,
+  Skeleton,
+  toPageLoadMessage,
+} from '../../shared/ui';
 import { useAuth } from '../auth/useAuth';
 import { ActivityTimeline } from './ActivityTimeline';
 import { RecentInvoicesList } from './RecentInvoicesList';
@@ -32,8 +39,7 @@ function attentionTone(count: number): 'amber' | 'default' {
 }
 
 function kpiGridClass(count: number): string {
-  const columns =
-    count >= 4 ? 'xl:grid-cols-4' : count === 3 ? 'xl:grid-cols-3' : 'xl:grid-cols-2';
+  const columns = count >= 4 ? 'xl:grid-cols-4' : count === 3 ? 'xl:grid-cols-3' : 'xl:grid-cols-2';
   return `grid gap-4 sm:grid-cols-2 ${columns}`;
 }
 
@@ -106,7 +112,11 @@ function buildAttentionKpis(
 ): DashboardKpiCard[] {
   const cards: DashboardKpiCard[] = [];
 
-  if (capabilities.hierarchy && kpis.pendingCatalogValidations != null && can(user, 'inventory.admin')) {
+  if (
+    capabilities.hierarchy &&
+    kpis.pendingCatalogValidations != null &&
+    can(user, 'inventory.admin')
+  ) {
     cards.push({
       label: 'Componentes por validar',
       value: formatCount(kpis.pendingCatalogValidations),
@@ -116,7 +126,11 @@ function buildAttentionKpis(
     });
   }
 
-  if (capabilities.workOrders && kpis.pendingDismantling != null && can(user, 'workOrders.manage')) {
+  if (
+    capabilities.workOrders &&
+    kpis.pendingDismantling != null &&
+    can(user, 'workOrders.manage')
+  ) {
     cards.push({
       label: UX_TERMS.dismantlingPending,
       value: formatCount(kpis.pendingDismantling),
@@ -174,7 +188,11 @@ function buildTodayKpis(
     });
   }
 
-  if (capabilities.workOrders && kpis.workOrdersInProgress != null && can(user, 'workOrders.manage')) {
+  if (
+    capabilities.workOrders &&
+    kpis.workOrdersInProgress != null &&
+    can(user, 'workOrders.manage')
+  ) {
     cards.push({
       label: 'Órdenes en proceso',
       value: formatCount(kpis.workOrdersInProgress),
@@ -183,7 +201,8 @@ function buildTodayKpis(
     });
   }
 
-  const profitHidden = !capabilities.profitability || kpis.profitDop == null || !can(user, 'profit.view');
+  const profitHidden =
+    !capabilities.profitability || kpis.profitDop == null || !can(user, 'profit.view');
   if (profitHidden && capabilities.sales) {
     cards.push({
       label: 'Borradores',
@@ -266,40 +285,38 @@ export function DashboardPage() {
       <PageHeader
         title="Inicio"
         description={
-          isAdmin
-            ? 'Atención, operación del día y finanzas.'
-            : 'Resumen de inventario y ventas.'
+          isAdmin ? 'Atención, operación del día y finanzas.' : 'Resumen de inventario y ventas.'
         }
       />
 
       <LoadingOverlay active={query.isRefreshing} label="Actualizando inicio">
         <div className="space-y-8">
-        {capabilities.hierarchy &&
-          snapshot.pendingCatalogReviews &&
-          snapshot.pendingCatalogReviews.length > 0 && (
-          <CatalogReviewBanner reviews={snapshot.pendingCatalogReviews} />
-        )}
-        <KpiSection
-          title="Necesita atención"
-          subtitle="Cola de trabajo que conviene resolver primero"
-          cards={attention}
-        />
-        <KpiSection title="Operación de hoy" cards={today} />
-        <KpiSection title="Finanzas" cards={finance} />
+          {capabilities.hierarchy &&
+            snapshot.pendingCatalogReviews &&
+            snapshot.pendingCatalogReviews.length > 0 && (
+              <CatalogReviewBanner reviews={snapshot.pendingCatalogReviews} />
+            )}
+          <KpiSection
+            title="Necesita atención"
+            subtitle="Cola de trabajo que conviene resolver primero"
+            cards={attention}
+          />
+          <KpiSection title="Operación de hoy" cards={today} />
+          <KpiSection title="Finanzas" cards={finance} />
 
-        <div className="grid gap-8 lg:grid-cols-5">
-          {capabilities.sales && (
-            <div className="lg:col-span-3">
-              <RecentInvoicesList
-                invoices={snapshot.recentInvoices}
-                showPaymentState={user?.role === 'ADMINISTRATOR'}
-              />
+          <div className="grid gap-8 lg:grid-cols-5">
+            {capabilities.sales && (
+              <div className="lg:col-span-3">
+                <RecentInvoicesList
+                  invoices={snapshot.recentInvoices}
+                  showPaymentState={user?.role === 'ADMINISTRATOR'}
+                />
+              </div>
+            )}
+            <div className={capabilities.sales ? 'lg:col-span-2' : 'lg:col-span-5'}>
+              <ActivityTimeline events={snapshot.activity} />
             </div>
-          )}
-          <div className={capabilities.sales ? 'lg:col-span-2' : 'lg:col-span-5'}>
-            <ActivityTimeline events={snapshot.activity} />
           </div>
-        </div>
         </div>
       </LoadingOverlay>
     </>

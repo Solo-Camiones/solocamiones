@@ -18,12 +18,17 @@ Guía operativa para diagnosticar fallos del asistente sin exponer secretos. Zon
 
 Verificación segura de salud de la app (no prueba OpenAI):
 
+En **staging/production**, `/api/health/*` exige JWT de Cloudflare Access (M1). Los intentos fallidos de JWT Access se limitan por IP (60 / 15 min → `429 TOO_MANY_REQUESTS`); un JWT válido no consume ese presupuesto. Desde un browser con WARP/Access, o con un Access service token (Better Stack / automatización):
+
 ```bash
+# Ejemplo con sesión Access ya establecida en el cliente, o headers de service token CF.
 curl -sS -o /dev/null -w "%{http_code}\n" https://<host>/api/health/live
 curl -sS -o /dev/null -w "%{http_code}\n" https://<host>/api/health/ready
 ```
 
-Esperado: ambos `200` aunque OpenAI esté caído.
+Esperado: ambos `200` aunque OpenAI esté caído. Un `401` sin Access no significa que la API esté caída — significa que el perímetro Access está activo.
+
+Scrape de métricas (red interna / Tailscale, **no** edge público): `GET /metrics` con `Authorization: Bearer <METRICS_BEARER_TOKEN>` (exento de Access; ver `infra/vps/docs/OBSERVABILITY.md`).
 
 ---
 

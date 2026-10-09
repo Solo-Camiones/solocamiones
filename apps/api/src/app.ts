@@ -20,14 +20,22 @@ import { SellerSalesReportRepository } from './features/sales/seller-sales-repor
 import { SalesRepository } from './features/sales/repository.js';
 import { salesTransaction } from './features/sales/transaction.js';
 import { healthRouter, metricsRouter } from './features/health/routes.js';
+import { metricsRateLimiter } from './features/health/metrics-rate-limit.js';
 import { usersRouter } from './features/users/routes.js';
 import {
+  createAllowedHostsMiddleware,
+  createCloudflareAccessMiddleware,
+  cloudflareAccessRateLimiter,
   errorHandler,
   notFoundHandler,
   requestIdMiddleware,
   requestLoggingMiddleware,
   createApiRateLimiter,
+  type CloudflareAccessJwtVerifier,
 } from './infrastructure/http/index.js';
+import type { CloudflareAccessConfig } from './infrastructure/config/index.js';
+import { isTrustProxyEnabled } from './infrastructure/config/index.js';
+import { httpMetricsMiddleware } from './infrastructure/metrics/index.js';
 import { createFxRateProvider, type FxRateProvider } from './infrastructure/fx/index.js';
 import {
   pdfkitInvoicePdfRenderer,
@@ -52,6 +60,12 @@ export type CreateAppOptions = {
    * Defaults to TRUST_PROXY=1|true. Leave unset unless the API is reached only via nginx.
    */
   trustProxy?: boolean;
+  /** Exact Host values accepted; empty skips the check (local/test default). */
+  allowedHosts?: readonly string[];
+  /** Cloudflare Access perimeter; null/undefined skips JWT checks (local/test). */
+  cloudflareAccess?: CloudflareAccessConfig | null;
+  /** Test double for Access JWT verification. */
+  verifyCloudflareAccessJwt?: CloudflareAccessJwtVerifier;
   /** Test double for COST-003. Production uses ExchangeRate-API via env. */
   fxRateProvider?: FxRateProvider;
   /** Test double for SALE-004. Production uses pdfkit. */
@@ -73,9 +87,7 @@ export type CreateAppOptions = {
 /** Matches body-parser's default; bodies over this size map to 413 PAYLOAD_TOO_LARGE. */
 export const JSON_BODY_LIMIT_BYTES = 100 * 1024;
 
-export function isTrustProxyEnabled(value: string | undefined): boolean {
-  return value === '1' || value === 'true';
-}
+export { isTrustProxyEnabled };
 
 /** Honor X-Forwarded-For only for the immediate hop, and only when explicitly enabled. */
 export function trustImmediateProxyHop(_address: string, hop: number, enabled: boolean): boolean {
@@ -85,6 +97,7 @@ export function trustImmediateProxyHop(_address: string, hop: number, enabled: b
 export function createApp(options: CreateAppOptions = {}): express.Application {
   const app = express();
   const trustProxy = options.trustProxy ?? isTrustProxyEnabled(process.env.TRUST_PROXY);
+  const allowedHosts = options.allowedHosts ?? [];
   const fxRateProvider = options.fxRateProvider ?? createFxRateProvider();
   const invoiceDocuments = new InvoiceDocumentService(
     salesTransaction,
@@ -123,12 +136,27 @@ export function createApp(options: CreateAppOptions = {}): express.Application {
   );
 
   app.use(requestIdMiddleware);
+  app.use(createAllowedHostsMiddleware(allowedHosts));
+  // Perimeter JWT checks run before route-level limiters; rate-limit failed Access
+  // attempts when enabled so health and early 401s cannot be flooded unbounded.
+  const cloudflareAccessConfig = options.cloudflareAccess;
+  if (cloudflareAccessConfig != null) {
+    app.use(cloudflareAccessRateLimiter);
+  }
+  app.use(
+    createCloudflareAccessMiddleware({
+      config: cloudflareAccessConfig,
+      verifyJwt: options.verifyCloudflareAccessJwt,
+    }),
+  );
   app.use(helmet());
   app.use(requestLoggingMiddleware);
+  app.use(httpMetricsMiddleware);
   app.use(express.json({ limit: JSON_BODY_LIMIT_BYTES }));
   app.use('/api/health', healthRouter);
   // Scrape path is intentional outside /api/health so readiness stays DB-only (AI-008).
-  app.use('/metrics', metricsRouter);
+  // Not proxied by public Nginx; Access/Host exempt; bearer + dedicated rate limit (M4.1).
+  app.use('/metrics', metricsRateLimiter, metricsRouter);
   app.use('/api/auth', apiRateLimiter, accessRouter);
   app.use('/api/admin/users', apiRateLimiter, usersRouter);
   app.use('/api/customers', apiRateLimiter, customersRouter);

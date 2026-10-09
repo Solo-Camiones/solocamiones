@@ -42,7 +42,8 @@ export function InventoryDetailPage() {
 
   async function handleAddToDraft() {
     setActionError(null);
-    const input = detail.kind === 'ITEM' ? { itemId: detail.id } : { qtyProductId: detail.id, quantity: 1 };
+    const input =
+      detail.kind === 'ITEM' ? { itemId: detail.id } : { qtyProductId: detail.id, quantity: 1 };
     const response = await query.addToDraft(input);
     if (!response.ok) {
       setActionError(response.error.message);
@@ -72,7 +73,9 @@ export function InventoryDetailPage() {
         Agregar a borrador
       </Button>
       {!detail.draftEligibility.allowed && detail.draftEligibility.reason && (
-        <p className="max-w-sm text-right text-xs text-navy-400">{detail.draftEligibility.reason}</p>
+        <p className="max-w-sm text-right text-xs text-navy-400">
+          {detail.draftEligibility.reason}
+        </p>
       )}
     </div>
   ) : null;

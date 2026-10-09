@@ -81,9 +81,7 @@ export function mergeBaselineEntries(
   expectedNames: string[],
   previous: AssemblyBaselineEntry[],
 ): AssemblyBaselineEntry[] {
-  const previousByName = new Map(
-    previous.map((entry) => [entry.expectedComponentName, entry]),
-  );
+  const previousByName = new Map(previous.map((entry) => [entry.expectedComponentName, entry]));
   return expectedNames.map(
     (expectedComponentName) =>
       previousByName.get(expectedComponentName) ?? {

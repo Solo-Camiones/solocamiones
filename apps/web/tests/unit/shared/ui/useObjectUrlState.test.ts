@@ -14,7 +14,9 @@ describe('useObjectUrlState', () => {
     const revokeObjectURL = vi.fn();
     Object.defineProperty(URL, 'revokeObjectURL', { configurable: true, value: revokeObjectURL });
 
-    const { result, unmount } = renderHook(() => useObjectUrlState<{ url: string; label: string }>());
+    const { result, unmount } = renderHook(() =>
+      useObjectUrlState<{ url: string; label: string }>(),
+    );
 
     act(() => {
       result.current.setValue({ url: 'blob:http://localhost/one', label: 'one' });

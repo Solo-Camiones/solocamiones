@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
-import { loginBodySchema, updateOwnProfileBodySchema } from '../../../src/features/access/validation.js';
+import {
+  loginBodySchema,
+  updateOwnProfileBodySchema,
+} from '../../../src/features/access/validation.js';
 
 describe('loginBodySchema', () => {
   it('normalizes username and keeps the password unmodified', () => {
@@ -14,12 +17,13 @@ describe('loginBodySchema', () => {
     expect(loginBodySchema.parse({ username: 'seller', password: '123' }).password).toBe('123');
   });
 
-  it.each([{ username: 'seller', password: 'secret', role: 'ADMINISTRATOR' }, { username: '' }, {}])(
-    'rejects extra or invalid fields: %j',
-    (body) => {
-      expect(loginBodySchema.safeParse(body).success).toBe(false);
-    },
-  );
+  it.each([
+    { username: 'seller', password: 'secret', role: 'ADMINISTRATOR' },
+    { username: '' },
+    {},
+  ])('rejects extra or invalid fields: %j', (body) => {
+    expect(loginBodySchema.safeParse(body).success).toBe(false);
+  });
 });
 
 describe('updateOwnProfileBodySchema', () => {
@@ -47,11 +51,12 @@ describe('updateOwnProfileBodySchema', () => {
   });
 
   it('requires current and new password together and enforces minimum length', () => {
+    expect(updateOwnProfileBodySchema.safeParse({ name: 'Ana', password: '123456' }).success).toBe(
+      false,
+    );
     expect(
-      updateOwnProfileBodySchema.safeParse({ name: 'Ana', password: '123456' }).success,
-    ).toBe(false);
-    expect(
-      updateOwnProfileBodySchema.safeParse({ name: 'Ana', currentPassword: 'old-password' }).success,
+      updateOwnProfileBodySchema.safeParse({ name: 'Ana', currentPassword: 'old-password' })
+        .success,
     ).toBe(false);
     expect(
       updateOwnProfileBodySchema.safeParse({

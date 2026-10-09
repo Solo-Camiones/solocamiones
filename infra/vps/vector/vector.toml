@@ -1,0 +1,39 @@
+# Ship container JSON logs to Better Stack (Logtail). M4.3.
+# Token is injected via BETTERSTACK_SOURCE_TOKEN — never commit real tokens.
+# Enable with Compose profile `logs`.
+
+[api]
+enabled = false
+
+[sources.docker_logs]
+type = "docker_logs"
+exclude_containers = ["vector"]
+
+[transforms.parse_json]
+type = "remap"
+inputs = ["docker_logs"]
+source = '''
+parsed, err = parse_json(.message)
+if err == null {
+  . = merge!(., parsed)
+}
+# Drop obviously sensitive keys if present in structured fields.
+del(.password)
+del(.authorization)
+del(.cookie)
+del(.DATABASE_URL)
+del(.OPENAI_API_KEY)
+del(.METRICS_BEARER_TOKEN)
+del(.R2_SECRET_ACCESS_KEY)
+del(.BACKUP_AGE_SECRET_KEY)
+'''
+
+[sinks.better_stack]
+type = "http"
+inputs = ["parse_json"]
+uri = "https://in.logs.betterstack.com/"
+encoding.codec = "json"
+auth.strategy = "bearer"
+auth.token = "${BETTERSTACK_SOURCE_TOKEN}"
+batch.max_bytes = 1048576
+batch.timeout_secs = 5

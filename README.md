@@ -14,16 +14,16 @@ La especificación de producto vive en [`docs/`](docs/). Este README describe el
 
 Con `VITE_USE_MOCK_API` distinto de `true` (el valor por defecto y el de producción):
 
-| Área                | En producción                                                                                                                                                                         |
-| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Acceso y usuarios   | Login/sesión, perfil, roles Administrador y Vendedor, alta/edición, recuperación autorizada de contraseña                                                                             |
-| Clientes            | Directorio, Cliente contado, snapshot en factura                                                                                                                                      |
-| Catálogos           | Servicios mecánicos (`/api/catalogs/services`). Categorías de inventario **ocultas**                                                                                                  |
-| Ventas              | Borradores, cotizaciones `COT-`, conduces `CON-` y facturas `FAC-` con líneas GENERIC / SERVICE / DELIVERY / EXTERNAL. Moneda DOP o USD, ITBIS y PDF reproducible                     |
-| Pagos y CxC         | Reglas CASH/CREDIT, pago inicial según documento/rol, pagos posteriores, vencimiento por plazo comercial, filtros de abiertas y estado de cuenta PDF                                  |
-| Cancelación         | Anulación de factura o conduce no inventariado (Administrador), reembolso entre cero y el neto cobrado, PDF de cancelación                                                            |
-| Rentabilidad        | Costo DOP, ganancia, equivalencia USD (tasa externa no bloquea la venta). Visible solo a Administrador                                                                                |
-| Historial comercial | Actividad de cotización, conduce o factura: emisión/conversión, pago, PDF y cancelación; utilidad/FX solo Administrador                                                               |
+| Área                | En producción                                                                                                                                                                                                              |
+| ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Acceso y usuarios   | Login/sesión, perfil, roles Administrador y Vendedor, alta/edición, recuperación autorizada de contraseña                                                                                                                  |
+| Clientes            | Directorio, Cliente contado, snapshot en factura                                                                                                                                                                           |
+| Catálogos           | Servicios mecánicos (`/api/catalogs/services`). Categorías de inventario **ocultas**                                                                                                                                       |
+| Ventas              | Borradores, cotizaciones `COT-`, conduces `CON-` y facturas `FAC-` con líneas GENERIC / SERVICE / DELIVERY / EXTERNAL. Moneda DOP o USD, ITBIS y PDF reproducible                                                          |
+| Pagos y CxC         | Reglas CASH/CREDIT, pago inicial según documento/rol, pagos posteriores, vencimiento por plazo comercial, filtros de abiertas y estado de cuenta PDF                                                                       |
+| Cancelación         | Anulación de factura o conduce no inventariado (Administrador), reembolso entre cero y el neto cobrado, PDF de cancelación                                                                                                 |
+| Rentabilidad        | Costo DOP, ganancia, equivalencia USD (tasa externa no bloquea la venta). Visible solo a Administrador                                                                                                                     |
+| Historial comercial | Actividad de cotización, conduce o factura: emisión/conversión, pago, PDF y cancelación; utilidad/FX solo Administrador                                                                                                    |
 | Asistente de IA     | Panel global solo para Administrador, RAG sobre corpus aprobado y seis herramientas comerciales de lectura. Se habilitará para Administradores desde el primer día productivo; AI-010 continuará como evaluación periódica |
 
 Roles: **Administrador** y **Vendedor**. El Mecánico y su app móvil no forman parte de esta versión.
@@ -124,7 +124,24 @@ Vite proxea `/api/*` al backend.
 
 ## Docker Compose
 
-`docker-compose.yml` levanta PostgreSQL 16, API (sin publicar el puerto 3000) y web en **5173** detrás de nginx. La API solo es cliente interno de nginx. `cloudflared` es opcional para un túnel de prueba.
+### Local (`docker-compose.yml`)
+
+Levanta PostgreSQL 16 (`db`), aplica migraciones con un servicio one-shot (`migrate`), luego API (sin publicar el puerto 3000) y web en **5173** detrás de nginx. La API solo es cliente interno de nginx.
+
+```bash
+docker compose up --build
+```
+
+Opcional:
+
+- `docker compose --profile test up -d db-test` — Postgres aislado para integración (puerto `DATABASE_TEST_PORT`, default 5434)
+- `docker compose --profile tunnel up` — incluye `cloudflared`
+
+La imagen de API **no** ejecuta `prisma migrate deploy` en su `CMD`. Las migraciones corren solo en el servicio `migrate` (local: automáticamente antes de `api`; VPS: `docker compose --profile operations run --rm migrate`).
+
+### VPS (`infra/vps/compose.yaml`)
+
+Stack genérico de staging/producción (camino crítico M2): `edge` (Nginx TLS/AOP, únicos puertos 80/443), `web`, `api`, `db`, `migrate`. Secretos vía `--env-file` fuera de Git (`/etc/solocamiones/<env>.env`). Plantilla: `infra/vps/.env.staging.example`. Guía: `infra/vps/docs/STAGING_PROVISIONING.md`.
 
 Variables relevantes del `.env` (nunca commitear `.env`):
 
@@ -151,7 +168,8 @@ Variables relevantes del `.env` (nunca commitear `.env`):
 | `npm run test:integration`                      | Integración (API exige PostgreSQL de prueba)                    |
 | `npm run db:generate`                           | Prisma Client                                                   |
 | `npm run db:migrate`                            | Crear/aplicar migraciones en desarrollo                         |
-| `npm run db:migrate:deploy`                     | Aplicar migraciones existentes                                  |
+| `npm run db:migrate:deploy`                     | Aplicar migraciones existentes (carga `.env` local)             |
+| `npm run db:migrate:deploy:runtime`             | `prisma migrate deploy` sin dotenv (imagen / Compose)           |
 | `npm run bootstrap:admin`                       | Primer Administrador en una base sin usuarios                   |
 | `npm run assistant:validate-knowledge`          | Validar manifest, archivos y checksums del corpus aprobado      |
 | `npm run assistant:sync-knowledge -- --dry-run` | Previsualizar la sincronización explícita del corpus            |

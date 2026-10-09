@@ -145,8 +145,7 @@ export function recognitionCustomerSnapshot(input: {
   customerRnc: string | null;
   customerPhone: string | null;
 } {
-  const primaryPhone =
-    input.customer.contacts.find((contact) => contact.isPrimary)?.phone ?? null;
+  const primaryPhone = input.customer.contacts.find((contact) => contact.isPrimary)?.phone ?? null;
   if (input.sourceStatus === 'QUOTE_ISSUED') {
     return {
       customerName: input.invoice.customerName!,

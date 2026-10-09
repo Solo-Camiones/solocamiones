@@ -52,7 +52,12 @@ export function ScenarioRunner({ disabled, onRun, onError }: ScenarioRunnerProps
           </option>
         ))}
       </Select>
-      <Button variant="secondary" size="sm" disabled={disabled || isRunning} onClick={() => void handleRun()}>
+      <Button
+        variant="secondary"
+        size="sm"
+        disabled={disabled || isRunning}
+        onClick={() => void handleRun()}
+      >
         {isRunning ? 'Cargando…' : 'Cargar escenario'}
       </Button>
     </div>

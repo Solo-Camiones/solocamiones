@@ -109,6 +109,7 @@ Deactivation must invalidate future access while preserving historical foreign-k
 ## Implementation checklist
 
 ### Backend / domain
+
 - [x] Define fixed role enum and active/inactive user state.
 - [x] Implement user repository and unique `username` constraint.
 - [x] Implement one-time CLI bootstrap for the first Administrator when no users exist.
@@ -121,6 +122,7 @@ Deactivation must invalidate future access while preserving historical foreign-k
 - [x] Preserve the user record and identity after deactivation (M8), including historical actor attribution verified by M9 integration coverage.
 
 ### Frontend
+
 - [x] Login/logout flow.
 - [x] Session-expired / inactive-account handling.
 - [x] Original Administrator user-management prototype (`name`, `username`, optional `phone`/`email`, role, active state), covered by tests (WM11). Its password field predates the 2026-09-05 decision and must be removed before HTTP integration.
@@ -130,6 +132,7 @@ Deactivation must invalidate future access while preserving historical foreign-k
 - [x] Self-service profile edit (own name, optional phone/email, password) for every active role. Username, role, and active stay administrator-managed. Uses `profile.update`, not `users.manage`. Covered by unit, integration, and component tests.
 
 ### Tests
+
 - [x] Valid/invalid/inactive login tests.
 - [x] Role matrix negative tests through direct API requests (Release 1 Mechanic scope: minimal session projection only).
 - [x] Session invalidation after deactivation (M8).

@@ -5,7 +5,7 @@
 | **ID plan**    | WM7                                                                            |
 | **Estado**     | Completado                                                                     |
 | **Fecha**      | 2026-08-31                                                                     |
-| **Referencia** | [`docs/plans_web/plan-001.md`](../../plans_web/plan-001.md) § WM7                 |
+| **Referencia** | [`docs/plans_web/plan-001.md`](../../plans_web/plan-001.md) § WM7              |
 | **Alcance**    | Listado, detalle, pagos, cancelación, corrección de moneda, PDF interno, ITBIS |
 | **Siguiente**  | WM8 — Punto de venta y borradores (POS)                                        |
 
@@ -56,16 +56,16 @@ apps/web/src/
 
 ## 5. Criterios de aceptación
 
-| Criterio                                                         | Estado |
-| ---------------------------------------------------------------- | ------ |
-| FAC-000098 sin pagar; FAC-000099 parcial                         | ✅     |
-| Pago actualiza saldo y chip                                      | ✅     |
-| Cancelación aditiva; PDF con ITBIS 0 o desglose según `fiscal`   | ✅     |
-| Factura no fiscal: ITBIS “—”; total = suma de precios finales    | ✅     |
-| Factura fiscal: ITBIS 18% solo en líneas gravadas                | ✅     |
-| Vendedor sin cancelación ni corrección de moneda                 | ✅     |
-| Pago > saldo o ≤ 0 rechazado                                     | ✅     |
-| Reembolso > pagado rechazado; cancelación sin motivo rechazada   | ✅     |
+| Criterio                                                       | Estado |
+| -------------------------------------------------------------- | ------ |
+| FAC-000098 sin pagar; FAC-000099 parcial                       | ✅     |
+| Pago actualiza saldo y chip                                    | ✅     |
+| Cancelación aditiva; PDF con ITBIS 0 o desglose según `fiscal` | ✅     |
+| Factura no fiscal: ITBIS “—”; total = suma de precios finales  | ✅     |
+| Factura fiscal: ITBIS 18% solo en líneas gravadas              | ✅     |
+| Vendedor sin cancelación ni corrección de moneda               | ✅     |
+| Pago > saldo o ≤ 0 rechazado                                   | ✅     |
+| Reembolso > pagado rechazado; cancelación sin motivo rechazada | ✅     |
 
 ## 6. Verificación
 

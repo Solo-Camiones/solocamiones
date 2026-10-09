@@ -5,7 +5,12 @@ import { AppError } from '../../../infrastructure/errors/app-error.js';
 import { DEFAULT_LINE_QUANTITY, ITBIS_RATE } from './constants.js';
 import { parseNonNegativeDecimal } from './parse.js';
 import { roundMoney } from './round.js';
-import { INVOICE_LINE_TYPES, type InvoiceLineType, type LineMoney, type LineMoneyInput } from './types.js';
+import {
+  INVOICE_LINE_TYPES,
+  type InvoiceLineType,
+  type LineMoney,
+  type LineMoneyInput,
+} from './types.js';
 
 const TAXABLE_LINE_TYPES = new Set<InvoiceLineType>(['GENERIC', 'EXTERNAL', 'ITEM', 'QTY']);
 

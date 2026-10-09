@@ -11,7 +11,12 @@ import {
   resolveCreateCreditProfile,
   resolveUpdateCreditProfile,
 } from '../../../src/features/customers/credit-rules.js';
-import { satisfiesFiscalIdentity, fiscalIdDigits, formatFiscalId, isValidFiscalId } from '../../../src/features/customers/fiscal.js';
+import {
+  satisfiesFiscalIdentity,
+  fiscalIdDigits,
+  formatFiscalId,
+  isValidFiscalId,
+} from '../../../src/features/customers/fiscal.js';
 import {
   createCustomerSchema,
   searchCustomersSchema,

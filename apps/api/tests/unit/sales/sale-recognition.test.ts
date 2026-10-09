@@ -55,10 +55,7 @@ describe('sale recognition helpers', () => {
 
   it('rejects an initial payment above invoice gross', () => {
     expect(() =>
-      parseInitialPaymentAmount(
-        { amount: '100.01', method: 'CASH' },
-        new Prisma.Decimal('100.00'),
-      ),
+      parseInitialPaymentAmount({ amount: '100.01', method: 'CASH' }, new Prisma.Decimal('100.00')),
     ).toThrow(PAYMENT_EXCEEDS_BALANCE_MESSAGE);
   });
 

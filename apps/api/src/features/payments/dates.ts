@@ -19,18 +19,9 @@ export function businessDateString(value: Date): string {
  * Inclusive calendar-day bounds for Prisma date filters in the business timezone.
  * Both ends are required for full-range reports; list filters may pass only one side.
  */
-export function businessDayRange(
-  dateFrom: string,
-  dateTo: string,
-): { gte: Date; lte: Date };
-export function businessDayRange(
-  dateFrom?: string,
-  dateTo?: string,
-): { gte?: Date; lte?: Date };
-export function businessDayRange(
-  dateFrom?: string,
-  dateTo?: string,
-): { gte?: Date; lte?: Date } {
+export function businessDayRange(dateFrom: string, dateTo: string): { gte: Date; lte: Date };
+export function businessDayRange(dateFrom?: string, dateTo?: string): { gte?: Date; lte?: Date };
+export function businessDayRange(dateFrom?: string, dateTo?: string): { gte?: Date; lte?: Date } {
   return {
     ...(dateFrom ? { gte: new Date(`${dateFrom}T00:00:00${BUSINESS_UTC_OFFSET}`) } : {}),
     ...(dateTo ? { lte: new Date(`${dateTo}T23:59:59.999${BUSINESS_UTC_OFFSET}`) } : {}),

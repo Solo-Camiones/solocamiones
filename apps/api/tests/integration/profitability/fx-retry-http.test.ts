@@ -18,7 +18,11 @@ import { disconnectPrisma, prisma } from '../../../src/infrastructure/database/i
 import { createTestApp } from '../../helpers/app.js';
 import { successfulUsdDopRate } from '../../helpers/fx.js';
 import { clearTestHistory } from '../../helpers/history.js';
-import { assignNamedCustomerForCredit, cashSaleFullPayment, seedKnownLineCost } from '../../helpers/sales.js';
+import {
+  assignNamedCustomerForCredit,
+  cashSaleFullPayment,
+  seedKnownLineCost,
+} from '../../helpers/sales.js';
 
 const users = new UserRepository();
 const PASSWORD = 'personal-password';
@@ -141,9 +145,9 @@ describe('M16 Retry FX Administrator', () => {
     ]);
 
     const seller = await fixture(request.agent(app), 'SELLER');
-    expect((await seller.agent.post(`${PROFIT}/${invoice.id}/retry`).set(CSRF).send({})).status).toBe(
-      403,
-    );
+    expect(
+      (await seller.agent.post(`${PROFIT}/${invoice.id}/retry`).set(CSRF).send({})).status,
+    ).toBe(403);
 
     const second = await admin.agent.post(`${PROFIT}/${invoice.id}/retry`).set(CSRF).send({});
     expect(second.status).toBe(409);
@@ -213,15 +217,20 @@ describe('M16 Retry FX Administrator', () => {
     const dopRetry = await admin.agent.post(`${PROFIT}/${dop.body.id}/retry`).set(CSRF).send({});
     expect(dopRetry.status).toBe(409);
     expect(dopRetry.body.error.message).toBe(FX_RETRY_COMPLETED_USD_ONLY_MESSAGE);
-    expect(getUsdToDopRate).not.toHaveBeenCalledWith(expect.objectContaining({ asOf: expect.any(Date) }));
+    expect(getUsdToDopRate).not.toHaveBeenCalledWith(
+      expect.objectContaining({ asOf: expect.any(Date) }),
+    );
 
     const draft = await admin.agent.post(SALES).set(CSRF).send({ currency: 'USD' });
-    const draftRetry = await admin.agent.post(`${PROFIT}/${draft.body.id}/retry`).set(CSRF).send({});
+    const draftRetry = await admin.agent
+      .post(`${PROFIT}/${draft.body.id}/retry`)
+      .set(CSRF)
+      .send({});
     expect(draftRetry.status).toBe(409);
     expect(draftRetry.body.error.message).toBe(FX_RETRY_COMPLETED_USD_ONLY_MESSAGE);
 
-    expect((await mechanic.agent.post(`${PROFIT}/${dop.body.id}/retry`).set(CSRF).send({})).status).toBe(
-      403,
-    );
+    expect(
+      (await mechanic.agent.post(`${PROFIT}/${dop.body.id}/retry`).set(CSRF).send({})).status,
+    ).toBe(403);
   });
 });
