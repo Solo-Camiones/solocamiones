@@ -1,10 +1,17 @@
-import type { CategoryAttributeDefinition, CategoryAttributeType } from '../../api/contracts/entities';
+import type {
+  CategoryAttributeDefinition,
+  CategoryAttributeType,
+} from '../../api/contracts/entities';
 import { err, ok, type Result } from '../auth/types';
 
 /** CAT-001: a small bounded set, not a generic metadata platform. */
 export const MAX_CATEGORY_ATTRIBUTES = 8;
 
-export const CATEGORY_ATTRIBUTE_TYPES: readonly CategoryAttributeType[] = ['text', 'number', 'select'];
+export const CATEGORY_ATTRIBUTE_TYPES: readonly CategoryAttributeType[] = [
+  'text',
+  'number',
+  'select',
+];
 
 const ATTRIBUTE_KEY_PATTERN = /^[a-z][a-z0-9_]{0,31}$/;
 

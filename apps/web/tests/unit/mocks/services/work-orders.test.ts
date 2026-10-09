@@ -76,7 +76,8 @@ describe('work order catalog and commands', () => {
     expect(piece.physicalRelationship).toBe(relationship);
     expect(
       state.events.some(
-        (event) => event.type === 'WORK_ORDER_CREATED' && event.metadata?.workOrderId === result.value.id,
+        (event) =>
+          event.type === 'WORK_ORDER_CREATED' && event.metadata?.workOrderId === result.value.id,
       ),
     ).toBe(true);
   });
@@ -234,7 +235,9 @@ describe('mechanic take, evidence and completion', () => {
     expect(state.workOrders.find((order) => order.id === 'OD-DEMO-061')?.assignedMechanicId).toBe(
       'U-PEDRO',
     );
-    expect(state.workOrders.find((order) => order.id === 'OD-DEMO-061')?.status).toBe('IN_PROGRESS');
+    expect(state.workOrders.find((order) => order.id === 'OD-DEMO-061')?.status).toBe(
+      'IN_PROGRESS',
+    );
   });
 
   it('rejects take when the order is already in progress', () => {
@@ -266,13 +269,17 @@ describe('mechanic take, evidence and completion', () => {
     const state = createInitialState();
     const result = completeDesarme(state, PEDRO, { workOrderId: 'OD-DEMO-060' });
     expect(result.ok).toBe(false);
-    expect(state.workOrders.find((order) => order.id === 'OD-DEMO-060')?.status).toBe('IN_PROGRESS');
+    expect(state.workOrders.find((order) => order.id === 'OD-DEMO-060')?.status).toBe(
+      'IN_PROGRESS',
+    );
   });
 
   it('completes dismantling with an explicit or pending post-removal location', () => {
     const state = createInitialState();
     const truckComplete = state.items.find((item) => item.id === 'CAM-001')?.complete;
-    const missingOnTruck = state.knownMissing.filter((entry) => entry.parentId === 'CAM-001').length;
+    const missingOnTruck = state.knownMissing.filter(
+      (entry) => entry.parentId === 'CAM-001',
+    ).length;
 
     expect(
       addPhoto(state, PEDRO, {
@@ -309,9 +316,7 @@ describe('mechanic take, evidence and completion', () => {
     );
 
     const pendingLocationState = createInitialState();
-    const pendingLocationTurbo = pendingLocationState.items.find(
-      (item) => item.id === 'TUR-009',
-    )!;
+    const pendingLocationTurbo = pendingLocationState.items.find((item) => item.id === 'TUR-009')!;
     pendingLocationTurbo.location = 'Ubicación anterior';
     expect(
       addPhoto(pendingLocationState, PEDRO, {
@@ -320,9 +325,9 @@ describe('mechanic take, evidence and completion', () => {
         fileName: 'after-turbo.jpg',
       }).ok,
     ).toBe(true);
-    expect(
-      completeDesarme(pendingLocationState, PEDRO, { workOrderId: 'OD-DEMO-060' }).ok,
-    ).toBe(true);
+    expect(completeDesarme(pendingLocationState, PEDRO, { workOrderId: 'OD-DEMO-060' }).ok).toBe(
+      true,
+    );
     expect(pendingLocationTurbo.location).toBeUndefined();
   });
 
@@ -419,11 +424,11 @@ describe('mechanic take, evidence and completion', () => {
     expect(serialized).not.toMatch(/invoice/i);
     expect(serialized).not.toMatch(/FAC-/);
     expect(serialized).not.toMatch(/acquisitionCost|profit|payment|customer|balance|refund/i);
-    expect(buildMechanicWorkOrderList(state, PEDRO).map((entry) => entry.id).sort()).toEqual([
-      'OD-DEMO-060',
-      'OD-DEMO-061',
-      'OD-DEMO-062',
-    ]);
+    expect(
+      buildMechanicWorkOrderList(state, PEDRO)
+        .map((entry) => entry.id)
+        .sort(),
+    ).toEqual(['OD-DEMO-060', 'OD-DEMO-061', 'OD-DEMO-062']);
   });
 
   it('lists a cancelled assigned order for that mechanic and hides cancelled-before-take', () => {

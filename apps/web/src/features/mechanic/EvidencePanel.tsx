@@ -103,7 +103,10 @@ function EvidenceField({
       )}
 
       {slot.status === 'failed' && (
-        <div className="space-y-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2" role="alert">
+        <div
+          className="space-y-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2"
+          role="alert"
+        >
           <p className="text-sm text-red-900">{toMechanicUserMessage(slot.error)}</p>
           <p className="text-sm text-navy">
             Foto pendiente: <Mono>{slot.fileName}</Mono>

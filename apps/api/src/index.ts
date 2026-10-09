@@ -1,24 +1,32 @@
 import './infrastructure/config/load-env.js';
 
-import { getInitialPassword } from './features/users/service.js';
 import { createApp } from './app.js';
+import { parseRuntimeConfig } from './infrastructure/config/index.js';
 import { disconnectPrisma } from './infrastructure/database/index.js';
 import { logger } from './infrastructure/logging/index.js';
 
-const DEFAULT_PORT = 3000;
+const config = parseRuntimeConfig();
 
-const port = Number(process.env.PORT ?? DEFAULT_PORT);
+const app = createApp({
+  trustProxy: config.trustProxy,
+  allowedHosts: config.allowedHosts,
+  cloudflareAccess: config.cloudflareAccess,
+  assistantConfig: config.assistant,
+});
 
-getInitialPassword();
-
-const app = createApp();
-
-const server = app.listen(port, () => {
-  logger.info({ port }, 'API listening');
+const server = app.listen(config.port, () => {
+  logger.info(
+    {
+      port: config.port,
+      appEnv: config.appEnv,
+      release: config.appRelease,
+    },
+    'API listening',
+  );
 });
 
 async function shutdown(signal: string): Promise<void> {
-  logger.info({ signal }, 'Shutting down gracefully');
+  logger.info({ signal, release: config.appRelease }, 'Shutting down gracefully');
 
   server.close(async () => {
     try {

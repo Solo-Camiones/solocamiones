@@ -1,5 +1,6 @@
 import type { ManagedUser } from '../../api/contracts/users';
 import { AccountStateChip } from '../../shared/domain';
+import { formatDominicanPhone } from '../../shared/domain/phone';
 import { roleLabel } from '../../shared/auth/policies';
 import { Button, Empty, HoverRow, TableShell } from '../../shared/ui';
 
@@ -48,7 +49,7 @@ export function UserTable({ rows, onEdit, onToggleActive, togglingId }: UserTabl
             <td className="px-4 py-3 text-sm text-navy-400">
               {row.phone || row.email ? (
                 <>
-                  {row.phone && <span className="block">{row.phone}</span>}
+                  {row.phone && <span className="block">{formatDominicanPhone(row.phone)}</span>}
                   {row.email && <span className="block">{row.email}</span>}
                 </>
               ) : (

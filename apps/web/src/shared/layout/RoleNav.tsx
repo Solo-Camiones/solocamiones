@@ -15,11 +15,7 @@ import {
   WalletIcon,
   WrenchIcon,
 } from '../ui/icons';
-import {
-  isNavItemActive,
-  navGroupsForRole,
-  shouldShowNavGroupHeadings,
-} from './navigation';
+import { isNavItemActive, navGroupsForRole, shouldShowNavGroupHeadings } from './navigation';
 
 /** Maps nav item id to its sidebar icon. */
 const NAV_ICONS: Record<string, ReactNode> = {
@@ -33,6 +29,7 @@ const NAV_ICONS: Record<string, ReactNode> = {
   users: <UserIcon />,
   profitability: <ChartIcon />,
   recovery: <ShieldIcon />,
+  'seller-sales': <PeopleIcon />,
 };
 
 export type RoleNavProps = {

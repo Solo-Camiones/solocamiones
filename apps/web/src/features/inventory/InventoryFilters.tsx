@@ -96,10 +96,7 @@ function kindLabel(value: InventoryKind): string {
  * Chips for operational filters only. The search box already shows `query`,
  * so it is not repeated here; Limpiar filtros still resets it.
  */
-function activeFilterChips(
-  filters: InventoryListFilters,
-  categories: Category[],
-): ActiveChip[] {
+function activeFilterChips(filters: InventoryListFilters, categories: Category[]): ActiveChip[] {
   const chips: ActiveChip[] = [];
 
   for (const entry of QUICK_FILTERS) {

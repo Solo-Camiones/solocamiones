@@ -16,6 +16,7 @@ import { CatalogsPage } from './features/catalogs/CatalogsPage';
 import { UsersPage } from './features/users/UsersPage';
 import { ReceivablesPage } from './features/receivables/ReceivablesPage';
 import { ProfitabilityPage } from './features/profitability/ProfitabilityPage';
+import { SellerSalesPage } from './features/seller-sales/SellerSalesPage';
 import { AdminRecoveryPage } from './features/admin-recovery/AdminRecoveryPage';
 import { NotFoundPage } from './features/placeholder/NotFoundPage';
 import { PosPage } from './features/sales/PosPage';
@@ -49,6 +50,10 @@ const desktopChildRoutes = [
   },
   {
     path: '/sales/draft/:id',
+    element: <PosPage />,
+  },
+  {
+    path: '/sales/quote/:id',
     element: <PosPage />,
   },
   {
@@ -86,6 +91,10 @@ const desktopChildRoutes = [
   {
     path: '/recovery',
     element: <AdminRecoveryPage />,
+  },
+  {
+    path: '/seller-sales',
+    element: <SellerSalesPage />,
   },
   {
     path: '/profile',

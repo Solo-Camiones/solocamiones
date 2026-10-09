@@ -12,22 +12,33 @@ import type {
 } from './entities';
 import type { HierarchyNode } from './inventory';
 
-export type SalesListTab = 'ALL' | 'DRAFT' | 'COMPLETED' | 'CANCELLED';
+export type SalesListTab =
+  'ALL' | 'DRAFT' | 'QUOTE_DRAFT' | 'QUOTE_ISSUED' | 'CONDUCE' | 'COMPLETED' | 'CANCELLED';
+
+export type SalesListFilters = {
+  dateFrom?: string;
+  dateTo?: string;
+};
 
 export type SalesListRow = {
   id: string;
   number: string;
+  quoteNumber?: string;
+  conduceNumber?: string;
   status: InvoiceStatus;
-  paymentState: PaymentState;
+  paymentState?: PaymentState;
   customerId: string;
   customerName: string;
   currency: Currency;
   fiscal: boolean;
   total: number;
-  balance: number;
+  balance?: number;
   createdAt: string;
   confirmedAt?: string;
   dueDate?: string;
+  quoteIssuedAt?: string;
+  quoteExpiresAt?: string;
+  quoteExpired?: boolean;
   href: string;
 };
 
@@ -47,6 +58,11 @@ export type ReceivablesSnapshot = {
   total: number;
   page: number;
   pageSize: number;
+};
+
+export type ReceivablesFilters = {
+  customerId?: string;
+  invoice?: string;
 };
 
 export type InvoiceLineView = {
@@ -106,9 +122,54 @@ export type InvoiceProfitabilityView = {
 
 export type InvoiceDocumentView = { status: 'READY' } | { status: 'FAILED'; errorId: string };
 
-export type InvoicePdfDownload = {
+export type SalesDocumentPdfDownload = {
   blob: Blob;
   filename: string;
+};
+
+export type InvoicePdfDownload = SalesDocumentPdfDownload;
+export type QuotePdfDownload = SalesDocumentPdfDownload;
+export type ConducePdfDownload = SalesDocumentPdfDownload;
+export type AccountStatementPdfDownload = SalesDocumentPdfDownload;
+export type SellerSalesReportPdfDownload = SalesDocumentPdfDownload;
+
+export type SellerSalesDocumentType = 'INVOICE' | 'CONDUCE' | 'QUOTE';
+
+export type SellerSalesReportFilters = {
+  dateFrom: string;
+  dateTo: string;
+  sellerUserId?: string;
+  page?: number;
+};
+
+export type SellerSalesReportRow = {
+  documentType: SellerSalesDocumentType;
+  number: string;
+  originNumber: string | null;
+  documentDate: string;
+  sellerUserId: string;
+  sellerName: string;
+  customerName: string;
+  currency: Currency;
+  gross: string;
+};
+
+export type SellerSalesReportTotal = {
+  sellerUserId: string;
+  sellerName: string;
+  currency: Currency;
+  gross: string;
+};
+
+export type SellerSalesReport = {
+  dateFrom: string;
+  dateTo: string;
+  sellerUserId: string | null;
+  rows: SellerSalesReportRow[];
+  totals: SellerSalesReportTotal[];
+  total: number;
+  page: number;
+  pageSize: number;
 };
 
 export type InvoiceDetailActions = {
@@ -116,25 +177,36 @@ export type InvoiceDetailActions = {
   canCancel: boolean;
   canCorrectCurrency: boolean;
   canViewPdf: boolean;
+  canViewConducePdf: boolean;
+  canConvertToInvoice: boolean;
   canRegeneratePdf: boolean;
 };
 
 export type InvoiceDetailView = {
   id: string;
   number?: string;
+  quoteNumber?: string;
+  conduceNumber?: string;
+  conduceIssuedAt?: string;
+  invoiceIssuedAt?: string;
   status: InvoiceStatus;
-  paymentState: PaymentState;
+  paymentState?: PaymentState;
   customerId: string;
   customerName: string;
   customerRnc?: string;
+  customerType: 'CASH' | 'CREDIT';
   currency: Currency;
   fiscal: boolean;
+  applyItbis: boolean;
+  discountPercent: number;
   lines: InvoiceLineView[];
   payments: PaymentView[];
+  /** Invoice-level discount amount applied to all line bases. */
+  discount: number;
   total: number;
-  paid: number;
-  refunded: number;
-  balance: number;
+  paid?: number;
+  refunded?: number;
+  balance?: number;
   createdAt: string;
   confirmedAt?: string;
   dueDate?: string;
@@ -168,6 +240,19 @@ export type ConfirmInvoicePayment = {
   idempotencyKey?: string;
 };
 
+/**
+ * Conduce emission / quote→conduce: same payment shape as confirm, plus optional
+ * actor dueDate when Administrator leaves named-CASH balance (CON-002).
+ */
+export type IssueConduceInput = {
+  payment?: ConfirmInvoicePayment;
+  dueDate?: string;
+};
+
+export type ConvertConduceToInvoiceInput = {
+  fiscal: boolean;
+};
+
 export type InProgressCancelDecision = 'STOP' | 'CONTINUE';
 
 export type CancelInvoiceInput = {
@@ -190,7 +275,9 @@ export type PosDraftTotals = {
   lineCount: number;
   gross: number;
   itbis: number;
+  /** Sum of all line bases (pre-discount), shown as Subtotal. */
   taxableBase: number;
+  discount: number;
 };
 
 export type CostProvenance = 'ACTUAL' | 'ESTIMATED' | 'UNKNOWN';
@@ -210,8 +297,6 @@ export type PosLineView = {
   itemId?: string;
   qtyProductId?: string;
   serviceId?: string;
-  acquisitionCostDop?: number;
-  costProvenance: CostProvenance;
   installed?: boolean;
   parentName?: string;
   isAssembly?: boolean;
@@ -223,12 +308,19 @@ export type PosDraftView = {
   id: string;
   status: InvoiceStatus;
   number?: string;
+  quoteNumber?: string;
+  quoteIssuedAt?: string;
+  quoteExpiresAt?: string;
+  quoteExpired?: boolean;
   customerId: string;
   customerName: string;
   customerRnc?: string;
   customerIsDefault: boolean;
+  customerType: 'CASH' | 'CREDIT';
   currency: Currency;
   fiscal: boolean;
+  applyItbis: boolean;
+  discountPercent: number;
   lines: PosLineView[];
   totals: PosDraftTotals;
   customers: Array<{ id: string; name: string; rnc?: string; isDefault?: boolean }>;
@@ -253,8 +345,6 @@ export type AddDraftLineInput = {
   notes?: string;
   quantity?: number;
   unitPrice?: number;
-  acquisitionCostDop?: number;
-  costProvenance?: CostProvenance;
 };
 
 export type RemoveDraftLineInput = {
@@ -270,9 +360,6 @@ export type SetDraftLinePriceInput = {
   /** Free-form types only. */
   description?: string;
   notes?: string | null;
-  /** GENERIC / EXTERNAL only. */
-  acquisitionCostDop?: number | null;
-  costProvenance?: CostProvenance;
 };
 
 export type SetDraftLineQuantityInput = {
@@ -286,4 +373,6 @@ export type SetDraftMetaInput = {
   customerId?: string;
   currency?: Currency;
   fiscal?: boolean;
+  applyItbis?: boolean;
+  discountPercent?: number;
 };

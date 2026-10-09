@@ -1,5 +1,7 @@
-export { INCLUDED_ITBIS_DIVISOR, ITBIS_INCLUDED_RATE, MONEY_DECIMAL_PLACES } from './constants.js';
+export { ITBIS_RATE, MONEY_DECIMAL_PLACES } from './constants.js';
 export { knownCostAmount, isUnknownCost, normalizeAcquisitionCost } from './cost.js';
+export { applyInvoiceDiscount } from './discount.js';
+export type { DiscountableLineMoney, DiscountedInvoiceMoney } from './discount.js';
 export { calculateLineMoney, isTaxableLineType } from './line.js';
 export {
   calculateLineProfitDop,

@@ -1,13 +1,18 @@
 import { describe, expect, it } from 'vitest';
 
-import { fillDailyRange, lastCalendarMonths, sumAmounts, toChartView } from '../../../../src/features/profitability/chart-data';
+import {
+  fillDailyRange,
+  lastCalendarMonths,
+  sumAmounts,
+  toChartView,
+} from '../../../../src/features/profitability/chart-data';
 
 describe('profitability chart-data', () => {
   it('fills missing days in the selected range with zero', () => {
-    const points = fillDailyRange(
-      [{ key: '2026-09-02', label: '2 sept', amount: 100 }],
-      { from: '2026-09-01', to: '2026-09-03' },
-    );
+    const points = fillDailyRange([{ key: '2026-09-02', label: '2 sept', amount: 100 }], {
+      from: '2026-09-01',
+      to: '2026-09-03',
+    });
     expect(points.map((point) => [point.key, point.amount])).toEqual([
       ['2026-09-01', 0],
       ['2026-09-02', 100],
@@ -43,6 +48,18 @@ describe('profitability chart-data', () => {
           { key: '2026-09-01', label: '1 sept', amount: 40 },
         ],
         collectedByMonth: [{ key: '2026-08', label: 'ago 2026', amount: 5 }],
+        invoicedCashByDay: [
+          { key: '2026-08-31', label: '31 ago', amount: 100 },
+          { key: '2026-09-01', label: '1 sept', amount: 200 },
+        ],
+        invoicedCreditByDay: [
+          { key: '2026-08-31', label: '31 ago', amount: 50 },
+          { key: '2026-09-01', label: '1 sept', amount: 300 },
+        ],
+        collectedByMethodByDay: [
+          { key: '2026-08-31', label: '31 ago', CASH: 5, TRANSFER: 0, CHECK: 0 },
+          { key: '2026-09-01', label: '1 sept', CASH: 10, TRANSFER: 20, CHECK: 10 },
+        ],
       },
       { from: '2026-09-01', to: '2026-09-02' },
       '2026-09-02',
@@ -50,6 +67,10 @@ describe('profitability chart-data', () => {
 
     expect(view.periodProfit).toBe(20);
     expect(view.periodCollected).toBe(40);
+    expect(view.periodInvoicedCash).toBe(200);
+    expect(view.periodInvoicedCredit).toBe(300);
+    expect(view.periodInvoicedTotal).toBe(500);
+    expect(view.periodCollectedByMethod).toEqual({ CASH: 10, TRANSFER: 20, CHECK: 10 });
     expect(view.daily).toEqual([
       { key: '2026-09-01', label: view.daily[0]?.label, profit: 20, collected: 40 },
       { key: '2026-09-02', label: view.daily[1]?.label, profit: 0, collected: 0 },

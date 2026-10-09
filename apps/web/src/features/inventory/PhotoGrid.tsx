@@ -22,7 +22,9 @@ export function PhotoGrid({ photos }: { photos: string[] }) {
               key={`${photo}-${index}`}
               className="flex aspect-square flex-col items-center justify-center gap-1 rounded-lg bg-navy-50 font-mono text-xs text-navy-400"
             >
-              {index === 0 && <span className="text-[10px] uppercase tracking-wide">Principal</span>}
+              {index === 0 && (
+                <span className="text-[10px] uppercase tracking-wide">Principal</span>
+              )}
               {photo}
             </div>
           ))}

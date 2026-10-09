@@ -49,13 +49,28 @@ describe('presentError', () => {
     expect(presented.summary).not.toMatch(/RNC or Cédula/i);
   });
 
-  it('maps Cliente contado credit rejection without exposing internals', () => {
+  it('maps cash settlement rejection without exposing internals', () => {
     expect(
       presentError({
         fallbackMessage: 'Los datos cambiaron. Actualice e intente nuevamente.',
-        serverMessage: 'A Cliente contado no se le puede vender a crédito',
+        serverMessage: 'Las ventas de contado deben pagarse por completo al confirmar',
       }).summary,
-    ).toBe('A Cliente contado no se le puede vender a crédito');
+    ).toBe('Las ventas de contado deben pagarse por completo al confirmar');
+  });
+
+  it('maps credit-limit and USD settlement conflicts from the API', () => {
+    expect(
+      presentError({
+        fallbackMessage: 'Los datos cambiaron. Actualice e intente nuevamente.',
+        serverMessage: 'El límite de crédito del cliente sería excedido',
+      }).summary,
+    ).toBe('El límite de crédito del cliente sería excedido');
+    expect(
+      presentError({
+        fallbackMessage: 'Los datos cambiaron. Actualice e intente nuevamente.',
+        serverMessage: 'Las facturas en USD deben pagarse por completo al confirmar',
+      }).summary,
+    ).toBe('Las facturas en USD deben pagarse por completo al confirmar');
   });
 
   it('maps a duplicate fiscal identifier conflict onto the RNC field', () => {

@@ -23,7 +23,11 @@ export function ProfitabilityPanel({ view }: { view: InvoiceProfitabilityView })
         {view.pendingFx || view.profit == null ? (
           <Info
             tone="warning"
-            title={view.pendingFx ? 'Rentabilidad pendiente de tasa de cambio' : 'Rentabilidad no disponible'}
+            title={
+              view.pendingFx
+                ? 'Rentabilidad pendiente de tasa de cambio'
+                : 'Rentabilidad no disponible'
+            }
           >
             {view.reason ?? 'No hay un cálculo de ganancia bruta para este documento.'}
           </Info>
@@ -37,8 +41,8 @@ export function ProfitabilityPanel({ view }: { view: InvoiceProfitabilityView })
             )}
             {view.rateDopPerUsd != null && (
               <p className="mt-2 text-xs text-navy-400">
-                Equivalente en pesos de la ganancia en dólares · tasa {view.rateDopPerUsd.toFixed(2)}{' '}
-                pesos por dólar
+                Equivalente en pesos de la ganancia en dólares · tasa{' '}
+                {view.rateDopPerUsd.toFixed(2)} pesos por dólar
                 {view.rateSource ? ` · ${rateSourceLabel(view.rateSource)}` : ''}
               </p>
             )}

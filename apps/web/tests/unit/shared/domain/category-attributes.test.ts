@@ -53,7 +53,13 @@ describe('parseAttributeDefinitions', () => {
 
 describe('applyCategoryAttributes', () => {
   const tire = [
-    { key: 'tireType', label: 'Tipo', type: 'select' as const, required: true, options: ['Radial'] },
+    {
+      key: 'tireType',
+      label: 'Tipo',
+      type: 'select' as const,
+      required: true,
+      options: ['Radial'],
+    },
     { key: 'size', label: 'Medida', type: 'text' as const, required: true },
   ];
 

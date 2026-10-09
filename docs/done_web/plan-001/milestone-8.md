@@ -1,13 +1,13 @@
 # Milestone 8 — WM8: Punto de venta y borradores (POS)
 
-| Campo          | Valor                                                          |
-| -------------- | -------------------------------------------------------------- |
-| **ID plan**    | WM8                                                            |
-| **Estado**     | Completado                                                     |
-| **Fecha**      | 2026-09-01                                                     |
-| **Referencia** | [`docs/plans_web/plan-001.md`](../../plans_web/plan-001.md) § WM8 |
+| Campo          | Valor                                                                    |
+| -------------- | ------------------------------------------------------------------------ |
+| **ID plan**    | WM8                                                                      |
+| **Estado**     | Completado                                                               |
+| **Fecha**      | 2026-09-01                                                               |
+| **Referencia** | [`docs/plans_web/plan-001.md`](../../plans_web/plan-001.md) § WM8        |
 | **Alcance**    | Editor de borrador, 6 tipos de línea, ITBIS fiscal, confirmación atómica |
-| **Siguiente**  | WM9 — Órdenes de trabajo (escritorio)                          |
+| **Siguiente**  | WM9 — Órdenes de trabajo (escritorio)                                    |
 
 ---
 
@@ -41,11 +41,11 @@ WM7 ya lista facturas, registra pagos, cancela con ramas de OT y genera el PDF i
 
 ### 3.4 Pieza instalada vs ensamblaje
 
-| Caso | Efecto al confirmar |
-| --- | --- |
-| Pieza única instalada | `Sold` + sigue `Installed`; OT Desarme pendiente (o reutiliza una activa) |
-| Ensamblaje | Marca raíz y descendientes `Sold`; aborta si hay OT pendiente/en proceso en el subárbol o una instalación hacia él |
-| Descendiente de `No desarmar` | Rechazado al agregar línea, no solo oculto |
+| Caso                          | Efecto al confirmar                                                                                                |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| Pieza única instalada         | `Sold` + sigue `Installed`; OT Desarme pendiente (o reutiliza una activa)                                          |
+| Ensamblaje                    | Marca raíz y descendientes `Sold`; aborta si hay OT pendiente/en proceso en el subárbol o una instalación hacia él |
+| Descendiente de `No desarmar` | Rechazado al agregar línea, no solo oculto                                                                         |
 
 Completar el desarme (cambio físico) sigue siendo WM10.
 
@@ -77,19 +77,19 @@ apps/web/src/
 
 ## 5. Criterios de aceptación
 
-| Criterio | Estado |
-| --- | --- |
-| Borrador → confirmar → `FAC-` | ✅ `FAC-000100` tras el seed; el detalle WM7 puede cobrar |
-| Pieza instalada → OT Desarme Pendiente | ✅ ALT-004 + `OD-DEMO-064` |
-| Ensamblaje bloqueado si OT activa | ✅ MOT-001 / MOT-002 |
-| `No desarmar` impide línea suelta | ✅ ALT-011 |
-| Precio pendiente bloquea confirmación | ✅ |
-| Fiscal + Cliente Contado bloqueado | ✅ |
-| Reserva de otro borrador rechazada | ✅ |
-| `confirmInvoice` idempotente | ✅ |
-| Sin fiscal: ITBIS RD$0.00 | ✅ |
-| Con fiscal: desglose base + ITBIS | ✅ |
-| Cliente nuevo en selector POS | ✅ |
+| Criterio                               | Estado                                                    |
+| -------------------------------------- | --------------------------------------------------------- |
+| Borrador → confirmar → `FAC-`          | ✅ `FAC-000100` tras el seed; el detalle WM7 puede cobrar |
+| Pieza instalada → OT Desarme Pendiente | ✅ ALT-004 + `OD-DEMO-064`                                |
+| Ensamblaje bloqueado si OT activa      | ✅ MOT-001 / MOT-002                                      |
+| `No desarmar` impide línea suelta      | ✅ ALT-011                                                |
+| Precio pendiente bloquea confirmación  | ✅                                                        |
+| Fiscal + Cliente Contado bloqueado     | ✅                                                        |
+| Reserva de otro borrador rechazada     | ✅                                                        |
+| `confirmInvoice` idempotente           | ✅                                                        |
+| Sin fiscal: ITBIS RD$0.00              | ✅                                                        |
+| Con fiscal: desglose base + ITBIS      | ✅                                                        |
+| Cliente nuevo en selector POS          | ✅                                                        |
 
 ## 6. Verificación
 

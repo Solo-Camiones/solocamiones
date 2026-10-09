@@ -25,8 +25,12 @@ import {
 } from './constants.js';
 import { profitabilityInvoiceIdSchema, recordManualGrossProfitSchema } from './validation.js';
 
+function isRecognizedSaleStatus(status: InvoiceRecord['status']): boolean {
+  return status === 'COMPLETED' || status === 'CONDUCE';
+}
+
 function assertPendingUsdFx(invoice: InvoiceRecord): Date {
-  if (invoice.status !== 'COMPLETED' || invoice.currency !== 'USD') {
+  if (!isRecognizedSaleStatus(invoice.status) || invoice.currency !== 'USD') {
     throw AppError.conflict(FX_RETRY_COMPLETED_USD_ONLY_MESSAGE);
   }
   if (invoice.confirmedAt == null) {
@@ -60,7 +64,7 @@ export class ProfitabilityService {
       const calculated = calculatedCompletedProfitability({
         status: existing.status,
         currency: existing.currency,
-        fiscal: existing.fiscal,
+        applyItbis: existing.applyItbis,
         lines: existing.lines.map((line) => ({
           type: line.type,
           unitPrice: line.unitPrice,
@@ -127,7 +131,11 @@ export class ProfitabilityService {
       const existing = await sales.findById(invoiceId);
       if (!existing) throw AppError.notFound('Invoice not found');
 
-      const appendRetry = async (outcome: 'RECORDED' | 'UNAVAILABLE', reason: string | null, quote: FxRateQuote | null) => {
+      const appendRetry = async (
+        outcome: 'RECORDED' | 'UNAVAILABLE',
+        reason: string | null,
+        quote: FxRateQuote | null,
+      ) => {
         await history.append({
           actor: { actorType: 'USER', actorUserId: actorId },
           subjectType: 'INVOICE',
@@ -142,7 +150,11 @@ export class ProfitabilityService {
         });
       };
 
-      if (existing.status !== 'COMPLETED' || existing.currency !== 'USD' || existing.confirmedAt == null) {
+      if (
+        !isRecognizedSaleStatus(existing.status) ||
+        existing.currency !== 'USD' ||
+        existing.confirmedAt == null
+      ) {
         await appendRetry('UNAVAILABLE', 'not-completed-usd', null);
         return { kind: 'conflict' as const, message: FX_RETRY_COMPLETED_USD_ONLY_MESSAGE };
       }

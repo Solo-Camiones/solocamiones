@@ -154,7 +154,7 @@ describe('invoice draft history validation', () => {
         fiscal: false,
         customerId: id,
         customerSnapshot: { name: 'Cliente contado', rnc: null, phone: null },
-        totals: { gross: '118.00', base: '118.00', itbis: '0.00' },
+        totals: { gross: '108.00', base: '90.00', itbis: '18.00', discount: '10.00' },
         confirmedAt: '2026-09-08T18:00:00.000Z',
         dueDate: '2026-10-08',
         confirmedByUserId: id,
@@ -165,7 +165,79 @@ describe('invoice draft history validation', () => {
     expect(
       historyEventSchema.safeParse({
         ...event,
+        payload: {
+          ...event.payload,
+          totals: { gross: '108.00', base: '90.00', itbis: '18.00' },
+        },
+      }).success,
+    ).toBe(false);
+    expect(
+      historyEventSchema.safeParse({
+        ...event,
         payload: { ...event.payload, passwordHash: 'secret' },
+      }).success,
+    ).toBe(false);
+  });
+
+  it('accepts CONDUCE_ISSUED, QUOTE_CONVERTED_TO_CONDUCE, and CONDUCE_INVOICED without extras', () => {
+    const actor = { actorType: 'USER' as const, actorUserId: id };
+    const issued = {
+      actor,
+      subjectType: 'INVOICE' as const,
+      subjectId: id,
+      eventType: 'CONDUCE_ISSUED' as const,
+      payload: {
+        conduceNumber: 'CON-000001',
+        currency: 'DOP' as const,
+        customerId: id,
+        customerSnapshot: { name: 'Cliente crédito', rnc: '101000001', phone: null },
+        totals: { gross: '1180.00', base: '1000.00', itbis: '180.00', discount: '0.00' },
+        issuedAt: '2026-09-08T18:00:00.000Z',
+        dueDate: '2026-09-22',
+        confirmedByUserId: id,
+        confirmedByName: 'Ana Pérez',
+      },
+    };
+    expect(historyEventSchema.parse(issued)).toEqual(issued);
+
+    const quoteConverted = {
+      actor,
+      subjectType: 'INVOICE' as const,
+      subjectId: id,
+      eventType: 'QUOTE_CONVERTED_TO_CONDUCE' as const,
+      payload: {
+        quoteNumber: 'COT-000001',
+        conduceNumber: 'CON-000002',
+        issuedAt: '2026-09-01T12:00:00.000Z',
+        convertedAt: '2026-09-08T18:00:00.000Z',
+      },
+    };
+    expect(historyEventSchema.parse(quoteConverted)).toEqual(quoteConverted);
+
+    const invoiced = {
+      actor,
+      subjectType: 'INVOICE' as const,
+      subjectId: id,
+      eventType: 'CONDUCE_INVOICED' as const,
+      payload: {
+        conduceNumber: 'CON-000001',
+        invoiceNumber: 'FAC-000050',
+        fiscal: false,
+        invoicedAt: '2026-09-10T15:00:00.000Z',
+      },
+    };
+    expect(historyEventSchema.parse(invoiced)).toEqual(invoiced);
+
+    expect(
+      historyEventSchema.safeParse({
+        ...issued,
+        payload: { ...issued.payload, fiscal: false },
+      }).success,
+    ).toBe(false);
+    expect(
+      historyEventSchema.safeParse({
+        ...invoiced,
+        payload: { ...invoiced.payload, passwordHash: 'secret' },
       }).success,
     ).toBe(false);
   });
@@ -265,7 +337,7 @@ describe('invoice draft history validation', () => {
       subjectType: 'INVOICE' as const,
       subjectId: id,
       eventType: 'INVOICE_PDF_GENERATED' as const,
-      payload: { status: 'READY' as const, errorId: null, templateVersion: 'internal-v1' },
+      payload: { status: 'READY' as const, errorId: null, templateVersion: 'internal-v4' },
     };
     expect(historyEventSchema.parse(generated)).toEqual(generated);
     const failed = {
@@ -274,7 +346,7 @@ describe('invoice draft history validation', () => {
       payload: {
         status: 'FAILED' as const,
         errorId: id,
-        templateVersion: 'internal-v1',
+        templateVersion: 'internal-v4',
       },
     };
     expect(historyEventSchema.parse(failed)).toEqual(failed);

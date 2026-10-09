@@ -1,13 +1,24 @@
+export { createAllowedHostsMiddleware } from './allowed-hosts.js';
+export {
+  CF_ACCESS_JWT_HEADER,
+  createCloudflareAccessMiddleware,
+  isMetricsScrapePath,
+  verifyCloudflareAccessJwt,
+} from './cloudflare-access.js';
+export type {
+  CloudflareAccessJwtVerifier,
+  CloudflareAccessJwtVerifyInput,
+  CloudflareAccessMiddlewareOptions,
+} from './cloudflare-access.js';
+export {
+  CLOUDFLARE_ACCESS_RATE_LIMIT_MAX_ATTEMPTS,
+  CLOUDFLARE_ACCESS_RATE_LIMIT_WINDOW_MS,
+  cloudflareAccessRateLimiter,
+  resetCloudflareAccessRateLimit,
+} from './cloudflare-access-rate-limit.js';
 export { errorHandler } from './error-handler.js';
 export { notFoundHandler } from './not-found-handler.js';
-export {
-  createApiRateLimiter,
-  DEFAULT_API_RATE_LIMIT_MAX_REQUESTS,
-} from './rate-limit.js';
+export { createApiRateLimiter, DEFAULT_API_RATE_LIMIT_MAX_REQUESTS } from './rate-limit.js';
 export { REQUEST_ID_HEADER, requestIdMiddleware } from './request-id.js';
 export { requestLoggingMiddleware } from './request-logging.js';
-export {
-  validate,
-  type RequestValidationSchemas,
-  type ValidatedRequestInput,
-} from './validate.js';
+export { validate, type RequestValidationSchemas, type ValidatedRequestInput } from './validate.js';

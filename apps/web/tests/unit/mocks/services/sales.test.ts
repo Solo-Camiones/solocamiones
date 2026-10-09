@@ -12,6 +12,7 @@ import {
   setDraftMeta,
 } from '../../../../src/mocks/services/sales-commands';
 import { buildInvoiceDetail, buildSalesList } from '../../../../src/mocks/services/sales-catalog';
+import { buildPosDraftView } from '../../../../src/mocks/services/sales-draft';
 import {
   invoiceBalance,
   invoiceTotal,
@@ -29,21 +30,89 @@ describe('sales catalog seed', () => {
     const fac098 = rows.find((row) => row.number === 'FAC-000098');
     const fac099 = rows.find((row) => row.number === 'FAC-000099');
 
-    expect(fac098).toMatchObject({ paymentState: 'UNPAID', balance: 19_500, currency: 'DOP' });
+    expect(fac098).toMatchObject({ paymentState: 'PENDING', balance: 19_500, currency: 'DOP' });
     expect(fac099).toMatchObject({ paymentState: 'PARTIALLY_PAID', balance: 3_600, total: 7_200 });
   });
 
-  it('extracts included ITBIS only on fiscal taxable lines', () => {
+  it('omits payment state and balance from seller list projections', () => {
+    const rows = buildSalesList(createInitialState(), 'COMPLETED', '', seller);
+    expect(rows.every((row) => row.paymentState === undefined && row.balance === undefined)).toBe(
+      true,
+    );
+  });
+
+  it('preserves stored money for completed historical invoices', () => {
     const state = createInitialState();
     const fiscal = state.invoices.find((entry) => entry.id === 'INV-098')!;
     const nonFiscal = state.invoices.find((entry) => entry.id === 'INV-099')!;
 
     expect(invoiceTotal(fiscal)).toBe(19_500);
-    expect(lineBase(fiscal.lines[0], true)).toBe(16_525.42);
-    expect(lineItbis(fiscal.lines[0], true)).toBe(2_974.58);
-    expect(lineItbis(nonFiscal.lines[0], false)).toBe(0);
-    expect(lineBase(nonFiscal.lines[0], false)).toBe(7_200);
+    expect(lineBase(fiscal.lines[0]!)).toBe(16_525.42);
+    expect(lineItbis(fiscal.lines[0]!, false)).toBe(2_974.58);
+    expect(lineItbis(nonFiscal.lines[0]!, false)).toBe(0);
+    expect(lineBase(nonFiscal.lines[0]!)).toBe(7_200);
     expect(invoiceTotal(nonFiscal)).toBe(7_200);
+  });
+
+  it('adds 18% per taxable line when applyItbis is on', () => {
+    const line = {
+      id: 'L-TAX',
+      type: 'GENERIC' as const,
+      description: 'Filtro',
+      quantity: 1,
+      unitPrice: 118,
+      taxable: true,
+    };
+
+    expect(lineBase(line)).toBe(118);
+    expect(lineItbis(line, true)).toBe(21.24);
+    expect(lineItbis(line, false)).toBe(0);
+  });
+
+  it('discounts all line bases and keeps pre-discount ITBIS on draft totals', () => {
+    const state = createInitialState();
+    const created = createDraft(state, seller);
+    expect(created.ok).toBe(true);
+    if (!created.ok) return;
+
+    const withLine = addDraftLine(state, seller, {
+      draftId: created.value.draftId,
+      type: 'GENERIC',
+      description: 'Filtro',
+      unitPrice: 100,
+    });
+    expect(withLine.ok).toBe(true);
+
+    const service = state.services.find((entry) => entry.active);
+    expect(service).toBeDefined();
+    const withService = addDraftLine(state, seller, {
+      draftId: created.value.draftId,
+      type: 'SERVICE',
+      serviceId: service!.id,
+      unitPrice: 50,
+    });
+    expect(withService.ok).toBe(true);
+
+    expect(
+      setDraftMeta(state, seller, { draftId: created.value.draftId, applyItbis: true }).ok,
+    ).toBe(true);
+    expect(
+      setDraftMeta(state, seller, { draftId: created.value.draftId, discountPercent: 10 }).ok,
+    ).toBe(true);
+
+    const draft = state.invoices.find((entry) => entry.id === created.value.draftId)!;
+    const view = buildPosDraftView(state, draft);
+    expect(view.totals).toMatchObject({
+      taxableBase: 150,
+      discount: 15,
+      itbis: 18,
+      gross: 153,
+    });
+    expect(view.lines.find((line) => line.type === 'GENERIC')).toMatchObject({
+      base: 100,
+      itbis: 18,
+      gross: 118,
+    });
   });
 
   it('omits profitability from seller projections', () => {
@@ -55,16 +124,47 @@ describe('sales catalog seed', () => {
     expect(sellerView.profitability).toBeUndefined();
     expect(sellerView.actions.canCancel).toBe(false);
     expect(sellerView.actions.canCorrectCurrency).toBe(false);
+    expect(sellerView.actions.canPay).toBe(false);
+    expect(sellerView.payments).toEqual([]);
+    expect(sellerView.paymentState).toBeUndefined();
+    expect(sellerView.paid).toBeUndefined();
+    expect(sellerView.balance).toBeUndefined();
     expect(adminView.profitability?.profit).toBe(6_700);
+    expect(adminView.actions.canPay).toBe(true);
     expect(adminView.actions.canCancel).toBe(true);
     expect(adminView.actions.canCorrectCurrency).toBe(true);
+  });
+
+  it('omits payment events from seller invoice history', () => {
+    const state = createInitialState();
+    const invoice = state.invoices.find((entry) => entry.id === 'INV-099')!;
+    const sellerView = buildInvoiceDetail(state, invoice, seller);
+    const adminView = buildInvoiceDetail(state, invoice, admin);
+
+    expect(sellerView.history.some((event) => event.type === 'PAYMENT_RECORDED')).toBe(false);
+    expect(adminView.history.some((event) => event.type === 'PAYMENT_RECORDED')).toBe(true);
   });
 });
 
 describe('addPayment', () => {
-  it('records a partial payment and updates the chip state', () => {
+  it('forbids later collections from a seller', () => {
     const state = createInitialState();
     const result = addPayment(state, seller, {
+      invoiceId: 'INV-098',
+      amount: 5_000,
+      method: 'CASH',
+      effectiveDate: '2026-09-09',
+    });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.code).toBe('FORBIDDEN');
+    }
+  });
+
+  it('records a partial payment and updates the chip state', () => {
+    const state = createInitialState();
+    const result = addPayment(state, admin, {
       invoiceId: 'INV-098',
       amount: 5_000,
       method: 'TRANSFER',
@@ -85,7 +185,7 @@ describe('addPayment', () => {
     const state = createInitialState();
 
     expect(
-      addPayment(state, seller, {
+      addPayment(state, admin, {
         invoiceId: 'INV-098',
         amount: 20_000,
         method: 'CASH',
@@ -93,7 +193,7 @@ describe('addPayment', () => {
       }).ok,
     ).toBe(false);
     expect(
-      addPayment(state, seller, {
+      addPayment(state, admin, {
         invoiceId: 'INV-098',
         amount: 0,
         method: 'CASH',
@@ -101,7 +201,7 @@ describe('addPayment', () => {
       }).ok,
     ).toBe(false);
     expect(
-      addPayment(state, seller, {
+      addPayment(state, admin, {
         invoiceId: 'INV-098',
         amount: -10,
         method: 'CASH',
@@ -121,8 +221,8 @@ describe('addPayment', () => {
       idempotencyKey: 'pay-once',
     };
 
-    const first = addPayment(state, seller, input);
-    const second = addPayment(state, seller, input);
+    const first = addPayment(state, admin, input);
+    const second = addPayment(state, admin, input);
 
     expect(first.ok && second.ok).toBe(true);
     expect(state.invoices.find((entry) => entry.id === 'INV-099')?.payments).toHaveLength(2);
@@ -185,12 +285,26 @@ describe('cancelInvoice', () => {
     );
   });
 
-  it('records the full net refund and ignores a larger requested amount', () => {
+  it('rejects refund above net collected (CANCEL-002)', () => {
     const state = createInitialState();
     const cancelled = cancelInvoice(state, admin, {
       invoiceId: 'INV-099',
       reason: 'Devolución',
       refundAmount: 8_000,
+      refundMethod: 'CASH',
+    });
+    expect(cancelled.ok).toBe(false);
+    if (!cancelled.ok) {
+      expect(cancelled.error.message).toMatch(/entre 0 y el neto cobrado/);
+    }
+  });
+
+  it('records an indicated refund within net collected', () => {
+    const state = createInitialState();
+    const cancelled = cancelInvoice(state, admin, {
+      invoiceId: 'INV-099',
+      reason: 'Devolución',
+      refundAmount: 3_600,
       refundMethod: 'CASH',
     });
     expect(cancelled.ok).toBe(true);
@@ -212,6 +326,7 @@ describe('cancelInvoice', () => {
 
   it('CANCEL-003: restoring an assembly sale also restores Sold descendants', () => {
     const state = createInitialState();
+    state.customers.find((customer) => customer.id === 'C1')!.creditLimitDop = '1000000.00';
     const created = createDraft(state, seller);
     expect(created.ok).toBe(true);
     if (!created.ok) {
@@ -256,7 +371,7 @@ describe('cancelInvoice', () => {
     if (!missingPaid.ok) {
       expect(missingPaid.error.code).toBe('VALIDATION');
       expect(missingPaid.error.message).toBe(
-        'La cancelación requiere el método del reembolso neto total',
+        'Indique el monto de reembolso (0 hasta el neto cobrado)',
       );
     }
     expect(paidState.invoices.find((entry) => entry.id === 'INV-097')?.status).toBe('COMPLETED');

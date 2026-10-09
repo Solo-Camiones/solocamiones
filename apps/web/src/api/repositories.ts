@@ -19,6 +19,7 @@ import {
   httpUserRepository,
   httpWorkOrderRepository,
 } from './http/repositories';
+import { httpAssistantRepository } from './http/assistant-repository';
 import {
   mockAuthRepository,
   mockCategoryRepository,
@@ -46,3 +47,9 @@ export const profitabilityRepository = useMockApi
   ? mockProfitabilityRepository
   : httpProfitabilityRepository;
 export const recoveryRepository = useMockApi ? mockRecoveryRepository : httpRecoveryRepository;
+
+/**
+ * Assistant is HTTP-only (M7). Mock mode keeps the capability off and does not
+ * ship a fake chatbot repository.
+ */
+export const assistantRepository = useMockApi ? undefined : httpAssistantRepository;

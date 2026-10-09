@@ -3,6 +3,7 @@ import type {
   CustomerOutstandingRow,
   InvoiceDetailView,
   InvoiceLineView,
+  ReceivablesFilters,
   ReceivablesSnapshot,
   SalesListRow,
   SalesListTab,
@@ -10,7 +11,9 @@ import type {
 import { LIST_PAGE_SIZE } from '../../api/contracts/pagination';
 import { can } from '../../shared/auth/policies';
 import {
+  applyInvoiceDiscount,
   invoiceBalance,
+  derivePaymentState,
   invoicePaid,
   invoiceRefunded,
   invoiceTotal,
@@ -21,6 +24,9 @@ import {
 } from './invoice-money';
 import { profitabilityForInvoice } from './profitability-view';
 import { resolveActorName, toHistoryEventView } from './history-view';
+import { currentDemoTimeIso } from '../data/demo-clock';
+
+const ADMINISTRATOR_ONLY_INVOICE_EVENTS = new Set(['PAYMENT_RECORDED']);
 
 function customerName(state: AppState, invoice: Invoice): string {
   return (
@@ -31,32 +37,59 @@ function customerName(state: AppState, invoice: Invoice): string {
 }
 
 function draftHref(invoice: Invoice): string {
-  return invoice.status === 'DRAFT' ? `/sales/draft/${invoice.id}` : `/sales/${invoice.id}`;
+  if (invoice.status === 'DRAFT') return `/sales/draft/${invoice.id}`;
+  if (invoice.status === 'QUOTE_DRAFT' || invoice.status === 'QUOTE_ISSUED') {
+    return `/sales/quote/${invoice.id}`;
+  }
+  return `/sales/${invoice.id}`;
 }
 
 function displayNumber(invoice: Invoice): string {
   if (invoice.number) {
     return invoice.number;
   }
+  if (invoice.conduceNumber) return invoice.conduceNumber;
+  if (invoice.quoteNumber) return invoice.quoteNumber;
+  if (invoice.status === 'QUOTE_DRAFT') return 'Cotización borrador';
+  if (invoice.status === 'CONDUCE') return 'Conduce';
   return invoice.status === 'DRAFT' ? 'Borrador' : 'Factura';
 }
 
-export function toSalesListRow(state: AppState, invoice: Invoice): SalesListRow {
+export function toSalesListRow(
+  state: AppState,
+  invoice: Invoice,
+  options: { includePaymentSettlement?: boolean } = {},
+): SalesListRow {
+  const includePaymentSettlement = options.includePaymentSettlement !== false;
   return {
     id: invoice.id,
     number: displayNumber(invoice),
+    quoteNumber: invoice.quoteNumber,
+    conduceNumber: invoice.conduceNumber,
     status: invoice.status,
-    paymentState: invoice.paymentState,
     customerId: invoice.customerId,
     customerName: customerName(state, invoice),
     currency: invoice.currency,
     fiscal: invoice.fiscal,
     total: invoiceTotal(invoice),
-    balance: invoiceBalance(invoice),
     createdAt: invoice.createdAt,
     confirmedAt: invoice.confirmedAt,
     dueDate: invoice.dueDate,
+    quoteIssuedAt: invoice.quoteIssuedAt,
+    quoteExpiresAt: invoice.quoteExpiresAt,
+    quoteExpired:
+      invoice.status === 'QUOTE_ISSUED' &&
+      Boolean(
+        invoice.quoteExpiresAt &&
+        Date.parse(invoice.quoteExpiresAt) < Date.parse(currentDemoTimeIso()),
+      ),
     href: draftHref(invoice),
+    ...(includePaymentSettlement &&
+    (invoice.status === 'COMPLETED' ||
+      invoice.status === 'CANCELLED' ||
+      invoice.status === 'CONDUCE')
+      ? { paymentState: derivePaymentState(invoice), balance: invoiceBalance(invoice) }
+      : {}),
   };
 }
 
@@ -75,6 +108,7 @@ export function matchesSalesSearch(row: SalesListRow, query: string): boolean {
 
   return (
     row.number.toLowerCase().includes(normalized) ||
+    (row.quoteNumber?.toLowerCase().includes(normalized) ?? false) ||
     row.customerName.toLowerCase().includes(normalized) ||
     row.id.toLowerCase().includes(normalized)
   );
@@ -84,7 +118,9 @@ export function buildSalesList(
   state: AppState,
   tab: SalesListTab = 'ALL',
   q = '',
+  actor?: User,
 ): SalesListRow[] {
+  const includePaymentSettlement = actor?.role !== 'SELLER';
   return [...state.invoices]
     .filter((invoice) => matchesSalesTab(invoice, tab))
     .sort((left, right) => {
@@ -92,25 +128,44 @@ export function buildSalesList(
       const rightKey = right.confirmedAt ?? right.createdAt;
       return rightKey.localeCompare(leftKey);
     })
-    .map((invoice) => toSalesListRow(state, invoice))
+    .map((invoice) => toSalesListRow(state, invoice, { includePaymentSettlement }))
     .filter((row) => matchesSalesSearch(row, q));
 }
 
-export function buildReceivables(state: AppState): ReceivablesSnapshot {
-  const invoices = [...state.invoices]
-    .filter((invoice) => invoice.status === 'COMPLETED' && invoiceBalance(invoice) > 0)
-    .sort((left, right) => (left.dueDate ?? left.createdAt).localeCompare(right.dueDate ?? right.createdAt))
+export function buildReceivables(
+  state: AppState,
+  filters: ReceivablesFilters = {},
+): ReceivablesSnapshot {
+  const matchesBaseFilters = (invoice: Invoice) => {
+    if (invoice.status !== 'COMPLETED' && invoice.status !== 'CONDUCE') return false;
+    if (filters.customerId && invoice.customerId !== filters.customerId) return false;
+    if (filters.invoice) {
+      const needle = filters.invoice.toUpperCase();
+      const documentNumber = (invoice.number ?? invoice.conduceNumber ?? '').toUpperCase();
+      if (documentNumber !== needle) return false;
+    }
+    return true;
+  };
+  const matchingInvoices = [...state.invoices].filter(matchesBaseFilters);
+  const invoices = matchingInvoices
+    .filter((invoice) => invoiceBalance(invoice) > 0)
+    .sort((left, right) =>
+      (left.dueDate ?? left.createdAt).localeCompare(right.dueDate ?? right.createdAt),
+    )
     .map((invoice) => toSalesListRow(state, invoice));
 
   const grouped = new Map<string, CustomerOutstandingRow>();
-  for (const row of invoices) {
+  const openRows = matchingInvoices
+    .filter((invoice) => invoiceBalance(invoice) > 0)
+    .map((invoice) => toSalesListRow(state, invoice));
+  for (const row of openRows) {
     const key = `${row.customerId}:${row.currency}`;
     const existing = grouped.get(key);
     if (existing) {
       existing.invoiceCount += 1;
       existing.invoiced = roundMoney(existing.invoiced + row.total);
-      existing.paid = roundMoney(existing.paid + (row.total - row.balance));
-      existing.balance = roundMoney(existing.balance + row.balance);
+      existing.paid = roundMoney(existing.paid + (row.total - (row.balance ?? 0)));
+      existing.balance = roundMoney(existing.balance + (row.balance ?? 0));
       continue;
     }
     grouped.set(key, {
@@ -119,8 +174,8 @@ export function buildReceivables(state: AppState): ReceivablesSnapshot {
       currency: row.currency,
       invoiceCount: 1,
       invoiced: row.total,
-      paid: roundMoney(row.total - row.balance),
-      balance: row.balance,
+      paid: roundMoney(row.total - (row.balance ?? 0)),
+      balance: row.balance ?? 0,
     });
   }
 
@@ -136,7 +191,7 @@ export function buildReceivables(state: AppState): ReceivablesSnapshot {
   };
 }
 
-function toLineView(line: Invoice['lines'][number], fiscal: boolean): InvoiceLineView {
+function toLineView(line: Invoice['lines'][number], applyItbis: boolean): InvoiceLineView {
   return {
     id: line.id,
     type: line.type,
@@ -145,9 +200,9 @@ function toLineView(line: Invoice['lines'][number], fiscal: boolean): InvoiceLin
     quantity: line.quantity,
     unitPrice: line.unitPrice,
     taxable: line.taxable,
-    gross: lineGross(line),
-    base: lineBase(line, fiscal),
-    itbis: lineItbis(line, fiscal),
+    gross: lineGross(line, applyItbis),
+    base: lineBase(line),
+    itbis: lineItbis(line, applyItbis),
   };
 }
 
@@ -161,35 +216,57 @@ function isLinkedInvoiceEvent(event: AppState['events'][number], invoice: Invoic
   return event.description.includes(invoice.id);
 }
 
-export function buildInvoiceDetail(state: AppState, invoice: Invoice, actor: User): InvoiceDetailView {
+export function buildInvoiceDetail(
+  state: AppState,
+  invoice: Invoice,
+  actor: User,
+): InvoiceDetailView {
   const customer = state.customers.find((entry) => entry.id === invoice.customerId);
   const completed = invoice.status === 'COMPLETED';
-  const numbered = invoice.status === 'COMPLETED' || invoice.status === 'CANCELLED';
+  const recognized = completed || invoice.status === 'CONDUCE';
+  const numbered = completed || invoice.status === 'CANCELLED';
+  const openBalance = recognized && invoiceBalance(invoice) > 0;
+  const discounted = applyInvoiceDiscount(invoice);
 
   return {
     id: invoice.id,
     number: invoice.number,
+    quoteNumber: invoice.quoteNumber,
+    conduceNumber: invoice.conduceNumber,
+    conduceIssuedAt: invoice.conduceIssuedAt,
+    invoiceIssuedAt: invoice.invoiceIssuedAt,
     status: invoice.status,
-    paymentState: invoice.paymentState,
     customerId: invoice.customerId,
     customerName: invoice.customerSnapshot?.name ?? customer?.name ?? invoice.customerId,
     customerRnc: invoice.customerSnapshot?.rnc ?? customer?.rnc,
+    customerType: customer?.customerType === 'CREDIT' ? 'CREDIT' : 'CASH',
     currency: invoice.currency,
     fiscal: invoice.fiscal,
-    lines: invoice.lines.map((line) => toLineView(line, invoice.fiscal)),
-    payments: invoice.payments.map((payment) => ({
-      id: payment.id,
-      kind: payment.kind === 'REFUND' ? 'REFUND' : 'PAYMENT',
-      amount: payment.amount,
-      method: payment.method,
-      createdAt: payment.createdAt,
-      reference: payment.reference,
-      actorName: resolveActorName(state.users, payment.actorId),
-    })),
-    total: invoiceTotal(invoice),
-    paid: invoicePaid(invoice),
-    refunded: invoiceRefunded(invoice),
-    balance: invoiceBalance(invoice),
+    applyItbis: invoice.applyItbis === true,
+    discountPercent: invoice.discountPercent ?? 0,
+    lines: invoice.lines.map((line) => toLineView(line, invoice.applyItbis === true)),
+    payments:
+      actor.role === 'ADMINISTRATOR'
+        ? invoice.payments.map((payment) => ({
+            id: payment.id,
+            kind: payment.kind === 'REFUND' ? 'REFUND' : 'PAYMENT',
+            amount: payment.amount,
+            method: payment.method,
+            createdAt: payment.createdAt,
+            reference: payment.reference,
+            actorName: resolveActorName(state.users, payment.actorId),
+          }))
+        : [],
+    discount: discounted.discount,
+    total: discounted.gross,
+    ...(actor.role === 'ADMINISTRATOR'
+      ? {
+          paymentState: derivePaymentState(invoice),
+          paid: invoicePaid(invoice),
+          refunded: invoiceRefunded(invoice),
+          balance: invoiceBalance(invoice),
+        }
+      : {}),
     createdAt: invoice.createdAt,
     confirmedAt: invoice.confirmedAt,
     cancelledAt: invoice.cancelledAt,
@@ -208,14 +285,24 @@ export function buildInvoiceDetail(state: AppState, invoice: Invoice, actor: Use
       })),
     history: state.events
       .filter((event) => isLinkedInvoiceEvent(event, invoice))
+      .filter(
+        (event) =>
+          actor.role === 'ADMINISTRATOR' || !ADMINISTRATOR_ONLY_INVOICE_EVENTS.has(event.type),
+      )
       .sort((left, right) => right.createdAt.localeCompare(left.createdAt))
       .map((event) => toHistoryEventView(event, state.users)),
     profitability: profitabilityForInvoice(state, invoice, actor),
     actions: {
-      canPay: completed && can(actor, 'sales.manage') && invoiceBalance(invoice) > 0,
-      canCancel: completed && can(actor, 'sales.cancel'),
-      canCorrectCurrency: completed && can(actor, 'sales.correctCurrency') && invoice.payments.length === 0 && invoice.paymentState !== 'PAID',
+      canPay: openBalance && actor.role === 'ADMINISTRATOR' && can(actor, 'sales.manage'),
+      canCancel: recognized && can(actor, 'sales.cancel'),
+      canCorrectCurrency:
+        completed &&
+        can(actor, 'sales.correctCurrency') &&
+        invoice.payments.length === 0 &&
+        invoice.paymentState !== 'PAID',
       canViewPdf: numbered && Boolean(invoice.number),
+      canViewConducePdf: Boolean(invoice.conduceNumber),
+      canConvertToInvoice: invoice.status === 'CONDUCE',
       canRegeneratePdf: false,
     },
     deliveredAssemblies: invoice.deliveredAssemblies,

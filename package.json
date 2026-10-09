@@ -12,6 +12,11 @@
   ],
   "scripts": {
     "bootstrap:admin": "npm run bootstrap:admin -w @solocamiones/api",
+    "assistant:purge": "npm run assistant:purge -w @solocamiones/api --",
+    "assistant:validate-knowledge": "npm run assistant:validate-knowledge -w @solocamiones/api --",
+    "assistant:sync-knowledge": "npm run assistant:sync-knowledge -w @solocamiones/api --",
+    "assistant:hash-knowledge": "npm run assistant:hash-knowledge -w @solocamiones/api --",
+    "assistant:eval": "npm run assistant:eval -w @solocamiones/api --",
     "dev": "concurrently -n api,web -c blue,green \"npm run dev -w @solocamiones/api\" \"npm run dev -w @solocamiones/web\"",
     "build": "npm run build -w @solocamiones/api && npm run build -w @solocamiones/web",
     "lint": "eslint .",
@@ -26,12 +31,15 @@
     "format:check": "prettier --check .",
     "db:generate": "npm run db:generate -w @solocamiones/api",
     "db:migrate": "npm run db:migrate -w @solocamiones/api",
-    "db:migrate:deploy": "npm run db:migrate:deploy -w @solocamiones/api"
+    "db:migrate:deploy": "npm run db:migrate:deploy -w @solocamiones/api",
+    "db:migrate:deploy:runtime": "npm run db:migrate:deploy:runtime -w @solocamiones/api"
   },
   "overrides": {
     "@prisma/config@6.19.3": {
       "deepmerge-ts": "8.0.0"
-    }
+    },
+    "proxy-addr": "2.0.8",
+    "source-map-js": "1.2.2"
   },
   "devDependencies": {
     "@eslint/js": "^9.34.0",

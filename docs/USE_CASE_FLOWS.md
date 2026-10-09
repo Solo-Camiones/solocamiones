@@ -8,8 +8,8 @@ These flows describe confirmed business behavior, not screens, endpoints, tables
 
 The MVP actors are:
 
-- **Administrator:** may perform normal Seller work and maintain catalogs, apply protected corrections, and perform recovery, invoice-cancellation, refund, `No desarmar`, and Work-Order operations identified below.
-- **Seller:** performs normal inventory, customer, Draft, reservation, sale, payment, and negotiated-price work using maintained catalogs. Acquisition-cost access is view-only.
+- **Administrator:** may perform normal Seller work and maintain catalogs, apply protected corrections, and perform recovery, invoice/conduce-cancellation, refund (zero through net collected), `No desarmar`, and Work-Order operations identified below.
+- **Seller:** performs normal inventory, `CASH` customer, Draft, quote, reservation, cash sale, eligible credit-sale, and (when implemented) conduce issue / convert-to-invoice work using maintained catalogs. The Seller does not collect later payments, leave named-`CASH` conduce balance, open Accounts Receivable, maintain credit terms, or see acquisition cost on billing.
 - **Mechanic:** uses a restricted mobile workflow for assigned physical work. The Mechanic sees only Work-Order and physical context, never customer, invoice, price, cost, payment, refund, balance, margin, or profit information.
 
 The official terms are **Desarme**, **No desarmar**, **Orden de Desarme**, and **Orden de Instalación**. Older `desmontar` wording is obsolete.
@@ -21,8 +21,9 @@ The system must present and change these concepts separately:
 - **Commercial State:** an individually tracked item is normally `Available` or `Sold`. A reservation is not a commercial state. An installed item may validly be either `Available` or `Sold`.
 - **Physical Relationship:** an item is `Installed` in one current direct parent or `Independent`. This is not availability. Controlled received-assembly registration establishes initial observed relationships; a protected correction may repair a verified receipt-recording error without claiming movement; every actual later physical change occurs only when a Mechanic completes the applicable Work Order.
 - **Work-Order State:** `Pending → In Progress → Completed`; `Cancelled` is allowed only by the validated cancellation and recovery flows. Pending orders are unassigned. In-Progress orders have one assigned Mechanic.
-- **Payment State:** `Unpaid`, `Partially Paid`, or `Paid`, derived from additive payment and refund records. It neither determines Commercial State nor proves physical delivery.
-- **Invoice State:** `Draft`, `Completed`, or `Cancelled`. Confirmation, not payment or physical work, is the commercial sale event.
+- **Payment State:** derived as `PENDIENTE`, `ABONADO`, `VENCIDA`, `ABONADA VENCIDA`, `PAGADA`, `PAGADA CON RETRASO`, or `CANCELADA` from additive payment and refund records plus due date (PAY-006). It neither determines Commercial State nor proves physical delivery.
+- **Invoice State:** `Draft`, `Completed`, or `Cancelled` for invoices. Quote stages `QUOTE_DRAFT` and `QUOTE_ISSUED` occupy the same aggregate before conversion (QUOTE-001). **Feature 16 (M2–M3):** `CONDUCE` also occupies this aggregate; commercial recognition is conduce emission or direct invoice confirmation (`confirmedAt`), not payment or physical work.
+- **Customer Type:** internal `CASH` or `CREDIT`, independent of customer name (CUST-004). Credit exists only in DOP.
 - **Invoice Currency:** exactly one of `DOP` or `USD` per invoice. Lines, totals, payments, balance, refunds, and profitability results use that currency, while the stored acquisition cost is always `DOP`.
 - **Acquisition Cost Currency:** acquisition cost is always recorded in `DOP` for tracked items, weighted-average quantity stock, external resale lines, and estimates. Any purchase made in another currency is converted by the employee outside the application.
 - **`exchangeRateDopPerUsd`:** the `DOP` required for `1 USD`, so `1 USD = DOP 61.50` gives `61.50`. Profitability for a `USD` invoice uses `costUsd = storedCostDop / exchangeRateDopPerUsd`. A provider returning the inverse or another representation is normalized to this convention first; no flow refers to an undirected "DOP/USD rate".
@@ -50,7 +51,7 @@ For quantity stock, `availableToReserve = physical/on-hand quantity - currently 
 - Mixed-currency lines, payments, and refunds are rejected. No operational invoice, payment, or refund currency conversion is supported; FX conversion is used only to derive the `USD`-equivalent acquisition cost for profitability on `USD` invoices.
 - An unavailable exchange rate never blocks a sale. A valid `USD` invoice confirms normally and its profitability becomes `UNAVAILABLE / PENDING FX RATE` until a later safe recovery, which never reruns the sale.
 - Each invoice line is calculated and rounded to two decimals individually, and invoice totals sum those already rounded line values.
-- Every successful invoice confirmation assigns the next unique number from the one shared `FAC-000001` sequence. Failed confirmation consumes no number, and cancellation never makes a number reusable.
+- Every successful invoice confirmation assigns the next unique number from the one shared `FAC-000001` sequence. Failed confirmation consumes no number, and cancellation never makes a number reusable. **Planned (Feature 16):** conduce emission assigns an independent never-reused `CON-` sequence; converting conduce → invoice later assigns `FAC-` without consuming a second commercial recognition.
 - Completed invoices, payments, relationships, Work Orders, evidence, and history are preserved. Corrections and reversals add records rather than erase evidence.
 - Engine testing remains a physical practice outside the MVP. No engine-test state blocks a sale or changes completeness.
 
@@ -203,8 +204,8 @@ For quantity stock, `availableToReserve = physical/on-hand quantity - currently 
 
 **Main Flow:**
 
-1. The actor creates a Draft, selects exactly one currency (`DOP` or `USD`), and selects or creates a customer; eligible nonfiscal sales may use `Cliente Contado`.
-2. The actor adds individual inventory, quantity products, generic merchandise, external resale, mechanical service, or delivery lines.
+1. The actor creates a Draft, selects exactly one currency (`DOP` or `USD`), and selects or creates a customer; eligible nonfiscal sales may use `Cliente Contado`. `Aplicar ITBIS` defaults to off and is independent of fiscal emission.
+2. The actor adds individual inventory, quantity products, generic merchandise, external resale, mechanical service, or delivery lines. Billing does not collect acquisition cost.
 3. An individual or quantity-backed line atomically creates its matching reservation.
 4. Removing a line atomically releases its reservation.
 5. Discarding the Draft closes it and atomically releases all its reservations.
@@ -247,10 +248,10 @@ For quantity stock, `availableToReserve = physical/on-hand quantity - currently 
 
 1. The actor reviews the reserved item, customer, final negotiated price, taxes, and Payment State expected at confirmation.
 2. Confirmation revalidates the Draft and reservation.
-3. Atomically, the invoice becomes `Completed`, receives the next shared internal number such as `FAC-000101`, the item changes `Available → Sold`, the reservation is consumed, same-currency initial payments are appended, and history is recorded. If the customer is `Cliente contado`, confirmation is rejected unless that initial payment equals the invoice total.
+3. Atomically, the invoice becomes `Completed`, receives the next shared internal number such as `FAC-000101`, the item changes `Available → Sold`, the reservation is consumed, same-currency initial payments allowed for that actor and customer type are appended, and history is recorded. `CASH` confirmation is rejected unless the initial payment equals the invoice total. `CREDIT` confirmation is DOP-only, uses the customer term and limit, and is rejected if the resulting exposure would exceed the limit. Seller credit confirmation records no initial payment. Credit `dueDate` is confirmation plus the customer’s `creditTermDays`, replacing the previous automatic 30-day due date.
 4. Profitability is derived after that commercial transaction. A `DOP` invoice subtracts the stored `DOP` cost directly. A `USD` invoice converts the stored `DOP` cost with `exchangeRateDopPerUsd` and preserves the normalized rate and its provenance; if the rate cannot be obtained, the confirmation above still stands and profitability becomes `UNAVAILABLE / PENDING FX RATE`.
 
-**State Result:** Physical Relationship stays `Independent`. Payment State may be `Unpaid`, `Partially Paid`, or `Paid`; all are valid with `Sold`. A pending profitability result does not change any of these states.
+**State Result:** Physical Relationship stays `Independent`. Payment State may be `PENDIENTE`, `ABONADO`, or `PAGADA` at confirmation time according to PAY-006; all are valid with `Sold` when the customer is `CREDIT`. A pending profitability result does not change any of these states.
 
 ## Sell an installed piece
 
@@ -468,12 +469,12 @@ For quantity stock, `availableToReserve = physical/on-hand quantity - currently 
 
 **Supported line behavior:**
 
-- Individually tracked, quantity, external-resale, and generic-merchandise lines use the final negotiated price, which includes fixed 18% ITBIS for taxable lines. The system derives taxable base and included ITBIS.
+- Individually tracked, quantity, external-resale, and generic-merchandise lines use the entered unit price as tax-exclusive base when `Aplicar ITBIS` is on. Each taxable line adds `round2(base * 0.18)` (SALE-010). Fiscal emission remains a separate checkbox (SALE-009).
 - Mechanical service is selected from the Administrator-maintained service catalog and receives a final negotiated price; no fixed catalog price is required. Service and delivery/shipping lines are non-taxable.
 - If delivery is absent, no delivery line is required. Provided no-charge delivery uses numeric amount `0`, never textual `N/A`; charged delivery uses a positive numeric amount.
 - External-resale and generic lines do not silently consume local inventory.
-- Where acquisition cost applies, it is always stored in DOP. Unknown applicable cost yields unknown gross profit. Seller may view cost; only Administrator may view profit, margin, or profitability.
-- All invoice monetary values are represented and displayed to two decimal places. Each line's monetary results, including the derived taxable base and included ITBIS, are rounded to two decimals for that line, and invoice totals are then calculated from those already rounded line values rather than from a single rounding at the final total.
+- Ordinary billing does not capture or display acquisition cost (COST-006). Unknown applicable cost yields unknown gross profit. Only Administrator may view profit, margin, or profitability, and may later record COST-005 profit.
+- All invoice monetary values are represented and displayed to two decimal places. Each line's monetary results are rounded to two decimals for that line, and invoice totals are then calculated from those already rounded line values rather than from a single rounding at the final total.
 
 **Profitability:**
 
@@ -485,12 +486,14 @@ For quantity stock, `availableToReserve = physical/on-hand quantity - currently 
 
 **Payment flow:**
 
-1. Confirmation may append no payment, a partial payment, one full payment, or multiple method records, all in the invoice currency.
-2. Later receipts append records and recalculate balance.
+1. `CASH` **direct confirmation** appends a full same-currency payment. `CREDIT` confirmation by Seller appends none; by Administrator it may append a partial payment.
+2. Later receipts are Administrator-only additive records and recalculate balance and PAY-006 state.
 3. Original payment records are never overwritten.
-4. Commercial State remains Sold regardless of `Unpaid`, `Partially Paid`, or `Paid`.
+4. Commercial State remains Sold regardless of payment state.
+5. Seller invoice detail shows derived state and balance and omits movements.
+6. **Implemented (Feature 16 / M4):** conduce emission uses CON-002 (Administrator may leave balance only on **named** `CASH`, not default `Cliente contado`; Seller keeps current full-pay / credit limits).
 
-**Invoice output:** A valid completed invoice shows its `FAC-` internal number, one currency, and two-decimal amounts, and produces an internal printable PDF with `NCF: ______________________` intentionally blank. There is no DGII, NCF generation, validation, or assignment workflow.
+**Invoice output:** A valid completed invoice shows its `FAC-` internal number, origin `COT-` when converted from a quote, planned origin `CON-` when converted from a conduce, one currency, two-decimal base/ITBIS/total, and produces an internal printable PDF with `NCF: ______________________` intentionally blank. Re-download applies current corporate presentation and keeps stored commercial money (DOC-001). There is no DGII, NCF generation, validation, or assignment workflow.
 
 ## Administrator corrects a Completed invoice currency with no payments
 
@@ -691,12 +694,69 @@ For quantity stock, `availableToReserve = physical/on-hand quantity - currently 
 
 **State Result:** Invoice State, internal number, Commercial State, inventory, Payment State, balance, refunds, and the PDF are all unchanged; the sale is never rerun and inventory is never sold a second time. The stored acquisition cost remains `DOP`. The recovery must not present an unrelated later live rate as though it had been the sale-time rate, and a profitability result already completed with its own rate is not recalculated because live rates moved.
 
+## Classify a named customer as CREDIT
+
+**Primary Actor:** Administrator
+
+**Preconditions:** The customer is named (not generic `Cliente contado`), has valid RNC/Cédula, and the actor supplies a positive DOP limit and an allowed term.
+
+**Main Flow:**
+
+1. Administrator sets `customerType` to `CREDIT` with limit and term (30, 45, 60, 90, or 120 days). History stores before/after values.
+2. Seller may afterwards select that customer on a DOP sale and confirm credit with zero initial payment, subject to the limit.
+3. The resulting invoice `dueDate` is confirmation date plus **that chosen term**, not automatic +30 unless the term itself is 30.
+4. Seller cannot create this classification or edit limit/term.
+
+**Conflicts:** Missing identity, null limit/term, or Seller HTTP is rejected. A `CREDIT` customer with open balance cannot return to `CASH`.
+
+## Issue and convert a quote
+
+**Primary Actor:** Seller or Administrator
+
+**Main Flow:**
+
+1. Actor prepares a `QUOTE_DRAFT` with the same customer, currency, fiscal flags, ITBIS flag, and lines that the future invoice or conduce will use.
+2. Issue assigns unique `COT-` and freezes the quote through end of day 15 in `America/Santo_Domingo`.
+3. Convert-to-invoice runs confirmation on the same aggregate, assigns `FAC-`, preserves origin `COT-`, and applies direct cash/credit rules (SALE-005).
+4. **Implemented (Feature 16 / M3–M4):** convert-to-conduce assigns `CON-` on the same aggregate and recognizes the sale under CON-002 (Administrator may leave balance only on **named** `CASH`, not default `Cliente contado`; Seller keeps current full-pay / credit limits). Later convert-to-invoice follows CON-003 without recalculating money.
+5. If expired, convert is rejected; duplicate creates a new editable quote.
+
+**Conflicts:** Quotes do not take payments, open AR, or reserve inventory until conversion recognizes the sale. Retrying convert does not duplicate `FAC-`, `CON-`, or lines.
+
+## Issue a conduce and convert it to an invoice (Feature 16 — M3–M4 runtime)
+
+**Primary Actor:** Seller or Administrator
+
+**Main Flow:**
+
+1. From a Draft, `POST /api/sales/:id/issue-conduce`; from an issued quote, `POST /api/sales/:id/convert-quote-to-conduce`.
+2. Initial payment follows CON-002 (`issueConduceSchema`: optional `payment`, optional `dueDate` when Administrator leaves named-`CASH` balance). Direct invoice confirmation without conduce keeps SALE-005.
+3. Emission assigns `CON-`, freezes snapshots, sets `confirmedAt` / `conduceIssuedAt`, forces non-fiscal document, and may record an initial payment. FX/profitability and conduce PDF remain M6/M5.
+4. Later collections reuse `POST /api/sales/:id/payments` on open `CONDUCE` or `COMPLETED` (Administrator-only).
+5. Later, Administrator or Seller calls `POST /api/sales/:id/convert-conduce-to-invoice` with `{ fiscal }`, assigning `FAC-` and `invoiceIssuedAt` without recalculating lines, payments, inventory, or profitability.
+6. Invoice PDF generation runs on conversion (existing path); dedicated conduce PDF is M5.
+
+**Conflicts:** Expired quotes, cancelled conduces, unauthorized payment matrix violations (CON-002), and fiscal conversion without frozen RNC/Cédula are rejected. Direct confirm without conduce keeps SALE-005 (no named-`CASH` Admin balance exception).
+
+## Generate a customer account statement
+
+**Primary Actor:** Administrator
+
+**Preconditions:** The selected customer has at least one open DOP invoice or conduce.
+
+**Main Flow:**
+
+1. From Accounts Receivable, Administrator picks the customer in the searchable selector.
+2. `Generar estado de cuenta` downloads a PDF of every open DOP invoice/conduce with issued date, due date, state, total, cumulative paid, and balance. While no `FAC-` exists, the row shows `CON-` as the document number.
+3. Row totals reconcile to the statement outstanding total.
+
+**Conflicts:** Seller is denied. Cancelled operations and individual payment movements are omitted. Customers without open balance are not selectable. Document filters accept `CON-` and `FAC-`.
 
 ## Cancellation and refund baseline
 
-- Only Administrator may cancel a Completed invoice and register a cancellation refund.
-- Cancellation records reason, actor, and time without editing or deleting the original invoice.
-- Payments and refunds are additive. Refunds represent money actually returned and do not erase receipts.
+- Only Administrator may cancel a Completed invoice or an active conduce / `CON-/FAC-` operation and register a cancellation refund.
+- Cancellation records reason, actor, and time without editing or deleting the original document.
+- Payments and refunds are additive. Refunds represent money actually returned (**zero through net collected**, CANCEL-002; `refundAmount` on cancel API) and do not erase receipts. Outstanding balance is extinguished.
 - Cancellation restores eligible Commercial State exactly once and does not recreate reservations.
 - The linked Work-Order branch must be selected from the Pending, In-Progress stop, In-Progress continue, or already-Completed flows above.
 

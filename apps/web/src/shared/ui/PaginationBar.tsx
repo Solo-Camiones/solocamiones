@@ -24,10 +24,7 @@ export function PaginationBar({
   const to = Math.min(page * pageSize, total);
 
   return (
-    <nav
-      aria-label="Paginación"
-      className="mt-4 flex flex-wrap items-center justify-between gap-3"
-    >
+    <nav aria-label="Paginación" className="mt-4 flex flex-wrap items-center justify-between gap-3">
       <p className="text-sm text-navy-400">
         Mostrando {from}–{to} de {total}
       </p>

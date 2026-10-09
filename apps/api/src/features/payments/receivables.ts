@@ -26,12 +26,18 @@ export function moneyString(value: Prisma.Decimal): string {
   return value.toFixed(MONEY_DECIMAL_PLACES);
 }
 
-export function openReceivables(invoices: InvoiceListRecord[]): OpenReceivable[] {
+export function openReceivables(invoices: InvoiceListRecord[], now = new Date()): OpenReceivable[] {
   const open: OpenReceivable[] = [];
   for (const invoice of invoices) {
-    const summary = summarizePayments(invoice);
+    const summary = summarizePayments(invoice, now);
     if (!summary.balance.greaterThan(0)) continue;
-    if (summary.state !== 'PENDING' && summary.state !== 'OVERDUE') continue;
+    if (
+      summary.state !== 'PENDING' &&
+      summary.state !== 'PARTIALLY_PAID' &&
+      summary.state !== 'OVERDUE' &&
+      summary.state !== 'PARTIALLY_PAID_OVERDUE'
+    )
+      continue;
     open.push({
       invoice,
       invoiced: invoice.gross ?? new Prisma.Decimal(0),
@@ -40,10 +46,12 @@ export function openReceivables(invoices: InvoiceListRecord[]): OpenReceivable[]
       state: summary.state,
     });
   }
+  // Newest issued first — matches GET /receivables list order (confirmedAt DESC).
   return open.sort((left, right) => {
-    const due = (left.invoice.dueDate?.getTime() ?? 0) - (right.invoice.dueDate?.getTime() ?? 0);
-    if (due !== 0) return due;
-    return left.invoice.id.localeCompare(right.invoice.id);
+    const issued =
+      (right.invoice.confirmedAt?.getTime() ?? 0) - (left.invoice.confirmedAt?.getTime() ?? 0);
+    if (issued !== 0) return issued;
+    return right.invoice.id.localeCompare(left.invoice.id);
   });
 }
 

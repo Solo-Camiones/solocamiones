@@ -1,13 +1,13 @@
 # Milestone 9 — WM9: Órdenes de trabajo (escritorio)
 
-| Campo          | Valor                                                          |
-| -------------- | -------------------------------------------------------------- |
-| **ID plan**    | WM9                                                            |
-| **Estado**     | Completado                                                     |
-| **Fecha**      | 2026-09-01                                                     |
+| Campo          | Valor                                                             |
+| -------------- | ----------------------------------------------------------------- |
+| **ID plan**    | WM9                                                               |
+| **Estado**     | Completado                                                        |
+| **Fecha**      | 2026-09-01                                                        |
 | **Referencia** | [`docs/plans_web/plan-001.md`](../../plans_web/plan-001.md) § WM9 |
-| **Alcance**    | Listado, detalle, OT manual, reasignación y cancelación admin  |
-| **Siguiente**  | WM10 — Experiencia Mecánico (móvil)                            |
+| **Alcance**    | Listado, detalle, OT manual, reasignación y cancelación admin     |
+| **Siguiente**  | WM10 — Experiencia Mecánico (móvil)                               |
 
 ---
 
@@ -35,12 +35,12 @@ WM8 ya crea o reutiliza una OT de desarme pendiente al confirmar una pieza insta
 
 ### 3.3 Reasignar y cancelar con motivo
 
-| Acción | Estados | Efecto |
-| --- | --- | --- |
-| Reasignar | Pendiente o en proceso | Mecánico activo; la OT pasa a En proceso; evento `WORK_ORDER_REASSIGNED` |
-| Cancelar pendiente | Pendiente | Motivo obligatorio; no toca inventario |
-| Cancelar en proceso | En proceso | Motivo + verificación física explícita (WO-002 / WO-010) |
-| Completada | — | Rechazada; el reverso es una OT opuesta |
+| Acción              | Estados                | Efecto                                                                   |
+| ------------------- | ---------------------- | ------------------------------------------------------------------------ |
+| Reasignar           | Pendiente o en proceso | Mecánico activo; la OT pasa a En proceso; evento `WORK_ORDER_REASSIGNED` |
+| Cancelar pendiente  | Pendiente              | Motivo obligatorio; no toca inventario                                   |
+| Cancelar en proceso | En proceso             | Motivo + verificación física explícita (WO-002 / WO-010)                 |
+| Completada          | —                      | Rechazada; el reverso es una OT opuesta                                  |
 
 Carlos Méndez está inactivo en el seed: no aparece en el selector y una reasignación a `U-CARLOS` falla.
 
@@ -64,13 +64,13 @@ apps/web/src/
 
 ## 5. Criterios de aceptación
 
-| Criterio | Estado |
-| --- | --- |
-| OT seed con estados correctos | ✅ 060 En proceso, 061/062 Pendiente, 063 Completada |
-| Crear desarme no cambia jerarquía | ✅ MOT-001 sigue instalado en CAM-001 |
-| Reasignación/cancelación generan eventos | ✅ `WORK_ORDER_REASSIGNED` / `WORK_ORDER_CANCELLED` |
-| Vendedor bloqueado (ruta + servicio) | ✅ menú, `isRouteAllowedForRole`, `FORBIDDEN` en el repositorio |
-| Solo admin crea/reasigna/cancela | ✅ `workOrders.manage` |
+| Criterio                                 | Estado                                                          |
+| ---------------------------------------- | --------------------------------------------------------------- |
+| OT seed con estados correctos            | ✅ 060 En proceso, 061/062 Pendiente, 063 Completada            |
+| Crear desarme no cambia jerarquía        | ✅ MOT-001 sigue instalado en CAM-001                           |
+| Reasignación/cancelación generan eventos | ✅ `WORK_ORDER_REASSIGNED` / `WORK_ORDER_CANCELLED`             |
+| Vendedor bloqueado (ruta + servicio)     | ✅ menú, `isRouteAllowedForRole`, `FORBIDDEN` en el repositorio |
+| Solo admin crea/reasigna/cancela         | ✅ `workOrders.manage`                                          |
 
 ## 6. Verificación
 

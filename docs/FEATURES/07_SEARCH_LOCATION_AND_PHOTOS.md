@@ -59,6 +59,7 @@ Photo bytes live in private S3-compatible object storage; PostgreSQL stores meta
 ## Implementation checklist
 
 ### Backend
+
 - [ ] Define paginated search projection.
 - [ ] Implement validated search fields and filters.
 - [ ] Add indexes after query-plan/testing evidence.
@@ -68,6 +69,7 @@ Photo bytes live in private S3-compatible object storage; PostgreSQL stores meta
 - [ ] Validate upload MIME/size/signature and object authorization.
 
 ### Frontend
+
 - [x] Inventory search/results.
 - [x] Installed/independent/quantity state display.
 - [x] Historical filter/view.
@@ -75,6 +77,7 @@ Photo bytes live in private S3-compatible object storage; PostgreSQL stores meta
 - [ ] Photo gallery, upload, primary selection, edit/remove rules.
 
 ### Tests
+
 - [x] Installed and independent examples both searchable.
 - [x] Sold exclusion/history inclusion.
 - [x] Effective root-location inheritance.

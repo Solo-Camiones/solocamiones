@@ -61,12 +61,14 @@ The prototype exposes:
 
 ## Seller
 
-The prototype exposes:
+The production HTTP UI for Seller exposes:
 
 1. Dashboard
 2. Inventory
-3. Sales and Invoices
-4. Customers
+3. Sales and Invoices (including quotes)
+4. Customers (`CASH` create; no credit-term fields)
+
+Seller must not see Accounts Receivable, later-payment actions, billing cost fields, or payment-movement lists. Prototype mocks that still show Seller CxC or tax-inclusive-only POS are stale relative to Features 08/10/12.
 
 ## Mechanic
 
@@ -278,9 +280,13 @@ The current prototype already demonstrates invoice-level payment behavior:
 
 The Dashboard also demonstrates the concept of a total outstanding customer balance.
 
-For the production **Basic Accounts Receivable** release, the prototype should be treated as visual direction for invoice payment detail, but the production release should additionally prioritize practical cross-invoice views defined in `FEATURES/12_PAYMENTS_AND_ACCOUNTS_RECEIVABLE.md`, such as open receivables and customer outstanding balances.
+For the production **Basic Accounts Receivable** release, treat the prototype as visual direction for Administrator invoice payment detail and open-receivables, plus:
 
-Accounts Payable is not part of this prototype's active MVP implementation plan.
+- derived labels `PENDIENTE` / `ABONADO` / `VENCIDA` / `ABONADA VENCIDA`;
+- issued date = confirmation date;
+- searchable customer selector and `Generar estado de cuenta` (STMT-001).
+
+Seller does not use this area. Accounts Payable is not part of this prototype's active MVP implementation plan.
 
 ---
 
@@ -292,7 +298,8 @@ The UI direction supports:
 
 - searching customers;
 - creating customers;
-- ordinary customer information;
+- internal `CASH` / `CREDIT` as fields, never as name prefixes;
+- Administrator-only credit limit and term;
 - generic `Cliente Contado` behavior;
 - preserved invoice customer data.
 
@@ -437,15 +444,15 @@ For owner approval, do not demonstrate every screen equally. Use a business-firs
 
 1. Login as Seller.
 2. Open Sales and Invoices.
-3. Create/select a customer or use `Cliente Contado`.
-4. Create a Draft.
-5. Add representative billable lines.
-6. Set final negotiated prices.
-7. Confirm and show the assigned `FAC-` number.
-8. Open the completed invoice.
-9. Register a partial payment.
-10. Show paid amount and outstanding balance.
-11. Explain that the first production releases prioritize exactly this billing/receivables workflow.
+3. Create/select a `CASH` customer or use `Cliente Contado`.
+4. Create a Draft; leave `Aplicar ITBIS` off unless the scenario needs tax.
+5. Add representative billable lines (no cost fields).
+6. Set final negotiated prices as tax-exclusive base when ITBIS is on.
+7. Confirm a cash sale and show the assigned `FAC-` number.
+8. Open the completed invoice; Seller sees balance/state, not payment movements.
+9. Switch to Administrator to register a later payment on a credit invoice and open CxC.
+10. Generate an account statement for a customer with open DOP balance.
+11. Show a quote issue (`COT-`) and conversion to `FAC-` when that slice is in the demo build.
 
 ## Part B — Product differentiator
 

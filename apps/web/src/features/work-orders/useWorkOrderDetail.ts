@@ -32,7 +32,7 @@ export function useWorkOrderDetail(id: string | undefined) {
     let cancelled = false;
     setResult({ status: 'loading' });
 
-    workOrderRepository.getById(id).then((response) => {
+    void workOrderRepository.getById(id).then((response) => {
       if (cancelled) {
         return;
       }
@@ -53,7 +53,7 @@ export function useWorkOrderDetail(id: string | undefined) {
   useEffect(() => {
     let cancelled = false;
 
-    workOrderRepository.getCreateOptions().then((response) => {
+    void workOrderRepository.getCreateOptions().then((response) => {
       if (cancelled || !response.ok) {
         return;
       }

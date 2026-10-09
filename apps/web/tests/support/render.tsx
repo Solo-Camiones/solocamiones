@@ -48,9 +48,7 @@ export function renderWithProviders(
   const auth = options.auth ?? createAuthValue();
   const pathname = options.route ?? '/';
   const initialEntry =
-    options.locationState !== undefined
-      ? { pathname, state: options.locationState }
-      : pathname;
+    options.locationState !== undefined ? { pathname, state: options.locationState } : pathname;
 
   return {
     auth,

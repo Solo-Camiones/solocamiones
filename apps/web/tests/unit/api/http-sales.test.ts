@@ -6,6 +6,9 @@ import { toHttpAddLineBody } from '../../../src/api/client/sales-api';
 const cashCustomer = {
   id: '11111111-1111-4111-8111-111111111111',
   name: 'Cliente contado',
+  customerType: 'CASH',
+  creditLimitDop: null,
+  creditTermDays: null,
   rnc: null,
   isDefault: true,
 };
@@ -28,6 +31,8 @@ const emptyInvoice = {
   number: null,
   currency: 'DOP',
   fiscal: false,
+  applyItbis: false,
+  discountPercent: '0.00',
   customer: cashCustomer,
   customerSnapshot: null,
   confirmedAt: null,
@@ -42,14 +47,14 @@ const emptyInvoice = {
   refunded: '0.00',
   balance: '0.00',
   lines: [],
-  totals: { gross: '0.00', base: '0.00', itbis: '0.00' },
+  totals: { gross: '0.00', base: '0.00', itbis: '0.00', discount: '0.00' },
   createdAt: '2026-09-09T12:00:00.000Z',
   updatedAt: '2026-09-09T12:00:00.000Z',
 };
 
 const invoiceWithTotal = {
   ...emptyInvoice,
-  totals: { gross: '118.00', base: '100.00', itbis: '18.00' },
+  totals: { gross: '118.00', base: '100.00', itbis: '18.00', discount: '0.00' },
 };
 
 const completedInvoice = {
@@ -113,10 +118,7 @@ describe('HTTP sales draft contract', () => {
         page: 1,
         pageSize: 10,
       });
-      expect(all.value.items.map((row) => row.number)).toEqual([
-        'FAC-000001',
-        'Borrador',
-      ]);
+      expect(all.value.items.map((row) => row.number)).toEqual(['FAC-000001', 'Borrador']);
       expect(all.value.items[0]).toMatchObject({
         status: 'COMPLETED',
         href: '/sales/cccccccc-cccc-4ccc-8ccc-cccccccccccc',
@@ -171,6 +173,137 @@ describe('HTTP sales draft contract', () => {
     expect(fetchMock.mock.calls[0]?.[0]).toBe('/api/sales?page=1&pageSize=10&q=FAC-000099');
   });
 
+  it('sends the document date range so filtering happens before pagination', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(json({ items: [], total: 0, page: 1, pageSize: 10 }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await repository.listInvoices('COMPLETED', 1, '', {
+      dateFrom: '2026-09-01',
+      dateTo: '2026-09-30',
+    });
+
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      '/api/sales?status=COMPLETED&page=1&pageSize=10&dateFrom=2026-09-01&dateTo=2026-09-30',
+    );
+  });
+
+  it('sends the customer and invoice receivables filters in the HTTP query', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      json({
+        invoices: [],
+        customers: [],
+        total: 0,
+        page: 2,
+        pageSize: 10,
+      }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await repository.listReceivables(2, {
+      customerId: '11111111-1111-4111-8111-111111111111',
+      invoice: 'FAC-000099',
+    });
+
+    expect(result).toEqual({
+      ok: true,
+      value: { invoices: [], customers: [], total: 0, page: 2, pageSize: 10 },
+    });
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      '/api/sales/receivables?page=2&pageSize=10&customerId=11111111-1111-4111-8111-111111111111&invoice=FAC-000099',
+    );
+  });
+
+  it('downloads the selected customer account statement from the dedicated endpoint', async () => {
+    const bytes = new Uint8Array([37, 80, 68, 70]);
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(bytes, {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/pdf',
+          'Content-Disposition': 'attachment; filename="estado-de-cuenta-flota-este.pdf"',
+        },
+      }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await repository.getAccountStatementPdf(cashCustomer.id);
+
+    expect(result).toMatchObject({
+      ok: true,
+      value: { filename: 'estado-de-cuenta-flota-este.pdf' },
+    });
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `/api/sales/receivables/${cashCustomer.id}/statement.pdf`,
+    );
+  });
+
+  it('lists the seller sales report with optional seller and page query params', async () => {
+    const report = {
+      dateFrom: '2026-09-01',
+      dateTo: '2026-09-18',
+      sellerUserId: '11111111-1111-4111-8111-111111111111',
+      rows: [],
+      totals: [],
+      total: 0,
+      page: 2,
+      pageSize: 10,
+    };
+    const fetchMock = vi.fn(async (_path: string) => json(report));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const withSeller = await repository.listSellerSalesReport({
+      dateFrom: '2026-09-01',
+      dateTo: '2026-09-18',
+      sellerUserId: '11111111-1111-4111-8111-111111111111',
+      page: 2,
+    });
+    expect(withSeller).toEqual({ ok: true, value: report });
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      '/api/sales/reports/seller-sales?dateFrom=2026-09-01&dateTo=2026-09-18&sellerUserId=11111111-1111-4111-8111-111111111111&page=2',
+    );
+
+    fetchMock.mockClear();
+    const allSellers = await repository.listSellerSalesReport({
+      dateFrom: '2026-09-01',
+      dateTo: '2026-09-18',
+      page: 1,
+    });
+    expect(allSellers).toEqual({ ok: true, value: report });
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      '/api/sales/reports/seller-sales?dateFrom=2026-09-01&dateTo=2026-09-18',
+    );
+  });
+
+  it('downloads the seller sales report PDF from the dedicated endpoint', async () => {
+    const bytes = new Uint8Array([37, 80, 68, 70]);
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(bytes, {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/pdf',
+          'Content-Disposition': 'attachment; filename="ventas-por-vendedor.pdf"',
+        },
+      }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await repository.getSellerSalesReportPdf({
+      dateFrom: '2026-09-01',
+      dateTo: '2026-09-18',
+      sellerUserId: '11111111-1111-4111-8111-111111111111',
+    });
+
+    expect(result).toMatchObject({
+      ok: true,
+      value: { filename: 'ventas-por-vendedor.pdf' },
+    });
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      '/api/sales/reports/seller-sales.pdf?dateFrom=2026-09-01&dateTo=2026-09-18&sellerUserId=11111111-1111-4111-8111-111111111111',
+    );
+  });
+
   it('creates a draft with CSRF and loads lookups on getDraft', async () => {
     const fetchMock = vi.fn(async (path: string, init?: RequestInit) => {
       const url = String(path);
@@ -199,6 +332,7 @@ describe('HTTP sales draft contract', () => {
       value: {
         id: draftId,
         customerIsDefault: true,
+        customerType: 'CASH',
         currency: 'DOP',
         items: [],
         qtyProducts: [],
@@ -208,7 +342,7 @@ describe('HTTP sales draft contract', () => {
     });
   });
 
-  it('sends unknown, actual, and estimated merchandise costs as decimal strings', () => {
+  it('omits acquisition cost from ordinary add-line bodies', () => {
     expect(
       toHttpAddLineBody({
         draftId,
@@ -223,7 +357,6 @@ describe('HTTP sales draft contract', () => {
       description: 'Filtro',
       unitPrice: '100.00',
       quantity: '2.00',
-      costProvenance: 'UNKNOWN',
       notes: 'En bahía',
     });
     expect(
@@ -232,27 +365,11 @@ describe('HTTP sales draft contract', () => {
         type: 'EXTERNAL',
         description: 'Bomba',
         unitPrice: 50,
-        acquisitionCostDop: 20,
       }),
     ).toEqual({
       type: 'EXTERNAL',
       description: 'Bomba',
       unitPrice: '50.00',
-      costProvenance: 'ACTUAL',
-      acquisitionCostDop: '20.00',
-    });
-    expect(
-      toHttpAddLineBody({
-        draftId,
-        type: 'GENERIC',
-        description: 'Pieza estimada',
-        unitPrice: 75,
-        acquisitionCostDop: 30,
-        costProvenance: 'ESTIMATED',
-      }),
-    ).toMatchObject({
-      costProvenance: 'ESTIMATED',
-      acquisitionCostDop: '30.00',
     });
     expect(
       toHttpAddLineBody({
@@ -285,18 +402,16 @@ describe('HTTP sales draft contract', () => {
       expected: { type: 'DELIVERY', description: 'Envío expreso', unitPrice: '0.00' },
     },
     {
-      name: 'a non-finite merchandise cost as unknown',
+      name: 'a non-finite merchandise price as zero',
       input: {
         draftId,
         type: 'GENERIC' as const,
         description: undefined,
-        acquisitionCostDop: Number.NaN,
       },
       expected: {
         type: 'GENERIC',
         description: '',
         unitPrice: '0.00',
-        costProvenance: 'UNKNOWN',
       },
     },
   ])('serializes $name', ({ input, expected }) => {
@@ -354,14 +469,15 @@ describe('HTTP sales draft contract', () => {
     expect(added.ok).toBe(true);
     if (added.ok) {
       expect(added.value.lines[0]?.description).toBe('Filtro');
-      expect(added.value.lines[0]?.costProvenance).toBe('UNKNOWN');
       expect(added.value.totals.gross).toBe(100);
     }
     expect(JSON.parse(String((fetchMock.mock.calls[0]?.[1] as RequestInit).body))).toMatchObject({
       type: 'GENERIC',
-      costProvenance: 'UNKNOWN',
       unitPrice: '100.00',
     });
+    expect(
+      JSON.parse(String((fetchMock.mock.calls[0]?.[1] as RequestInit).body)),
+    ).not.toHaveProperty('costProvenance');
 
     expect(await repository.discardDraft(draftId)).toEqual({ ok: true, value: undefined });
     expect(fetchMock.mock.calls.some(([, init]) => init?.method === 'DELETE')).toBe(true);
@@ -412,8 +528,6 @@ describe('HTTP sales draft contract', () => {
       quantity: 3,
       description: ' Filtro de aire ',
       notes: ' Para motor ',
-      acquisitionCostDop: 40,
-      costProvenance: 'ESTIMATED',
     });
 
     expect(result.ok).toBe(true);
@@ -427,11 +541,9 @@ describe('HTTP sales draft contract', () => {
       quantity: '3.00',
       description: 'Filtro de aire',
       notes: 'Para motor',
-      acquisitionCostDop: '40.00',
-      costProvenance: 'ESTIMATED',
     });
     if (result.ok) {
-      expect(result.value.lines[0]?.costProvenance).toBe('ESTIMATED');
+      expect(result.value.lines[0]?.description).toBe('Filtro de aire');
     }
   });
 
@@ -442,18 +554,14 @@ describe('HTTP sales draft contract', () => {
       expectedBody: { unitPrice: '125.00' },
     },
     {
-      name: 'normalizes blank notes and clears acquisition cost',
+      name: 'normalizes blank notes',
       input: {
         unitPrice: 125.126,
         notes: '   ',
-        acquisitionCostDop: null,
-        costProvenance: 'UNKNOWN' as const,
       },
       expectedBody: {
         unitPrice: '125.13',
         notes: null,
-        acquisitionCostDop: null,
-        costProvenance: 'UNKNOWN',
       },
     },
   ])('$name when PATCHing an editable line', async ({ input, expectedBody }) => {
@@ -619,9 +727,7 @@ describe('HTTP sales draft contract', () => {
     expect(await repository.getDraft(draftId)).toMatchObject({
       ok: true,
       value: {
-        services: [
-          { id: '99999999-9999-4999-8999-999999999999', name: 'Servicio histórico' },
-        ],
+        services: [{ id: '99999999-9999-4999-8999-999999999999', name: 'Servicio histórico' }],
       },
     });
   });
@@ -640,36 +746,39 @@ describe('HTTP sales draft contract', () => {
   it.each([
     { name: 'customers', failedPath: '/api/customers?' },
     { name: 'services', failedPath: '/api/catalogs/services' },
-  ])('returns an error when the $name lookup fails while loading a draft', async ({ failedPath }) => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(async (path: string) => {
-        const url = String(path);
-        if (url === `/api/sales/${draftId}`) return json(emptyInvoice);
-        if (url.startsWith('/api/customers?')) {
-          return failedPath === '/api/customers?'
-            ? json({ error: { code: 'INTERNAL' } }, 503)
-            : json({
-                items: [{ ...cashCustomer, address: null, notes: null, contacts: [] }],
-                total: 1,
-                page: 1,
-                pageSize: 10,
-              });
-        }
-        if (url === '/api/catalogs/services') {
-          return failedPath === url
-            ? json({ error: { code: 'INTERNAL' } }, 503)
-            : json({ items: [installation] });
-        }
-        throw new Error(`Unexpected ${path}`);
-      }),
-    );
+  ])(
+    'returns an error when the $name lookup fails while loading a draft',
+    async ({ failedPath }) => {
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(async (path: string) => {
+          const url = String(path);
+          if (url === `/api/sales/${draftId}`) return json(emptyInvoice);
+          if (url.startsWith('/api/customers?')) {
+            return failedPath === '/api/customers?'
+              ? json({ error: { code: 'INTERNAL' } }, 503)
+              : json({
+                  items: [{ ...cashCustomer, address: null, notes: null, contacts: [] }],
+                  total: 1,
+                  page: 1,
+                  pageSize: 10,
+                });
+          }
+          if (url === '/api/catalogs/services') {
+            return failedPath === url
+              ? json({ error: { code: 'INTERNAL' } }, 503)
+              : json({ items: [installation] });
+          }
+          throw new Error(`Unexpected ${path}`);
+        }),
+      );
 
-    expect(await repository.getDraft(draftId)).toMatchObject({
-      ok: false,
-      error: { code: 'INTERNAL' },
-    });
-  });
+      expect(await repository.getDraft(draftId)).toMatchObject({
+        ok: false,
+        error: { code: 'INTERNAL' },
+      });
+    },
+  );
 
   it('translates a fiscal identity conflict', async () => {
     vi.stubGlobal(
@@ -751,7 +860,7 @@ describe('HTTP sales draft contract', () => {
         number: 'FAC-000001',
         customerName: 'Nombre al confirmar',
         currency: 'DOP',
-        totals: { gross: 118, itbis: 18, taxableBase: 100 },
+        totals: { gross: 118, itbis: 18, taxableBase: 100, discount: 0 },
       },
     });
     const confirmInit = fetchMock.mock.calls[0]?.[1] as RequestInit;
@@ -948,12 +1057,16 @@ describe('HTTP sales draft contract', () => {
   });
 
   it.each([
-    ['payment', () => repository.addPayment({
-      invoiceId: draftId,
-      amount: 10,
-      method: 'CASH',
-      effectiveDate: '2026-09-10',
-    })],
+    [
+      'payment',
+      () =>
+        repository.addPayment({
+          invoiceId: draftId,
+          amount: 10,
+          method: 'CASH',
+          effectiveDate: '2026-09-10',
+        }),
+    ],
     ['cancellation', () => repository.cancelInvoice({ invoiceId: draftId, reason: 'Duplicada' })],
   ])('maps a failed %s mutation to an application error', async (_name, mutate) => {
     vi.stubGlobal(
@@ -1022,6 +1135,7 @@ describe('HTTP sales draft contract', () => {
         customerName: 'Snapshot',
         customerRnc: '131098765',
         currency: 'USD',
+        discount: 0,
         total: 118,
         balance: 118,
         lines: [{ description: 'Filtro', itbis: 18, gross: 118 }],
@@ -1061,6 +1175,29 @@ describe('HTTP sales draft contract', () => {
     }
   });
 
+  it('maps invoice-level discount into the invoice detail', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        json({
+          ...completedInvoice,
+          discountPercent: '10.00',
+          totals: { gross: '153.00', base: '135.00', itbis: '18.00', discount: '15.00' },
+        }),
+      ),
+    );
+
+    const result = await repository.getInvoice(draftId);
+    expect(result).toMatchObject({
+      ok: true,
+      value: {
+        discountPercent: 10,
+        discount: 15,
+        total: 153,
+      },
+    });
+  });
+
   it('maps a failed document so the seller can see the error and cannot download', async () => {
     vi.stubGlobal(
       'fetch',
@@ -1093,7 +1230,8 @@ describe('HTTP sales draft contract', () => {
           status: 200,
           headers: {
             'Content-Type': 'application/pdf',
-            'Content-Disposition': 'attachment; filename="FAC-000002.pdf"',
+            'Content-Disposition':
+              'attachment; filename="FAC-000002_Transportes-del-Caribe-SRL.pdf"',
           },
         }),
     );
@@ -1102,7 +1240,7 @@ describe('HTTP sales draft contract', () => {
     const result = await repository.getInvoicePdf(draftId);
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    expect(result.value.filename).toBe('FAC-000002.pdf');
+    expect(result.value.filename).toBe('FAC-000002_Transportes-del-Caribe-SRL.pdf');
     expect(new Uint8Array(await result.value.blob.arrayBuffer())).toEqual(bytes);
     expect(fetchMock).toHaveBeenCalledWith(
       `/api/sales/${draftId}/pdf`,
@@ -1111,6 +1249,30 @@ describe('HTTP sales draft contract', () => {
     const init = fetchMock.mock.calls[0]?.[1];
     expect(init?.method).toBeUndefined();
     expect(new Headers(init?.headers).get('X-Requested-With')).toBeNull();
+  });
+
+  it('downloads quote PDF bytes with the COT- filename from the same document route', async () => {
+    const bytes = new Uint8Array([0x25, 0x50, 0x44, 0x46]);
+    const fetchMock = vi.fn(
+      async (_path: string, _init?: RequestInit) =>
+        new Response(bytes, {
+          status: 200,
+          headers: {
+            'Content-Type': 'application/pdf',
+            'Content-Disposition': 'attachment; filename="COT-000001.pdf"',
+          },
+        }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await repository.getQuotePdf(draftId);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value.filename).toBe('COT-000001.pdf');
+    expect(fetchMock).toHaveBeenCalledWith(
+      `/api/sales/${draftId}/pdf`,
+      expect.objectContaining({ credentials: 'include' }),
+    );
   });
 
   it('surfaces a failed PDF download as a conflict without treating it as JSON success', async () => {

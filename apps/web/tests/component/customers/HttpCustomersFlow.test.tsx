@@ -17,6 +17,9 @@ import '../../support/dom';
 type CustomerFixture = {
   id: string;
   name: string;
+  customerType: 'CASH' | 'CREDIT';
+  creditLimitDop: string | null;
+  creditTermDays: number | null;
   rnc: string | null;
   address: string | null;
   notes: string | null;
@@ -29,6 +32,9 @@ type CustomerFixture = {
 const cashCustomer: CustomerFixture = {
   id: '11111111-1111-4111-8111-111111111111',
   name: 'Cliente contado',
+  customerType: 'CASH',
+  creditLimitDop: null,
+  creditTermDays: null,
   rnc: null,
   address: null,
   notes: null,
@@ -41,6 +47,9 @@ const cashCustomer: CustomerFixture = {
 const createdCustomer: CustomerFixture = {
   id: '44444444-4444-4444-8444-444444444444',
   name: 'Flota Este',
+  customerType: 'CASH',
+  creditLimitDop: null,
+  creditTermDays: null,
   rnc: null,
   address: null,
   notes: null,
@@ -151,7 +160,9 @@ describe('M19 HTTP customer directory UI', () => {
 
     const cashRow = screen.getByText('Cliente contado').closest('tr');
     expect(cashRow).not.toBeNull();
-    expect(within(cashRow as HTMLTableRowElement).getByRole('button', { name: 'Editar' })).toBeDisabled();
+    expect(
+      within(cashRow as HTMLTableRowElement).getByRole('button', { name: 'Editar' }),
+    ).toBeDisabled();
 
     await user.click(screen.getByRole('button', { name: 'Nuevo cliente' }));
     await user.type(screen.getByLabelText('Nombre'), 'Flota Este');
@@ -180,6 +191,7 @@ describe('M19 HTTP customer directory UI', () => {
 
     await user.click(screen.getByRole('button', { name: 'Nuevo cliente' }));
     await user.type(screen.getByLabelText('Nombre'), 'Flota Este');
+    await user.click(screen.getByRole('radio', { name: 'Cédula' }));
     await user.type(screen.getByLabelText('Identificación fiscal / cédula'), '1234567890');
     await user.click(screen.getByRole('button', { name: 'Guardar' }));
     await user.click(screen.getByRole('button', { name: 'Confirmar creación' }));
@@ -203,8 +215,8 @@ describe('M19 HTTP customer directory UI', () => {
 
     expect(await screen.findByText('Acceso no autorizado')).toBeVisible();
     expect(screen.queryByText('Cliente contado')).not.toBeInTheDocument();
-    expect(
-      fetchMock.mock.calls.some(([path]) => String(path).startsWith('/api/customers')),
-    ).toBe(false);
+    expect(fetchMock.mock.calls.some(([path]) => String(path).startsWith('/api/customers'))).toBe(
+      false,
+    );
   });
 });

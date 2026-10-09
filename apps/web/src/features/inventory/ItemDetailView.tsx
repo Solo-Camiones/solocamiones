@@ -97,7 +97,9 @@ export function ItemDetailViewPanel({
             <div>
               <dt className="text-navy-400">Costo de adquisición</dt>
               <dd className="font-mono">
-                {detail.acquisitionCostDop != null ? money(detail.acquisitionCostDop) : 'Desconocido'}
+                {detail.acquisitionCostDop != null
+                  ? money(detail.acquisitionCostDop)
+                  : 'Desconocido'}
               </dd>
             </div>
             <div>

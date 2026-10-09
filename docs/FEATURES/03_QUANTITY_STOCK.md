@@ -58,6 +58,7 @@ Reservation and sale must use conditional atomic writes so `onHand - reserved` n
 ## Implementation checklist
 
 ### Domain / persistence
+
 - [ ] Define quantity product and immutable inventory-mode rule.
 - [ ] Use decimal-safe quantity/money storage where applicable.
 - [ ] Implement stock-entry movement records.
@@ -67,12 +68,14 @@ Reservation and sale must use conditional atomic writes so `onHand - reserved` n
 - [ ] Add transaction-safe reserve/release/consume operations.
 
 ### Frontend
+
 - [x] Quantity product registration.
 - [x] Normal stock receipt/entry flow.
 - [x] Administrator adjustment flow.
 - [x] Display on-hand, reserved, and available-to-reserve separately.
 
 ### Tests
+
 - [x] Weighted-average examples.
 - [ ] Concurrent oversell/reservation race tests against PostgreSQL.
 - [ ] Negative-stock rejection.

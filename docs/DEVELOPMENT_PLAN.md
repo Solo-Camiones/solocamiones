@@ -37,9 +37,11 @@ For every task:
 
 ---
 
-# Current implementation snapshot (2026-09-11)
+# Current implementation snapshot (2026-10-01)
 
 Owner pulled **Release 3 financial work** into the local codebase before Release 2’s web profitability swap and exit gate. Future tasks must not re-build payments, CxC, or non-inventory cancellation, and must not treat inventory/Work-Order `[x]` mock items as PostgreSQL/API.
+
+**First production release scope:** `docs/RELEASES/v2.0.0.md` (deployment plan M0 closed 2026-10-01).
 
 **Owner decisions (2026-09-10 / exit gate 2026-09-11):**
 
@@ -47,29 +49,67 @@ Owner pulled **Release 3 financial work** into the local codebase before Release
 2. Release 3 stays **open**. The pulled-forward slice is not the full spec: remaining Feature 12/13 checklist items that belong to this release must still be implemented. Do not skip them.
 3. No `plans_api/plan_release_3.md` for now; `docs/done_api/release_3.md` is the delivery record.
 4. Prototype-mock `[x]` items stay `[x]` with mock/API notes; do not uncheck them.
-5. Invoice **document activity** (detail GET + HTTP UI) is pulled forward: confirm, payment, PDF, cancel, and Administrator-only profit/FX. Draft meta edits and line add/update/remove are **not** invoice activity: do not append them, and hide any already-stored rows of those types. Do not delete `HistoryEvent` rows.
+5. Invoice **document activity** (detail GET + HTTP UI) is pulled forward: confirm, payment, PDF, cancel, and Administrator-only profit/FX **and payment** events. Draft meta edits and line add/update/remove are **not** invoice activity: do not append them, and hide any already-stored rows of those types. Do not delete `HistoryEvent` rows.
 
-| Slice | Production API + tests | HTTP UI (`VITE_USE_MOCK_API` ≠ `true`) | Prototype mock only |
-|---|---|---|---|
-| Release 1 Access/Users | Done | Done | Done |
-| Release 2 Billing Core (customers, service catalog, non-inventory lines, confirm/`FAC-`, PDF, cost/FX/profit, profitability HTTP) | Done | Done (M25 closed 2026-09-11) | Full demo including profit |
-| Release 3 payments, balances, basic CxC, non-inventory cancel/refund | **Pulled forward — done** (`InvoicePayment`, due date, `POST /payments`, `GET /receivables`, `POST /cancel`) | **Pulled forward — done** (pay, CxC `/receivables`, cancel). Confirm may record an initial payment | Done |
-| Release 3 remaining | **Still required** now that R2 is closed: Feature 12 open checklist (receivables filters by customer, invoice, payment state including Paid/Paid-late, date, and currency; UI must use API query params). Aging/collections stay deferred as specified. Inventory/WO cancellation is R5/R7, not this remainder. | Same filters on `/receivables` HTTP UI | — |
-| Release 3B Accounts Payable | Not started | Not started | Not in confirmed scope |
-| Release 4 inventory / quantity / inventory categories | **Not started** (no Item/Qty models) | Service catalog only; inventory category UI hidden | Registration, qty, category attributes |
-| Release 5 reservations and ITEM/QTY sales | **Not started**; ITEM/QTY draft lines return business **409** | Capabilities off | Lines, reserve, consume |
-| Release 6 hierarchy / baseline | **Not started** | Off | Checklist, tree, No desarmar |
-| Release 7 Work Orders / installed-assembly sale | **Not started** | Off | Desktop + mechanic flows |
-| Release 8 protected corrections, recovery, diagnostics | PDF regenerate **done**. USD profit retry is **`POST /api/profitability/:invoiceId/retry`**, not a recovery module. Cost/currency/baseline corrections **not** in API | PDF regenerate in invoice detail. Profit retry/manual gross-profit **HTTP wired (M24)** on `/profitability`. Recovery module still mock | Currency correction, recovery screens, WO/reservation recovery |
+**Commercial conduces (2026-09-20 / Verificado 2026-10-01):** Feature 16 (`CON-001`–`CON-006`) is **documentation-confirmed** and **owner-Verificado** for `v2.0.0`. Sequenced in `docs/plan_feature_conduce/IMPLEMENTATION_PLAN.md`: **M1–M8 Verificado**. Key owner clarifications at M1: Administrator named-`CASH` balance exception is **conduce emission only** (not direct invoice confirm) and **excludes** default `Cliente contado`; cancellation refunds are globally **zero through net collected** (CANCEL-002; API M4 + cancel UI M7).
+
+**AI Assistant (2026-09-22; owner rollout decision 2026-09-30):** Feature 17 (`AI-001`–`AI-010`) is **documentation-confirmed** in `FEATURES/17_AI_ASSISTANT.md` and **in scope** for `v2.0.0`. Technical sequence: `docs/chatbot_implementation/IMPLEMENTATION_PLAN.md` (**M0–M8 done locally through 2026-09-24**; the M9 harness exists and the 2026-09-24 baseline remains historical after later privacy/quota/mutation hardening). The assistant will be enabled for `ADMINISTRATOR` from the first production day. AI-010 remains recurring validation rather than an enablement gate. This decision does **not** waive infrastructure readiness, privacy controls, kill switch, purge, separate environment credentials or monitoring.
+
+| Slice                                                                                                                             | Production API + tests                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     | HTTP UI (`VITE_USE_MOCK_API` ≠ `true`)                                                                                                  | Prototype mock only                                                                  |
+| --------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| Release 1 Access/Users                                                                                                            | Done                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | Done                                                                                                                                    | Done                                                                                 |
+| Release 2 Billing Core (customers, service catalog, non-inventory lines, confirm/`FAC-`, PDF, cost/FX/profit, profitability HTTP) | Done                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | Done (M25 closed 2026-09-11)                                                                                                            | Full demo including profit                                                           |
+| Release 3 payments, balances, basic CxC, non-inventory cancel/refund                                                              | **Pulled forward — done** (`InvoicePayment`, due date, `POST /payments`, `GET /receivables`, `POST /cancel`)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               | **Pulled forward — done** (pay, CxC `/receivables`, cancel). Confirm may record an initial payment                                      | Done                                                                                 |
+| Release 3 remaining                                                                                                               | Feature 12 account-statement PDF (`STMT-001`) is done locally. Aging/collections stay deferred as specified. Inventory/WO cancellation is R5/R7, not this remainder.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | Account statement generation from `/receivables` is done locally                                                                        | —                                                                                    |
+| **Pre-production business change set**                                                                                            | **Specified 2026-09-15. Pasos 2–10 done:** domain migration; customer write APIs/UI/mock (`CUST-004`–`007`); tax-exclusive ITBIS (`SALE-009`/`010`) and billing cost removal (`COST-006`); confirmation engine (`SALE-005` / `CUST-005`, cash vs credit, limit, term snapshot, Seller 403 on later payments/CxC); convertible quotes (`QUOTE-001`/`002`); derived `ABONADO`, issued date, and approved customer/invoice AR filters (`PAY-006`/`PAY-007`); account statement PDF (`STMT-001`); and PDF profile (`DOC-001`). Paso 9 verificado 2026-09-17. **Paso 10 cerrado 2026-10-01** (`docs/RELEASES/v2.0.0.md`). **Feature 16 Verificado 2026-10-01** (`docs/plan_feature_conduce/IMPLEMENTATION_PLAN.md`). Environments may proceed (deployment M1+). | Paso 9–10 shipped: PDFs; POS dual factura/conduce; CxC `FAC-`/`CON-`.                                                                   | Prototype POS tax-exclusive and quotes; Seller CxC hidden; seed conduce `CON-000001` |
+| Release 3B Accounts Payable                                                                                                       | Not started                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                | Not started                                                                                                                             | Not in confirmed scope                                                               |
+| Release 4 inventory / quantity / inventory categories                                                                             | **Not started** (no Item/Qty models)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | Service catalog only; inventory category UI hidden                                                                                      | Registration, qty, category attributes                                               |
+| Release 5 reservations and ITEM/QTY sales                                                                                         | **Not started**; ITEM/QTY draft lines return business **409**                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              | Capabilities off                                                                                                                        | Lines, reserve, consume                                                              |
+| Release 6 hierarchy / baseline                                                                                                    | **Not started**                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            | Off                                                                                                                                     | Checklist, tree, No desarmar                                                         |
+| Release 7 Work Orders / installed-assembly sale                                                                                   | **Not started**                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            | Off                                                                                                                                     | Desktop + mechanic flows                                                             |
+| Release 8 protected corrections, recovery, diagnostics                                                                            | PDF regenerate **done**. USD profit retry is **`POST /api/profitability/:invoiceId/retry`**, not a recovery module. Cost/currency/baseline corrections **not** in API                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      | PDF regenerate in invoice detail. Profit retry/manual gross-profit **HTTP wired (M24)** on `/profitability`. Recovery module still mock | Currency correction, recovery screens, WO/reservation recovery                       |
+| **Feature 17 AI Assistant (Administrator-only)**                                                                                  | **M0–M8 done locally (2026-09-24); M9 harness delivered.** Owner approved first-day production enablement on 2026-09-30. Revalidation remains a recurring quality/safety control after material changes and no longer blocks the initial flag. Infrastructure must still provide separate keys/vector stores, purge, metrics, alerts and kill switch.                                                                                                                                                                                                                                                                                                                                                                                                      | Capability `assistant` on in HTTP; launcher/panel for Administrator when API flag allows                                                | No chatbot mock; capability off                                                      |
 
 **Partial modules (do not “finish” by duplicating the done half):**
 
 - **Profitability:** API (DOP, COST-005, FX pending/retry) and HTTP UI swap (M24) exist. Dashboard KPIs are not swapped.
 - **Catalogs:** mechanical **services** are Release 2 HTTP; **inventory categories/attributes** remain Release 4.
-- **Sales confirmation:** Billing Core plus pulled-forward optional initial payment and `dueDate` (Release 3). `Cliente contado` requires a full initial payment (owner 2026-09-11).
-- **Cancellation:** financial/non-inventory API+HTTP done; inventory restoration and Work-Order branches are mock-only until Releases 5/7.
-- **History:** envelope + user/customer/catalog/invoice confirmation/payment/PDF/cancellation events in the writing transaction; invoice detail GET + HTTP UI project that timeline (profit/FX Administrator-only). Draft meta and line add/update/remove are not appended and are hidden if already stored. No standalone history API; no per-item/order projections; ADMIN-002 mostly open.
-- **CxC:** ledger + open-receivables read model done; remaining Feature 12 filters are **still in scope** (implement now that R2 M25 is closed).
+- **Sales confirmation:** Billing Core plus pulled-forward optional initial payment and `dueDate` (Release 3). `Cliente contado` / `CASH` requires a full initial payment on **direct** confirmation. Paso 5 (2026-09-16, local): named `CASH` is not credit-eligible; `CREDIT` is DOP-only with limit/term snapshot; cash `dueDate` is the local confirmation day (end of day, `America/Santo_Domingo`). **Conduces (Feature 16):** Administrator named-`CASH` balance exception is conduce-emission only (CON-002); M1–M8 **Verificado** (2026-10-01).
+- **Cancellation:** financial/non-inventory API+HTTP with global zero..net refund (CANCEL-002: API M4 + cancel UI `refundAmount` M7). Inventory restoration and Work-Order branches are mock-only until Releases 5/7.
+- **History:** envelope + user/customer/catalog/invoice confirmation/payment/PDF/cancellation events in the writing transaction; invoice detail GET + HTTP UI project that timeline (profit/FX and payment events Administrator-only). Draft meta and line add/update/remove are not appended and are hidden if already stored. No standalone history API; no per-item/order projections; ADMIN-002 mostly open.
+- **CxC:** ledger, derived `ABONADO` states, issued date, server-side customer/invoice filters, and the Administrator-only account-statement PDF (`STMT-001`) are done. The invoice list and customer summary remain limited to open balances; payment-state, issued-date, and currency filters are intentionally unavailable by owner decision. Paso 5 made later `POST /payments` and `GET /receivables` Administrator-only (Seller 403; nav/deep links denied). Seller invoice list/detail omit payment state, paid, refunds, and balance.
+- **Seller-sales report:** Administrator-only volume report under Finanzas (`/seller-sales`, `GET /api/sales/reports/seller-sales[.pdf]`) is done locally (2026-09-18). Rows are `COMPLETED` invoices and outstanding `QUOTE_ISSUED` quotes by seller attribution date; no commission math and no Seller access. Generic expanded reporting remains Future.
+
+---
+
+# Pre-production business change set (2026-09-15)
+
+Owner confirmed the rules in `docs/pre_production_business_changes/IMPLEMENTATION_PLAN.md`. **Paso 1 documentation is now in the feature files.** Do not implement from the plan file when a feature ID exists.
+
+This change set is **in front of** environment setup. It amends Release 2/3 behavior already in the local codebase:
+
+- ITBIS becomes optional base + 18% per line, separate from fiscal emission.
+- Customers gain internal `CASH`/`CREDIT` with DOP limit and term; existing named customers backfill as `CASH`.
+- New credit invoice due dates use the customer’s chosen term (30/45/60/90/120), not a universal +30 days.
+- Seller cannot create credit customers, collect later payments, or open CxC.
+- Quotes are pulled forward onto the sales aggregate (`COT-` then `FAC-`).
+- Partial-payment labels, issued date, and account-statement PDF are in scope.
+- Billing no longer captures acquisition cost; COST-005 remains the Administrator follow-up.
+- PDF re-download keeps historical money and applies current corporate presentation.
+
+Implementation order: documentation (done) → migration (Paso 2 done locally) → customer authorization (Paso 3 done locally) → ITBIS/cost capture (Paso 4 done locally) → credit confirmation (Paso 5 done locally) → quotes (Paso 6 done locally) → CxC/states (Paso 7 done locally) → statement PDF (Paso 8 done locally) → invoice/quote PDFs (Paso 9 done) → pre-environment gate (Paso 10 **cerrado 2026-10-01**).
+
+# Commercial conduces (required before first production release — 2026-09-20)
+
+Owner confirmed commercial conduces on the same sales aggregate. Canonical IDs: `CON-001`–`CON-006` in `FEATURES/16_CONDUCES.md`. Technical sequence: `docs/plan_feature_conduce/IMPLEMENTATION_PLAN.md`.
+
+Do **not** implement from the plan file when a CON-* ID exists. **M1–M8 Verificado (2026-10-01)** after Completado localmente (2026-09-20 / 2026-09-21). Owner browser walkthrough OK. Paso 10 of the pre-production change set **cerrado 2026-10-01**. Release scope: `docs/RELEASES/v2.0.0.md`.
+
+Owner clarifications locked at M1:
+
+- Administrator may leave balance on **named** `CASH` customers **only when issuing a conduce** (not on direct invoice confirmation; not on default `Cliente contado`).
+- Seller keeps current invoice payment limits on conduce emission.
+- Cancellation refunds are globally zero through net collected (CANCEL-002; API + cancel UI delivered).
 
 ---
 
@@ -265,6 +305,8 @@ Permissions:
 - Decimal-safe per-line calculations.
 - Invoice totals from already-rounded line values.
 
+Live API uses tax-exclusive 18% when `Aplicar ITBIS` is on (SALE-010). Completed invoices keep stored money.
+
 ### Line types enabled in this release
 
 Enable line types that do **not** require inventory synchronization:
@@ -278,12 +320,12 @@ Do **not** enable tracked-item or quantity inventory lines yet.
 
 ### Tax/output
 
-- Fixed 18% included ITBIS for taxable merchandise lines.
+- Live API: optional `Aplicar ITBIS`, tax-exclusive base + 18% per taxable line, independent of fiscal emission (SALE-009/SALE-010).
 - Service and delivery non-taxable.
 - Internal printable PDF.
 - Blank NCF field for external/manual process.
 - No DGII integration.
-- PDF regeneration from immutable invoice facts.
+- PDF regeneration from immutable invoice facts; current corporate profile on re-download (DOC-001).
 
 ### Cost/profitability needed by enabled lines
 
@@ -312,7 +354,7 @@ UI must not imply inventory synchronization for unsupported lines.
 
 - FAC concurrency/non-reuse.
 - DOP/USD single-currency validation.
-- tax-inclusive 18% calculations.
+- tax-exclusive 18% calculations (SALE-010).
 - two-decimal per-line rounding.
 - immutable customer snapshot.
 - PDF failure/regeneration.
@@ -324,10 +366,10 @@ UI must not imply inventory synchronization for unsupported lines.
 
 A Seller can:
 
-1. select/create a customer or use Cliente contado where eligible;
+1. select/create a `CASH` customer or use Cliente contado where eligible;
 2. create a Draft;
-3. add supported non-inventory lines;
-4. confirm a valid DOP/USD invoice;
+3. add supported non-inventory lines without billing cost fields;
+4. confirm a valid DOP/USD invoice under SALE-005 (cash settled in full; credit only for `CREDIT`+DOP with limit/term snapshot — Paso 5 local);
 5. receive a unique FAC number;
 6. print/regenerate the internal PDF;
 
@@ -362,8 +404,9 @@ The company can immediately track credit sales and know who owes money.
 - Same invoice currency.
 - Additive ledger.
 - Duplicate-submission protection.
-- Fixed due date at the end of the local calendar day 30 days after confirmation.
-- Derived Pending / Overdue / Paid / Paid late / Cancelled state.
+- Live API: cash invoices store `dueDate` as the local confirmation calendar day (end of day, `America/Santo_Domingo`). New credit invoices use the snapshotted customer term (CUST-005 / SALE-005). Historical completed invoices keep stored due dates.
+- Target already applied for new confirmations (CUST-005 / SALE-005): **new credit invoices** due at confirmation + the customer’s chosen term (30, 45, 60, 90, or 120). Do not keep a universal +30. Historical completed invoices keep stored due dates.
+- Derived Pending / Partially paid / Overdue / Partially paid overdue / Paid / Paid late / Cancelled state (`PAY-006` target; live API still lacks the partial labels `ABONADO` / `ABONADA VENCIDA`).
 - Derived outstanding balance.
 
 ### Basic Accounts Receivable
@@ -395,13 +438,13 @@ For invoices that have **no inventory effects**, implement:
 ## Intentionally deferred AR behavior
 
 - aging buckets;
-- credit limits;
 - interest;
 - installment plans;
 - collection workflow;
-- formal statements;
 - automatic reminders;
 - bank reconciliation.
+
+Pulled into the pre-production change set (no longer deferred): credit limits and customer terms (`CUST-004`–`CUST-006`), formal account statements (`STMT-001`).
 
 ## Exit gate
 
@@ -512,7 +555,7 @@ Register and find real stock accurately before linking it to invoice reservation
 
 - DOP acquisition cost.
 - actual / estimated / unknown.
-- Seller/Admin cost visibility.
+- Seller/Admin billing cost capture removed (`COST-006`); inventory cost remains later.
 - Administrator protected correction.
 - profitability access boundary.
 

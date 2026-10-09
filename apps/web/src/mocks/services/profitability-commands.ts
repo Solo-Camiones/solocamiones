@@ -74,7 +74,9 @@ export function setFxAvailable(
   appendEvent(
     state,
     'DEMO_FX_TOGGLED',
-    input.available ? 'Tasa de cambio de demostración activada' : 'Tasa de cambio de demostración desactivada',
+    input.available
+      ? 'Tasa de cambio de demostración activada'
+      : 'Tasa de cambio de demostración desactivada',
     actor,
     { fxAvailableBefore: previous, fxAvailableAfter: input.available },
   );
@@ -100,17 +102,20 @@ export function retryUsdProfitability(
     return err({ code: 'NOT_FOUND', message: 'Factura no encontrada' });
   }
 
-  if (invoice.status !== 'COMPLETED' || invoice.currency !== 'USD') {
+  if (
+    (invoice.status !== 'COMPLETED' && invoice.status !== 'CONDUCE') ||
+    invoice.currency !== 'USD'
+  ) {
     return err({
       code: 'VALIDATION',
-      message: 'Solo se puede reintentar rentabilidad en facturas en dólares completadas',
+      message: 'Solo se puede reintentar rentabilidad en ventas en dólares reconocidas',
     });
   }
 
   if (invoice.profitabilityPendingFx !== true) {
     return err({
       code: 'CONFLICT',
-      message: 'Esta factura no tiene rentabilidad pendiente de tasa de cambio',
+      message: 'Esta venta no tiene rentabilidad pendiente de tasa de cambio',
     });
   }
 
@@ -119,7 +124,11 @@ export function retryUsdProfitability(
   const numberBefore = invoice.number;
   const outcome = applyUsdProfitability(state, invoice);
 
-  if (invoice.payments.length !== paymentsBefore || invoice.status !== statusBefore || invoice.number !== numberBefore) {
+  if (
+    invoice.payments.length !== paymentsBefore ||
+    invoice.status !== statusBefore ||
+    invoice.number !== numberBefore
+  ) {
     return err({
       code: 'INTERNAL',
       message: 'El reintento no debe alterar el estado comercial',
@@ -129,11 +138,12 @@ export function retryUsdProfitability(
   if (outcome === 'PENDING_FX') {
     return err({
       code: 'VALIDATION',
-      message: 'Tasa de cambio no disponible. Active la tasa de cambio de demostración y reintente.',
+      message:
+        'Tasa de cambio no disponible. Active la tasa de cambio de demostración y reintente.',
     });
   }
 
-  const number = invoice.number ?? invoice.id;
+  const number = invoice.number ?? invoice.conduceNumber ?? invoice.id;
 
   appendEvent(
     state,
@@ -176,17 +186,18 @@ export function recordManualGrossProfit(
     return err({ code: 'NOT_FOUND', message: 'Factura no encontrada' });
   }
 
-  if (invoice.status !== 'COMPLETED') {
+  if (invoice.status !== 'COMPLETED' && invoice.status !== 'CONDUCE') {
     return err({
       code: 'VALIDATION',
-      message: 'Solo se puede registrar ganancia bruta en facturas completadas',
+      message: 'Solo se puede registrar ganancia bruta en ventas reconocidas',
     });
   }
 
   if (invoice.profitabilityPendingFx === true) {
     return err({
       code: 'CONFLICT',
-      message: 'Reintente primero el cálculo con la tasa de cambio; no registre un monto mientras esté pendiente',
+      message:
+        'Reintente primero el cálculo con la tasa de cambio; no registre un monto mientras esté pendiente',
     });
   }
 
@@ -219,18 +230,12 @@ export function recordManualGrossProfit(
     });
   }
 
-  const number = invoice.number ?? invoice.id;
-  appendEvent(
-    state,
-    'GROSS_PROFIT_RECORDED',
-    `Ganancia bruta registrada para ${number}`,
-    actor,
-    {
-      invoiceId: invoice.id,
-      before,
-      after: profitDop,
-    },
-  );
+  const number = invoice.number ?? invoice.conduceNumber ?? invoice.id;
+  appendEvent(state, 'GROSS_PROFIT_RECORDED', `Ganancia bruta registrada para ${number}`, actor, {
+    invoiceId: invoice.id,
+    before,
+    after: profitDop,
+  });
 
   return ok(invoice);
 }

@@ -1,4 +1,8 @@
-import type { ProfitabilityChartPoint, ProfitabilityCharts } from '../../api/contracts/profitability';
+import type {
+  CollectedByMethodPoint,
+  ProfitabilityChartPoint,
+  ProfitabilityCharts,
+} from '../../api/contracts/profitability';
 import { roundMoney } from '../../api/client/profitability-series';
 import type { DateRange } from './period';
 
@@ -23,6 +27,12 @@ export type CombinedDayPoint = {
   label: string;
   profit: number;
   collected: number;
+};
+
+export type PeriodCollectionByMethod = {
+  CASH: number;
+  TRANSFER: number;
+  CHECK: number;
 };
 
 function nextDay(day: string): string {
@@ -102,6 +112,31 @@ export function sumAmounts(points: ProfitabilityChartPoint[]): number {
   return roundMoney(points.reduce((sum, point) => sum + point.amount, 0));
 }
 
+function fillMethodRange(
+  points: CollectedByMethodPoint[],
+  range: DateRange,
+): CollectedByMethodPoint[] {
+  const byKey = new Map(points.map((point) => [point.key, point]));
+  return enumerateKeys(range.from, range.to, nextDay).map((key) => {
+    const existing = byKey.get(key);
+    return {
+      key,
+      label: DAY_LABEL.format(utcNoon(key)),
+      CASH: existing?.CASH ?? 0,
+      TRANSFER: existing?.TRANSFER ?? 0,
+      CHECK: existing?.CHECK ?? 0,
+    };
+  });
+}
+
+function sumMethodAmounts(points: CollectedByMethodPoint[]): PeriodCollectionByMethod {
+  return {
+    CASH: roundMoney(points.reduce((sum, point) => sum + point.CASH, 0)),
+    TRANSFER: roundMoney(points.reduce((sum, point) => sum + point.TRANSFER, 0)),
+    CHECK: roundMoney(points.reduce((sum, point) => sum + point.CHECK, 0)),
+  };
+}
+
 export function combineDailySeries(
   profit: ProfitabilityChartPoint[],
   collected: ProfitabilityChartPoint[],
@@ -124,8 +159,13 @@ export function toChartView(
   collectedByMonth: ProfitabilityChartPoint[];
   periodProfit: number;
   periodCollected: number;
+  periodInvoicedCash: number;
+  periodInvoicedCredit: number;
+  periodInvoicedTotal: number;
+  periodCollectedByMethod: PeriodCollectionByMethod;
 } {
   const emptyMonths = lastCalendarMonths([], today.slice(0, 7));
+  const emptyMethods: PeriodCollectionByMethod = { CASH: 0, TRANSFER: 0, CHECK: 0 };
   if (!charts) {
     const daily = combineDailySeries(fillDailyRange([], range), fillDailyRange([], range));
     return {
@@ -134,12 +174,21 @@ export function toChartView(
       collectedByMonth: emptyMonths,
       periodProfit: 0,
       periodCollected: 0,
+      periodInvoicedCash: 0,
+      periodInvoicedCredit: 0,
+      periodInvoicedTotal: 0,
+      periodCollectedByMethod: emptyMethods,
     };
   }
 
   const profitDays = fillDailyRange(charts.profitByDay, range);
   const collectedDays = fillDailyRange(charts.collectedByDay, range);
+  const invoicedCashDays = fillDailyRange(charts.invoicedCashByDay, range);
+  const invoicedCreditDays = fillDailyRange(charts.invoicedCreditByDay, range);
+  const methodDays = fillMethodRange(charts.collectedByMethodByDay, range);
   const endMonth = today.slice(0, 7);
+  const periodInvoicedCash = sumAmounts(invoicedCashDays);
+  const periodInvoicedCredit = sumAmounts(invoicedCreditDays);
 
   return {
     daily: combineDailySeries(profitDays, collectedDays),
@@ -147,5 +196,9 @@ export function toChartView(
     collectedByMonth: lastCalendarMonths(charts.collectedByMonth, endMonth),
     periodProfit: sumAmounts(profitDays),
     periodCollected: sumAmounts(collectedDays),
+    periodInvoicedCash,
+    periodInvoicedCredit,
+    periodInvoicedTotal: roundMoney(periodInvoicedCash + periodInvoicedCredit),
+    periodCollectedByMethod: sumMethodAmounts(methodDays),
   };
 }

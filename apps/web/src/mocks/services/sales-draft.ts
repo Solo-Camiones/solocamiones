@@ -9,13 +9,13 @@ import {
 } from './inventory-helpers';
 import { activeWorkAffectingAssembly, customerQualifiesForFiscal } from './sales-helpers';
 import {
-  invoiceItbis,
+  applyInvoiceDiscount,
   invoiceTaxableBase,
-  invoiceTotal,
   lineBase,
   lineGross,
   lineItbis,
 } from './invoice-money';
+import { currentDemoTimeIso } from '../data/demo-clock';
 
 function toLineView(state: AppState, invoice: Invoice, line: InvoiceLine): PosLineView {
   const item = line.itemId ? itemById(state.items, line.itemId) : undefined;
@@ -32,14 +32,12 @@ function toLineView(state: AppState, invoice: Invoice, line: InvoiceLine): PosLi
     unitPrice: line.unitPrice,
     taxable: line.taxable,
     pricePending: Boolean(line.pricePending),
-    gross: lineGross(line),
-    itbis: lineItbis(line, invoice.fiscal),
-    base: lineBase(line, invoice.fiscal),
+    gross: lineGross(line, invoice.applyItbis === true),
+    itbis: lineItbis(line, invoice.applyItbis === true),
+    base: lineBase(line),
     itemId: line.itemId,
     qtyProductId: line.qtyProductId,
     serviceId: line.serviceId,
-    acquisitionCostDop: line.acquisitionCostDop,
-    costProvenance: line.costProvenance ?? (line.acquisitionCostDop == null ? 'UNKNOWN' : 'ACTUAL'),
     installed: item?.physicalRelationship === 'INSTALLED',
     parentName: item?.parentId ? itemById(state.items, item.parentId)?.name : undefined,
     isAssembly,
@@ -76,7 +74,7 @@ function sellableItems(state: AppState, draft: Invoice): PosDraftView['items'] {
 }
 
 function blockersFor(state: AppState, invoice: Invoice, lines: PosLineView[]): string[] {
-  if (invoice.status !== 'DRAFT') {
+  if (invoice.status !== 'DRAFT' && invoice.status !== 'QUOTE_DRAFT') {
     return [];
   }
 
@@ -110,19 +108,35 @@ export function buildPosDraftView(state: AppState, invoice: Invoice): PosDraftVi
     id: invoice.id,
     status: invoice.status,
     number: invoice.number,
+    quoteNumber: invoice.quoteNumber,
+    quoteIssuedAt: invoice.quoteIssuedAt,
+    quoteExpiresAt: invoice.quoteExpiresAt,
+    quoteExpired:
+      invoice.status === 'QUOTE_ISSUED' &&
+      Boolean(
+        invoice.quoteExpiresAt &&
+        Date.parse(invoice.quoteExpiresAt) < Date.parse(currentDemoTimeIso()),
+      ),
     customerId: invoice.customerId,
     customerName: invoice.customerSnapshot?.name ?? customer?.name ?? invoice.customerId,
     customerRnc: invoice.customerSnapshot?.rnc ?? customer?.rnc,
     customerIsDefault: Boolean(customer?.isDefault),
+    customerType: customer?.customerType === 'CREDIT' ? 'CREDIT' : 'CASH',
     currency: invoice.currency,
     fiscal: invoice.fiscal,
+    applyItbis: invoice.applyItbis === true,
+    discountPercent: invoice.discountPercent ?? 0,
     lines,
-    totals: {
-      lineCount: invoice.lines.length,
-      gross: invoiceTotal(invoice),
-      itbis: invoiceItbis(invoice),
-      taxableBase: invoiceTaxableBase(invoice),
-    },
+    totals: (() => {
+      const discounted = applyInvoiceDiscount(invoice);
+      return {
+        lineCount: invoice.lines.length,
+        gross: discounted.gross,
+        itbis: discounted.itbis,
+        taxableBase: invoiceTaxableBase(invoice),
+        discount: discounted.discount,
+      };
+    })(),
     customers: state.customers.map((entry) => ({
       id: entry.id,
       name: entry.name,

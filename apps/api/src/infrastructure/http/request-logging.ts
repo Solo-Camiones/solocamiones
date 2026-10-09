@@ -17,6 +17,7 @@ export function requestLoggingMiddleware(req: Request, res: Response, next: Next
         path: req.requestPath,
         statusCode: res.statusCode,
         durationMs,
+        release: process.env.APP_RELEASE,
       },
       'request completed',
     );

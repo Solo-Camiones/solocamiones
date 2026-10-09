@@ -1,13 +1,18 @@
 import { useCallback, useEffect, useState } from 'react';
 
-import type { ProfitabilitySnapshot, RecordManualGrossProfitInput, RetryUsdProfitabilityInput } from '../../api/contracts/profitability';
+import type {
+  ProfitabilitySnapshot,
+  RecordManualGrossProfitInput,
+  RetryUsdProfitabilityInput,
+} from '../../api/contracts/profitability';
 import { profitabilityRepository } from '../../api/repositories';
 import type { AppError, Result } from '../../shared/auth/types';
+import { beginQueryReload } from '../../shared/query/begin-query-reload';
 
 type Query =
   | { status: 'loading' }
   | { status: 'error'; error: AppError }
-  | { status: 'ready'; snapshot: ProfitabilitySnapshot };
+  | { status: 'ready'; snapshot: ProfitabilitySnapshot; isRefreshing: boolean };
 
 export function useProfitability() {
   const [query, setQuery] = useState<Query>({ status: 'loading' });
@@ -15,9 +20,9 @@ export function useProfitability() {
 
   useEffect(() => {
     let cancelled = false;
-    setQuery({ status: 'loading' });
+    setQuery(beginQueryReload);
 
-    profitabilityRepository.getSnapshot().then((response) => {
+    void profitabilityRepository.getSnapshot().then((response) => {
       if (cancelled) {
         return;
       }
@@ -25,7 +30,7 @@ export function useProfitability() {
         setQuery({ status: 'error', error: response.error });
         return;
       }
-      setQuery({ status: 'ready', snapshot: response.value });
+      setQuery({ status: 'ready', snapshot: response.value, isRefreshing: false });
     });
 
     return () => {
@@ -40,7 +45,7 @@ export function useProfitability() {
     if (!response.ok) {
       return response;
     }
-    setQuery({ status: 'ready', snapshot: response.value });
+    setQuery({ status: 'ready', snapshot: response.value, isRefreshing: false });
     return { ok: true, value: undefined };
   }, []);
 
@@ -51,7 +56,7 @@ export function useProfitability() {
     if (!response.ok) {
       return response;
     }
-    setQuery({ status: 'ready', snapshot: response.value });
+    setQuery({ status: 'ready', snapshot: response.value, isRefreshing: false });
     return { ok: true, value: undefined };
   }, []);
 
@@ -63,7 +68,7 @@ export function useProfitability() {
       if (!response.ok) {
         return response;
       }
-      setQuery({ status: 'ready', snapshot: response.value });
+      setQuery({ status: 'ready', snapshot: response.value, isRefreshing: false });
       return { ok: true, value: undefined };
     },
     [],

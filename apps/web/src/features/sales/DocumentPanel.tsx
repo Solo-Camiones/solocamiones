@@ -1,4 +1,5 @@
 import { currencyLabel, Field, Info, SelectMenu } from '../../shared/ui';
+import { formatFiscalId } from '../../shared/domain/fiscal-id';
 import type { Currency } from '../../api/contracts/entities';
 import type { PosDraftView } from '../../api/contracts/sales';
 
@@ -10,6 +11,7 @@ type DocumentPanelProps = {
   onCustomerChange: (customerId: string) => void;
   onCurrencyChange: (currency: Currency) => void;
   onFiscalChange: (fiscal: boolean) => void;
+  onApplyItbisChange: (applyItbis: boolean) => void;
 };
 
 export function DocumentPanel({
@@ -20,12 +22,13 @@ export function DocumentPanel({
   onCustomerChange,
   onCurrencyChange,
   onFiscalChange,
+  onApplyItbisChange,
 }: DocumentPanelProps) {
   const fiscalLocked = draft.customerIsDefault || !draft.customerRnc;
   const customerOptions = draft.customers.map((customer) => ({
     value: customer.id,
     label: customer.isDefault ? `${customer.name} (predeterminado)` : customer.name,
-    description: customer.rnc,
+    description: customer.rnc ? formatFiscalId(customer.rnc) : undefined,
   }));
 
   return (
@@ -74,7 +77,24 @@ export function DocumentPanel({
         <span className="font-medium">
           Factura con comprobante fiscal
           <span className="mt-0.5 block text-xs font-normal text-navy-400">
-            Activa el ITBIS (18% incluido) en las líneas gravadas. Requiere cliente con RNC o cédula.
+            Requiere cliente con RNC o cédula. No calcula ITBIS por sí solo.
+          </span>
+        </span>
+      </label>
+      <label htmlFor="pos-apply-itbis" className="flex items-start gap-2 text-sm text-navy">
+        <input
+          id="pos-apply-itbis"
+          data-pos-field="apply-itbis"
+          type="checkbox"
+          className="mt-1"
+          checked={draft.applyItbis}
+          disabled={readOnly || isMutating}
+          onChange={(event) => onApplyItbisChange(event.target.checked)}
+        />
+        <span className="font-medium">
+          Aplicar ITBIS
+          <span className="mt-0.5 block text-xs font-normal text-navy-400">
+            Suma 18% sobre el subtotal de las líneas gravadas. Servicios y entrega quedan exentos.
           </span>
         </span>
       </label>

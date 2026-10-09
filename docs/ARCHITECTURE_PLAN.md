@@ -32,7 +32,7 @@ Detailed confirmed business behavior now lives in the relevant `FEATURES/*.md` s
 - Creating an order does not change hierarchy. After baseline registration, only successful Work Order completion represents real physical relationship change; the separate protected correction may repair baseline-derived relationship facts and direct-parent completeness only when receipt reality was originally recorded incorrectly.
 - A protected `No desarmar` root blocks separate sale or dismantling throughout its descendant subtree. Administrator alone may apply or remove the protection.
 - A parent is Complete only when it has zero unresolved Known Missing Components, whether the origin is `MISSING_AT_RECEIPT` or `REMOVED_AFTER_BASELINE`. Completeness never cascades to higher ancestors and is independent of engine testing.
-- Each invoice uses exactly one currency, `DOP` or `USD`; payments and refunds match it, and no operational invoice, payment, or refund currency conversion is supported. Acquisition cost is always stored in `DOP`. FX conversion is used only to derive the `USD`-equivalent acquisition cost for profitability on `USD` invoices. Each line's monetary results are rounded to two decimals, and invoice totals use those already rounded line values. Successful confirmation assigns one shared, never-reused `FAC-000001` sequence. An unavailable FX rate never blocks confirmation.
+- Each invoice uses exactly one currency, `DOP` or `USD`; payments and refunds match it, and no operational invoice, payment, or refund currency conversion is supported. Acquisition cost is always stored in `DOP`. FX conversion is used only to derive the `USD`-equivalent acquisition cost for profitability on `USD` invoices. Each line's monetary results are rounded to two decimals, and invoice totals use those already rounded line values. Successful confirmation assigns one shared, never-reused `FAC-000001` sequence. An unavailable FX rate never blocks confirmation. **Feature 16 (domain M2):** the same sales aggregate also owns an independent never-reused `CON-` sequence and `CONDUCE` status; converting to invoice later assigns `FAC-` without a second commercial recognition (emission/conversion runtime in M3+).
 - Drafts have no automatic expiry. Administrator recovery may release an abandoned Draft/reservation through a named audited operation.
 - A complete-assembly sale is rejected while relevant Pending or In Progress physical Work Orders could change its delivered subtree. After resolution, confirmation rereads the current tree and preserves an immutable snapshot of the exact hierarchy delivered.
 - Critical transitions use short PostgreSQL transactions, constraints, conditional writes, and optimistic checks. No distributed locking, broker, workflow engine, event sourcing, or microservice boundary is needed.
@@ -106,31 +106,32 @@ No library recommendation in this document authorizes installation. Versions and
 
 Requirement ranges below refer to the stable IDs preserved inside the corresponding `FEATURES/*.md` specifications.
 
-| Module | Responsibility | Shared requirement range |
-|---|---|---|
-| Access | Sign-in, sign-out, sessions, active-user checks, password lifecycle | `AUTH-001–AUTH-005` |
-| Users | Administrator-managed account lifecycle within Feature 01 (`users` module) | `AUTH-003`, `AUTH-004` |
-| Administration | Catalog administration, protected cost/baseline/invoice-currency corrections, named operational recovery, and consistency diagnostics | `ADMIN-001–ADMIN-002` |
-| Inventory | Unique physical item identity, descriptive fields, operational states | `INV-001–INV-006` |
-| Quantity Stock | Interchangeable product records, on-hand quantities, atomic adjustments | `QTY-001–QTY-003` |
-| Categories | Controlled categories, category-specific attributes, and general expected-component definitions for assembly categories | `CAT-001–CAT-003` |
-| Hierarchy | Initial observed baselines, current parent, relationship history, Known Missing Components and origins, dismantling rules, completeness | `HIER-001–HIER-011` |
-| Search | Search, filters, result projection, parent/location context | `SEARCH-001–SEARCH-003` |
-| Locations | Free-text location and effective inherited location | `LOC-001–LOC-002` |
-| Photos | Photo metadata, primary selection, object-storage coordination | `PHOTO-001` |
-| Customers | Generic and identified customers, fiscal identity snapshots | `CUST-001–CUST-003` |
-| Reservations | Draft-linked holds, conflicts, eligible release, and abandoned-Draft recovery without automatic expiry | `RES-001–RES-003` |
-| Sales | Draft/completed/cancelled invoice lifecycle, one DOP/USD currency, internal numbering, and totals | `SALE-001–SALE-008` |
-| Sale Lines | Unique items, quantity products, catalog-selected services, shipping, and descriptive lines | `LINE-001–LINE-006` |
-| Costs and Profitability | `DOP` acquisition cost, invoice-currency gross profit, FX enrichment for `USD` invoices, administrator-recorded profit when cost is unknown, finance visibility | `COST-001–COST-005` |
-| Payments | Same-invoice-currency cash/credit, partial and mixed-method records, balances, and refunds | `PAY-001–PAY-005` |
-| Cancellation and Refunds | Cancellation reason, inventory outcome, refund records, and linked physical-work branches | `CANCEL-001–CANCEL-005` |
-| Work Orders | One-piece Dismantling and Installation operations, lifecycle, assignment, claim, and recovery | `WO-001–WO-010` |
-| Evidence | BEFORE/AFTER photo classification, upload state, authorization, and retention linkage | `PHOTO-001`, `WO-005`, `WO-010` |
-| Invoice Documents | Immutable invoice facts and reproducible internal PDF output | `SALE-003–SALE-004`, `ADMIN-002` |
-| History | Append-only operational events and cross-record traceability | `HIST-001–HIST-003` |
+| Module                   | Responsibility                                                                                                                                                  | Shared requirement range                                |
+| ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------- |
+| Access                   | Sign-in, sign-out, sessions, active-user checks, password lifecycle                                                                                             | `AUTH-001–AUTH-005`                                     |
+| Users                    | Administrator-managed account lifecycle within Feature 01 (`users` module)                                                                                      | `AUTH-003`, `AUTH-004`                                  |
+| Administration           | Catalog administration, protected cost/baseline/invoice-currency corrections, named operational recovery, and consistency diagnostics                           | `ADMIN-001–ADMIN-002`                                   |
+| Inventory                | Unique physical item identity, descriptive fields, operational states                                                                                           | `INV-001–INV-006`                                       |
+| Quantity Stock           | Interchangeable product records, on-hand quantities, atomic adjustments                                                                                         | `QTY-001–QTY-003`                                       |
+| Categories               | Controlled categories, category-specific attributes, and general expected-component definitions for assembly categories                                         | `CAT-001–CAT-003`                                       |
+| Hierarchy                | Initial observed baselines, current parent, relationship history, Known Missing Components and origins, dismantling rules, completeness                         | `HIER-001–HIER-011`                                     |
+| Search                   | Search, filters, result projection, parent/location context                                                                                                     | `SEARCH-001–SEARCH-003`                                 |
+| Locations                | Free-text location and effective inherited location                                                                                                             | `LOC-001–LOC-002`                                       |
+| Photos                   | Photo metadata, primary selection, object-storage coordination                                                                                                  | `PHOTO-001`                                             |
+| Customers                | Generic and identified customers, fiscal identity snapshots                                                                                                     | `CUST-001–CUST-003`                                     |
+| Reservations             | Draft-linked holds, conflicts, eligible release, and abandoned-Draft recovery without automatic expiry                                                          | `RES-001–RES-003`                                       |
+| Sales                    | Draft/quote/conduce/completed/cancelled lifecycle on one aggregate, one DOP/USD currency, `FAC-` / `CON-` / `COT-` numbering, and totals                        | `SALE-001–SALE-008`, `QUOTE-001–002`, `CON-001–CON-006` |
+| Sale Lines               | Unique items, quantity products, catalog-selected services, shipping, and descriptive lines                                                                     | `LINE-001–LINE-006`                                     |
+| Costs and Profitability  | `DOP` acquisition cost, invoice-currency gross profit, FX enrichment for `USD` invoices, administrator-recorded profit when cost is unknown, finance visibility | `COST-001–COST-005`                                     |
+| Payments                 | Same-invoice-currency cash/credit, partial and mixed-method records, balances, and refunds                                                                      | `PAY-001–PAY-005`                                       |
+| Cancellation and Refunds | Cancellation reason, inventory outcome, refund records, and linked physical-work branches                                                                       | `CANCEL-001–CANCEL-005`                                 |
+| Work Orders              | One-piece Dismantling and Installation operations, lifecycle, assignment, claim, and recovery                                                                   | `WO-001–WO-010`                                         |
+| Evidence                 | BEFORE/AFTER photo classification, upload state, authorization, and retention linkage                                                                           | `PHOTO-001`, `WO-005`, `WO-010`                         |
+| Invoice Documents        | Immutable invoice facts and reproducible internal PDF output                                                                                                    | `SALE-003–SALE-004`, `ADMIN-002`                        |
+| History                  | Append-only operational events and cross-record traceability                                                                                                    | `HIST-001–HIST-003`                                     |
+| Assistant                | Administrator-only hybrid RAG conversations, approved corpus retrieval, read-only commercial query tools, provider adapters, retention, and usage limits        | `AI-001–AI-010`                                         |
 
-Search is logically separate because it composes read data from inventory, quantity stock, hierarchy, location, photos, and protection state. It should not own those records. Work Orders coordinate physical operations but do not own inventory identity or invoice facts. Evidence owns upload and classification facts but cannot complete an order by itself. History records business evidence but should not decide another module's rules.
+Search is logically separate because it composes read data from inventory, quantity stock, hierarchy, location, photos, and protection state. It should not own those records. Work Orders coordinate physical operations but do not own inventory identity or invoice facts. Evidence owns upload and classification facts but cannot complete an order by itself. History records business evidence but should not decide another module's rules. **Feature 17 Assistant** is an optional read-side module: it owns assistant conversations/runs/sources and coordinates retrieval plus allowlisted projections from customers, sales, payments/receivables, and profitability. It must not call other modules' Prisma repositories, must not register write tools, and must keep OpenAI SDK types inside infrastructure adapters.
 
 ## Code Organization
 
@@ -152,7 +153,7 @@ feature/
 - **Repositories** own database access, query shape, and transaction-aware persistence.
 - **Middleware** handles shared HTTP concerns such as session authentication, authorization, request validation, rate limiting, logging, and error mapping.
 
-Use shared infrastructure only for genuinely cross-cutting concerns: database client, object-storage adapter, a small FX-rate adapter for `USD` profitability, clock/ID abstractions where testing requires them, errors, and logging. Avoid a generic `utils` dumping ground. The FX-rate adapter is not a sales, payments, or conversion module.
+Use shared infrastructure only for genuinely cross-cutting concerns: database client, object-storage adapter, a small FX-rate adapter for `USD` profitability, optional OpenAI client adapters behind Assistant ports (`LanguageModelGateway`, `KnowledgeRetriever`), clock/ID abstractions where testing requires them, errors, and logging. Avoid a generic `utils` dumping ground. The FX-rate adapter is not a sales, payments, or conversion module. OpenAI adapters are not a sales module and must not be imported by non-Assistant domain services.
 
 Do not create an artificial domain layer merely to mirror every service with another class. For this project, focused services plus explicit policies/value checks are enough. A richer domain model would become appropriate only if rules become difficult to express and test without it.
 
@@ -162,15 +163,16 @@ Do not create an artificial domain layer merely to mirror every service with ano
 - Quantity stock does not participate in physical hierarchy in the MVP. Only individually tracked items may participate in parent-child physical relationships.
 - Categories define allowed descriptive attributes and expected-component definitions but do not own or create physical inventory lifecycle.
 - Reservations temporarily control sellability; they do not mark an item sold.
-- Sales own invoice state and immutable completed-sale snapshots.
+- Sales own invoice state and immutable completed-sale snapshots. **Feature 16 (domain M2):** the same aggregate owns conduce state (`CONDUCE`, `conduceNumber`, `conduceIssuedAt`); conduce and invoice are not separate copied documents.
 - Sale lines describe what was sold. They may point to a unique item or quantity product, select a mechanical-service catalog entry with negotiated price, or represent a non-stock shipping/descriptive line.
-- Sales own the invoice's single DOP/USD currency and internal `FAC-` identity. Payments own same-currency money received and outstanding-balance facts; invoice completion and payment completion are separate because credit sales are normal.
-- Cancellation records that the sale was cancelled; refunds record money returned. Neither may erase the original sale or payment.
+- Sales own the invoice's single DOP/USD currency and internal `FAC-` identity (and independent `CON-` identity). Payments own same-currency money received and outstanding-balance facts; commercial recognition and payment completion are separate because credit sales (and named-`CASH` Admin conduces) are normal.
+- Cancellation records that the sale was cancelled; refunds record money returned (zero through net collected). Neither may erase the original sale or payment.
 - Acquisition cost is always stored in `DOP` and is separate from the negotiated selling price. Profitability is a secondary enrichment in the invoice currency: a `DOP` invoice subtracts the stored cost directly, and a `USD` invoice derives `costUsd = storedCostDop / exchangeRateDopPerUsd` without changing the stored cost. Seller and Administrator may view acquisition cost, Seller cannot edit protected cost, and only Administrator may view profit, margin, or profitability statistics.
 - Work Orders own post-baseline physical-operation state and assignment. They request later hierarchy changes only through their completion transaction; initial observed baseline registration is a separate Inventory/Hierarchy operation.
 - Evidence owns durable references and BEFORE/AFTER classification. A completed Work Order must retain its evidence and technical history.
 - Invoice Documents render preserved invoice facts. PDF generation failure does not invalidate an otherwise committed sale.
 - History receives facts from the service executing the transaction. It distinguishes receipt-baseline provenance from Work-Order-generated relationship events and is not a replacement for current state.
+- Assistant owns conversation/message/run/source/knowledge-document persistence and orchestration. It consumes read-only public projections from Customers, Sales, Payments/Receivables, and Costs/Profitability. Assistant deletions cascade only assistant rows. Document chunks and tool outputs are untrusted data. Provider outage must not affect commercial module availability or readiness.
 
 Cross-module workflows should have one coordinating application service that uses the participating repositories within one transaction. Avoid circular module calls.
 
@@ -263,7 +265,7 @@ The domain needs these explicit concepts without becoming a manufacturing or ERP
 4. **Real Inventory Item:** an individually tracked physical unit with its own identity and attributes. At receipt it may be linked to the assembly with observed-baseline provenance.
 5. **Current Physical Relationship:** the current direct parent-child fact for two real inventory items, separate from closed relationship history and from absence knowledge.
 6. **Known Missing Component:** an unresolved absence for one direct parent. `MISSING_AT_RECEIPT` references applicable expected/category semantics and no physical item; `REMOVED_AFTER_BASELINE` may reference the removed real item and completed Dismantling Work Order. Neither origin creates a fake item.
-7. **Invoice Currency and Internal Number:** one `DOP` or `USD` currency per invoice and one shared `FAC-` confirmation sequence. Neither implies operational conversion or NCF issuance. A `USD` invoice may obtain a normalized `exchangeRateDopPerUsd` value solely to derive the USD-equivalent acquisition-cost basis for profitability.
+7. **Invoice Currency and Internal Number:** one `DOP` or `USD` currency per invoice and one shared `FAC-` confirmation sequence. Neither implies operational conversion or NCF issuance. A `USD` invoice may obtain a normalized `exchangeRateDopPerUsd` value solely to derive the USD-equivalent acquisition-cost basis for profitability. **Feature 16 (domain M2):** independent `CON-` sequence on the same aggregate; `confirmedAt` is commercial recognition (conduce emission or direct invoice confirmation); `invoiceIssuedAt` is the documentary `FAC-` timestamp (backfilled from `confirmedAt` for historical invoices; set equal on direct confirm; set at conversion time when M3 ships).
 8. **Work Order:** the one-piece instruction and evidence record for real post-baseline dismantling or installation. Completion changes physical relationships and may create or resolve missing knowledge.
 9. **Baseline Provenance:** actor, timestamp, observed relationships, three-state checklist outcomes, derived completeness, and receipt context preserved by HIER-011.
 10. **Protected Administrative Correction:** an additive Administrator-only operation with reason and before/corrected states for eligible acquisition-cost, receipt-baseline, or completed/no-payment invoice-currency correction.
@@ -362,7 +364,7 @@ A completed sale is never edited back into a draft or deleted. Each Administrato
 
 When dismantling is In Progress, Administrator must coordinate with the assigned Mechanic and explicitly record a reasoned choice: stop after verifying the piece can remain Installed, or cancel/refund the invoice while physical work continues. In the latter case the Available/Installed piece may be sold again and confirmation must reuse the existing active order.
 
-If money was received, cancellation also requires a refund in the invoice currency. Invoice, payment, and refund states remain separate. Internal records can be committed atomically; an external payment-provider call, if ever added, cannot be part of a database transaction and would require an idempotent workflow with retry/reconciliation.
+If money was received, cancellation also records an Administrator-indicated refund from zero through net collected in the invoice currency. Invoice, payment, and refund states remain separate. Internal records can be committed atomically; an external payment-provider call, if ever added, cannot be part of a database transaction and would require an idempotent workflow with retry/reconciliation.
 
 ### Secondary PDF generation
 
@@ -413,7 +415,7 @@ Authentication answers who the user is; authorization answers whether that user 
 The MVP has three roles:
 
 - **Administrator:** performs normal Seller operations and alone manages users and business catalogs; applies/removes `No desarmar`; creates manual Dismantling and Installation Work Orders; cancels confirmed invoices and registers same-currency refunds; performs named protected cost, receipt-baseline, and completed/no-payment currency corrections; uses operational recovery; and views profitability.
-- **Seller:** performs normal inventory, customer, Draft, reservation, negotiated-price, sale, and same-currency payment operations using maintained catalogs. Seller may register the initial received composition, view acquisition cost, and trigger creation/reuse of a Dismantling Work Order. Seller cannot maintain catalogs, edit protected cost, correct a committed baseline or completed invoice currency, create/complete standalone physical orders, directly change post-baseline hierarchy, cancel/refund, manage `No desarmar`, view profitability, or perform protected recovery.
+- **Seller:** performs normal inventory, customer, Draft, reservation, negotiated-price, and sale operations using maintained catalogs. Seller may register the required full initial payment when confirming a cash sale and trigger creation/reuse of a Dismantling Work Order. Seller cannot register later payments, open CxC, receive invoice payment state/balance/movements or acquisition cost, maintain catalogs, edit protected cost, correct a committed baseline or completed invoice currency, create/complete standalone physical orders, directly change post-baseline hierarchy, cancel/refund, manage `No desarmar`, view profitability, or perform protected recovery.
 - **Mechanic:** views and acts only on the restricted mobile Work Order projection. Any active-order modification or completion must verify that the Mechanic is currently assigned. The assigned Mechanic may optionally enter the removed piece's free-text location during Dismantling completion but has no general inventory-edit permission. The role receives no customer, invoice, price, cost, payment, refund, balance, profit, margin, or other commercial/financial data.
 
 Prefer explicit permission checks tied to operations over permissions encoded by screen. Follow least privilege and record protected actions with actor and reason.

@@ -3,7 +3,8 @@ import { useEffect, useState, type FormEvent } from 'react';
 import type { UpdateOwnProfileInput } from '../../api/contracts/profile';
 import type { AuthUser } from '../auth/auth-context';
 import { roleLabel } from '../../shared/auth/policies';
-import { Button, Card, Field, Info, Input } from '../../shared/ui';
+import { formatDominicanPhone } from '../../shared/domain/phone';
+import { Button, Card, Field, Info, Input, PasswordInput } from '../../shared/ui';
 
 type ProfileFormProps = {
   user: AuthUser;
@@ -24,7 +25,7 @@ type FormFields = {
 function fieldsFromUser(user: AuthUser): FormFields {
   return {
     name: user.name,
-    phone: user.phone ?? '',
+    phone: formatDominicanPhone(user.phone),
     email: user.email ?? '',
     currentPassword: '',
     newPassword: '',
@@ -86,11 +87,16 @@ export function ProfileForm({ user, isSaving, error, onSubmit }: ProfileFormProp
           <Field label="Teléfono" htmlFor="profile-phone" hint="Opcional">
             <Input
               id="profile-phone"
+              inputMode="numeric"
               value={fields.phone}
               onChange={(event) =>
-                setFields((current) => ({ ...current, phone: event.target.value }))
+                setFields((current) => ({
+                  ...current,
+                  phone: formatDominicanPhone(event.target.value),
+                }))
               }
               autoComplete="tel"
+              placeholder="809-555-0100"
             />
           </Field>
           <Field label="Correo" htmlFor="profile-email" hint="Opcional">
@@ -115,9 +121,8 @@ export function ProfileForm({ user, isSaving, error, onSubmit }: ProfileFormProp
           </p>
           <div className="space-y-4">
             <Field label="Contraseña actual" htmlFor="profile-current-password">
-              <Input
+              <PasswordInput
                 id="profile-current-password"
-                type="password"
                 value={fields.currentPassword}
                 onChange={(event) =>
                   setFields((current) => ({ ...current, currentPassword: event.target.value }))
@@ -126,9 +131,8 @@ export function ProfileForm({ user, isSaving, error, onSubmit }: ProfileFormProp
               />
             </Field>
             <Field label="Nueva contraseña" htmlFor="profile-new-password">
-              <Input
+              <PasswordInput
                 id="profile-new-password"
-                type="password"
                 value={fields.newPassword}
                 onChange={(event) =>
                   setFields((current) => ({ ...current, newPassword: event.target.value }))
@@ -137,9 +141,8 @@ export function ProfileForm({ user, isSaving, error, onSubmit }: ProfileFormProp
               />
             </Field>
             <Field label="Confirmar nueva contraseña" htmlFor="profile-confirm-password">
-              <Input
+              <PasswordInput
                 id="profile-confirm-password"
-                type="password"
                 value={fields.confirmPassword}
                 onChange={(event) =>
                   setFields((current) => ({ ...current, confirmPassword: event.target.value }))

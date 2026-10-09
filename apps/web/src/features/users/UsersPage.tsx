@@ -15,6 +15,7 @@ import {
   PaginationBar,
   SearchInput,
   Skeleton,
+  LoadingOverlay,
   toPageLoadMessage,
   useToast,
 } from '../../shared/ui';
@@ -176,7 +177,7 @@ export function UsersPage() {
       {result.status === 'loading' ? (
         <Skeleton label="Cargando usuarios" />
       ) : (
-        <>
+        <LoadingOverlay active={result.isRefreshing} label="Actualizando usuarios">
           <UserTable
             rows={result.rows}
             togglingId={togglingId}
@@ -202,7 +203,7 @@ export function UsersPage() {
               );
             }}
           />
-        </>
+        </LoadingOverlay>
       )}
 
       <RecoveryRequestsPanel

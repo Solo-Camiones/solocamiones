@@ -63,7 +63,9 @@ describe('MockInventoryRepository', () => {
     });
     expect(sellerResult.ok).toBe(true);
     expect(sellerResult.ok && sellerResult.value.location).toBe('Estante 3B');
-    expect(getMockState().items.find((item) => item.id === 'FIL-001')?.photos).toEqual(['filtro.jpg']);
+    expect(getMockState().items.find((item) => item.id === 'FIL-001')?.photos).toEqual([
+      'filtro.jpg',
+    ]);
 
     signInAs('MECHANIC');
     const mechanicResult = await mockInventoryRepository.updateItemDetails({
@@ -256,9 +258,9 @@ describe('MockInventoryRepository', () => {
       decision: 'NOT_APPLICABLE',
     });
     expect(confirmed.ok).toBe(true);
-    expect(
-      getMockState().pendingCatalogReviews.some((entry) => entry.parentId === 'MOT-001'),
-    ).toBe(false);
+    expect(getMockState().pendingCatalogReviews.some((entry) => entry.parentId === 'MOT-001')).toBe(
+      false,
+    );
 
     signInAs('SELLER');
     const denied = await mockInventoryRepository.resolveCatalogReview({
@@ -270,8 +272,8 @@ describe('MockInventoryRepository', () => {
     if (!denied.ok) {
       expect(denied.error.code).toBe('FORBIDDEN');
     }
-    expect(
-      getMockState().pendingCatalogReviews.some((entry) => entry.parentId === 'MOT-003'),
-    ).toBe(true);
+    expect(getMockState().pendingCatalogReviews.some((entry) => entry.parentId === 'MOT-003')).toBe(
+      true,
+    );
   });
 });

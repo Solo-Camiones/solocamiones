@@ -11,3 +11,6 @@ coverage/
 .github/context-mode/
 .sonar/
 .scannerwork/
+tmp/
+docs/assistant-eval/reports/*.json
+.trivyignore.generated

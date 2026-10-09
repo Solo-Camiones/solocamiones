@@ -21,21 +21,60 @@ describe('SalesPage', () => {
     resetMockState();
   });
 
-  it('shows unpaid and partially paid seed invoices', async () => {
+  it('hides payment state and balance from the seller list', async () => {
     renderWithProviders(<SalesPage />, { route: '/sales', auth: createAuthValue('SELLER') });
+
+    expect(await screen.findByText('FAC-000098')).toBeVisible();
+    expect(screen.getByText('FAC-000099')).toBeVisible();
+    expect(screen.queryByRole('columnheader', { name: 'Pago' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('columnheader', { name: 'Saldo' })).not.toBeInTheDocument();
+    expect(screen.queryByText('Sin pagar')).not.toBeInTheDocument();
+    expect(screen.queryByText('Pago parcial')).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'FAC-000098' })).toHaveAttribute(
+      'href',
+      '/sales/INV-098',
+    );
+  });
+
+  it('shows unpaid and partially paid seed invoices to an administrator', async () => {
+    signInAs('ADMINISTRATOR');
+    renderWithProviders(<SalesPage />, {
+      route: '/sales',
+      auth: createAuthValue('ADMINISTRATOR'),
+    });
 
     expect(await screen.findByText('FAC-000098')).toBeVisible();
     expect(screen.getByText('FAC-000099')).toBeVisible();
 
     const unpaidRow = screen.getByText('FAC-000098').closest('tr');
     const partialRow = screen.getByText('FAC-000099').closest('tr');
-    expect(unpaidRow && within(unpaidRow).getByText('Sin pagar')).toBeTruthy();
-    expect(partialRow && within(partialRow).getByText('Pago parcial')).toBeTruthy();
-    expect(screen.getByRole('link', { name: 'FAC-000098' })).toHaveAttribute(
-      'href',
-      '/sales/INV-098',
-    );
-    expect(unpaidRow).toHaveClass('cursor-pointer');
+    expect(unpaidRow && within(unpaidRow).getByText('Pendiente')).toBeTruthy();
+    expect(partialRow && within(partialRow).getByText('Abonado')).toBeTruthy();
+  });
+
+  it('shows payment state and balance for seed conduces to an administrator', async () => {
+    signInAs('ADMINISTRATOR');
+    renderWithProviders(<SalesPage />, {
+      route: '/sales',
+      auth: createAuthValue('ADMINISTRATOR'),
+    });
+
+    expect(await screen.findByText('CON-000001')).toBeVisible();
+    const conduceRow = screen.getByText('CON-000001').closest('tr');
+    expect(conduceRow).not.toBeNull();
+    expect(within(conduceRow!).getByText('Abonado')).toBeVisible();
+    // Seed CON-000001: total 12_000 − paid 4_000 = 8_000 remaining.
+    expect(within(conduceRow!).getByText(/8[,.]000/)).toBeVisible();
+  });
+
+  it('hides conduce payment settlement from the seller list', async () => {
+    renderWithProviders(<SalesPage />, { route: '/sales', auth: createAuthValue('SELLER') });
+
+    expect(await screen.findByText('CON-000001')).toBeVisible();
+    expect(screen.queryByRole('columnheader', { name: 'Pago' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('columnheader', { name: 'Saldo' })).not.toBeInTheDocument();
+    const conduceRow = screen.getByText('CON-000001').closest('tr');
+    expect(conduceRow && within(conduceRow).queryByText('Abonado')).toBeNull();
   });
 
   it('lists ten invoices per page and moves with Siguiente', async () => {
@@ -55,14 +94,14 @@ describe('SalesPage', () => {
 
     renderWithProviders(<SalesPage />, { route: '/sales', auth: createAuthValue('SELLER') });
 
-    expect(await screen.findByText('Mostrando 1–10 de 13')).toBeVisible();
+    expect(await screen.findByText('Mostrando 1–10 de 14')).toBeVisible();
     expect(screen.getByRole('button', { name: 'Siguiente' })).toBeEnabled();
-    expect(screen.getAllByRole('link', { name: /FAC-|Borrador/ })).toHaveLength(10);
+    expect(screen.getAllByRole('link', { name: /FAC-|Borrador|CON-/ })).toHaveLength(10);
 
     await user.click(screen.getByRole('button', { name: 'Siguiente' }));
 
-    expect(await screen.findByText('Mostrando 11–13 de 13')).toBeVisible();
-    expect(screen.getAllByRole('link', { name: /FAC-|Borrador/ })).toHaveLength(3);
+    expect(await screen.findByText('Mostrando 11–14 de 14')).toBeVisible();
+    expect(screen.getAllByRole('link', { name: /FAC-|Borrador|CON-/ })).toHaveLength(4);
   });
 
   it('filters drafts in the Borrador tab', async () => {
@@ -121,6 +160,40 @@ describe('SalesPage', () => {
     expect(screen.getByText('Mostrando 1–1 de 1')).toBeVisible();
   });
 
+  it('filters documents by a date range and can clear it', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<SalesPage />, { route: '/sales', auth: createAuthValue('SELLER') });
+    await screen.findByText('FAC-000098');
+
+    await user.click(screen.getByRole('button', { name: /Filtros avanzados/i }));
+    await user.type(screen.getByLabelText('Fecha desde'), '2026-08-25');
+    await user.type(screen.getByLabelText('Fecha hasta'), '2026-08-25');
+    await user.click(screen.getByRole('button', { name: 'Filtrar' }));
+
+    expect(await screen.findByText('FAC-000098')).toBeVisible();
+    expect(screen.queryByText('FAC-000097')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Limpiar fechas' })).toBeVisible();
+
+    await user.click(screen.getByRole('button', { name: 'Limpiar fechas' }));
+    expect(await screen.findByText('FAC-000097')).toBeVisible();
+  });
+
+  it('rejects an inverted date range without replacing the current list', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<SalesPage />, { route: '/sales', auth: createAuthValue('SELLER') });
+    await screen.findByText('FAC-000098');
+
+    await user.click(screen.getByRole('button', { name: /Filtros avanzados/i }));
+    await user.type(screen.getByLabelText('Fecha desde'), '2026-09-30');
+    await user.type(screen.getByLabelText('Fecha hasta'), '2026-09-01');
+    await user.click(screen.getByRole('button', { name: 'Filtrar' }));
+
+    expect(
+      screen.getByText('La fecha desde no puede ser posterior a la fecha hasta.'),
+    ).toBeVisible();
+    expect(screen.getByText('FAC-000098')).toBeVisible();
+  });
+
   it('opens the draft tab from the tab query param', async () => {
     renderWithProviders(<SalesPage />, {
       route: '/sales?tab=DRAFT',
@@ -128,24 +201,30 @@ describe('SalesPage', () => {
     });
 
     expect(await screen.findByRole('link', { name: 'Borrador' })).toBeVisible();
-    expect(screen.getByRole('button', { name: 'Borrador' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: 'Borrador' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
     expect(screen.queryByText('FAC-000098')).not.toBeInTheDocument();
   });
 
   it('hides zero-balance invoices when outstanding=1', async () => {
+    signInAs('ADMINISTRATOR');
     renderWithProviders(<SalesPage />, {
       route: '/sales?outstanding=1',
-      auth: createAuthValue('SELLER'),
+      auth: createAuthValue('ADMINISTRATOR'),
     });
 
     expect(await screen.findByText('FAC-000098')).toBeVisible();
     expect(screen.getByText('FAC-000099')).toBeVisible();
+    expect(screen.getByText('CON-000001')).toBeVisible();
     expect(screen.getByText('Saldo pendiente')).toBeVisible();
     expect(screen.queryByText('FAC-000097')).not.toBeInTheDocument();
     expect(screen.queryByText('FAC-000096')).not.toBeInTheDocument();
   });
 
   it('applies KPI filters before paginating', async () => {
+    signInAs('ADMINISTRATOR');
     const state = getMockState();
     const paid = state.invoices.find((entry) => entry.number === 'FAC-000097');
     expect(paid).toBeDefined();
@@ -163,7 +242,7 @@ describe('SalesPage', () => {
 
     renderWithProviders(<SalesPage />, {
       route: '/sales?outstanding=1',
-      auth: createAuthValue('SELLER'),
+      auth: createAuthValue('ADMINISTRATOR'),
     });
 
     expect(await screen.findByText('FAC-000098')).toBeVisible();
@@ -184,9 +263,10 @@ describe('SalesPage', () => {
   });
 
   it('shows the payment history when payments=1', async () => {
+    signInAs('ADMINISTRATOR');
     renderWithProviders(<SalesPage />, {
       route: '/sales?payments=1',
-      auth: createAuthValue('SELLER'),
+      auth: createAuthValue('ADMINISTRATOR'),
     });
 
     expect(await screen.findByText('FAC-000099')).toBeVisible();
@@ -209,6 +289,5 @@ describe('SalesPage', () => {
     expect(row).not.toBeNull();
     expect(within(row!).getAllByText('Cancelada')).toHaveLength(1);
     expect(within(row!).queryByText('Sin pagar')).not.toBeInTheDocument();
-    expect(within(row!).getByText('—')).toBeVisible();
   });
 });

@@ -16,10 +16,12 @@ export type InvoiceHistoryEntryView = {
   actorName?: string;
 };
 
+// Profit/FX stay Administrator-only. PAY-007 also hides payment movements from Seller.
 const ADMINISTRATOR_ONLY_EVENTS = new Set([
   'INVOICE_GROSS_PROFIT_RECORDED',
   'INVOICE_USD_FX_RECORDED',
   'INVOICE_USD_FX_RETRIED',
+  'PAYMENT_RECORDED',
 ]);
 
 const HIDDEN_INVOICE_TIMELINE_EVENTS = new Set([
@@ -75,6 +77,32 @@ function describeInvoiceHistoryEvent(row: InvoiceHistoryRow): string | null {
       return 'Borrador creado';
     case 'INVOICE_DRAFT_DISCARDED':
       return 'Borrador descartado';
+    case 'QUOTE_DRAFT_CREATED':
+      return 'Borrador de cotización creado';
+    case 'QUOTE_ISSUED': {
+      const number = stringField(payload, 'quoteNumber');
+      return number ? `Cotización ${number} emitida` : 'Cotización emitida';
+    }
+    case 'QUOTE_DUPLICATED':
+      return 'Cotización duplicada como nuevo borrador';
+    case 'QUOTE_CONVERTED': {
+      const number = stringField(payload, 'invoiceNumber');
+      return number ? `Cotización convertida en factura ${number}` : 'Cotización convertida';
+    }
+    case 'CONDUCE_ISSUED': {
+      const number = stringField(payload, 'conduceNumber');
+      return number ? `Conduce ${number} emitido` : 'Conduce emitido';
+    }
+    case 'QUOTE_CONVERTED_TO_CONDUCE': {
+      const number = stringField(payload, 'conduceNumber');
+      return number
+        ? `Cotización convertida en conduce ${number}`
+        : 'Cotización convertida en conduce';
+    }
+    case 'CONDUCE_INVOICED': {
+      const number = stringField(payload, 'invoiceNumber');
+      return number ? `Conduce facturado como ${number}` : 'Conduce facturado';
+    }
     case 'INVOICE_CONFIRMED': {
       const number = stringField(payload, 'number');
       return number ? `Factura ${number} confirmada` : 'Factura confirmada';

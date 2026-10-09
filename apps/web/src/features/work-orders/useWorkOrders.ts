@@ -8,11 +8,12 @@ import type {
 } from '../../api/contracts/work-orders';
 import type { AppError, Result } from '../../shared/auth/types';
 import { workOrderRepository } from '../../api/repositories';
+import { beginQueryReload } from '../../shared/query/begin-query-reload';
 
 type WorkOrdersQuery =
   | { status: 'loading' }
   | { status: 'error'; error: AppError }
-  | { status: 'ready'; rows: WorkOrderListRow[] };
+  | { status: 'ready'; rows: WorkOrderListRow[]; isRefreshing: boolean };
 
 export function useWorkOrders(tab: WorkOrderListTab) {
   const [reloadToken, setReloadToken] = useState(0);
@@ -22,9 +23,9 @@ export function useWorkOrders(tab: WorkOrderListTab) {
 
   useEffect(() => {
     let cancelled = false;
-    setResult({ status: 'loading' });
+    setResult(beginQueryReload);
 
-    workOrderRepository.list(tab).then((response) => {
+    void workOrderRepository.list(tab).then((response) => {
       if (cancelled) {
         return;
       }
@@ -34,7 +35,7 @@ export function useWorkOrders(tab: WorkOrderListTab) {
         return;
       }
 
-      setResult({ status: 'ready', rows: response.value });
+      setResult({ status: 'ready', rows: response.value, isRefreshing: false });
     });
 
     return () => {
@@ -45,7 +46,7 @@ export function useWorkOrders(tab: WorkOrderListTab) {
   useEffect(() => {
     let cancelled = false;
 
-    workOrderRepository.getCreateOptions().then((response) => {
+    void workOrderRepository.getCreateOptions().then((response) => {
       if (cancelled || !response.ok) {
         return;
       }

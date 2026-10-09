@@ -223,7 +223,7 @@ describe('Release 1 HTTP auth UI', () => {
     await user.type(screen.getByLabelText('Usuario para recuperación'), 'unknown');
     fetchMock.mockResolvedValueOnce(json({ error: { code: 'TOO_MANY_REQUESTS' } }, 429));
     await user.click(screen.getByRole('button', { name: 'Solicitar recuperación' }));
-    expect(await screen.findByText(/Demasiados intentos/)).toBeVisible();
+    expect(await screen.findByText(/límite de solicitudes/)).toBeVisible();
     await user.click(screen.getByRole('button', { name: 'Solicitar recuperación' }));
     expect(await screen.findByText('Solicitud recibida')).toBeVisible();
     await waitFor(() =>

@@ -1,0 +1,4 @@
+# Force LF for shell/systemd so Docker/Linux jobs do not break on CRLF from Windows checkouts.
+*.sh text eol=lf
+*.bash text eol=lf
+infra/vps/systemd/** text eol=lf

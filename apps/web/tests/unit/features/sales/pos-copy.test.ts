@@ -24,15 +24,15 @@ describe('pos-copy', () => {
   });
 
   it('turns stock conflicts into seller actions instead of HTTP status codes', () => {
-    expect(
-      toPosUserMessage({ code: 'CONFLICT', message: 'ALT-004 ya está vendido' }),
-    ).toBe('La pieza ALT-004 ya no está disponible. Elimínala del borrador o selecciona otra.');
+    expect(toPosUserMessage({ code: 'CONFLICT', message: 'ALT-004 ya está vendido' })).toBe(
+      'La pieza ALT-004 ya no está disponible. Elimínala del borrador o selecciona otra.',
+    );
     expect(
       toPosUserMessage({ code: 'CONFLICT', message: 'HTTP 409: /api/sales/INV-DRAFT-01/confirm' }),
     ).toBe('La pieza ya no está disponible. Elimínala del borrador o selecciona otra.');
-    expect(
-      toPosUserMessage({ code: 'CONFLICT', message: 'Stock insuficiente para QTY-OIL' }),
-    ).toBe('Esa cantidad de QTY-OIL ya no está disponible. Ajusta la línea o elige otro producto.');
+    expect(toPosUserMessage({ code: 'CONFLICT', message: 'Stock insuficiente para QTY-OIL' })).toBe(
+      'Esa cantidad de QTY-OIL ya no está disponible. Ajusta la línea o elige otro producto.',
+    );
   });
 
   it('summarizes blocked confirm next to the button without dropping the first reason', () => {

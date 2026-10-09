@@ -1,33 +1,34 @@
 import type { Invoice, InvoiceLine, Payment, PaymentState } from '../../api/contracts/entities';
+import { currentDemoTimeIso } from '../data/demo-clock';
 
-/** Included ITBIS rate — applied only when the invoice is fiscal and the line is taxable. */
-export const ITBIS_INCLUDED_RATE = 0.18;
+/** Tax-exclusive ITBIS rate added per taxable line when applyItbis is on. */
+export const ITBIS_RATE = 0.18;
 
 export function roundMoney(value: number): number {
   return Math.round((value + Number.EPSILON) * 100) / 100;
 }
 
-/** Final line price (tax-inclusive when fiscal). */
-export function lineGross(line: InvoiceLine): number {
+export function lineBase(line: InvoiceLine): number {
+  if (line.base != null) return line.base;
   return roundMoney(line.unitPrice * line.quantity);
 }
 
-/**
- * Included ITBIS extracted from the final price.
- * Non-fiscal invoices and non-taxable lines (service/delivery) yield 0.
- */
-export function lineItbis(line: InvoiceLine, fiscal: boolean): number {
-  if (!fiscal || !line.taxable) {
+export function lineItbis(line: InvoiceLine, applyItbis: boolean): number {
+  if (line.itbis != null) return line.itbis;
+  if (!applyItbis || !line.taxable) {
     return 0;
   }
 
-  const gross = lineGross(line);
-  const base = roundMoney(gross / (1 + ITBIS_INCLUDED_RATE));
-  return roundMoney(gross - base);
+  return roundMoney(lineBase(line) * ITBIS_RATE);
+}
+
+export function lineGross(line: InvoiceLine, applyItbis: boolean): number {
+  if (line.gross != null) return line.gross;
+  return roundMoney(lineBase(line) + lineItbis(line, applyItbis));
 }
 
 export function invoiceTotal(invoice: Invoice): number {
-  return roundMoney(invoice.lines.reduce((sum, line) => sum + lineGross(line), 0));
+  return applyInvoiceDiscount(invoice).gross;
 }
 
 export function isRefund(payment: Payment): boolean {
@@ -50,49 +51,87 @@ export function invoiceRefunded(invoice: Invoice): number {
   );
 }
 
-export function lineBase(line: InvoiceLine, fiscal: boolean): number {
-  const gross = lineGross(line);
-  if (!fiscal || !line.taxable) {
-    return gross;
-  }
-
-  return roundMoney(gross / (1 + ITBIS_INCLUDED_RATE));
+export function invoiceItbis(invoice: Invoice): number {
+  return applyInvoiceDiscount(invoice).itbis;
 }
 
-export function invoiceItbis(invoice: Invoice): number {
+export function invoiceTaxableBase(invoice: Invoice): number {
+  return roundMoney(invoice.lines.reduce((sum, line) => sum + lineBase(line), 0));
+}
+
+function sumLineGross(invoice: Invoice): number {
   return roundMoney(
-    invoice.lines.reduce((sum, line) => sum + lineItbis(line, invoice.fiscal), 0),
+    invoice.lines.reduce((sum, line) => sum + lineGross(line, invoice.applyItbis === true), 0),
   );
 }
 
-/** Sum of already-rounded line bases. Non-fiscal and non-taxable lines use gross as base. */
-export function invoiceTaxableBase(invoice: Invoice): number {
+function sumLineItbis(invoice: Invoice): number {
   return roundMoney(
-    invoice.lines.reduce((sum, line) => sum + lineBase(line, invoice.fiscal), 0),
+    invoice.lines.reduce((sum, line) => sum + lineItbis(line, invoice.applyItbis === true), 0),
   );
 }
 
 /**
- * Derives Unpaid / Partially Paid / Paid from the receipt ledger.
+ * Invoice-level discount on all line bases. Mirrors the API money helper.
+ * ITBIS stays the pre-discount sum of line ITBIS (SALE-010).
+ */
+export function applyInvoiceDiscount(
+  invoice: Invoice,
+  discountPercent = invoice.discountPercent ?? 0,
+): { discount: number; base: number; itbis: number; gross: number } {
+  const allBase = invoiceTaxableBase(invoice);
+  const percent = Math.min(100, Math.max(0, discountPercent));
+  const discount = roundMoney((allBase * percent) / 100);
+  const itbis = sumLineItbis(invoice);
+
+  if (discount === 0) {
+    return {
+      discount: 0,
+      base: allBase,
+      itbis,
+      gross: sumLineGross(invoice),
+    };
+  }
+
+  const base = roundMoney(allBase - discount);
+  const gross = roundMoney(base + itbis);
+  return { discount, base, itbis, gross };
+}
+
+/**
+ * Derives the public payment state from the receipt ledger and due date.
  * Seed FAC-000096 is marked PAID without rows; that marker is kept until a ledger exists.
  */
 export function derivePaymentState(invoice: Invoice): PaymentState {
   const paid = invoicePaid(invoice);
   const total = invoiceTotal(invoice);
 
+  if (invoice.status === 'CANCELLED') {
+    return 'CANCELLED';
+  }
+
   if (invoice.payments.length === 0 && invoice.paymentState === 'PAID') {
     return 'PAID';
   }
 
-  if (paid <= 0) {
-    return 'UNPAID';
-  }
-
   if (paid + Number.EPSILON >= total) {
-    return 'PAID';
+    const settledOn = invoice.payments
+      .filter((payment) => !isRefund(payment))
+      .map((payment) => payment.effectiveDate ?? payment.createdAt)
+      .sort((left, right) => left.localeCompare(right))
+      .at(-1);
+    return settledOn && invoice.dueDate && utcCalendarDate(settledOn) > invoice.dueDate
+      ? 'PAID_LATE'
+      : 'PAID';
   }
 
-  return 'PARTIALLY_PAID';
+  const overdue = Boolean(
+    invoice.dueDate && utcCalendarDate(currentDemoTimeIso()) > invoice.dueDate,
+  );
+  if (paid > 0) {
+    return overdue ? 'PARTIALLY_PAID_OVERDUE' : 'PARTIALLY_PAID';
+  }
+  return overdue ? 'OVERDUE' : 'PENDING';
 }
 
 export function hasRecordedReceipts(invoice: Invoice): boolean {
@@ -100,11 +139,16 @@ export function hasRecordedReceipts(invoice: Invoice): boolean {
 }
 
 /**
- * Remaining customer balance for a completed invoice.
+ * Remaining customer balance for a recognized sale (COMPLETED or CONDUCE).
  * Relies on `paymentState` so a seed marked PAID without payment rows is not treated as CxC.
  */
 export function invoiceBalance(invoice: Invoice): number {
-  if (invoice.status !== 'COMPLETED' || invoice.paymentState === 'PAID') {
+  const state = derivePaymentState(invoice);
+  if (
+    (invoice.status !== 'COMPLETED' && invoice.status !== 'CONDUCE') ||
+    state === 'PAID' ||
+    state === 'PAID_LATE'
+  ) {
     return 0;
   }
 

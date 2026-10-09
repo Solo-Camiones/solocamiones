@@ -2,7 +2,7 @@ import { useState } from 'react';
 
 import { useAuth } from '../auth/useAuth';
 import { can } from '../../shared/auth/policies';
-import { Button, Info, Skeleton, toPageLoadMessage } from '../../shared/ui';
+import { Button, Info, LoadingOverlay, Skeleton, toPageLoadMessage } from '../../shared/ui';
 import { PageHeader } from '../../shared/layout/PageHeader';
 import { InventoryFilters } from './InventoryFilters';
 import { InventoryTable } from './InventoryTable';
@@ -40,7 +40,9 @@ export function InventoryPage() {
       {result.status === 'loading' ? (
         <Skeleton label="Cargando inventario" />
       ) : (
-        <InventoryTable rows={result.rows} />
+        <LoadingOverlay active={result.isRefreshing} label="Actualizando inventario">
+          <InventoryTable rows={result.rows} />
+        </LoadingOverlay>
       )}
 
       {canRegister && (

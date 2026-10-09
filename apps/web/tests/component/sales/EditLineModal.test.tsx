@@ -7,7 +7,6 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { PosDraftView, PosLineView } from '../../../src/api/contracts/sales';
 import { EditLineModal } from '../../../src/features/sales/EditLineModal';
 import { renderWithProviders } from '../../support/render';
-import { chooseSelectOption } from '../../support/select-menu';
 import '../../support/dom';
 
 const baseLine: PosLineView = {
@@ -22,7 +21,6 @@ const baseLine: PosLineView = {
   gross: 200,
   itbis: 0,
   base: 200,
-  costProvenance: 'UNKNOWN',
 };
 
 const draft: PosDraftView = {
@@ -31,10 +29,13 @@ const draft: PosDraftView = {
   customerId: 'CUSTOMER-1',
   customerName: 'Flota Norte',
   customerIsDefault: false,
+  customerType: 'CASH',
   currency: 'DOP',
   fiscal: false,
+  applyItbis: false,
+  discountPercent: 0,
   lines: [baseLine],
-  totals: { lineCount: 1, gross: 200, itbis: 0, taxableBase: 200 },
+  totals: { lineCount: 1, gross: 200, itbis: 0, taxableBase: 200, discount: 0 },
   customers: [],
   services: [],
   qtyProducts: [],
@@ -43,12 +44,17 @@ const draft: PosDraftView = {
   createdWorkOrderIds: [],
 };
 
-function renderModal(options: {
-  line?: PosLineView | null;
-  isSaving?: boolean;
-  error?: string | null;
-  onSubmit?: (line: PosLineView, patch: Parameters<Parameters<typeof EditLineModal>[0]['onSubmit']>[1]) => Promise<void>;
-} = {}) {
+function renderModal(
+  options: {
+    line?: PosLineView | null;
+    isSaving?: boolean;
+    error?: string | null;
+    onSubmit?: (
+      line: PosLineView,
+      patch: Parameters<Parameters<typeof EditLineModal>[0]['onSubmit']>[1],
+    ) => Promise<void>;
+  } = {},
+) {
   const onSubmit = options.onSubmit ?? vi.fn().mockResolvedValue(undefined);
   const onClose = vi.fn();
   renderWithProviders(
@@ -70,7 +76,7 @@ afterEach(() => {
 });
 
 describe('EditLineModal', () => {
-  it('infers an actual cost when a value is entered and submits normalized public fields', async () => {
+  it('submits description, notes, quantity, and unit price without cost fields', async () => {
     const user = userEvent.setup();
     const { onSubmit } = renderModal();
 
@@ -78,8 +84,10 @@ describe('EditLineModal', () => {
     await user.type(screen.getByLabelText('Descripción'), 'Filtro premium');
     await user.clear(screen.getByLabelText('Nota'));
     await user.type(screen.getByLabelText('Nota'), '   ');
-    await user.type(screen.getByLabelText('Costo de adquisición en pesos (opcional)'), '45.25');
-    expect(screen.getByLabelText('Origen del costo')).toHaveAttribute('data-value', 'ACTUAL');
+    expect(screen.queryByLabelText('Origen del costo')).not.toBeInTheDocument();
+    expect(
+      screen.queryByLabelText('Costo de adquisición en pesos (opcional)'),
+    ).not.toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Guardar' }));
 
     expect(onSubmit).toHaveBeenCalledWith(baseLine, {
@@ -87,24 +95,7 @@ describe('EditLineModal', () => {
       notes: null,
       quantity: 2,
       unitPrice: 100,
-      acquisitionCostDop: 45.25,
-      costProvenance: 'ACTUAL',
     });
-  });
-
-  it('clears the cost when provenance changes to unknown', async () => {
-    const user = userEvent.setup();
-    const line = { ...baseLine, acquisitionCostDop: 30, costProvenance: 'ESTIMATED' as const };
-    const { onSubmit } = renderModal({ line });
-
-    await chooseSelectOption(user, 'Origen del costo', 'UNKNOWN');
-    expect(screen.getByLabelText('Costo de adquisición en pesos (opcional)')).toHaveValue(null);
-    await user.click(screen.getByRole('button', { name: 'Guardar' }));
-
-    expect(onSubmit).toHaveBeenCalledWith(
-      line,
-      expect.objectContaining({ acquisitionCostDop: null, costProvenance: 'UNKNOWN' }),
-    );
   });
 
   it('limits an absent QTY product to the quantity already on the line', async () => {
@@ -115,7 +106,6 @@ describe('EditLineModal', () => {
       qtyProductId: 'MISSING-PRODUCT',
       description: 'Producto eliminado',
       quantity: 3,
-      costProvenance: 'ACTUAL',
     };
     const { onSubmit } = renderModal({ line });
 
@@ -130,8 +120,6 @@ describe('EditLineModal', () => {
       expect.objectContaining({
         description: undefined,
         quantity: 2,
-        acquisitionCostDop: undefined,
-        costProvenance: undefined,
       }),
     );
   });

@@ -1,0 +1,285 @@
+name: Release
+
+on:
+  push:
+    branches: [develop]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  REGISTRY: ghcr.io
+  NODE_VERSION: '22'
+
+jobs:
+  build-and-publish:
+    name: Build, scan, and publish GHCR images
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      packages: write
+
+    outputs:
+      api_digest: ${{ steps.digests.outputs.api_digest }}
+      web_digest: ${{ steps.digests.outputs.web_digest }}
+      backup_digest: ${{ steps.digests.outputs.backup_digest }}
+      image_owner: ${{ steps.meta.outputs.owner }}
+      git_sha: ${{ steps.meta.outputs.sha }}
+
+    steps:
+      - name: Check out develop revision
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
+
+      - name: Derive image coordinates
+        id: meta
+        run: |
+          owner="$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')"
+          sha='${{ github.sha }}'
+          echo "owner=${owner}" >> "$GITHUB_OUTPUT"
+          echo "sha=${sha}" >> "$GITHUB_OUTPUT"
+          echo "api_image=${{ env.REGISTRY }}/${owner}/solocamiones-api" >> "$GITHUB_OUTPUT"
+          echo "web_image=${{ env.REGISTRY }}/${owner}/solocamiones-web" >> "$GITHUB_OUTPUT"
+          echo "backup_image=${{ env.REGISTRY }}/${owner}/solocamiones-backup" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@b5ca514318bd6ebac0fb2aedd5d36ec1b5c232a2 # v3.10.0
+
+      - name: Log in to GHCR
+        uses: docker/login-action@74a5d142397b4f367a81961eba4e8cd7edddf772 # v3.4.0
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Generate Trivy ignorefile from reviewed allowlist
+        run: node scripts/deployment/generate-trivyignore.mjs
+
+      - name: Secret scan (Gitleaks)
+        run: |
+          docker run --rm \
+            -v "$PWD:/path" \
+            zricethezav/gitleaks:v8.24.3 \
+            detect --source=/path --verbose --redact
+
+      - name: Build and push API image
+        id: build_api
+        uses: docker/build-push-action@471d1dc4e07e5cdedd4c2171150001c434f0b7a4 # v6.15.0
+        with:
+          context: .
+          file: apps/api/Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.api_image }}:sha-${{ steps.meta.outputs.sha }}
+          cache-from: type=gha,scope=api-release
+          cache-to: type=gha,mode=max,scope=api-release
+
+      - name: Build and push web image
+        id: build_web
+        uses: docker/build-push-action@471d1dc4e07e5cdedd4c2171150001c434f0b7a4 # v6.15.0
+        with:
+          context: .
+          file: apps/web/Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.web_image }}:sha-${{ steps.meta.outputs.sha }}
+          build-args: |
+            VITE_USE_MOCK_API=false
+            VITE_CAPABILITIES_PRESET=release-2
+            VITE_ENABLE_DEMO_CONTROLS=false
+          cache-from: type=gha,scope=web-release
+          cache-to: type=gha,mode=max,scope=web-release
+
+      - name: Build and push backup image
+        id: build_backup
+        uses: docker/build-push-action@471d1dc4e07e5cdedd4c2171150001c434f0b7a4 # v6.15.0
+        with:
+          context: infra/vps/backup
+          file: infra/vps/backup/Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.backup_image }}:sha-${{ steps.meta.outputs.sha }}
+          cache-from: type=gha,scope=backup-release
+          cache-to: type=gha,mode=max,scope=backup-release
+
+      - name: Record digests
+        id: digests
+        run: |
+          echo "api_digest=${{ steps.build_api.outputs.digest }}" >> "$GITHUB_OUTPUT"
+          echo "web_digest=${{ steps.build_web.outputs.digest }}" >> "$GITHUB_OUTPUT"
+          echo "backup_digest=${{ steps.build_backup.outputs.digest }}" >> "$GITHUB_OUTPUT"
+          {
+            echo "git_sha=${{ steps.meta.outputs.sha }}"
+            echo "api_image=${{ steps.meta.outputs.api_image }}@${{ steps.build_api.outputs.digest }}"
+            echo "web_image=${{ steps.meta.outputs.web_image }}@${{ steps.build_web.outputs.digest }}"
+            echo "backup_image=${{ steps.meta.outputs.backup_image }}@${{ steps.build_backup.outputs.digest }}"
+          } > release-digests.txt
+          cat release-digests.txt
+
+      - name: Scan published API image
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: ${{ steps.meta.outputs.api_image }}@${{ steps.build_api.outputs.digest }}
+          format: table
+          exit-code: '1'
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          trivyignores: .trivyignore.generated
+
+      - name: Scan published web image
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: ${{ steps.meta.outputs.web_image }}@${{ steps.build_web.outputs.digest }}
+          format: table
+          exit-code: '1'
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          trivyignores: .trivyignore.generated
+
+      - name: Scan published backup image
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: ${{ steps.meta.outputs.backup_image }}@${{ steps.build_backup.outputs.digest }}
+          format: table
+          exit-code: '1'
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          trivyignores: .trivyignore.generated
+
+      # Use trivy-action (not raw docker run) so GHCR auth from docker/login-action is available.
+      # Images are push-only (not loaded locally); Trivy must pull by digest with registry credentials.
+      - name: Generate API SBOM
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: ${{ steps.meta.outputs.api_image }}@${{ steps.build_api.outputs.digest }}
+          format: cyclonedx
+          output: sbom-api.cdx.json
+          exit-code: '0'
+
+      - name: Generate web SBOM
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: ${{ steps.meta.outputs.web_image }}@${{ steps.build_web.outputs.digest }}
+          format: cyclonedx
+          output: sbom-web.cdx.json
+          exit-code: '0'
+
+      - name: Generate backup SBOM
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: ${{ steps.meta.outputs.backup_image }}@${{ steps.build_backup.outputs.digest }}
+          format: cyclonedx
+          output: sbom-backup.cdx.json
+          exit-code: '0'
+
+      - name: Upload release evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: release-evidence-${{ steps.meta.outputs.sha }}
+          path: |
+            release-digests.txt
+            sbom-*.cdx.json
+            .trivyignore.generated
+          retention-days: 30
+
+  deploy-staging:
+    name: Deploy staging
+    needs: build-and-publish
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    env:
+      STAGING_SSH_HOST: ${{ secrets.STAGING_SSH_HOST }}
+      STAGING_SSH_USER: ${{ secrets.STAGING_SSH_USER }}
+      STAGING_SSH_KEY: ${{ secrets.STAGING_SSH_KEY }}
+      STAGING_SSH_KNOWN_HOSTS: ${{ secrets.STAGING_SSH_KNOWN_HOSTS }}
+      TS_OAUTH_CLIENT_ID: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+      TS_OAUTH_SECRET: ${{ secrets.TS_OAUTH_SECRET }}
+      TS_TAGS: ${{ secrets.TS_TAGS }}
+
+    steps:
+      - name: Check out revision
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
+
+      - name: Make deployment scripts executable
+        run: chmod +x scripts/deployment/*.sh
+
+      - name: Validate deploy inputs (always)
+        env:
+          RELEASE_SHA: ${{ needs.build-and-publish.outputs.git_sha }}
+        run: |
+          ./scripts/deployment/deploy.sh \
+            --env staging \
+            --api-digest '${{ needs.build-and-publish.outputs.api_digest }}' \
+            --web-digest '${{ needs.build-and-publish.outputs.web_digest }}' \
+            --backup-digest '${{ needs.build-and-publish.outputs.backup_digest }}' \
+            --ghcr-owner '${{ needs.build-and-publish.outputs.image_owner }}' \
+            --dry-run
+
+      # SSH is Tailscale-only (UFW). Without mesh credentials the runner times out on :22.
+      - name: Skip remote deploy when SSH secrets are absent
+        id: gate
+        run: |
+          if [[ -z "${STAGING_SSH_HOST}" || -z "${STAGING_SSH_USER}" || -z "${STAGING_SSH_KEY}" ]]; then
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "Staging SSH secrets are not configured yet."
+            echo "Publish + input validation only. Wire STAGING_SSH_* + Tailscale CI secrets after M6."
+          else
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Require Tailscale mesh credentials for remote deploy
+        if: steps.gate.outputs.present == 'true'
+        run: |
+          missing=()
+          [[ -z "${TS_OAUTH_CLIENT_ID}" ]] && missing+=('TS_OAUTH_CLIENT_ID')
+          [[ -z "${TS_OAUTH_SECRET}" ]] && missing+=('TS_OAUTH_SECRET')
+          [[ -z "${TS_TAGS}" ]] && missing+=('TS_TAGS')
+          [[ -z "${STAGING_SSH_KNOWN_HOSTS}" ]] && missing+=('STAGING_SSH_KNOWN_HOSTS')
+          if ((${#missing[@]} > 0)); then
+            echo "Remote staging deploy needs Tailscale on the runner (SSH is not public)." >&2
+            echo "Missing secrets: ${missing[*]}" >&2
+            echo "See infra/vps/docs/STAGING_PROVISIONING.md §7." >&2
+            exit 1
+          fi
+
+      - name: Connect runner to Tailscale
+        if: steps.gate.outputs.present == 'true'
+        uses: tailscale/github-action@780049a30b6ff5c378a9e7b389d15ece7a204888 # v4.1.3
+        with:
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+          tags: ${{ secrets.TS_TAGS }}
+          version: '1.94.2'
+          ping: ${{ secrets.STAGING_SSH_HOST }}
+
+      - name: Deploy to staging over SSH
+        if: steps.gate.outputs.present == 'true'
+        env:
+          RELEASE_SHA: ${{ needs.build-and-publish.outputs.git_sha }}
+        run: |
+          mkdir -p "${HOME}/.ssh"
+          chmod 700 "${HOME}/.ssh"
+          install -m 600 /dev/null "${HOME}/.ssh/staging_key"
+          printf '%s\n' "${STAGING_SSH_KEY}" > "${HOME}/.ssh/staging_key"
+          printf '%s\n' "${STAGING_SSH_KNOWN_HOSTS}" > "${HOME}/.ssh/known_hosts"
+          chmod 600 "${HOME}/.ssh/known_hosts"
+          ssh -i "${HOME}/.ssh/staging_key" \
+            -o IdentitiesOnly=yes \
+            -o StrictHostKeyChecking=yes \
+            -o UserKnownHostsFile="${HOME}/.ssh/known_hosts" \
+            "${STAGING_SSH_USER}@${STAGING_SSH_HOST}" \
+            "export RELEASE_SHA='${RELEASE_SHA}' GITHUB_REPOSITORY_OWNER='${{ needs.build-and-publish.outputs.image_owner }}'; \
+             /opt/solocamiones/scripts/deployment/deploy.sh \
+               --env staging \
+               --api-digest '${{ needs.build-and-publish.outputs.api_digest }}' \
+               --web-digest '${{ needs.build-and-publish.outputs.web_digest }}' \
+               --backup-digest '${{ needs.build-and-publish.outputs.backup_digest }}' \
+               --ghcr-owner '${{ needs.build-and-publish.outputs.image_owner }}'"

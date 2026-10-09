@@ -6,6 +6,7 @@ import {
   Button,
   ConfirmActionModal,
   Info,
+  LoadingOverlay,
   Skeleton,
   toPageLoadMessage,
   useToast,
@@ -24,16 +25,8 @@ const TABS: { id: CatalogTab; label: string }[] = [
 ];
 
 export function CatalogsPage() {
-  const {
-    tab,
-    setTab,
-    showCategories,
-    categories,
-    services,
-    isSaving,
-    saveCategory,
-    saveService,
-  } = useCatalogs();
+  const { tab, setTab, showCategories, categories, services, isSaving, saveCategory, saveService } =
+    useCatalogs();
   const { pushToast } = useToast();
   const [categoryModalOpen, setCategoryModalOpen] = useState(false);
   const [serviceModalOpen, setServiceModalOpen] = useState(false);
@@ -133,30 +126,31 @@ export function CatalogsPage() {
 
   const isLoading =
     services.status === 'loading' || (showCategories && categories.status === 'loading');
+  const isRefreshing =
+    (services.status === 'ready' && services.isRefreshing) ||
+    (categories.status === 'ready' && categories.isRefreshing);
   const servicePanel = isLoading ? (
     <Skeleton label="Cargando catálogos" />
   ) : services.status === 'ready' ? (
-    <ServiceList
-      rows={services.rows}
-      togglingId={togglingServiceId}
-      onEdit={(row) => {
-        setEditingService(row);
-        setFormError(null);
-        setServiceModalOpen(true);
-      }}
-      onToggleActive={setPendingToggle}
-    />
+    <LoadingOverlay active={isRefreshing} label="Actualizando catálogos">
+      <ServiceList
+        rows={services.rows}
+        togglingId={togglingServiceId}
+        onEdit={(row) => {
+          setEditingService(row);
+          setFormError(null);
+          setServiceModalOpen(true);
+        }}
+        onToggleActive={setPendingToggle}
+      />
+    </LoadingOverlay>
   ) : null;
 
   return (
     <>
       <PageHeader
         title="Catálogos"
-        description={
-          showCategories
-            ? 'Categorías y servicios.'
-            : 'Servicios mecánicos.'
-        }
+        description={showCategories ? 'Categorías y servicios.' : 'Servicios mecánicos.'}
         actions={
           showCategories && tab === 'categories' ? (
             <Button onClick={openCreateCategory} disabled={isLoading}>
@@ -180,14 +174,16 @@ export function CatalogsPage() {
             categories: isLoading ? (
               <Skeleton label="Cargando catálogos" />
             ) : categories.status === 'ready' ? (
-              <CategoryList
-                rows={categories.rows}
-                onEdit={(row) => {
-                  setEditingCategory(row);
-                  setFormError(null);
-                  setCategoryModalOpen(true);
-                }}
-              />
+              <LoadingOverlay active={isRefreshing} label="Actualizando catálogos">
+                <CategoryList
+                  rows={categories.rows}
+                  onEdit={(row) => {
+                    setEditingCategory(row);
+                    setFormError(null);
+                    setCategoryModalOpen(true);
+                  }}
+                />
+              </LoadingOverlay>
             ) : null,
             services: servicePanel,
           }}

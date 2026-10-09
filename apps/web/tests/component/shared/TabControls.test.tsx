@@ -66,7 +66,9 @@ describe('Tabs', () => {
     const services = screen.getByRole('tab', { name: 'Servicios' });
     expect(categories).toHaveAttribute('aria-selected', 'true');
     expect(screen.getByRole('tabpanel', { name: 'Categorías' })).not.toHaveAttribute('hidden');
-    const servicesPanel = screen.getAllByRole('tabpanel', { hidden: true }).find((panel) => panel.id.endsWith('services'));
+    const servicesPanel = screen
+      .getAllByRole('tabpanel', { hidden: true })
+      .find((panel) => panel.id.endsWith('services'));
     expect(servicesPanel).toHaveAttribute('hidden');
 
     categories.focus();

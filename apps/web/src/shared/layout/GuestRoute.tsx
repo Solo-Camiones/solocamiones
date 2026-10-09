@@ -4,10 +4,7 @@ import { Navigate, useLocation } from 'react-router-dom';
 
 import { useAuth } from '../../features/auth/useAuth';
 import { useAppCapabilities } from '../config/CapabilitiesProvider';
-import {
-  clearDiscardedLoginReturnPath,
-  resolvePostLoginRequestedPath,
-} from './login-return-path';
+import { clearDiscardedLoginReturnPath, resolvePostLoginRequestedPath } from './login-return-path';
 import { postLoginPath } from './navigation';
 
 export type GuestRouteProps = {

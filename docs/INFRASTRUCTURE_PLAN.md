@@ -14,8 +14,9 @@ This is a direction and decision record only. It does not deploy services, creat
 - A valid sale must survive PDF-rendering or storage failure. The confirmed immutable invoice facts must support deterministic regeneration.
 - Every unexpected error returns a safe error ID correlated with structured logs. Health checks distinguish process liveness from dependency readiness.
 - The MVP may call one external FX-rate provider solely to derive the `USD`-equivalent acquisition cost for profitability on `USD` invoices. That lookup uses a bounded timeout, stores provider credentials as secrets, and logs failures. It is **not** an essential commercial dependency: readiness must not fail merely because the provider is unreachable, and an unavailable rate never makes sale confirmation unavailable.
+- Feature 17 may call OpenAI (Responses API and vector-store search) behind project-owned adapters when `ASSISTANT_ENABLED=true`. That dependency is **optional and non-essential**: missing credentials must not prevent boot when the feature is disabled; readiness must not require OpenAI; provider outage must isolate to assistant errors and must not make sales, payments, CxC, or other commercial APIs unavailable. Store `OPENAI_API_KEY` and related assistant settings as secrets; never expose them to the frontend. Conversation history retention is 90 days with scheduled purge; residual copies may remain in backups per backup retention. A kill switch (`ASSISTANT_ENABLED=false`) must disable the feature without application rollback.
 - Monitor the application, database, and object storage. Backups are incomplete until restoration and cross-store reconciliation have been tested.
-- Infrastructure remains simple: one modular monolith with managed PostgreSQL and private object storage. No microservices, brokers, Kubernetes, event sourcing, workflow engine, or distributed-lock service is required.
+- Infrastructure remains simple: one modular monolith packaged as separate web/API containers, self-managed PostgreSQL on each environment VPS, and private object storage. No microservices, brokers, Kubernetes, event sourcing, workflow engine, or distributed-lock service is required.
 
 ## Phased Delivery Sequencing
 
@@ -42,39 +43,24 @@ Release 1 must not wait for these decisions. Release 2 must not go live without 
 
 Object storage can be introduced incrementally. Invoice PDFs must remain reproducible from preserved invoice facts; permanent PDF-object storage is optional. Item photos and especially Work-Order BEFORE/AFTER evidence require the validated private durable object-storage behavior when those releases are enabled.
 
-## Recommended Primary Direction
+## Approved Primary Direction — 2026-09-30
 
-Use three managed building blocks:
+Use four building blocks:
 
-1. **Managed application platform** for the Node.js backend and built React frontend, preferably as one same-origin web service.
-2. **Managed PostgreSQL** with automated backups, encryption, monitoring, and a supported upgrade path.
-3. **S3-compatible object storage** for inventory and Work Order evidence photos, and optionally generated invoice PDFs, with durable storage, lifecycle controls, and versioning or equivalent recovery protection.
+1. **Hostinger KVM 1 VPS** for permanent staging.
+2. **Hostinger KVM 2 VPS** for permanent production.
+3. **Self-managed PostgreSQL 16** inside each VPS, isolated by environment and never exposed publicly.
+4. **Cloudflare R2** for encrypted off-host database backups and later private object-storage needs.
 
-The managed application platform should own build execution, process restarts, health checks, TLS termination, logs, environment variables, and simple horizontal scaling. The backend remains a stateless modular monolith except for PostgreSQL-backed sessions and shared object storage.
+Each VPS runs Nginx, the React web container, the Express API container and PostgreSQL through one versioned VPS Compose definition. Staging additionally hosts Prometheus and Grafana for both environments. GitHub Actions builds the images; the VPS only pulls immutable GHCR digests.
 
-**Why this fits:** the critical risk is incorrect or lost business data, not extreme traffic. Managed services place operational effort on transactions, permissions, backups, and restore tests instead of operating Linux, PostgreSQL, TLS, and storage manually.
+Cloudflare provides DNS, Access/WARP, WAF and the public edge. Nginx terminates the strict TLS connection at the origin. Tailscale provides the private administration and monitoring path.
 
-**Tradeoff:** managed services cost more per unit of compute and create some provider coupling. That premium buys lower operational load, clearer support boundaries, and faster recovery for one developer.
+**Why this direction was chosen:** it fits the owner-approved budget and gives direct control over two permanently available environments for a maximum of approximately ten users and five simultaneous users.
 
-Provider selection should be delayed until region, support, backup retention, data egress, object-storage compatibility, and budget requirements are confirmed. Avoid selecting solely by the lowest entry price.
+**Accepted tradeoff:** one operator owns OS patching, Docker, Nginx, PostgreSQL, firewall rules, certificates, backups, restore drills, monitoring and incident response. A complete loss of the production VPS affects both application and database until recovery. Hourly encrypted R2 backups, weekly Hostinger snapshots, reproducible Compose/bootstrap and quarterly restore drills mitigate but do not eliminate that risk.
 
-## Managed Platform Compared with a VPS
-
-| Concern | Managed app platform | Self-managed VPS |
-|---|---|---|
-| Initial setup | Build/deploy conventions and environment configuration | Operating system, runtime, firewall, proxy, certificates, deployment, and process manager |
-| Ongoing work | Application updates and provider settings | OS patching, intrusion response, disk management, service upgrades, and all application work |
-| PostgreSQL | Separate managed service with automated operations | Must be managed personally or still purchased separately |
-| HTTPS and proxy | Usually built in | Nginx/Caddy and certificate automation must be operated |
-| Scaling/recovery | Platform health checks and replacement | Manual design and recovery |
-| Flexibility | Moderate; provider conventions apply | High; full host control |
-| Solo-developer risk | Lower operational burden | More ways for a routine host issue to become business downtime |
-
-### Recommendation
-
-Choose the managed platform for the first production version. A VPS is reasonable only if there is a clear constraint—special networking, unsupported runtime behavior, provider unavailability, or sustained cost evidence—and the owner accepts explicit responsibility for patching, hardening, backups, monitoring, and recovery.
-
-A VPS is not inherently cheaper after developer time and failure risk are included. Do not combine the first application release with learning production Linux/PostgreSQL operations unless that is itself a project goal.
+The executable details and gates live in `docs/deployment_plan/deployment_plan.md`.
 
 ## Local Development
 
@@ -110,17 +96,16 @@ Keep application code, documentation, migrations, and future infrastructure defi
 
 ## Branch Strategy
 
-Use a lightweight trunk-based approach:
+Use the owner-approved integration flow:
 
-- `main` is always releasable and protected from accidental direct destructive changes.
-- Work occurs in short-lived feature/fix branches.
-- Each change is reviewed through a pull request or equivalent diff, even for a solo developer when the risk is material.
-- Automated checks run before merge.
-- Prefer small, focused commits and pull requests; do not keep long-running environment branches.
-- Tag production releases and retain the exact application revision and migration set used.
-- Use normal forward fixes. Do not rewrite shared history or force-push `main`.
-
-This is simpler than Git Flow, which adds permanent development/release branches and merge overhead without a multi-team release process.
+- Work occurs in short-lived `feature/*` and `fix/*` branches.
+- Pull Requests merge into protected `develop` after automated checks.
+- Every approved `develop` revision deploys automatically to staging.
+- A reviewed `develop -> main` Pull Request creates the production candidate.
+- The final `main` SHA is deployed and verified in staging before production promotion.
+- Production initially requires manual approval and uses the exact tested image digests.
+- Tag production releases and retain version, SHA, image digests and migration set.
+- Do not rewrite shared history or force-push `develop`/`main`.
 
 ## Environments
 
@@ -132,7 +117,7 @@ Used for daily implementation, unit tests, integration tests, seed/reset work, a
 
 Use a separate small staging environment before the first real production use because this system combines migrations, file storage, sessions, inventory transactions, and payment/refund records. Staging must have separate PostgreSQL, object-storage namespace/bucket, secrets, and domain. It must never point at production data.
 
-To control cost, staging may be scaled down, paused, or created on demand when the provider supports it. The requirement is a safe pre-production verification environment, not necessarily an always-running duplicate of production.
+Staging is a permanent Hostinger KVM 1 VPS. It remains available for integration, monitoring dashboards and verification of the exact production candidate.
 
 Use synthetic data. If production-like data is ever needed, define a deliberate anonymization process first.
 
@@ -146,11 +131,13 @@ Production contains live inventory, customer, sale, payment, cost, and history d
 
 Docker is useful when it creates reproducibility, not as a goal itself.
 
-### Recommended initial use
+### Approved use
 
-- A local PostgreSQL and optional S3-compatible emulator may run in containers if that is easier than native installation.
-- The managed application platform may build directly from the repository using its supported Node build environment.
-- Do not require a custom production image initially unless the chosen platform requires one or environment drift becomes a demonstrated problem.
+- Local PostgreSQL and test dependencies may run in containers.
+- GitHub Actions builds separate API and web images and publishes them to GHCR.
+- One versioned Compose file deploys the same topology to both VPS with environment-specific secrets outside Git.
+- Nginx, API, web and PostgreSQL remain separate containers.
+- Staging and production pull immutable digests; neither VPS compiles application code.
 
 ### Benefits of a custom application image
 
@@ -162,28 +149,27 @@ Docker is useful when it creates reproducibility, not as a goal itself.
 
 - image authoring, security updates, registry management, build optimization, and debugging;
 - another artifact and vulnerability surface for one developer to maintain;
-- possible duplication of what the managed platform already handles.
+- operational ownership of registry access, host patching, logging, networks and recovery.
 
-**Decision:** do not create Docker/orchestration files merely because deployment exists. Reassess before the **first production deployment** (after Release 2) once the hosting platform is selected; create a Dockerfile only if the chosen deployment path benefits from it. Kubernetes is not justified for the expected scale or team.
+**Decision:** Docker Compose is the deployment orchestrator for the two VPS. Kubernetes, Swarm and a custom scheduler are not justified for the expected scale or team.
 
 ## PostgreSQL
 
-Use managed PostgreSQL as the authoritative relational store in staging and production.
+Use self-managed PostgreSQL 16 inside each environment VPS as the authoritative relational store.
 
-Required provider capabilities:
+Required controls:
 
-- automated backups with a clearly documented retention period;
-- point-in-time recovery if affordable/available at the selected service level;
-- encrypted connections and storage;
-- private networking or tightly restricted public access;
-- database metrics, storage alerts, and connection visibility;
-- controlled major-version upgrades;
-- restoration to a separate database for verification;
-- region compatible with application latency and recovery needs.
+- separate volumes, databases and credentials per environment;
+- no published PostgreSQL port;
+- roles for migration, runtime, backup and monitoring with negative permission tests;
+- hourly encrypted `pg_dump` exports to separate Cloudflare R2 buckets;
+- weekly Hostinger snapshots as a secondary recovery layer;
+- storage, connection, availability and backup-age metrics;
+- upgrades exercised in staging before production;
+- restoration into a separate database/VPS for verification;
+- quarterly restore drills proving the one-hour RTO.
 
-Use separate database credentials per environment and least-privilege runtime access. Migration privileges should be separate from normal application privileges where the platform makes this practical.
-
-Application connections need bounded pooling appropriate to the managed plan. More application instances must not exhaust database connections. Do not add a separate pooler until provider guidance or measured load requires it.
+Application connections need bounded pooling appropriate to KVM 1/KVM 2 resources. Do not add a separate pooler until measured load requires it.
 
 Database and object backups together must recover the persisted state supporting `AUTH-001–AUTH-005`, `INV-001–INV-006`, `QTY-001–QTY-003`, `CAT-001–CAT-003`, `HIER-001–HIER-011`, `WO-001–WO-010`, `SEARCH-001–SEARCH-003`, `LOC-001–LOC-002`, `PHOTO-001`, `CUST-001–CUST-003`, `RES-001–RES-003`, `SALE-001–SALE-008`, `LINE-001–LINE-006`, `COST-001–COST-004`, `PAY-001–PAY-005`, `CANCEL-001–CANCEL-005`, `HIST-001–HIST-003`, and `ADMIN-001–ADMIN-002`. Search projections or indexes may be rebuilt, but source records must be recoverable. A photo backup without matching metadata, or a database restore without corresponding photo objects, is incomplete.
 
@@ -227,39 +213,37 @@ In both cases, record generation status and the document/template version. A ren
 
 ## Hosting
 
-Deploy the modular monolith as one web service initially:
+Deploy the modular monolith as separate containers behind one same-origin Nginx entry point:
 
-- build the React SPA during the release build;
-- serve the built assets and Express API from the same origin;
+- build separate React web and Express API images in GitHub Actions;
+- route `/api/*` to API and all other application paths to web;
 - expose separate lightweight liveness and readiness checks;
 - run database migrations as an explicit release step, not opportunistically from every application instance;
 - use PostgreSQL-backed sessions so process restarts do not sign everyone out unexpectedly;
 - keep local disk disposable and never use it as authoritative photo storage;
 - configure graceful shutdown and bounded request timeouts;
-- start with one appropriately sized instance and scale only from measured CPU, memory, latency, or availability needs.
+- start with KVM 1 staging and KVM 2 production and resize only from measured CPU, memory, disk, latency or availability needs.
 
 Keep reconciliation, cleanup, PDF recovery, and pending-profitability retry as bounded application or scheduled maintenance responsibilities within the modular monolith. No separate worker service or broker is part of the MVP plan.
 
 ### Health semantics
 
 - **Liveness** answers only whether the application process can respond. It should not fail merely because a dependency has a brief interruption that the process can recover from.
-- **Readiness** verifies that the instance can safely serve essential requests, including its PostgreSQL connection and critical configuration. Object-storage status should be represented without making unrelated read-only inventory access disappear unnecessarily. The external FX-rate provider is not an essential readiness dependency; a provider outage must not mark the instance unready or make sale confirmation unavailable.
+- **Readiness** verifies that the instance can safely serve essential requests, including its PostgreSQL connection and critical configuration. Object-storage status should be represented without making unrelated read-only inventory access disappear unnecessarily. The external FX-rate provider is not an essential readiness dependency; a provider outage must not mark the instance unready or make sale confirmation unavailable. OpenAI / Feature 17 is likewise not an essential readiness dependency; assistant disablement or provider outage must not mark the instance unready.
 - Health responses expose only a coarse status. Dependency names, credentials, connection strings, stack traces, and provider details stay in protected logs.
 - External checks exercise the public HTTPS path; internal checks support safe process replacement. Repeated readiness failure alerts an operator and includes a correlatable error ID.
 
 ## Reverse Proxy
 
-Use the managed platform's edge proxy/load balancer. It should terminate HTTPS, route the custom domain, enforce request-size/time limits, and forward trusted proxy headers correctly.
+Cloudflare is the public edge and Nginx is the origin reverse proxy. Cloudflare Access/WARP, WAF and proxied DNS protect both domains. Nginx enforces the expected hostname, origin TLS, Authenticated Origin Pulls, request limits and sanitized proxy headers.
 
-Do not operate Nginx or Caddy separately in the primary managed direction. Self-managed reverse proxy configuration would be required only under the VPS alternative.
-
-Keep the database off the public internet where provider networking allows it. If public access is unavoidable, restrict source networks, require TLS, use strong credentials, and monitor failed connections. Object storage remains private and is accessed through scoped credentials.
+Hostinger firewall and UFW accept 80/443 only from current official Cloudflare ranges. SSH, Grafana, Prometheus and exporter traffic use Tailscale. Database, API and web-container ports are never public.
 
 ## HTTPS
 
 Require HTTPS for every staging and production request. Redirect HTTP to HTTPS and use secure cookies only over HTTPS.
 
-Prefer automatic certificate issuance and renewal from the hosting platform. Monitor renewal/domain validation status even when automated. Enable standard secure headers in the application/edge configuration and consider HSTS after confirming every subdomain is ready for HTTPS.
+Use Cloudflare `Full (strict)` with origin certificates and Authenticated Origin Pulls enforced by Nginx. Monitor origin-certificate validity and Cloudflare configuration. Enable standard secure headers and HSTS only after confirming both subdomains are ready for HTTPS.
 
 Local development may use HTTP because it is not publicly reachable; production security behavior involving secure cookies must still be tested in staging over HTTPS.
 
@@ -283,10 +267,11 @@ Backups are only credible after a successful restore test.
 
 ### PostgreSQL
 
-- Enable provider automated backups before live use.
-- Prefer point-in-time recovery for production.
-- Take or verify a recoverable backup before risky migrations and releases.
-- Keep retention aligned with the business's acceptable data-loss window.
+- Run encrypted `pg_dump --format=custom` exports every hour in both environments.
+- Store them in separate Cloudflare R2 buckets with hourly 48-hour, daily 30-day and monthly 12-month retention.
+- Keep Hostinger weekly snapshots as a separate secondary layer.
+- Take or verify a recent recoverable backup before risky migrations and releases.
+- Alert when no valid hourly backup exists within 75–90 minutes.
 - Do not store the only independent export on the application host.
 
 ### Object storage
@@ -305,7 +290,7 @@ Backups are only credible after a successful restore test.
 - Test before launch, after a material storage/provider change, and on a recurring schedule such as quarterly.
 - Record date, backup used, elapsed recovery time, validation result, and corrective actions.
 
-Exact retention, recovery point objective (RPO), and recovery time objective (RTO) require owner approval before production.
+Owner-approved targets are RPO 1 hour and RTO 1 hour. They are not considered achieved until a pre-launch restore drill completes in less than 60 minutes; repeat the drill every three months.
 
 ## Monitoring
 
@@ -315,21 +300,22 @@ Start with a small actionable set:
 - separate liveness and readiness status with alerting on repeated failure;
 - application error rate and request latency;
 - structured centralized logs with request/error IDs;
-- managed PostgreSQL availability, CPU, memory where exposed, connections, storage growth, slow queries, transaction failures, and backup status;
+- self-managed PostgreSQL availability, connections, storage growth, locks/transaction failures and backup status;
 - object-storage availability, request latency/error rate, capacity, versioning/recovery status, and failed reconciliation count;
 - failed login spikes and repeated authorization failures;
 - failed sale confirmations, unexpected reservation/quantity conflicts, Mechanic claim conflicts, duplicate-operation conflicts, Work Order completion/cancellation races, refund failures, and migration failures;
 - FX-rate lookup timeouts or errors and an operator-visible count of unresolved `UNAVAILABLE / PENDING FX RATE` profitability calculations;
+- when Feature 17 is enabled in an environment: assistant run error rate, timeouts, provider 429/5xx, daily quota exhaustion, and knowledge-sync failures—without logging prompts, responses, retrieval chunks, or tool payloads;
 - evidence uploads stuck in staging, repeated mobile retries, missing finalized objects, and PDF generation/regeneration failures;
 - consistency-diagnostic findings for negative stock, orphan reservations, hierarchy violations, duplicate active operations, impossible balances, unresolved profitability calculations, and inconsistent critical state;
 - automated-backup age/failure and overdue restore-test status;
 - certificate and domain expiration/renewal status.
 
-Alerts should reach at least one primary and one backup business/developer contact. Avoid alerting on every expected conflict; aggregate and set thresholds so alerts remain credible.
+Alerts reach the owner by email and mobile app. The accepted single-operator risk is mitigated with MFA, offline recovery codes, password-manager recovery and documented procedures. Avoid alerting on every expected conflict; aggregate and set thresholds so alerts remain credible.
 
 ### Logging
 
-Use structured, centralized application logs with request/error ID, timestamp, severity, operation, duration, outcome, and safe invoice/item/order/upload identifiers. Include enough context to distinguish validation conflicts, expected concurrent conflicts, storage failures, FX-rate lookup timeouts or errors, retries, and unexpected failures without exposing internals to the client. Redact secrets, session values, signed URLs, acquisition cost, FX provider credentials, unnecessary customer identity, and payment-sensitive details. History is not monitoring, and logs are not a financial audit: keep business events in the database and privacy-conscious operational logs for diagnosis.
+Use structured, centralized application logs with request/error ID, timestamp, severity, operation, duration, outcome, and safe invoice/item/order/upload identifiers. Include enough context to distinguish validation conflicts, expected concurrent conflicts, storage failures, FX-rate lookup timeouts or errors, retries, and unexpected failures without exposing internals to the client. Redact secrets, session values, signed URLs, acquisition cost, FX provider credentials, OpenAI API keys, unnecessary customer identity, and payment-sensitive details. Assistant logs may include run/request IDs, model name, latency, token usage counts, tool names/counts, status, and safe `errorCode`/`errorId` only—never prompts, completions, retrieval chunks, or raw provider payloads. Feature 17 also exposes Prometheus metrics at `GET /metrics` (bearer token required via `METRICS_BEARER_TOKEN`; disabled with 404 when unset) using `@prometheus-io/client` for run success/failure, TTFT, latency, tokens, quota rejections, tool calls, and knowledge-sync failures—scrape must not be public on the Cloudflare edge without the secret. History is not monitoring, and logs are not a financial audit: keep business events in the database and privacy-conscious operational logs for diagnosis.
 
 The same error ID returned in a safe client response must locate the corresponding protected log event. Recovery actions and consistency-diagnostic runs log their outcome but preserve their authoritative actor/reason/before-after history in PostgreSQL.
 
@@ -364,14 +350,14 @@ The installed-component sale smoke test belongs to a later release once that wor
 
 These steps apply **before the first production deployment** and for subsequent production releases. They are not part of Release 1 local-development completion.
 
-- Merge reviewed changes to `main`.
-- Deploy automatically to staging or create a staging release.
-- Run migrations in staging and smoke tests appropriate to the release being deployed.
-- Promote the exact tested revision to production with a manual approval.
+- Merge reviewed feature/fix changes into `develop`, which deploys automatically to staging.
+- Merge the reviewed `develop -> main` Pull Request to establish the final candidate SHA.
+- Deploy that final `main` SHA to staging, run migrations and the release-appropriate smoke tests, and resolve its immutable image digests.
+- Promote those exact tested digests to production with a manual approval.
 - Run production migrations as a controlled release job.
 - Verify health, logs, and core read-only behavior after release.
 
-For the first production deployment after Release 2, include billing-appropriate smoke tests. The installed-component sale smoke test remains for the release that implements that workflow.
+For the first `v2.0.0` production deployment, include billing-appropriate smoke tests. The installed-component sale smoke test remains for the release that implements that workflow.
 
 Do not begin with unattended automatic production deployment. One manual promotion gate is low overhead and appropriate while migration and rollback experience is developing.
 
@@ -379,10 +365,10 @@ Rollback is not simply deploying old code when a migration changed data. Prefer 
 
 ## Secrets
 
-- Store production/staging secrets in the managed platform's encrypted secret/environment facility.
+- Store runtime secrets in root-owned `0600` files under `/etc/solocamiones/` on each VPS and keep their recovery copy in an approved password manager; never commit them.
 - Keep local secrets in ignored files; commit only an `.env.example`-style name list when implementation begins.
 - Use separate values and service accounts for every environment.
-- Never place database URLs, session secrets, object-storage keys, payment credentials, FX-rate provider credentials, or API tokens in Git, logs, screenshots, seeded data, or frontend build variables.
+- Never place database URLs, session secrets, object-storage keys, payment credentials, FX-rate provider credentials, OpenAI API keys, or API tokens in Git, logs, screenshots, seeded data, or frontend build variables.
 - Scope each credential to the minimum resources and operations.
 - Rotate secrets after personnel/access changes or suspected exposure.
 - Document who owns access and how emergency recovery works.
@@ -406,14 +392,14 @@ Prepare a concise runbook before production:
 
 Also plan for provider-region outage, accidental deletion, bad migration, compromised credential, and domain/DNS loss. Where a provider offers exports or standard S3/PostgreSQL interfaces, retain a documented exit path to reduce lock-in.
 
-The owner must choose acceptable RPO and RTO. Without those values, backup frequency and recovery architecture cannot be finalized.
+The owner approved an RPO of one hour and an RTO of one hour. The RTO is an objective, not a proven capability, until the pre-launch restore drill completes within 60 minutes and without integrity errors.
 
 ## Infrastructure Cost Categories
 
 Evaluate total monthly and occasional cost by category, without relying on temporary introductory pricing:
 
 - application compute and build minutes;
-- managed PostgreSQL compute, storage, backups, point-in-time recovery, and connection features;
+- Hostinger KVM 1/KVM 2 renewal, taxes, storage limits and snapshots;
 - object storage capacity, operations, version history, and data egress;
 - staging resources;
 - custom domain and DNS;
@@ -431,26 +417,30 @@ The lowest-cost architecture is the smallest one that meets the agreed recovery 
 Do not add at first:
 
 - Kubernetes, service mesh, microservices, brokers, workflow engines, event sourcing, or distributed-lock services;
-- self-managed PostgreSQL on the application host;
+- PostgreSQL exposed to the public network or shared between environments;
 - public photo buckets;
 - multiple regions or active-active databases;
 - external search engines, Redis, queues, or CDN complexity;
-- always-on staging at production size;
+- staging at production size without measured need;
 - automated production deployment without an approval gate;
-- a custom Docker image unless the selected platform or reproducibility evidence requires it.
+- Kubernetes, Swarm or another scheduler layered over the approved Compose topology.
 
-## Decisions Required Before Production
+## Decisions Closed Before Production
 
-- hosting/database/object-storage provider and region;
-- budget ceiling and support expectations;
-- business-owned domain and access recovery;
-- RPO, RTO, backup retention, and restore-test owner;
-- whether staging can pause/scale down or must remain continuously available;
-- production traffic/data estimates for initial sizing;
+- Hostinger VPS; New York preferred and Boston fallback, subject to availability at purchase.
+- KVM 1 staging and KVM 2 production, both permanent.
+- PostgreSQL inside each VPS; Cloudflare R2 for external encrypted backups.
+- `solocamiones.com` with `staging.` and `app.` subdomains.
+- RPO/RTO one hour; owner operates and receives alerts.
+- Hourly/daily/monthly retention and quarterly restore drill.
+- Maximum expected initial scale: ten users and five simultaneous users.
+
+## Decisions Still Required by Later Features
+
 - photo size, format, retention, and deletion policy;
 - whether generated PDFs are durably stored in addition to deterministic regeneration, and their retention policy;
 - log retention and customer/financial data redaction rules;
 - consistency-diagnostic schedule and responsible responder;
 - FX-rate provider selection, endpoint, timeout, retry, caching, and historical-rate retrieval mechanics, which remain non-blocking implementation details for MVP v1 scope freeze;
-- incident contacts and notification path;
+- a backup incident contact if the project later adds another operator.
 - migration approval and emergency data-correction procedure.

@@ -87,7 +87,9 @@ function useControlA11y(
   const id = explicitId ?? field?.controlId;
   const describedBy = mergeDescribedBy(field?.describedBy, describedByFromProps);
   const invalid =
-    invalidFromProps === true || invalidFromProps === 'true' || (invalidFromProps == null && field?.invalid)
+    invalidFromProps === true ||
+    invalidFromProps === 'true' ||
+    (invalidFromProps == null && field?.invalid)
       ? true
       : undefined;
 
@@ -104,7 +106,7 @@ export function Input({ className = '', id, ...props }: InputProps) {
 
   return (
     <input
-      className={`w-full rounded-lg border bg-white px-3 py-2 text-sm text-navy placeholder:text-navy-300 focus:outline-none focus:ring-2 ${borderClass} ${className}`}
+      className={`w-full rounded-lg border bg-white px-3 py-2 text-sm text-navy placeholder:text-navy-300 focus:outline-none focus:ring-2 disabled:cursor-not-allowed disabled:bg-navy-50 disabled:text-navy-400 ${borderClass} ${className}`}
       {...props}
       id={a11y.id}
       aria-describedby={a11y.describedBy}

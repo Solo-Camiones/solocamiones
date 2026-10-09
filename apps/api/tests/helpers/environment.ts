@@ -59,5 +59,8 @@ export function loadTestEnvironment(
   if (!environment.INITIAL_PASSWORD) {
     environment.INITIAL_PASSWORD = 'test-initial-password';
   }
+  // Runtime contract (M1): tests always identify as APP_ENV=test.
+  environment.APP_ENV = 'test';
+  environment.NODE_ENV = 'test';
   configureTestDatabase(environment);
 }

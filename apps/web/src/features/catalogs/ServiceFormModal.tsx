@@ -75,43 +75,45 @@ export function ServiceFormModal({
       isBusy={isSaving}
     >
       {({ requestClose }) => (
-      <form onSubmit={handleSubmit} className="space-y-4">
-        {error && (
-          <Info tone="error" title="No se pudo guardar">
-            {error}
-          </Info>
-        )}
-        <Field label="Nombre" htmlFor="service-name">
-          <Input
-            id="service-name"
-            value={fields.name}
-            onChange={(event) => setFields((current) => ({ ...current, name: event.target.value }))}
-            required
-            autoFocus
-          />
-        </Field>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {error && (
+            <Info tone="error" title="No se pudo guardar">
+              {error}
+            </Info>
+          )}
+          <Field label="Nombre" htmlFor="service-name">
+            <Input
+              id="service-name"
+              value={fields.name}
+              onChange={(event) =>
+                setFields((current) => ({ ...current, name: event.target.value }))
+              }
+              required
+              autoFocus
+            />
+          </Field>
 
-        <label htmlFor="service-active" className="flex items-center gap-2 text-sm text-navy">
-          <input
-            id="service-active"
-            type="checkbox"
-            checked={fields.active}
-            onChange={(event) =>
-              setFields((current) => ({ ...current, active: event.target.checked }))
-            }
-          />
-          Activo (visible en el punto de venta)
-        </label>
+          <label htmlFor="service-active" className="flex items-center gap-2 text-sm text-navy">
+            <input
+              id="service-active"
+              type="checkbox"
+              checked={fields.active}
+              onChange={(event) =>
+                setFields((current) => ({ ...current, active: event.target.checked }))
+              }
+            />
+            Activo (visible en el punto de venta)
+          </label>
 
-        <div className="flex justify-end gap-2 pt-2">
-          <Button type="button" variant="secondary" onClick={requestClose} disabled={isSaving}>
-            Cancelar
-          </Button>
-          <Button type="submit" disabled={isSaving || (isEdit && !hasUnsavedChanges)}>
-            {isSaving ? 'Guardando…' : 'Guardar'}
-          </Button>
-        </div>
-      </form>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button type="button" variant="secondary" onClick={requestClose} disabled={isSaving}>
+              Cancelar
+            </Button>
+            <Button type="submit" disabled={isSaving || (isEdit && !hasUnsavedChanges)}>
+              {isSaving ? 'Guardando…' : 'Guardar'}
+            </Button>
+          </div>
+        </form>
       )}
     </GuardedModal>
   );

@@ -1,14 +1,18 @@
 import { useCallback, useEffect, useState } from 'react';
 
 import type { MechanicWorkOrderView, WorkOrderType } from '../../api/contracts/entities';
-import type { AddWorkOrderPhotoInput, CompleteWorkOrderInput } from '../../api/contracts/work-orders';
+import type {
+  AddWorkOrderPhotoInput,
+  CompleteWorkOrderInput,
+} from '../../api/contracts/work-orders';
 import type { AppError, Result } from '../../shared/auth/types';
 import { workOrderRepository } from '../../api/repositories';
+import { beginQueryReload } from '../../shared/query/begin-query-reload';
 
 type Query =
   | { status: 'loading' }
   | { status: 'error'; error: AppError }
-  | { status: 'ready'; orders: MechanicWorkOrderView[] };
+  | { status: 'ready'; orders: MechanicWorkOrderView[]; isRefreshing: boolean };
 
 export function useMechanicOrders() {
   const [reloadToken, setReloadToken] = useState(0);
@@ -17,9 +21,9 @@ export function useMechanicOrders() {
 
   useEffect(() => {
     let cancelled = false;
-    setResult({ status: 'loading' });
+    setResult(beginQueryReload);
 
-    workOrderRepository.listForMechanic().then((response) => {
+    void workOrderRepository.listForMechanic().then((response) => {
       if (cancelled) {
         return;
       }
@@ -29,7 +33,7 @@ export function useMechanicOrders() {
         return;
       }
 
-      setResult({ status: 'ready', orders: response.value });
+      setResult({ status: 'ready', orders: response.value, isRefreshing: false });
     });
 
     return () => {
@@ -86,7 +90,7 @@ export function useMechanicOrder(id: string | undefined) {
 
     let cancelled = false;
 
-    workOrderRepository.getForMechanic(id).then((response) => {
+    void workOrderRepository.getForMechanic(id).then((response) => {
       if (cancelled) {
         return;
       }

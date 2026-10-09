@@ -2,10 +2,20 @@ import { randomUUID } from 'node:crypto';
 
 import { AppError } from '../../infrastructure/errors/app-error.js';
 import {
+  conducePdfFilename,
+  pdfkitConducePdfRenderer,
+  type ConducePdfRenderer,
+} from '../../infrastructure/conduce-pdf/index.js';
+import {
   INVOICE_PDF_TEMPLATE_VERSION,
   pdfkitInvoicePdfRenderer,
   type InvoicePdfRenderer,
 } from '../../infrastructure/invoice-pdf/index.js';
+import {
+  pdfkitQuotePdfRenderer,
+  quotePdfFilename,
+  type QuotePdfRenderer,
+} from '../../infrastructure/quote-pdf/index.js';
 import { logger } from '../../infrastructure/logging/index.js';
 import { invoiceIdSchema } from '../sales/validation.js';
 import { requireInvoiceManager } from '../sales/policies.js';
@@ -15,17 +25,21 @@ import { assertAdministrator } from '../users/policies.js';
 import {
   PDF_COMPLETED_ONLY_MESSAGE,
   PDF_CONTENT_TYPE,
+  PDF_CONDUCE_ONLY_MESSAGE,
   PDF_FAILED_MESSAGE,
   PDF_NOT_READY_MESSAGE,
   PDF_REGENERATE_FAILED_ONLY_MESSAGE,
 } from './constants.js';
-import { toInvoicePdfFacts } from './projection.js';
+import { toConducePdfFacts, toInvoicePdfFacts, toQuotePdfFacts } from './projection.js';
+import { invoicePdfFilename } from './filename.js';
 import type { InvoicePdfFile } from './types.js';
 
 export class InvoiceDocumentService {
   constructor(
     private readonly transaction: SalesTransaction = salesTransaction,
-    private readonly renderer: InvoicePdfRenderer = pdfkitInvoicePdfRenderer,
+    private readonly invoiceRenderer: InvoicePdfRenderer = pdfkitInvoicePdfRenderer,
+    private readonly quoteRenderer: QuotePdfRenderer = pdfkitQuotePdfRenderer,
+    private readonly conduceRenderer: ConducePdfRenderer = pdfkitConducePdfRenderer,
   ) {}
 
   /**
@@ -38,7 +52,7 @@ export class InvoiceDocumentService {
     if (facts == null) return invoice;
 
     try {
-      await this.renderer.render(facts);
+      await this.invoiceRenderer.render(facts);
       return await this.persistStatus(actorId, invoice.id, 'READY', null, null);
     } catch (error) {
       const errorId = randomUUID();
@@ -63,23 +77,33 @@ export class InvoiceDocumentService {
       return existing;
     });
 
-    if (invoice.status === 'DRAFT') {
+    if (invoice.status === 'DRAFT' || invoice.status === 'QUOTE_DRAFT') {
       throw AppError.conflict(PDF_COMPLETED_ONLY_MESSAGE);
     }
-    if (invoice.pdfStatus === 'FAILED') {
-      throw AppError.conflict(PDF_FAILED_MESSAGE, {
-        ...(invoice.pdfErrorId ? { errorId: invoice.pdfErrorId } : {}),
-      });
+    if (invoice.status === 'QUOTE_ISSUED') {
+      return this.downloadQuote(invoice);
     }
-    if (invoice.pdfStatus !== 'READY') {
-      throw AppError.conflict(PDF_NOT_READY_MESSAGE);
-    }
+    return this.downloadInvoice(invoice);
+  }
 
-    const facts = toInvoicePdfFacts(invoice);
-    if (facts == null) throw AppError.conflict(PDF_NOT_READY_MESSAGE);
-    const body = await this.renderer.render(facts);
+  /**
+   * Conduce PDF is on-demand from frozen snapshots (CON-004), like quotes:
+   * no pdfStatus and no regenerate recovery path.
+   */
+  async downloadConduce(actorId: string, id: string): Promise<InvoicePdfFile> {
+    invoiceIdSchema.parse({ id });
+    const invoice = await this.transaction(async ({ sales, users }) => {
+      requireInvoiceManager(await users.findById(actorId));
+      const existing = await sales.findById(id);
+      if (!existing) throw AppError.notFound('Invoice not found');
+      return existing;
+    });
+
+    const facts = toConducePdfFacts(invoice);
+    if (facts == null) throw AppError.conflict(PDF_CONDUCE_ONLY_MESSAGE);
+    const body = await this.conduceRenderer.render(facts);
     return {
-      filename: `${facts.number}.pdf`,
+      filename: conducePdfFilename(facts.conduceNumber),
       contentType: PDF_CONTENT_TYPE,
       body,
     };
@@ -103,7 +127,11 @@ export class InvoiceDocumentService {
       return { invoice: existing, actor: { role: actor.role } };
     });
 
-    if (loaded.invoice.status === 'DRAFT') {
+    if (
+      loaded.invoice.status === 'DRAFT' ||
+      loaded.invoice.status === 'QUOTE_DRAFT' ||
+      loaded.invoice.status === 'QUOTE_ISSUED'
+    ) {
       throw AppError.conflict(PDF_COMPLETED_ONLY_MESSAGE);
     }
     if (loaded.invoice.pdfStatus !== 'FAILED') {
@@ -115,7 +143,7 @@ export class InvoiceDocumentService {
 
     let outcome: { status: 'READY'; errorId: null } | { status: 'FAILED'; errorId: string };
     try {
-      await this.renderer.render(facts);
+      await this.invoiceRenderer.render(facts);
       outcome = { status: 'READY', errorId: null };
     } catch (error) {
       const errorId = randomUUID();
@@ -139,6 +167,44 @@ export class InvoiceDocumentService {
         'FAILED',
       ),
       actor: loaded.actor,
+    };
+  }
+
+  private async downloadInvoice(invoice: InvoiceRecord): Promise<InvoicePdfFile> {
+    if (invoice.status !== 'COMPLETED' && invoice.status !== 'CANCELLED') {
+      throw AppError.conflict(PDF_COMPLETED_ONLY_MESSAGE);
+    }
+    if (invoice.pdfStatus === 'FAILED') {
+      throw AppError.conflict(PDF_FAILED_MESSAGE, {
+        ...(invoice.pdfErrorId ? { errorId: invoice.pdfErrorId } : {}),
+      });
+    }
+    if (invoice.pdfStatus !== 'READY') {
+      throw AppError.conflict(PDF_NOT_READY_MESSAGE);
+    }
+
+    const facts = toInvoicePdfFacts(invoice);
+    if (facts == null) throw AppError.conflict(PDF_NOT_READY_MESSAGE);
+    const body = await this.invoiceRenderer.render(facts);
+    return {
+      filename: invoicePdfFilename(facts.number),
+      contentType: PDF_CONTENT_TYPE,
+      body,
+    };
+  }
+
+  /**
+   * Quotes have no stored pdfStatus. Download renders from issued facts and
+   * must not invent invoice-style FAILED/regenerate recovery.
+   */
+  private async downloadQuote(invoice: InvoiceRecord): Promise<InvoicePdfFile> {
+    const facts = toQuotePdfFacts(invoice);
+    if (facts == null) throw AppError.conflict(PDF_NOT_READY_MESSAGE);
+    const body = await this.quoteRenderer.render(facts);
+    return {
+      filename: quotePdfFilename(facts.quoteNumber),
+      contentType: PDF_CONTENT_TYPE,
+      body,
     };
   }
 

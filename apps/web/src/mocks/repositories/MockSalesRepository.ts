@@ -1,53 +1,76 @@
 import type { SalesRepository } from '../../api/contracts/repositories';
 import { toListPage } from '../../api/contracts/pagination';
-import type {
-  AddDraftLineInput,
-  AddPaymentInput,
-  CancelInvoiceInput,
-  ConfirmInvoicePayment,
-  CorrectCurrencyInput,
-  RemoveDraftLineInput,
-  SalesListTab,
-  SetDraftLinePriceInput,
-  SetDraftLineQuantityInput,
-  SetDraftMetaInput,
-} from '../../api/contracts/sales';
+import { businessDateFromTimestamp } from '../../api/client/profitability-series';
 import { err, ok } from '../../shared/auth/types';
 import {
   addDraftLine,
   addPayment,
   cancelInvoice,
   confirmInvoice,
+  convertConduceToInvoice,
+  convertQuote,
+  convertQuoteToConduce,
   correctCurrency,
   createDraft,
+  createQuote,
+  duplicateQuote,
   discardDraft,
   removeDraftLine,
+  issueConduce,
+  issueQuote,
   setDraftLinePrice,
   setDraftLineQuantity,
   setDraftMeta,
 } from '../services/sales-commands';
 import { buildInvoiceDetail, buildReceivables, buildSalesList } from '../services/sales-catalog';
 import { buildPosDraftView } from '../services/sales-draft';
-import { requirePermission } from '../services/require-permission';
+import { requireAdministrator, requirePermission } from '../services/require-permission';
 import { cloneForRead, getMockState } from '../state';
+import type {
+  AddDraftLineInput,
+  AddPaymentInput,
+  CancelInvoiceInput,
+  ConfirmInvoicePayment,
+  ConvertConduceToInvoiceInput,
+  CorrectCurrencyInput,
+  IssueConduceInput,
+  RemoveDraftLineInput,
+  SalesListTab,
+  SetDraftLinePriceInput,
+  SetDraftLineQuantityInput,
+  SetDraftMetaInput,
+} from '../../api/contracts/sales';
 
 export class MockSalesRepository implements SalesRepository {
-  async listInvoices(tab: SalesListTab = 'ALL', page = 1, q = '') {
+  async listInvoices(
+    tab: SalesListTab = 'ALL',
+    page = 1,
+    q = '',
+    filters: Parameters<SalesRepository['listInvoices']>[3] = {},
+  ) {
     const permission = requirePermission('sales.manage');
     if (!permission.ok) {
       return permission;
     }
 
-    return ok(toListPage(cloneForRead(buildSalesList(getMockState(), tab, q)), page));
+    const rows = buildSalesList(getMockState(), tab, q, permission.value).filter((row) => {
+      const documentDate = row.confirmedAt ?? row.quoteIssuedAt ?? row.createdAt;
+      const calendarDate = businessDateFromTimestamp(documentDate);
+      return (
+        (!filters.dateFrom || calendarDate >= filters.dateFrom) &&
+        (!filters.dateTo || calendarDate <= filters.dateTo)
+      );
+    });
+    return ok(toListPage(cloneForRead(rows), page));
   }
 
-  async listReceivables(page = 1) {
-    const permission = requirePermission('sales.manage');
+  async listReceivables(page = 1, filters?: Parameters<SalesRepository['listReceivables']>[1]) {
+    const permission = requireAdministrator();
     if (!permission.ok) {
       return permission;
     }
 
-    const snapshot = cloneForRead(buildReceivables(getMockState()));
+    const snapshot = cloneForRead(buildReceivables(getMockState(), filters));
     const paged = toListPage(snapshot.invoices, page);
     return ok({
       invoices: paged.items,
@@ -73,15 +96,89 @@ export class MockSalesRepository implements SalesRepository {
   }
 
   async getInvoicePdf() {
-    return err({ code: 'INTERNAL', message: 'El prototipo mock usa la vista previa HTML, no bytes de PDF.' });
+    return err({
+      code: 'INTERNAL',
+      message: 'El prototipo mock usa la vista previa HTML, no bytes de PDF.',
+    });
+  }
+
+  async getQuotePdf(id: string) {
+    const permission = requirePermission('sales.manage');
+    if (!permission.ok) return permission;
+    const invoice = getMockState().invoices.find((entry) => entry.id === id);
+    if (!invoice) {
+      return err({ code: 'NOT_FOUND', message: 'Cotización no encontrada' });
+    }
+    if (invoice.status !== 'QUOTE_ISSUED' || invoice.quoteNumber == null) {
+      return err({
+        code: 'CONFLICT',
+        message: 'El PDF solo está disponible para cotizaciones emitidas',
+      });
+    }
+    return ok({
+      blob: new Blob(['%PDF-1.4 mock quote'], { type: 'application/pdf' }),
+      filename: `${invoice.quoteNumber}.pdf`,
+    });
+  }
+
+  async getConducePdf(id: string) {
+    const permission = requirePermission('sales.manage');
+    if (!permission.ok) return permission;
+    const invoice = getMockState().invoices.find((entry) => entry.id === id);
+    if (!invoice) {
+      return err({ code: 'NOT_FOUND', message: 'Conduce no encontrado' });
+    }
+    if (!invoice.conduceNumber) {
+      return err({
+        code: 'CONFLICT',
+        message: 'El PDF de conduce solo está disponible cuando existe CON-',
+      });
+    }
+    return ok({
+      blob: new Blob(['%PDF-1.4 mock conduce'], { type: 'application/pdf' }),
+      filename: `${invoice.conduceNumber}.pdf`,
+    });
+  }
+
+  async getAccountStatementPdf(customerId: string) {
+    const permission = requireAdministrator();
+    if (!permission.ok) return permission;
+    const snapshot = buildReceivables(getMockState(), { customerId });
+    const hasDopBalance = snapshot.customers.some(
+      (customer) => customer.customerId === customerId && customer.currency === 'DOP',
+    );
+    if (!hasDopBalance) {
+      return err({ code: 'CONFLICT', message: 'El cliente no tiene saldo abierto en DOP.' });
+    }
+    return ok({
+      blob: new Blob(['%PDF-1.4 mock account statement'], { type: 'application/pdf' }),
+      filename: 'estado-de-cuenta.pdf',
+    });
+  }
+
+  async listSellerSalesReport() {
+    return err({
+      code: 'INTERNAL',
+      message: 'El reporte de ventas por vendedor no está disponible en el prototipo mock.',
+    });
+  }
+
+  async getSellerSalesReportPdf() {
+    return err({
+      code: 'INTERNAL',
+      message: 'El reporte de ventas por vendedor no está disponible en el prototipo mock.',
+    });
   }
 
   async regenerateInvoicePdf() {
-    return err({ code: 'INTERNAL', message: 'La regeneración de PDF no está disponible en el prototipo mock.' });
+    return err({
+      code: 'INTERNAL',
+      message: 'La regeneración de PDF no está disponible en el prototipo mock.',
+    });
   }
 
   async addPayment(input: AddPaymentInput) {
-    const permission = requirePermission('sales.manage');
+    const permission = requireAdministrator();
     if (!permission.ok) {
       return permission;
     }
@@ -134,6 +231,12 @@ export class MockSalesRepository implements SalesRepository {
     }
 
     return ok(cloneForRead(result.value));
+  }
+
+  async createQuote() {
+    const permission = requirePermission('sales.manage');
+    if (!permission.ok) return permission;
+    return createQuote(getMockState(), permission.value);
   }
 
   async getDraft(id: string) {
@@ -232,6 +335,57 @@ export class MockSalesRepository implements SalesRepository {
     }
 
     return ok(cloneForRead(buildPosDraftView(getMockState(), result.value)));
+  }
+
+  async issueConduce(draftId: string, input?: IssueConduceInput) {
+    const permission = requirePermission('sales.manage');
+    if (!permission.ok) return permission;
+    const result = issueConduce(getMockState(), permission.value, draftId, input);
+    if (!result.ok) return result;
+    return ok(cloneForRead(buildPosDraftView(getMockState(), result.value)));
+  }
+
+  async issueQuote(draftId: string) {
+    const permission = requirePermission('sales.manage');
+    if (!permission.ok) return permission;
+    const result = issueQuote(getMockState(), permission.value, draftId);
+    if (!result.ok) return result;
+    return ok(cloneForRead(buildPosDraftView(getMockState(), result.value)));
+  }
+
+  async duplicateQuote(quoteId: string) {
+    const permission = requirePermission('sales.manage');
+    if (!permission.ok) return permission;
+    return duplicateQuote(getMockState(), permission.value, quoteId);
+  }
+
+  async convertQuote(quoteId: string, payment?: ConfirmInvoicePayment) {
+    const permission = requirePermission('sales.manage');
+    if (!permission.ok) return permission;
+    const result = convertQuote(getMockState(), permission.value, quoteId, payment);
+    if (!result.ok) return result;
+    return ok(cloneForRead(buildPosDraftView(getMockState(), result.value)));
+  }
+
+  async convertQuoteToConduce(quoteId: string, input?: IssueConduceInput) {
+    const permission = requirePermission('sales.manage');
+    if (!permission.ok) return permission;
+    const result = convertQuoteToConduce(getMockState(), permission.value, quoteId, input);
+    if (!result.ok) return result;
+    return ok(cloneForRead(buildPosDraftView(getMockState(), result.value)));
+  }
+
+  async convertConduceToInvoice(invoiceId: string, input: ConvertConduceToInvoiceInput) {
+    const permission = requirePermission('sales.manage');
+    if (!permission.ok) return permission;
+    const result = convertConduceToInvoice(
+      getMockState(),
+      permission.value,
+      invoiceId,
+      input.fiscal,
+    );
+    if (!result.ok) return result;
+    return ok(cloneForRead(buildInvoiceDetail(getMockState(), result.value, permission.value)));
   }
 
   async discardDraft(draftId: string) {

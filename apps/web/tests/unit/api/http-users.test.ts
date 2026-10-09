@@ -25,9 +25,9 @@ afterEach(() => vi.unstubAllGlobals());
 describe('HTTP user management contract', () => {
   it('loads one API page and maps only public user fields', async () => {
     const second = { ...userResponse, id: 'second-id', username: 'ana', name: 'Ana' };
-    const fetchMock = vi.fn().mockResolvedValue(
-      json({ items: [userResponse, second], total: 12, page: 1, pageSize: 10 }),
-    );
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(json({ items: [userResponse, second], total: 12, page: 1, pageSize: 10 }));
     vi.stubGlobal('fetch', fetchMock);
 
     const result = await repository.list();

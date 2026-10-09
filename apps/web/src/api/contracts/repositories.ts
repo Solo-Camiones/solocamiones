@@ -49,15 +49,25 @@ import type {
   AddPaymentInput,
   CancelInvoiceInput,
   ConfirmInvoicePayment,
+  ConvertConduceToInvoiceInput,
   CorrectCurrencyInput,
   CreateDraftResult,
+  ConducePdfDownload,
   InvoiceDetailView,
   InvoicePdfDownload,
+  IssueConduceInput,
+  QuotePdfDownload,
+  AccountStatementPdfDownload,
   PosDraftView,
   ReceivablesSnapshot,
+  ReceivablesFilters,
   RemoveDraftLineInput,
   SalesListRow,
+  SalesListFilters,
   SalesListTab,
+  SellerSalesReport,
+  SellerSalesReportFilters,
+  SellerSalesReportPdfDownload,
   SetDraftLinePriceInput,
   SetDraftLineQuantityInput,
   SetDraftMetaInput,
@@ -73,6 +83,13 @@ import type {
   WorkOrderListRow,
   WorkOrderListTab,
 } from './work-orders';
+import type {
+  AssistantConversation,
+  AssistantConversationPage,
+  AssistantMessagePage,
+  AssistantStreamEvent,
+  StreamAssistantMessageInput,
+} from './assistant';
 import type {
   AppEvent,
   Category,
@@ -125,7 +142,11 @@ export type InventoryRepository = {
 export type CustomerRepository = {
   /** Full directory for POS lookups. The customers page uses `search` with paging. */
   list(): Promise<Result<CustomerListRow[]>>;
-  search(query: string, page?: number): Promise<Result<ListPage<CustomerListRow>>>;
+  search(
+    query: string,
+    page?: number,
+    customerType?: 'CASH' | 'CREDIT',
+  ): Promise<Result<ListPage<CustomerListRow>>>;
   getById(id: string): Promise<Result<Customer>>;
   save(input: SaveCustomerInput): Promise<Result<Customer>>;
 };
@@ -135,15 +156,27 @@ export type SalesRepository = {
     tab?: SalesListTab,
     page?: number,
     q?: string,
+    filters?: SalesListFilters,
   ): Promise<Result<ListPage<SalesListRow>>>;
-  listReceivables(page?: number): Promise<Result<ReceivablesSnapshot>>;
+  listReceivables(
+    page?: number,
+    filters?: ReceivablesFilters,
+  ): Promise<Result<ReceivablesSnapshot>>;
   getInvoice(id: string): Promise<Result<InvoiceDetailView>>;
   getInvoicePdf(id: string): Promise<Result<InvoicePdfDownload>>;
+  getQuotePdf(id: string): Promise<Result<QuotePdfDownload>>;
+  getConducePdf(id: string): Promise<Result<ConducePdfDownload>>;
+  getAccountStatementPdf(customerId: string): Promise<Result<AccountStatementPdfDownload>>;
+  listSellerSalesReport(filters: SellerSalesReportFilters): Promise<Result<SellerSalesReport>>;
+  getSellerSalesReportPdf(
+    filters: SellerSalesReportFilters,
+  ): Promise<Result<SellerSalesReportPdfDownload>>;
   regenerateInvoicePdf(id: string): Promise<Result<InvoiceDetailView>>;
   addPayment(input: AddPaymentInput): Promise<Result<InvoiceDetailView>>;
   cancelInvoice(input: CancelInvoiceInput): Promise<Result<InvoiceDetailView>>;
   correctCurrency(input: CorrectCurrencyInput): Promise<Result<InvoiceDetailView>>;
   createDraft(): Promise<Result<CreateDraftResult>>;
+  createQuote(): Promise<Result<CreateDraftResult>>;
   getDraft(id: string): Promise<Result<PosDraftView>>;
   addLine(input: AddDraftLineInput): Promise<Result<PosDraftView>>;
   removeLine(input: RemoveDraftLineInput): Promise<Result<PosDraftView>>;
@@ -151,6 +184,15 @@ export type SalesRepository = {
   setLineQuantity(input: SetDraftLineQuantityInput): Promise<Result<PosDraftView>>;
   setDraftMeta(input: SetDraftMetaInput): Promise<Result<PosDraftView>>;
   confirmInvoice(draftId: string, payment?: ConfirmInvoicePayment): Promise<Result<PosDraftView>>;
+  issueConduce(draftId: string, input?: IssueConduceInput): Promise<Result<PosDraftView>>;
+  issueQuote(draftId: string): Promise<Result<PosDraftView>>;
+  duplicateQuote(quoteId: string): Promise<Result<CreateDraftResult>>;
+  convertQuote(quoteId: string, payment?: ConfirmInvoicePayment): Promise<Result<PosDraftView>>;
+  convertQuoteToConduce(quoteId: string, input?: IssueConduceInput): Promise<Result<PosDraftView>>;
+  convertConduceToInvoice(
+    invoiceId: string,
+    input: ConvertConduceToInvoiceInput,
+  ): Promise<Result<InvoiceDetailView>>;
   discardDraft(draftId: string): Promise<Result<void>>;
 };
 
@@ -200,4 +242,12 @@ export type RecoveryRepository = {
   getSnapshot(): Promise<Result<RecoverySnapshot>>;
   releaseReservation(input: ReleaseReservationInput): Promise<Result<ReleaseReservationResult>>;
   retryUsdProfitability(input: RetryUsdProfitabilityInput): Promise<Result<RecoverySnapshot>>;
+};
+
+export type AssistantRepository = {
+  createConversation(): Promise<Result<AssistantConversation>>;
+  listConversations(page: number): Promise<Result<AssistantConversationPage>>;
+  listMessages(conversationId: string, page: number): Promise<Result<AssistantMessagePage>>;
+  streamMessage(input: StreamAssistantMessageInput): AsyncIterable<AssistantStreamEvent>;
+  deleteConversation(conversationId: string): Promise<Result<void>>;
 };

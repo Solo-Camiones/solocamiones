@@ -48,6 +48,12 @@ function createProbeRouter(): Router {
     throw AppError.tooManyRequests();
   });
 
+  router.get('/unavailable', () => {
+    throw AppError.serviceUnavailable('Assistant is disabled', {
+      reason: 'ASSISTANT_DISABLED',
+    });
+  });
+
   return router;
 }
 
@@ -59,9 +65,7 @@ function createProbeApp() {
 
 describe('HTTP error contract (integration)', () => {
   it('returns 400 VALIDATION with details and without errorId for invalid bodies', async () => {
-    const response = await request(createProbeApp())
-      .post('/api/test-probe/echo')
-      .send({ name: 1 });
+    const response = await request(createProbeApp()).post('/api/test-probe/echo').send({ name: 1 });
 
     expect(response.status).toBe(400);
     expect(response.body.error.code).toBe('VALIDATION');
@@ -135,6 +139,19 @@ describe('HTTP error contract (integration)', () => {
       error: {
         code: 'CONFLICT',
         message: 'Username already exists',
+      },
+    });
+  });
+
+  it('maps application SERVICE_UNAVAILABLE to 503 without errorId', async () => {
+    const response = await request(createProbeApp()).get('/api/test-probe/unavailable');
+
+    expect(response.status).toBe(503);
+    expect(response.body).toEqual({
+      error: {
+        code: 'SERVICE_UNAVAILABLE',
+        message: 'Assistant is disabled',
+        details: { reason: 'ASSISTANT_DISABLED' },
       },
     });
   });

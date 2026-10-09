@@ -7,6 +7,18 @@ export type ProfitabilityChartPoint = {
   amount: number;
 };
 
+/** Net collected by payment method for one calendar day (DOP). */
+export type CollectedByMethodPoint = {
+  key: string;
+  label: string;
+  CASH: number;
+  TRANSFER: number;
+  CHECK: number;
+};
+
+/** Commercial condition at confirmation (full settlement → CASH). */
+export type SaleCondition = 'CASH' | 'CREDIT';
+
 export type ProfitabilityCharts = {
   fromDay: string;
   toDay: string;
@@ -14,6 +26,12 @@ export type ProfitabilityCharts = {
   profitByMonth: ProfitabilityChartPoint[];
   collectedByDay: ProfitabilityChartPoint[];
   collectedByMonth: ProfitabilityChartPoint[];
+  /** Completed invoice gross (DOP) confirmed as cash, by confirmation day. */
+  invoicedCashByDay: ProfitabilityChartPoint[];
+  /** Completed invoice gross (DOP) confirmed as credit, by confirmation day. */
+  invoicedCreditByDay: ProfitabilityChartPoint[];
+  /** Net collected by method (payments − refunds), by payment effectiveDate. */
+  collectedByMethodByDay: CollectedByMethodPoint[];
 };
 
 export type ProfitabilityInvoiceRow = {
@@ -41,6 +59,9 @@ export type ProfitabilitySnapshot = {
   profitDop: number;
   /** Net receipts in pesos (USD uses the invoice's stored profitability rate). */
   collectedDop: number;
+  /** Open accounts-receivable balances (not converted across currencies). */
+  outstandingDop: number;
+  outstandingUsd: number;
   pendingFxCount: number;
   invoicesMissingProfitCount: number;
   omittedUsdReceiptCount: number;

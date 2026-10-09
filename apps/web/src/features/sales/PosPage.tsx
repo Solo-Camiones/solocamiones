@@ -1,17 +1,27 @@
 import { Fragment, useState, type ReactNode } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 
 import type { PosDraftView, PosLineView } from '../../api/contracts/sales';
 import { PageHeader } from '../../shared/layout/PageHeader';
 import { BackToSalesLink } from './BackToSalesLink';
 import { useMediaQuery } from '../../shared/layout/useMediaQuery';
-import { AssemblyKindChip, RelationChip } from '../../shared/domain';
+import { AssemblyKindChip, FiscalChip, RelationChip } from '../../shared/domain';
+import { BUSINESS_TIME_ZONE } from '../../shared/domain/business-date';
 import { useAppCapabilities } from '../../shared/config/CapabilitiesProvider';
 import { UNDO_TOAST_DURATION_MS, UX_TERMS } from '../../shared/copy/glossary';
-import { Button, Card, Chip, ConfirmActionModal, Info, money, useToast } from '../../shared/ui';
+import {
+  Button,
+  Card,
+  Chip,
+  ConfirmActionModal,
+  Info,
+  money,
+  useObjectUrlState,
+  useToast,
+} from '../../shared/ui';
 import { AddLineModal } from './AddLineModal';
 import { AssemblyTree } from './AssemblyTree';
-import { ConfirmSaleModal } from './ConfirmSaleModal';
+import { ConfirmSaleModal, type ConfirmSaleMode } from './ConfirmSaleModal';
 import { DocumentPanel } from './DocumentPanel';
 import { EditLineModal, type PosLineManualPatch } from './EditLineModal';
 import { LINE_TYPE_LABELS } from './labels';
@@ -36,6 +46,7 @@ import {
   posLineSku,
   toPosUserMessage,
 } from './pos-copy';
+import { PdfPreviewModal } from './PdfPreviewModal';
 import { TotalsPanel } from './TotalsPanel';
 import { restoreDiscardedDraft, snapshotPosDraft, snapshotPosLine, usePos } from './usePos';
 
@@ -44,8 +55,10 @@ const POS_LINES_TABLE_MIN_WIDTH_PX = 1024;
 
 export function PosPage() {
   const { id } = useParams();
+  const location = useLocation();
   const navigate = useNavigate();
-  const pos = usePos(id);
+  const creationKind = location.pathname.includes('/sales/quote/') ? 'quote' : 'sale';
+  const pos = usePos(id, creationKind);
   const capabilities = useAppCapabilities();
   const { pushToast } = useToast();
   const isDesktopLines = useMediaQuery(`(min-width: ${POS_LINES_TABLE_MIN_WIDTH_PX}px)`, true);
@@ -54,11 +67,34 @@ export function PosPage() {
   const [linePendingRemoval, setLinePendingRemoval] = useState<PosLineView | null>(null);
   const [discardPending, setDiscardPending] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [confirmMode, setConfirmMode] = useState<ConfirmSaleMode>('invoice');
   const [addError, setAddError] = useState<string | null>(null);
   const [editError, setEditError] = useState<string | null>(null);
   const [metaError, setMetaError] = useState<string | null>(null);
   const [confirmError, setConfirmError] = useState<string | null>(null);
   const [discardError, setDiscardError] = useState<string | null>(null);
+  const [operationError, setOperationError] = useState<string | null>(null);
+  const [pdfOpen, setPdfOpen] = useState(false);
+  const {
+    value: pdfFile,
+    setValue: setPdfFile,
+    revoke: revokePdfFile,
+  } = useObjectUrlState<{ url: string; filename: string }>();
+
+  async function handleViewQuotePdf() {
+    setOperationError(null);
+    const response = await pos.getQuotePdf();
+    if (!response.ok) {
+      setOperationError(toPosUserMessage(response.error));
+      return;
+    }
+    revokePdfFile();
+    setPdfFile({
+      url: URL.createObjectURL(response.value.blob),
+      filename: response.value.filename,
+    });
+    setPdfOpen(true);
+  }
 
   if (pos.result.status === 'error') {
     return (
@@ -77,7 +113,9 @@ export function PosPage() {
   }
 
   const draft = pos.result.draft;
-  const readOnly = draft.status !== 'DRAFT';
+  const isQuoteDraft = draft.status === 'QUOTE_DRAFT';
+  const isIssuedQuote = draft.status === 'QUOTE_ISSUED';
+  const readOnly = draft.status !== 'DRAFT' && !isQuoteDraft;
   const confirmBlocked = draft.blockers.length > 0;
   const blockedSummary = posBlockedConfirmSummary(draft.blockers);
 
@@ -145,7 +183,7 @@ export function PosPage() {
               pushToast(toPosUserMessage(restored.error), 'error');
               return;
             }
-            navigate(`/sales/draft/${restored.value}`);
+            void navigate(`/sales/draft/${restored.value}`);
           });
         },
       },
@@ -180,15 +218,17 @@ export function PosPage() {
     <>
       <PageHeader
         leading={<BackToSalesLink />}
-        title="Punto de venta"
+        title={isIssuedQuote || isQuoteDraft ? 'Cotización' : 'Punto de venta'}
         description={
-          readOnly
-            ? `${draft.number ? `Factura ${draft.number} confirmada` : 'Factura confirmada'}. ${
-                capabilities.payments
-                  ? 'Pagos y vista previa del documento están en el detalle.'
-                  : 'La vista previa del documento está en el detalle.'
-              }`
-            : posDraftDescription(capabilities)
+          isIssuedQuote
+            ? `${draft.quoteNumber ?? 'Cotización emitida'} · ${draft.quoteExpired ? 'Vencida' : 'Vigente'}`
+            : readOnly
+              ? `${draft.number ? `Factura ${draft.number} confirmada` : 'Factura confirmada'}. ${
+                  capabilities.payments
+                    ? 'Pagos y vista previa del documento están en el detalle.'
+                    : 'La vista previa del documento está en el detalle.'
+                }`
+              : posDraftDescription(capabilities)
         }
       />
 
@@ -200,7 +240,79 @@ export function PosPage() {
         </div>
       )}
 
-      {readOnly && (
+      {operationError && (
+        <div className="mb-4">
+          <Info tone="error" title="No se pudo completar la operación">
+            {operationError}
+          </Info>
+        </div>
+      )}
+
+      {isIssuedQuote && (
+        <div className="mb-6">
+          <Info
+            tone={draft.quoteExpired ? 'warning' : 'success'}
+            title={`${draft.quoteNumber ?? 'Cotización emitida'} ${draft.quoteExpired ? 'vencida' : 'vigente'}`}
+          >
+            Cliente {draft.customerName}. Total {money(draft.totals.gross, draft.currency)}.
+            {draft.quoteExpiresAt
+              ? ` Vence el ${new Date(draft.quoteExpiresAt).toLocaleDateString('es-DO', {
+                  timeZone: BUSINESS_TIME_ZONE,
+                })}.`
+              : ''}
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Button
+                size="sm"
+                disabled={pos.isMutating || draft.quoteExpired}
+                onClick={() => {
+                  setOperationError(null);
+                  setConfirmMode('invoice');
+                  setConfirmOpen(true);
+                }}
+              >
+                Convertir a factura
+              </Button>
+              <Button
+                variant="secondary"
+                size="sm"
+                disabled={pos.isMutating || draft.quoteExpired}
+                onClick={() => {
+                  setOperationError(null);
+                  setConfirmMode('conduce');
+                  setConfirmOpen(true);
+                }}
+              >
+                Convertir a conduce
+              </Button>
+              <Button
+                variant="secondary"
+                size="sm"
+                disabled={pos.isMutating}
+                onClick={() => {
+                  setOperationError(null);
+                  void pos.duplicateQuote().then((response) => {
+                    if (!response.ok) setOperationError(toPosUserMessage(response.error));
+                  });
+                }}
+              >
+                Duplicar cotización
+              </Button>
+              <Button
+                variant="secondary"
+                size="sm"
+                disabled={pos.isMutating}
+                onClick={() => {
+                  void handleViewQuotePdf();
+                }}
+              >
+                Descargar cotización
+              </Button>
+            </div>
+          </Info>
+        </div>
+      )}
+
+      {readOnly && !isIssuedQuote && (
         <div className="mb-6">
           <Info tone="success" title={`Factura ${draft.number} confirmada`}>
             Cliente {draft.customerName}. Total {money(draft.totals.gross, draft.currency)}.
@@ -231,12 +343,12 @@ export function PosPage() {
           <Card id={POS_FIELD_IDS.lines} tabIndex={-1} className="outline-none">
             <div className="mb-4 flex flex-wrap items-center gap-2">
               <h2 className="text-lg font-semibold text-navy">Líneas</h2>
-              <Chip>{draft.number ?? (readOnly ? 'Factura' : 'Borrador')}</Chip>
-              {draft.fiscal ? (
-                <Chip tone="brand">Fiscal</Chip>
-              ) : (
-                <Chip>Sin comprobante fiscal</Chip>
-              )}
+              <Chip>
+                {draft.number ??
+                  draft.quoteNumber ??
+                  (isQuoteDraft ? 'Cotización borrador' : readOnly ? 'Factura' : 'Borrador')}
+              </Chip>
+              <FiscalChip fiscal={draft.fiscal} />
             </div>
             {draft.lines.length === 0 ? (
               <p className="text-sm text-navy-400">{posEmptyLinesMessage(capabilities)}</p>
@@ -273,9 +385,7 @@ export function PosPage() {
         </div>
 
         <div className="flex min-w-0 flex-col gap-4">
-          {!readOnly && (
-            <div className="hidden min-h-11 xl:block" aria-hidden />
-          )}
+          {!readOnly && <div className="hidden min-h-11 xl:block" aria-hidden />}
           <Card>
             <h2 className="mb-4 text-lg font-semibold text-navy">Documento</h2>
             <DocumentPanel
@@ -307,6 +417,14 @@ export function PosPage() {
                   }
                 });
               }}
+              onApplyItbisChange={(applyItbis) => {
+                setMetaError(null);
+                void pos.setMeta({ applyItbis }).then((response) => {
+                  if (!response.ok) {
+                    setMetaError(toPosUserMessage(response.error));
+                  }
+                });
+              }}
             />
           </Card>
           <Card>
@@ -322,7 +440,25 @@ export function PosPage() {
                 </Info>
               </div>
             )}
-            <TotalsPanel totals={draft.totals} currency={draft.currency} />
+            <TotalsPanel
+              totals={draft.totals}
+              currency={draft.currency}
+              discountPercent={draft.discountPercent}
+              readOnly={readOnly}
+              disabled={pos.isMutating}
+              onDiscountPercentChange={
+                readOnly
+                  ? undefined
+                  : (discountPercent) => {
+                      setMetaError(null);
+                      void pos.setMeta({ discountPercent }).then((response) => {
+                        if (!response.ok) {
+                          setMetaError(toPosUserMessage(response.error));
+                        }
+                      });
+                    }
+              }
+            />
           </Card>
           {!readOnly && (
             <PosCheckoutActions
@@ -334,10 +470,34 @@ export function PosPage() {
                 setDiscardPending(true);
               }}
               onConfirm={() => {
+                if (isQuoteDraft) {
+                  setOperationError(null);
+                  void pos.issueQuote().then((response) => {
+                    if (!response.ok) {
+                      setOperationError(toPosUserMessage(response.error));
+                      return;
+                    }
+                    pushToast('Cotización emitida', 'success');
+                  });
+                  return;
+                }
                 setConfirmError(null);
+                setConfirmMode('invoice');
                 setConfirmOpen(true);
               }}
+              onIssueConduce={
+                isQuoteDraft
+                  ? undefined
+                  : () => {
+                      setConfirmError(null);
+                      setConfirmMode('conduce');
+                      setConfirmOpen(true);
+                    }
+              }
               onViewRequirements={handleViewRequirements}
+              confirmLabel={isQuoteDraft ? 'Emitir cotización' : 'Confirmar factura'}
+              conduceLabel="Emitir conduce"
+              discardLabel={isQuoteDraft ? 'Descartar cotización' : 'Descartar borrador'}
             />
           )}
         </div>
@@ -421,6 +581,7 @@ export function PosPage() {
       <ConfirmSaleModal
         open={confirmOpen}
         draft={draft}
+        mode={confirmMode}
         isConfirming={pos.isMutating}
         error={confirmError}
         onClose={() => {
@@ -429,15 +590,40 @@ export function PosPage() {
             setConfirmError(null);
           }
         }}
-        onConfirm={(payment) => {
-          void pos.confirm(payment).then((response) => {
-            if (!response.ok) {
-              setConfirmError(toPosUserMessage(response.error));
-              return;
-            }
-            setConfirmOpen(false);
-            pushToast('Venta confirmada', 'success');
-          });
+        onConfirm={async (input) => {
+          const payment = input?.payment;
+          const operation =
+            confirmMode === 'conduce'
+              ? isIssuedQuote
+                ? pos.convertQuoteToConduce(input)
+                : pos.issueConduce(input)
+              : isIssuedQuote
+                ? pos.convertQuote(payment)
+                : pos.confirm(payment);
+          const response = await operation;
+          if (!response.ok) {
+            setConfirmError(toPosUserMessage(response.error));
+            return;
+          }
+          setConfirmOpen(false);
+          if (confirmMode === 'conduce') {
+            pushToast(
+              isIssuedQuote ? 'Cotización convertida a conduce' : 'Conduce emitido',
+              'success',
+            );
+            return;
+          }
+          pushToast(isIssuedQuote ? 'Cotización convertida' : 'Venta confirmada', 'success');
+        }}
+      />
+
+      <PdfPreviewModal
+        open={pdfOpen}
+        kind="quote"
+        pdfFile={pdfFile ?? undefined}
+        onClose={() => {
+          setPdfOpen(false);
+          revokePdfFile();
         }}
       />
     </>
@@ -450,7 +636,11 @@ type PosCheckoutActionsProps = {
   blockedSummary: string | null;
   onDiscard: () => void;
   onConfirm: () => void;
+  onIssueConduce?: () => void;
   onViewRequirements: () => void;
+  confirmLabel: string;
+  conduceLabel?: string;
+  discardLabel: string;
 };
 
 /**
@@ -463,7 +653,11 @@ function PosCheckoutActions({
   blockedSummary,
   onDiscard,
   onConfirm,
+  onIssueConduce,
   onViewRequirements,
+  confirmLabel,
+  conduceLabel,
+  discardLabel,
 }: PosCheckoutActionsProps) {
   return (
     <div className="@container">
@@ -475,18 +669,30 @@ function PosCheckoutActions({
           disabled={isMutating}
           onClick={onDiscard}
         >
-          Descartar borrador
+          {discardLabel}
         </Button>
         <div className="flex flex-col items-end gap-1">
-          <Button
-            size="lg"
-            disabled={isMutating || confirmBlocked}
-            busy={isMutating}
-            aria-describedby={confirmBlocked ? 'pos-confirm-block-reason' : undefined}
-            onClick={onConfirm}
-          >
-            Confirmar venta
-          </Button>
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            {onIssueConduce && conduceLabel && (
+              <Button
+                variant="secondary"
+                size="lg"
+                disabled={isMutating || confirmBlocked}
+                onClick={onIssueConduce}
+              >
+                {conduceLabel}
+              </Button>
+            )}
+            <Button
+              size="lg"
+              disabled={isMutating || confirmBlocked}
+              busy={isMutating}
+              aria-describedby={confirmBlocked ? 'pos-confirm-block-reason' : undefined}
+              onClick={onConfirm}
+            >
+              {confirmLabel}
+            </Button>
+          </div>
           {confirmBlocked && blockedSummary && (
             <div className="flex max-w-xs flex-wrap items-center justify-end gap-x-3 gap-y-1 text-sm text-amber-800">
               <span id="pos-confirm-block-reason">{blockedSummary}</span>
@@ -517,9 +723,7 @@ type DraftLinesProps = {
 const DRAFT_LINE_DATA_COLUMN_COUNT = 6;
 
 function DraftLinesTable({ draft, readOnly, isMutating, onEdit, onRemove }: DraftLinesProps) {
-  const columnCount = readOnly
-    ? DRAFT_LINE_DATA_COLUMN_COUNT
-    : DRAFT_LINE_DATA_COLUMN_COUNT + 1;
+  const columnCount = readOnly ? DRAFT_LINE_DATA_COLUMN_COUNT : DRAFT_LINE_DATA_COLUMN_COUNT + 1;
 
   return (
     <div className="overflow-x-auto">
@@ -566,7 +770,7 @@ function DraftLinesTable({ draft, readOnly, isMutating, onEdit, onRemove }: Draf
               </tr>
               {line.notes ? (
                 <tr className="border-b border-navy-50">
-                    <td colSpan={columnCount} className="max-w-0 pb-3 pr-3 pt-0">
+                  <td colSpan={columnCount} className="max-w-0 pb-3 pr-3 pt-0">
                     <InvoiceLineNoteText notes={line.notes} />
                   </td>
                 </tr>

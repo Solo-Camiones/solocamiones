@@ -8,7 +8,16 @@ import type {
 } from '../../api/contracts/inventory';
 import { useAppCapabilities } from '../../shared/config/CapabilitiesProvider';
 import { UX_TERMS } from '../../shared/copy/glossary';
-import { Button, Field, GuardedModal, Info, Input, Select, Textarea, isFormDirty } from '../../shared/ui';
+import {
+  Button,
+  Field,
+  GuardedModal,
+  Info,
+  Input,
+  Select,
+  Textarea,
+  isFormDirty,
+} from '../../shared/ui';
 import { BaselineChecklist } from './BaselineChecklist';
 
 type ItemAdminActionsProps = {
@@ -231,18 +240,18 @@ export function ItemAdminActions({
         </Button>
         {hierarchy &&
           detail.missingComponents.some((entry) => entry.origin === 'MISSING_AT_RECEIPT') && (
-          <Button
-            variant="secondary"
-            size="sm"
-            disabled={isMutating}
-            onClick={() => {
-              setError(null);
-              setBaselineOpen(true);
-            }}
-          >
-            Corregir {UX_TERMS.receiptRecord.toLowerCase()}
-          </Button>
-        )}
+            <Button
+              variant="secondary"
+              size="sm"
+              disabled={isMutating}
+              onClick={() => {
+                setError(null);
+                setBaselineOpen(true);
+              }}
+            >
+              Corregir {UX_TERMS.receiptRecord.toLowerCase()}
+            </Button>
+          )}
       </div>
 
       <GuardedModal
@@ -257,30 +266,30 @@ export function ItemAdminActions({
         isBusy={isMutating}
       >
         {({ requestClose }) => (
-        <div className="space-y-3">
-          {error && (
-            <Info tone="error" title="No se pudo corregir el costo">
-              {error}
-            </Info>
-          )}
-          <CostForm
-            current={detail.acquisitionCostDop}
-            provenance={detail.costProvenance}
-            disabled={isMutating}
-            onDirtyChange={setCostDirty}
-            onCancel={requestClose}
-            onSubmit={async (input) => {
-              const message = await onCorrectCost(input);
-              if (message) {
-                setError(message);
-                return;
-              }
-              setError(null);
-              setCostOpen(false);
-              setCostDirty(false);
-            }}
-          />
-        </div>
+          <div className="space-y-3">
+            {error && (
+              <Info tone="error" title="No se pudo corregir el costo">
+                {error}
+              </Info>
+            )}
+            <CostForm
+              current={detail.acquisitionCostDop}
+              provenance={detail.costProvenance}
+              disabled={isMutating}
+              onDirtyChange={setCostDirty}
+              onCancel={requestClose}
+              onSubmit={async (input) => {
+                const message = await onCorrectCost(input);
+                if (message) {
+                  setError(message);
+                  return;
+                }
+                setError(null);
+                setCostOpen(false);
+                setCostDirty(false);
+              }}
+            />
+          </div>
         )}
       </GuardedModal>
 
@@ -296,31 +305,34 @@ export function ItemAdminActions({
         isBusy={isMutating}
       >
         {({ requestClose }) => (
-        <div className="space-y-3">
-          {error && (
-            <Info tone="error" title={`No se pudo corregir el ${UX_TERMS.receiptRecord.toLowerCase()}`}>
-              {error}
-            </Info>
-          )}
-          <BaselineForm
-            missing={detail.missingComponents
-              .filter((entry) => entry.origin === 'MISSING_AT_RECEIPT')
-              .map((entry) => entry.expectedComponentName)}
-            disabled={isMutating}
-            onDirtyChange={setBaselineDirty}
-            onCancel={requestClose}
-            onSubmit={async (input) => {
-              const message = await onCorrectBaseline(input);
-              if (message) {
-                setError(message);
-                return;
-              }
-              setError(null);
-              setBaselineOpen(false);
-              setBaselineDirty(false);
-            }}
-          />
-        </div>
+          <div className="space-y-3">
+            {error && (
+              <Info
+                tone="error"
+                title={`No se pudo corregir el ${UX_TERMS.receiptRecord.toLowerCase()}`}
+              >
+                {error}
+              </Info>
+            )}
+            <BaselineForm
+              missing={detail.missingComponents
+                .filter((entry) => entry.origin === 'MISSING_AT_RECEIPT')
+                .map((entry) => entry.expectedComponentName)}
+              disabled={isMutating}
+              onDirtyChange={setBaselineDirty}
+              onCancel={requestClose}
+              onSubmit={async (input) => {
+                const message = await onCorrectBaseline(input);
+                if (message) {
+                  setError(message);
+                  return;
+                }
+                setError(null);
+                setBaselineOpen(false);
+                setBaselineDirty(false);
+              }}
+            />
+          </div>
         )}
       </GuardedModal>
 
@@ -336,30 +348,30 @@ export function ItemAdminActions({
         isBusy={isMutating}
       >
         {({ requestClose }) => (
-        <div className="space-y-3">
-          {error && (
-            <Info tone="error" title="No se pudo crear la orden de trabajo">
-              {error}
-            </Info>
-          )}
-          <WorkOrderForm
-            pieceId={detail.id}
-            relationship={detail.physicalRelationship}
-            disabled={isMutating}
-            onDirtyChange={setWoDirty}
-            onCancel={requestClose}
-            onSubmit={async (input) => {
-              const message = await onCreateWorkOrder(input);
-              if (message) {
-                setError(message);
-                return;
-              }
-              setError(null);
-              setWoOpen(false);
-              setWoDirty(false);
-            }}
-          />
-        </div>
+          <div className="space-y-3">
+            {error && (
+              <Info tone="error" title="No se pudo crear la orden de trabajo">
+                {error}
+              </Info>
+            )}
+            <WorkOrderForm
+              pieceId={detail.id}
+              relationship={detail.physicalRelationship}
+              disabled={isMutating}
+              onDirtyChange={setWoDirty}
+              onCancel={requestClose}
+              onSubmit={async (input) => {
+                const message = await onCreateWorkOrder(input);
+                if (message) {
+                  setError(message);
+                  return;
+                }
+                setError(null);
+                setWoOpen(false);
+                setWoDirty(false);
+              }}
+            />
+          </div>
         )}
       </GuardedModal>
     </div>
@@ -671,72 +683,72 @@ function PresentChildForm({
       isBusy={disabled}
     >
       {({ requestClose }) => (
-      <form
-        className="flex flex-col gap-3"
-        onSubmit={(event) => {
-          event.preventDefault();
-          void onSubmit(
-            {
-              name,
-              categoryId,
-              condition,
-            },
-            category?.isAssembly ? entries : undefined,
-          );
-        }}
-      >
-        {error && (
-          <Info tone="error" title="No se pudo registrar">
-            {error}
-          </Info>
-        )}
-        <p className="text-sm text-navy-400">
-          Crea la pieza en inventario y la instala en este ensamblaje. No es una orden de trabajo:
-          corrige la composición de recepción ahora que el catálogo espera esta pieza.
-        </p>
-        <p className="text-sm text-navy-400">
-          Código al guardar:{' '}
-          <span className="font-mono text-navy">{category?.codePrefix ?? '—'}</span>
-        </p>
-        <Field label="Nombre" htmlFor="present-name">
-          <Input
-            id="present-name"
-            required
-            value={name}
-            onChange={(event) => setName(event.target.value)}
-          />
-        </Field>
-        <Field label="Condición" htmlFor="present-condition">
-          <Select
-            id="present-condition"
-            value={condition}
-            onChange={(event) => setCondition(event.target.value as ItemCondition)}
-          >
-            <option value="USED">Usado</option>
-            <option value="NEW">Nuevo</option>
-            <option value="REMANUFACTURED">Remanufacturado</option>
-          </Select>
-        </Field>
-        {category?.isAssembly && (
-          <div className="border-t border-navy-100 pt-3">
-            <BaselineChecklist
-              expectedComponents={category.expectedComponents ?? []}
-              categories={categories}
-              entries={entries}
-              onChange={setEntries}
-              path={`catalog-review.${expectedComponentName}`}
+        <form
+          className="flex flex-col gap-3"
+          onSubmit={(event) => {
+            event.preventDefault();
+            void onSubmit(
+              {
+                name,
+                categoryId,
+                condition,
+              },
+              category?.isAssembly ? entries : undefined,
+            );
+          }}
+        >
+          {error && (
+            <Info tone="error" title="No se pudo registrar">
+              {error}
+            </Info>
+          )}
+          <p className="text-sm text-navy-400">
+            Crea la pieza en inventario y la instala en este ensamblaje. No es una orden de trabajo:
+            corrige la composición de recepción ahora que el catálogo espera esta pieza.
+          </p>
+          <p className="text-sm text-navy-400">
+            Código al guardar:{' '}
+            <span className="font-mono text-navy">{category?.codePrefix ?? '—'}</span>
+          </p>
+          <Field label="Nombre" htmlFor="present-name">
+            <Input
+              id="present-name"
+              required
+              value={name}
+              onChange={(event) => setName(event.target.value)}
             />
+          </Field>
+          <Field label="Condición" htmlFor="present-condition">
+            <Select
+              id="present-condition"
+              value={condition}
+              onChange={(event) => setCondition(event.target.value as ItemCondition)}
+            >
+              <option value="USED">Usado</option>
+              <option value="NEW">Nuevo</option>
+              <option value="REMANUFACTURED">Remanufacturado</option>
+            </Select>
+          </Field>
+          {category?.isAssembly && (
+            <div className="border-t border-navy-100 pt-3">
+              <BaselineChecklist
+                expectedComponents={category.expectedComponents ?? []}
+                categories={categories}
+                entries={entries}
+                onChange={setEntries}
+                path={`catalog-review.${expectedComponentName}`}
+              />
+            </div>
+          )}
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="ghost" onClick={requestClose} disabled={disabled}>
+              Cancelar
+            </Button>
+            <Button type="submit" disabled={disabled || !categoryId}>
+              Registrar en el árbol
+            </Button>
           </div>
-        )}
-        <div className="flex justify-end gap-2">
-          <Button type="button" variant="ghost" onClick={requestClose} disabled={disabled}>
-            Cancelar
-          </Button>
-          <Button type="submit" disabled={disabled || !categoryId}>
-            Registrar en el árbol
-          </Button>
-        </div>
-      </form>
+        </form>
       )}
     </GuardedModal>
   );

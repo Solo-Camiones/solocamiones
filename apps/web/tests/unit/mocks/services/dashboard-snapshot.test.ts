@@ -51,7 +51,7 @@ describe('buildDashboardSnapshot', () => {
     expect(snapshot.kpis).toEqual({
       availableInventory: 78,
       invoicesToday: 2,
-      outstandingDop: 23100,
+      outstandingDop: 31_100,
       outstandingUsd: 0,
       draftCount: 1,
       pendingDismantling: 1,
@@ -100,7 +100,9 @@ describe('buildDashboardSnapshot', () => {
     });
 
     expect(adminSnapshot.pendingCatalogReviews).toHaveLength(3);
-    expect(adminSnapshot.pendingCatalogReviews?.every((row) => row.kind === 'PENDING_NA')).toBe(true);
+    expect(adminSnapshot.pendingCatalogReviews?.every((row) => row.kind === 'PENDING_NA')).toBe(
+      true,
+    );
     expect(adminSnapshot.kpis.pendingCatalogValidations).toBe(3);
     expect(adminSnapshot.pendingCatalogReviews?.some((row) => row.itemId === 'MOT-001')).toBe(true);
     expect(sellerSnapshot.pendingCatalogReviews).toBeUndefined();

@@ -2,6 +2,7 @@ import type {
   AddDraftLineInput,
   ConfirmInvoicePayment,
   CreateDraftResult,
+  IssueConduceInput,
   RemoveDraftLineInput,
   SetDraftLinePriceInput,
   SetDraftLineQuantityInput,
@@ -10,6 +11,7 @@ import type {
 import type {
   AppEvent,
   AppState,
+  Customer,
   DeliveredAssembly,
   Invoice,
   InvoiceLine,
@@ -17,10 +19,12 @@ import type {
   LineType,
   Payment,
   PaymentMethod,
+  QtyProduct,
   User,
   WorkOrder,
 } from '../../api/contracts/entities';
 import { err, ok, type Result } from '../../shared/auth/types';
+import { businessDateString } from '../../shared/domain/business-date';
 import { currentDemoTimeIso, DEMO_NOW_ISO } from '../data/demo-clock';
 import {
   availableToReserve,
@@ -30,13 +34,20 @@ import {
   overlappingReservation,
   protectedAncestor,
 } from './inventory-helpers';
-import { derivePaymentState, invoiceTotal, roundMoney } from './invoice-money';
+import { derivePaymentState, invoiceBalance, invoiceTotal, roundMoney } from './invoice-money';
 import {
   activeWorkAffectingAssembly,
   CASH_CUSTOMER_CREDIT_FORBIDDEN_MESSAGE,
   CASH_CUSTOMER_ID,
+  confirmationDueDate,
+  confirmationRequiresFullPayment,
+  conduceRequiresFullPayment,
+  CREDIT_LIMIT_EXCEEDED_MESSAGE,
   customerQualifiesForFiscal,
-  isCashCustomer,
+  isCreditDopConfirmation,
+  resolveConduceDueDate,
+  SELLER_CREDIT_PAYMENT_FORBIDDEN_MESSAGE,
+  USD_INVOICE_MUST_BE_PAID_IN_FULL_MESSAGE,
 } from './sales-helpers';
 import { applyUsdProfitability } from './usd-profitability';
 
@@ -86,7 +97,7 @@ function findInvoice(state: AppState, invoiceId: string): Result<Invoice> {
 }
 
 function requireDraft(invoice: Invoice): Result<Invoice> {
-  if (invoice.status !== 'DRAFT') {
+  if (invoice.status !== 'DRAFT' && invoice.status !== 'QUOTE_DRAFT') {
     return err({ code: 'VALIDATION', message: 'Solo se puede editar un borrador' });
   }
   return ok(invoice);
@@ -210,25 +221,166 @@ function reserveItemOnDraft(
  * Inventory addToDraft still reuses the first open draft (WM5); POS needs distinct
  * drafts so "reservado por otro borrador" can be demonstrated.
  */
-export function createDraft(state: AppState, actor: User): Result<CreateDraftResult> {
-  const draft: Invoice = {
+function createEmptyInvoice(state: AppState, status: 'DRAFT' | 'QUOTE_DRAFT'): Invoice {
+  const invoice: Invoice = {
     id: nextNumericId(
-      state.invoices.map((invoice) => invoice.id),
+      state.invoices.map((entry) => entry.id),
       'INV-DRAFT-',
       2,
     ),
-    status: 'DRAFT',
+    status,
     customerId: CASH_CUSTOMER_ID,
     currency: 'DOP',
     fiscal: false,
+    applyItbis: false,
+    discountPercent: 0,
     lines: [],
     payments: [],
     paymentState: 'UNPAID',
     createdAt: currentDemoTimeIso(),
   };
-  state.invoices.push(draft);
+  state.invoices.push(invoice);
+  return invoice;
+}
+
+export function createDraft(state: AppState, actor: User): Result<CreateDraftResult> {
+  const draft = createEmptyInvoice(state, 'DRAFT');
   appendEvent(state, 'DRAFT_CREATED', `Borrador ${draft.id} creado`, actor, { draftId: draft.id });
   return ok({ draftId: draft.id });
+}
+
+export function createQuote(state: AppState, actor: User): Result<CreateDraftResult> {
+  const quote = createEmptyInvoice(state, 'QUOTE_DRAFT');
+  appendEvent(state, 'QUOTE_DRAFT_CREATED', `Cotización ${quote.id} creada`, actor, {
+    invoiceId: quote.id,
+  });
+  return ok({ draftId: quote.id });
+}
+
+const QUOTE_VALIDITY_DAYS = 15;
+
+function quoteExpiresAtIso(issuedAtIso: string): string {
+  const [year, month, day] = businessDateString(new Date(issuedAtIso)).split('-').map(Number);
+  const expiryDay = new Date(Date.UTC(year, month - 1, day + QUOTE_VALIDITY_DAYS));
+  return new Date(`${expiryDay.toISOString().slice(0, 10)}T23:59:59.999-04:00`).toISOString();
+}
+
+export function issueQuote(state: AppState, actor: User, quoteId: string): Result<Invoice> {
+  const found = findInvoice(state, quoteId);
+  if (!found.ok) return found;
+  const quote = found.value;
+  if (quote.status === 'QUOTE_ISSUED') return ok(quote);
+  if (quote.status !== 'QUOTE_DRAFT') {
+    return err({ code: 'VALIDATION', message: 'Solo se puede emitir una cotización en borrador' });
+  }
+  if (quote.lines.length === 0) {
+    return err({ code: 'VALIDATION', message: 'Agregue al menos una línea' });
+  }
+  if (quote.lines.some((line) => line.pricePending)) {
+    return err({ code: 'VALIDATION', message: 'Hay precios pendientes' });
+  }
+  const customer = state.customers.find((entry) => entry.id === quote.customerId);
+  if (!customer) return err({ code: 'NOT_FOUND', message: 'Cliente no encontrado' });
+
+  const sequence = state.cotSeq ?? 1;
+  quote.quoteNumber = `COT-${String(sequence).padStart(6, '0')}`;
+  state.cotSeq = sequence + 1;
+  quote.quoteIssuedAt = currentDemoTimeIso();
+  quote.quoteExpiresAt = quoteExpiresAtIso(quote.quoteIssuedAt);
+  quote.customerSnapshot = {
+    name: customer.name,
+    rnc: customer.rnc,
+    phone: customer.contacts.find((contact) => contact.isPrimary)?.phone,
+    customerType: customer.customerType,
+    creditTermDays: customer.creditTermDays,
+  };
+  quote.status = 'QUOTE_ISSUED';
+  appendEvent(state, 'QUOTE_ISSUED', `Cotización ${quote.quoteNumber} emitida`, actor, {
+    invoiceId: quote.id,
+    quoteNumber: quote.quoteNumber,
+  });
+  return ok(quote);
+}
+
+export function duplicateQuote(
+  state: AppState,
+  actor: User,
+  quoteId: string,
+): Result<CreateDraftResult> {
+  const found = findInvoice(state, quoteId);
+  if (!found.ok) return found;
+  if (found.value.status !== 'QUOTE_ISSUED') {
+    return err({ code: 'VALIDATION', message: 'Solo se puede duplicar una cotización emitida' });
+  }
+  const created = createQuote(state, actor);
+  if (!created.ok) return created;
+  const duplicate = state.invoices.find((invoice) => invoice.id === created.value.draftId)!;
+  duplicate.customerId = found.value.customerId;
+  duplicate.currency = found.value.currency;
+  duplicate.fiscal = found.value.fiscal;
+  duplicate.applyItbis = found.value.applyItbis;
+  duplicate.discountPercent = found.value.discountPercent ?? 0;
+  duplicate.lines = found.value.lines.map((line, index) => ({
+    ...line,
+    id: `LIN-${duplicate.id}-${String(index + 1).padStart(2, '0')}`,
+  }));
+  appendEvent(state, 'QUOTE_DUPLICATED', `Cotización ${found.value.quoteNumber} duplicada`, actor, {
+    invoiceId: duplicate.id,
+    sourceQuoteId: found.value.id,
+  });
+  return created;
+}
+
+export function convertQuote(
+  state: AppState,
+  actor: User,
+  quoteId: string,
+  payment?: ConfirmInvoicePayment,
+): Result<Invoice> {
+  const found = findInvoice(state, quoteId);
+  if (!found.ok) return found;
+  const quote = found.value;
+  if (quote.status === 'COMPLETED' && quote.quoteNumber) return ok(quote);
+  if (quote.status !== 'QUOTE_ISSUED') {
+    return err({ code: 'VALIDATION', message: 'Solo se puede convertir una cotización emitida' });
+  }
+  if (quote.quoteExpiresAt && Date.parse(currentDemoTimeIso()) > Date.parse(quote.quoteExpiresAt)) {
+    return err({
+      code: 'VALIDATION',
+      message: 'La cotización está vencida y no puede convertirse',
+    });
+  }
+
+  const prepared = prepareIssuedQuoteForConversion(state, quote);
+  if (!prepared.ok) return prepared;
+
+  const converted = confirmInvoice(state, actor, quoteId, payment);
+  if (!converted.ok) {
+    rollbackQuoteConversion(quote, prepared.value);
+    return converted;
+  }
+
+  const frozenIdentity = prepared.value.frozenIdentity;
+  if (frozenIdentity) {
+    quote.customerSnapshot = {
+      ...quote.customerSnapshot,
+      name: frozenIdentity.name,
+      rnc: frozenIdentity.rnc,
+      phone: frozenIdentity.phone,
+    };
+  }
+  appendEvent(
+    state,
+    'QUOTE_CONVERTED',
+    `Cotización ${quote.quoteNumber} convertida en ${quote.number}`,
+    actor,
+    {
+      invoiceId: quote.id,
+      quoteNumber: quote.quoteNumber,
+      invoiceNumber: quote.number,
+    },
+  );
+  return converted;
 }
 
 export function addDraftLine(
@@ -257,9 +409,11 @@ export function addDraftLine(
     if (draft.lines.some((line) => line.itemId === item.id)) {
       return ok(draft);
     }
-    const reserved = reserveItemOnDraft(state, actor, draft, item);
-    if (!reserved.ok) {
-      return reserved;
+    if (draft.status === 'DRAFT') {
+      const reserved = reserveItemOnDraft(state, actor, draft, item);
+      if (!reserved.ok) {
+        return reserved;
+      }
     }
     draft.lines.push({
       id: nextLineId(draft),
@@ -323,14 +477,16 @@ export function addDraftLine(
         acquisitionCostDop: product.unitCostDop,
       });
     }
-    product.reserved += quantity.value;
-    appendEvent(
-      state,
-      'QTY_RESERVED',
-      `${quantity.value} × ${product.id} reservado en borrador ${draft.id}`,
-      actor,
-      { qtyProductId: product.id, draftId: draft.id, quantity: quantity.value },
-    );
+    if (draft.status === 'DRAFT') {
+      product.reserved += quantity.value;
+      appendEvent(
+        state,
+        'QTY_RESERVED',
+        `${quantity.value} × ${product.id} reservado en borrador ${draft.id}`,
+        actor,
+        { qtyProductId: product.id, draftId: draft.id, quantity: quantity.value },
+      );
+    }
     return ok(draft);
   }
 
@@ -375,15 +531,6 @@ export function addDraftLine(
   if (!unitPrice.ok) {
     return unitPrice;
   }
-  if (
-    input.acquisitionCostDop != null &&
-    (!Number.isFinite(input.acquisitionCostDop) || input.acquisitionCostDop < 0)
-  ) {
-    return err({
-      code: 'VALIDATION',
-      message: 'El costo de adquisición debe ser un número válido',
-    });
-  }
 
   draft.lines.push({
     id: nextLineId(draft),
@@ -394,14 +541,7 @@ export function addDraftLine(
     unitPrice: unitPrice.value,
     taxable: isTaxableLineType(input.type),
     pricePending: false,
-    acquisitionCostDop:
-      input.type === 'GENERIC' || input.type === 'EXTERNAL' ? input.acquisitionCostDop : undefined,
-    costProvenance:
-      input.type === 'GENERIC' || input.type === 'EXTERNAL'
-        ? input.acquisitionCostDop == null
-          ? 'UNKNOWN'
-          : (input.costProvenance ?? 'ACTUAL')
-        : undefined,
+    costProvenance: input.type === 'GENERIC' || input.type === 'EXTERNAL' ? 'UNKNOWN' : undefined,
   });
   return ok(draft);
 }
@@ -426,7 +566,7 @@ export function removeDraftLine(
   }
 
   const [removed] = draft.lines.splice(index, 1);
-  if (removed) {
+  if (removed && draft.status === 'DRAFT') {
     releaseLineReservation(state, removed);
   }
   return ok(draft);
@@ -464,22 +604,6 @@ export function setDraftLinePrice(
     }
   }
 
-  let acquisitionCostDop: number | null | undefined;
-  if (
-    input.acquisitionCostDop !== undefined &&
-    (line.type === 'GENERIC' || line.type === 'EXTERNAL')
-  ) {
-    if (input.acquisitionCostDop == null) {
-      acquisitionCostDop = null;
-    } else {
-      const cost = parseNonNegativeMoney(input.acquisitionCostDop);
-      if (!cost.ok) {
-        return cost;
-      }
-      acquisitionCostDop = cost.value;
-    }
-  }
-
   let quantity: number | undefined;
   if (input.quantity !== undefined) {
     if (!QUANTITY_EDITABLE_LINE_TYPES.has(line.type)) {
@@ -493,7 +617,7 @@ export function setDraftLinePrice(
       return parsedQuantity;
     }
     quantity = parsedQuantity.value;
-    if (line.type === 'QTY' && quantity !== line.quantity) {
+    if (line.type === 'QTY' && quantity !== line.quantity && draftResult.value.status === 'DRAFT') {
       const adjusted = adjustQtyReservation(state, _actor, draftResult.value.id, line, quantity);
       if (!adjusted.ok) {
         return adjusted;
@@ -512,15 +636,6 @@ export function setDraftLinePrice(
     } else {
       delete line.notes;
     }
-  }
-  if (acquisitionCostDop === null) {
-    delete line.acquisitionCostDop;
-    line.costProvenance = 'UNKNOWN';
-  } else if (acquisitionCostDop !== undefined) {
-    line.acquisitionCostDop = acquisitionCostDop;
-    line.costProvenance = input.costProvenance ?? 'ACTUAL';
-  } else if (input.costProvenance !== undefined) {
-    line.costProvenance = input.costProvenance;
   }
 
   return ok(draftResult.value);
@@ -560,7 +675,7 @@ export function setDraftLineQuantity(
     return ok(draftResult.value);
   }
 
-  if (line.type === 'QTY') {
+  if (line.type === 'QTY' && draftResult.value.status === 'DRAFT') {
     const adjusted = adjustQtyReservation(state, actor, draftResult.value.id, line, quantity.value);
     if (!adjusted.ok) {
       return adjusted;
@@ -652,6 +767,24 @@ export function setDraftMeta(
     draft.fiscal = input.fiscal;
   }
 
+  if (input.applyItbis != null) {
+    draft.applyItbis = input.applyItbis;
+  }
+
+  if (input.discountPercent != null) {
+    if (
+      !Number.isFinite(input.discountPercent) ||
+      input.discountPercent < 0 ||
+      input.discountPercent > 100
+    ) {
+      return err({
+        code: 'VALIDATION',
+        message: 'El descuento debe estar entre 0 y 100',
+      });
+    }
+    draft.discountPercent = roundMoney(input.discountPercent);
+  }
+
   return ok(draft);
 }
 
@@ -666,8 +799,10 @@ export function discardDraft(state: AppState, actor: User, draftId: string): Res
   }
   const draft = draftResult.value;
 
-  for (const line of draft.lines) {
-    releaseLineReservation(state, line);
+  if (draft.status === 'DRAFT') {
+    for (const line of draft.lines) {
+      releaseLineReservation(state, line);
+    }
   }
 
   state.invoices = state.invoices.filter((invoice) => invoice.id !== draft.id);
@@ -782,49 +917,8 @@ function ensureDismantlingOrder(
   return order;
 }
 
-/**
- * SALE-002: validate the whole draft first, then mutate.
- * A mid-loop failure must not leave inventory sold or a FAC- number consumed.
- * A second call on an already completed invoice is idempotent (no new FAC-).
- * PAY-001 / SALE-005: optional initial payment is validated here so a bad amount
- * cannot complete the sale unpaid, then appended after COMPLETED (same ledger rules as addPayment).
- */
-export function confirmInvoice(
-  state: AppState,
-  actor: User,
-  draftId: string,
-  payment?: ConfirmInvoicePayment,
-): Result<Invoice> {
-  const found = findInvoice(state, draftId);
-  if (!found.ok) {
-    return found;
-  }
-  const invoice = found.value;
-
-  if (invoice.status === 'COMPLETED') {
-    return ok(invoice);
-  }
-  if (invoice.status !== 'DRAFT') {
-    return err({ code: 'VALIDATION', message: 'Solo se puede confirmar un borrador' });
-  }
-  if (invoice.lines.length === 0) {
-    return err({ code: 'VALIDATION', message: 'Agregue al menos una línea' });
-  }
-  if (invoice.lines.some((line) => line.pricePending)) {
-    return err({ code: 'VALIDATION', message: 'Hay precios pendientes' });
-  }
-
-  const customer = state.customers.find((entry) => entry.id === invoice.customerId);
-  if (!customer) {
-    return err({ code: 'NOT_FOUND', message: 'Cliente no encontrado' });
-  }
-  if (invoice.fiscal && !customerQualifiesForFiscal(customer)) {
-    return err({
-      code: 'VALIDATION',
-      message: 'La factura fiscal requiere un cliente con RNC o cédula',
-    });
-  }
-
+/** Shared SALE-002 / CON-001 inventory gate before FAC- or CON- recognition. */
+function validateReservedInventoryForRecognition(state: AppState, invoice: Invoice): Result<void> {
   for (const line of invoice.lines) {
     if (line.itemId) {
       const item = itemById(state.items, line.itemId);
@@ -889,51 +983,91 @@ export function confirmInvoice(
       }
     }
   }
+  return ok(undefined);
+}
 
-  const invoiceGross = invoiceTotal(invoice);
-  let initialPaymentAmount: number | undefined;
-  if (payment) {
-    if (!PAYMENT_METHODS.includes(payment.method)) {
-      return err({ code: 'VALIDATION', message: 'El pago requiere un método' });
-    }
-    const amount = parsePositiveMoney(payment.amount);
-    if (!amount.ok) {
-      return amount;
-    }
-    if (amount.value > invoiceGross) {
-      return err({
-        code: 'VALIDATION',
-        message: 'El pago no puede superar el saldo pendiente',
-      });
-    }
-    initialPaymentAmount = amount.value;
+function parseOptionalInitialPaymentAmount(
+  payment: ConfirmInvoicePayment | undefined,
+  actor: User,
+  customer: Customer,
+  currency: Invoice['currency'],
+  invoiceGross: number,
+): Result<number | undefined> {
+  if (!payment) return ok(undefined);
+  if (isCreditDopConfirmation(customer, currency) && actor.role === 'SELLER') {
+    return err({
+      code: 'FORBIDDEN',
+      message: SELLER_CREDIT_PAYMENT_FORBIDDEN_MESSAGE,
+    });
   }
+  if (!PAYMENT_METHODS.includes(payment.method)) {
+    return err({ code: 'VALIDATION', message: 'El pago requiere un método' });
+  }
+  const amount = parsePositiveMoney(payment.amount);
+  if (!amount.ok) return amount;
+  if (amount.value > invoiceGross) {
+    return err({
+      code: 'VALIDATION',
+      message: 'El pago no puede superar el saldo pendiente',
+    });
+  }
+  return ok(amount.value);
+}
+
+function requireFullInitialPaymentWhenNeeded(
+  requiresFullPayment: boolean,
+  currency: Invoice['currency'],
+  invoiceGross: number,
+  initialPaymentAmount: number | undefined,
+): Result<void> {
   if (
-    isCashCustomer(customer) &&
+    requiresFullPayment &&
     invoiceGross > 0 &&
     (initialPaymentAmount == null || initialPaymentAmount !== invoiceGross)
   ) {
     return err({
       code: 'CONFLICT',
-      message: CASH_CUSTOMER_CREDIT_FORBIDDEN_MESSAGE,
+      message:
+        currency === 'USD'
+          ? USD_INVOICE_MUST_BE_PAID_IN_FULL_MESSAGE
+          : CASH_CUSTOMER_CREDIT_FORBIDDEN_MESSAGE,
     });
   }
+  return ok(undefined);
+}
 
+function assertCreditLimitAllowsBalance(
+  state: AppState,
+  customer: Customer,
+  invoice: Invoice,
+  newBalance: number,
+  statusMatches: (status: Invoice['status']) => boolean,
+): Result<void> {
+  if (!isCreditDopConfirmation(customer, invoice.currency)) return ok(undefined);
+  const creditLimitDop = Number(customer.creditLimitDop);
+  const openExposure = state.invoices
+    .filter(
+      (entry) =>
+        entry.id !== invoice.id &&
+        entry.customerId === customer.id &&
+        statusMatches(entry.status) &&
+        entry.currency === 'DOP',
+    )
+    .reduce((sum, entry) => roundMoney(sum + invoiceBalance(entry)), 0);
+  if (!Number.isFinite(creditLimitDop) || roundMoney(openExposure + newBalance) > creditLimitDop) {
+    return err({ code: 'CONFLICT', message: CREDIT_LIMIT_EXCEEDED_MESSAGE });
+  }
+  return ok(undefined);
+}
+
+function freezeCostsAndApplyRecognitionInventory(
+  state: AppState,
+  actor: User,
+  invoice: Invoice,
+): void {
   for (const line of invoice.lines) {
     freezeLineAcquisitionCost(state, line);
   }
-
-  const number = `FAC-${String(state.facSeq).padStart(6, '0')}`;
-  state.facSeq += 1;
-  invoice.number = number;
-  invoice.status = 'COMPLETED';
-  invoice.confirmedAt = DEMO_NOW_ISO;
-  invoice.paymentState = 'UNPAID';
-  invoice.customerSnapshot = { name: customer.name, rnc: customer.rnc };
-  if (invoice.currency === 'USD') {
-    applyUsdProfitability(state, invoice);
-  }
-
   for (const line of invoice.lines) {
     if (line.itemId) {
       const item = itemById(state.items, line.itemId)!;
@@ -968,6 +1102,209 @@ export function confirmInvoice(
       product.reserved -= line.quantity;
     }
   }
+}
+
+function appendInitialRecognitionPayment(
+  state: AppState,
+  actor: User,
+  invoice: Invoice,
+  payment: ConfirmInvoicePayment,
+  initialPaymentAmount: number,
+  documentLabel: string,
+  defaultIdempotencyKey?: string,
+): Result<Invoice> {
+  const idempotencyKey = payment.idempotencyKey ?? defaultIdempotencyKey;
+  if (idempotencyKey) {
+    const existing = invoice.payments.find((entry) => entry.idempotencyKey === idempotencyKey);
+    if (existing) return ok(invoice);
+  }
+
+  const receipt: Payment = {
+    id: nextNumericId(allPaymentIds(state), 'PAY-', 3),
+    invoiceId: invoice.id,
+    amount: initialPaymentAmount,
+    method: payment.method,
+    createdAt: DEMO_NOW_ISO,
+    kind: 'PAYMENT',
+    actorId: actor.id,
+    reference: payment.reference?.trim() || undefined,
+    idempotencyKey,
+  };
+
+  invoice.payments.push(receipt);
+  invoice.paymentState = derivePaymentState(invoice);
+
+  appendEvent(state, 'PAYMENT_RECORDED', `Pago registrado en ${documentLabel}`, actor, {
+    invoiceId: invoice.id,
+    paymentId: receipt.id,
+    amount: receipt.amount,
+    method: receipt.method,
+  });
+  return ok(invoice);
+}
+
+type QuoteConversionReservations = {
+  frozenIdentity: Invoice['customerSnapshot'];
+  itemReservations: Array<{ item: Item; reservedByDraftId: string | undefined }>;
+  quantityReservations: Array<{ product: QtyProduct; reserved: number }>;
+};
+
+function prepareIssuedQuoteForConversion(
+  state: AppState,
+  quote: Invoice,
+): Result<QuoteConversionReservations> {
+  const requiredQuantityByProduct = new Map<string, number>();
+  for (const line of quote.lines) {
+    if (!line.qtyProductId) continue;
+    requiredQuantityByProduct.set(
+      line.qtyProductId,
+      (requiredQuantityByProduct.get(line.qtyProductId) ?? 0) + line.quantity,
+    );
+  }
+  for (const [productId, requiredQuantity] of requiredQuantityByProduct) {
+    const product = state.qtyProducts.find((entry) => entry.id === productId);
+    if (!product) return err({ code: 'NOT_FOUND', message: 'Producto no encontrado' });
+    if (product.onHand - product.reserved < requiredQuantity) {
+      return err({ code: 'CONFLICT', message: `Stock insuficiente para ${product.id}` });
+    }
+  }
+
+  const frozenIdentity = quote.customerSnapshot;
+  const itemReservations = quote.lines.flatMap((line) => {
+    if (!line.itemId) return [];
+    const item = itemById(state.items, line.itemId);
+    return item ? [{ item, reservedByDraftId: item.reservedByDraftId }] : [];
+  });
+  const quantityReservations = quote.lines.flatMap((line) => {
+    if (!line.qtyProductId) return [];
+    const product = state.qtyProducts.find((entry) => entry.id === line.qtyProductId);
+    return product ? [{ product, reserved: product.reserved }] : [];
+  });
+
+  quote.status = 'DRAFT';
+  for (const line of quote.lines) {
+    if (line.itemId) {
+      const item = itemById(state.items, line.itemId);
+      if (item && !item.reservedByDraftId) item.reservedByDraftId = quote.id;
+    }
+    if (line.qtyProductId) {
+      const product = state.qtyProducts.find((entry) => entry.id === line.qtyProductId);
+      if (product) product.reserved += line.quantity;
+    }
+  }
+
+  return ok({ frozenIdentity, itemReservations, quantityReservations });
+}
+
+function rollbackQuoteConversion(quote: Invoice, reservations: QuoteConversionReservations): void {
+  quote.status = 'QUOTE_ISSUED';
+  for (const snapshot of reservations.itemReservations) {
+    snapshot.item.reservedByDraftId = snapshot.reservedByDraftId;
+  }
+  for (const snapshot of reservations.quantityReservations) {
+    snapshot.product.reserved = snapshot.reserved;
+  }
+}
+
+function assertDraftReadyToRecognize(invoice: Invoice): Result<void> {
+  if (invoice.lines.length === 0) {
+    return err({ code: 'VALIDATION', message: 'Agregue al menos una línea' });
+  }
+  if (invoice.lines.some((line) => line.pricePending)) {
+    return err({ code: 'VALIDATION', message: 'Hay precios pendientes' });
+  }
+  return ok(undefined);
+}
+
+/**
+ * SALE-002: validate the whole draft first, then mutate.
+ * A mid-loop failure must not leave inventory sold or a FAC- number consumed.
+ * A second call on an already completed invoice is idempotent (no new FAC-).
+ * PAY-001 / SALE-005: optional initial payment is validated here so a bad amount
+ * cannot complete the sale unpaid, then appended after COMPLETED (same ledger rules as addPayment).
+ */
+export function confirmInvoice(
+  state: AppState,
+  actor: User,
+  draftId: string,
+  payment?: ConfirmInvoicePayment,
+): Result<Invoice> {
+  const found = findInvoice(state, draftId);
+  if (!found.ok) {
+    return found;
+  }
+  const invoice = found.value;
+
+  if (invoice.status === 'COMPLETED') {
+    return ok(invoice);
+  }
+  if (invoice.status !== 'DRAFT') {
+    return err({ code: 'VALIDATION', message: 'Solo se puede confirmar un borrador' });
+  }
+  const ready = assertDraftReadyToRecognize(invoice);
+  if (!ready.ok) return ready;
+
+  const customer = state.customers.find((entry) => entry.id === invoice.customerId);
+  if (!customer) {
+    return err({ code: 'NOT_FOUND', message: 'Cliente no encontrado' });
+  }
+  if (invoice.fiscal && !customerQualifiesForFiscal(customer)) {
+    return err({
+      code: 'VALIDATION',
+      message: 'La factura fiscal requiere un cliente con RNC o cédula',
+    });
+  }
+
+  const inventory = validateReservedInventoryForRecognition(state, invoice);
+  if (!inventory.ok) return inventory;
+
+  const invoiceGross = invoiceTotal(invoice);
+  const parsedPayment = parseOptionalInitialPaymentAmount(
+    payment,
+    actor,
+    customer,
+    invoice.currency,
+    invoiceGross,
+  );
+  if (!parsedPayment.ok) return parsedPayment;
+  const initialPaymentAmount = parsedPayment.value;
+
+  const fullPayment = requireFullInitialPaymentWhenNeeded(
+    confirmationRequiresFullPayment(customer, invoice.currency),
+    invoice.currency,
+    invoiceGross,
+    initialPaymentAmount,
+  );
+  if (!fullPayment.ok) return fullPayment;
+
+  const newBalance = roundMoney(invoiceGross - (initialPaymentAmount ?? 0));
+  const credit = assertCreditLimitAllowsBalance(
+    state,
+    customer,
+    invoice,
+    newBalance,
+    (status) => status === 'COMPLETED',
+  );
+  if (!credit.ok) return credit;
+
+  const number = `FAC-${String(state.facSeq).padStart(6, '0')}`;
+  state.facSeq += 1;
+  invoice.number = number;
+  invoice.status = 'COMPLETED';
+  invoice.confirmedAt = DEMO_NOW_ISO;
+  invoice.dueDate = confirmationDueDate(customer, invoice.currency, DEMO_NOW_ISO);
+  invoice.paymentState = 'UNPAID';
+  invoice.customerSnapshot = {
+    name: customer.name,
+    rnc: customer.rnc,
+    customerType: customer.customerType,
+    creditTermDays: customer.creditTermDays,
+  };
+  if (invoice.currency === 'USD') {
+    applyUsdProfitability(state, invoice);
+  }
+
+  freezeCostsAndApplyRecognitionInventory(state, actor, invoice);
 
   appendEvent(state, 'INVOICE_CONFIRMED', `Factura ${number} confirmada`, actor, {
     invoiceId: invoice.id,
@@ -975,37 +1312,239 @@ export function confirmInvoice(
   });
 
   if (payment && initialPaymentAmount != null) {
-    if (payment.idempotencyKey) {
-      const existing = invoice.payments.find(
-        (entry) => entry.idempotencyKey === payment.idempotencyKey,
-      );
-      if (existing) {
-        return ok(invoice);
-      }
-    }
+    return appendInitialRecognitionPayment(
+      state,
+      actor,
+      invoice,
+      payment,
+      initialPaymentAmount,
+      number,
+    );
+  }
 
-    const receipt: Payment = {
-      id: nextNumericId(allPaymentIds(state), 'PAY-', 3),
-      invoiceId: invoice.id,
-      amount: initialPaymentAmount,
-      method: payment.method,
-      createdAt: DEMO_NOW_ISO,
-      kind: 'PAYMENT',
-      actorId: actor.id,
-      reference: payment.reference?.trim() || undefined,
-      idempotencyKey: payment.idempotencyKey,
-    };
+  return ok(invoice);
+}
 
-    invoice.payments.push(receipt);
-    invoice.paymentState = derivePaymentState(invoice);
+function allocateNextConduceNumber(state: AppState): string {
+  const sequence = state.conSeq ?? 1;
+  state.conSeq = sequence + 1;
+  return `CON-${String(sequence).padStart(6, '0')}`;
+}
 
-    appendEvent(state, 'PAYMENT_RECORDED', `Pago registrado en ${number}`, actor, {
-      invoiceId: invoice.id,
-      paymentId: receipt.id,
-      amount: receipt.amount,
-      method: receipt.method,
+function recognizedStatusesForCredit(status: Invoice['status']): boolean {
+  return status === 'COMPLETED' || status === 'CONDUCE';
+}
+
+/**
+ * CON-001 / CON-002: recognize a sale as CONDUCE (no FAC-).
+ * Inventory and payment effects mirror confirmInvoice; fiscal is forced false.
+ */
+export function issueConduce(
+  state: AppState,
+  actor: User,
+  draftId: string,
+  input?: IssueConduceInput,
+): Result<Invoice> {
+  const found = findInvoice(state, draftId);
+  if (!found.ok) return found;
+  const invoice = found.value;
+  const payment = input?.payment;
+
+  if (invoice.status === 'CONDUCE') {
+    return ok(invoice);
+  }
+  if (invoice.status !== 'DRAFT') {
+    return err({ code: 'VALIDATION', message: 'Solo se puede emitir conduce desde un borrador' });
+  }
+  const ready = assertDraftReadyToRecognize(invoice);
+  if (!ready.ok) return ready;
+
+  const customer = state.customers.find((entry) => entry.id === invoice.customerId);
+  if (!customer) {
+    return err({ code: 'NOT_FOUND', message: 'Cliente no encontrado' });
+  }
+
+  const inventory = validateReservedInventoryForRecognition(state, invoice);
+  if (!inventory.ok) return inventory;
+
+  const invoiceGross = invoiceTotal(invoice);
+  const parsedPayment = parseOptionalInitialPaymentAmount(
+    payment,
+    actor,
+    customer,
+    invoice.currency,
+    invoiceGross,
+  );
+  if (!parsedPayment.ok) return parsedPayment;
+  const initialPaymentAmount = parsedPayment.value;
+
+  const fullPayment = requireFullInitialPaymentWhenNeeded(
+    conduceRequiresFullPayment(customer, invoice.currency, actor.role),
+    invoice.currency,
+    invoiceGross,
+    initialPaymentAmount,
+  );
+  if (!fullPayment.ok) return fullPayment;
+
+  const newBalance = roundMoney(invoiceGross - (initialPaymentAmount ?? 0));
+  const credit = assertCreditLimitAllowsBalance(
+    state,
+    customer,
+    invoice,
+    newBalance,
+    recognizedStatusesForCredit,
+  );
+  if (!credit.ok) return credit;
+
+  const dueDateResult = resolveConduceDueDate({
+    customer,
+    currency: invoice.currency,
+    actorRole: actor.role,
+    confirmedAtIso: DEMO_NOW_ISO,
+    newBalance,
+    actorDueDate: input?.dueDate,
+  });
+  if (!dueDateResult.ok) return dueDateResult;
+
+  const conduceNumber = allocateNextConduceNumber(state);
+  invoice.conduceNumber = conduceNumber;
+  invoice.conduceIssuedAt = DEMO_NOW_ISO;
+  invoice.status = 'CONDUCE';
+  invoice.fiscal = false;
+  invoice.confirmedAt = DEMO_NOW_ISO;
+  invoice.dueDate = dueDateResult.value;
+  invoice.paymentState = 'UNPAID';
+  invoice.customerSnapshot = {
+    name: customer.name,
+    rnc: customer.rnc,
+    customerType: customer.customerType,
+    creditTermDays: customer.creditTermDays,
+  };
+  if (invoice.currency === 'USD') {
+    applyUsdProfitability(state, invoice);
+  }
+
+  freezeCostsAndApplyRecognitionInventory(state, actor, invoice);
+
+  appendEvent(state, 'CONDUCE_ISSUED', `Conduce ${conduceNumber} emitido`, actor, {
+    invoiceId: invoice.id,
+    conduceNumber,
+  });
+
+  if (payment && initialPaymentAmount != null) {
+    return appendInitialRecognitionPayment(
+      state,
+      actor,
+      invoice,
+      payment,
+      initialPaymentAmount,
+      conduceNumber,
+      `confirm:${invoice.id}`,
+    );
+  }
+
+  return ok(invoice);
+}
+
+export function convertQuoteToConduce(
+  state: AppState,
+  actor: User,
+  quoteId: string,
+  input?: IssueConduceInput,
+): Result<Invoice> {
+  const found = findInvoice(state, quoteId);
+  if (!found.ok) return found;
+  const quote = found.value;
+  if (quote.status === 'CONDUCE' && quote.quoteNumber) return ok(quote);
+  if (quote.status !== 'QUOTE_ISSUED') {
+    return err({
+      code: 'VALIDATION',
+      message: 'Solo se puede convertir a conduce una cotización emitida',
     });
   }
+  if (quote.quoteExpiresAt && Date.parse(currentDemoTimeIso()) > Date.parse(quote.quoteExpiresAt)) {
+    return err({
+      code: 'VALIDATION',
+      message: 'La cotización está vencida y no puede convertirse',
+    });
+  }
+
+  const prepared = prepareIssuedQuoteForConversion(state, quote);
+  if (!prepared.ok) return prepared;
+
+  const converted = issueConduce(state, actor, quoteId, input);
+  if (!converted.ok) {
+    rollbackQuoteConversion(quote, prepared.value);
+    return converted;
+  }
+
+  const frozenIdentity = prepared.value.frozenIdentity;
+  if (frozenIdentity) {
+    quote.customerSnapshot = {
+      ...quote.customerSnapshot,
+      name: frozenIdentity.name,
+      rnc: frozenIdentity.rnc,
+      customerType: frozenIdentity.customerType,
+      creditTermDays: frozenIdentity.creditTermDays,
+    };
+  }
+
+  appendEvent(
+    state,
+    'QUOTE_CONVERTED_TO_CONDUCE',
+    `Cotización ${quote.quoteNumber} convertida a conduce ${quote.conduceNumber}`,
+    actor,
+    { invoiceId: quote.id, quoteNumber: quote.quoteNumber, conduceNumber: quote.conduceNumber },
+  );
+
+  return ok(quote);
+}
+
+/** CON-003: assign FAC- without recalculating money, payments, or inventory. */
+export function convertConduceToInvoice(
+  state: AppState,
+  actor: User,
+  invoiceId: string,
+  fiscal: boolean,
+): Result<Invoice> {
+  const found = findInvoice(state, invoiceId);
+  if (!found.ok) return found;
+  const invoice = found.value;
+
+  if (invoice.status === 'COMPLETED' && invoice.conduceNumber && invoice.number) {
+    return ok(invoice);
+  }
+  if (invoice.status !== 'CONDUCE') {
+    return err({ code: 'VALIDATION', message: 'Solo se puede facturar un conduce activo' });
+  }
+
+  const snapshotRnc = invoice.customerSnapshot?.rnc;
+  if (fiscal && !snapshotRnc?.trim()) {
+    return err({
+      code: 'VALIDATION',
+      message: 'La factura fiscal requiere un cliente con RNC o cédula',
+    });
+  }
+
+  const number = `FAC-${String(state.facSeq).padStart(6, '0')}`;
+  state.facSeq += 1;
+  invoice.number = number;
+  invoice.status = 'COMPLETED';
+  invoice.fiscal = fiscal;
+  invoice.invoiceIssuedAt = DEMO_NOW_ISO;
+
+  appendEvent(
+    state,
+    'CONDUCE_INVOICED',
+    `Conduce ${invoice.conduceNumber} facturado como ${number}`,
+    actor,
+    {
+      invoiceId: invoice.id,
+      conduceNumber: invoice.conduceNumber,
+      number,
+      fiscal,
+    },
+  );
 
   return ok(invoice);
 }

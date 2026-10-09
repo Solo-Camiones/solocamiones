@@ -16,10 +16,14 @@ const detail: InvoiceDetailView = {
   paymentState: 'PENDING',
   customerId: 'CUSTOMER-1',
   customerName: 'Flota Norte',
+  customerType: 'CASH',
   currency: 'DOP',
   fiscal: false,
+  applyItbis: false,
+  discountPercent: 0,
   lines: [],
   payments: [],
+  discount: 0,
   total: 100,
   paid: 0,
   refunded: 0,
@@ -32,6 +36,8 @@ const detail: InvoiceDetailView = {
     canCancel: false,
     canCorrectCurrency: false,
     canViewPdf: true,
+    canViewConducePdf: false,
+    canConvertToInvoice: false,
     canRegeneratePdf: false,
   },
 };
@@ -47,7 +53,7 @@ describe('PdfPreviewModal', () => {
     const print = vi.fn();
     const onClose = vi.fn();
     vi.stubGlobal('print', print);
-    renderWithProviders(<PdfPreviewModal open detail={detail} onClose={onClose} />);
+    renderWithProviders(<PdfPreviewModal open kind="invoice" detail={detail} onClose={onClose} />);
 
     const dialog = screen.getByRole('dialog', { name: 'Vista previa de factura' });
     expect(within(dialog).getByText('NCF: ______________________')).toBeVisible();
@@ -61,10 +67,13 @@ describe('PdfPreviewModal', () => {
 
   it('renders the PDF URL and downloads it with the server filename', async () => {
     const user = userEvent.setup();
-    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => undefined);
+    const click = vi
+      .spyOn(HTMLAnchorElement.prototype, 'click')
+      .mockImplementation(() => undefined);
     renderWithProviders(
       <PdfPreviewModal
         open
+        kind="invoice"
         detail={detail}
         pdfFile={{ url: 'blob:http://localhost/invoice-1', filename: 'FAC-000001.pdf' }}
         onClose={vi.fn()}
@@ -89,6 +98,7 @@ describe('PdfPreviewModal', () => {
     renderWithProviders(
       <PdfPreviewModal
         open
+        kind="invoice"
         detail={detail}
         pdfFile={{ url: 'blob:http://localhost/invoice-1', filename: 'FAC-000001.pdf' }}
         onClose={vi.fn()}
@@ -103,5 +113,31 @@ describe('PdfPreviewModal', () => {
 
     expect(framePrint).toHaveBeenCalledOnce();
     expect(windowPrint).not.toHaveBeenCalled();
+  });
+
+  it('previews a quote PDF without invoice labels and downloads COT- filename', async () => {
+    const user = userEvent.setup();
+    const click = vi
+      .spyOn(HTMLAnchorElement.prototype, 'click')
+      .mockImplementation(() => undefined);
+    renderWithProviders(
+      <PdfPreviewModal
+        open
+        kind="quote"
+        pdfFile={{ url: 'blob:http://localhost/quote-1', filename: 'COT-000007.pdf' }}
+        onClose={vi.fn()}
+      />,
+    );
+
+    const dialog = screen.getByRole('dialog', { name: 'Vista previa de cotización' });
+    expect(within(dialog).queryByText('NCF: ______________________')).not.toBeInTheDocument();
+    expect(within(dialog).getByTitle('COT-000007.pdf')).toHaveAttribute(
+      'src',
+      'blob:http://localhost/quote-1',
+    );
+    await user.click(within(dialog).getByRole('button', { name: 'Descargar' }));
+
+    const anchor = click.mock.instances[0];
+    expect(anchor).toHaveAttribute('download', 'COT-000007.pdf');
   });
 });

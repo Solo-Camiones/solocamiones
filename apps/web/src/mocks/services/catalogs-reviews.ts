@@ -1,4 +1,11 @@
-import type { AppEvent, AppState, Category, Item, PendingCatalogReview, User } from '../../api/contracts/entities';
+import type {
+  AppEvent,
+  AppState,
+  Category,
+  Item,
+  PendingCatalogReview,
+  User,
+} from '../../api/contracts/entities';
 import { DEMO_NOW_ISO } from '../data/demo-clock';
 import { catalogNameKey } from './catalogs';
 import { isComplete } from './inventory-helpers';
@@ -70,8 +77,7 @@ function hasPendingReview(
   expectedComponentName: string,
 ): boolean {
   return state.pendingCatalogReviews.some(
-    (entry) =>
-      entry.parentId === parentId && entry.expectedComponentName === expectedComponentName,
+    (entry) => entry.parentId === parentId && entry.expectedComponentName === expectedComponentName,
   );
 }
 
@@ -81,8 +87,7 @@ function hasKnownMissing(
   expectedComponentName: string,
 ): boolean {
   return state.knownMissing.some(
-    (entry) =>
-      entry.parentId === parentId && entry.expectedComponentName === expectedComponentName,
+    (entry) => entry.parentId === parentId && entry.expectedComponentName === expectedComponentName,
   );
 }
 

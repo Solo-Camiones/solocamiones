@@ -49,8 +49,7 @@ describe('HealthRepository', () => {
       vi.spyOn(fs, 'existsSync').mockImplementation((target) => {
         const normalizedPath = String(target).replace(/\\/g, '/');
         return (
-          normalizedPath.endsWith('/prisma/migrations') ||
-          normalizedPath.endsWith('/migration.sql')
+          normalizedPath.endsWith('/prisma/migrations') || normalizedPath.endsWith('/migration.sql')
         );
       });
       mockMigrationDirectories(['20260826000000_init', '20260827000000_add_users']);

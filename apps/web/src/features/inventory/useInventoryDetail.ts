@@ -30,14 +30,17 @@ export function useInventoryDetail(id: string | undefined) {
 
   useEffect(() => {
     if (!id) {
-      setResult({ status: 'error', error: { code: 'VALIDATION', message: 'Falta el identificador' } });
+      setResult({
+        status: 'error',
+        error: { code: 'VALIDATION', message: 'Falta el identificador' },
+      });
       return;
     }
 
     let cancelled = false;
     setResult({ status: 'loading' });
 
-    inventoryRepository.getDetail(id).then((response) => {
+    void inventoryRepository.getDetail(id).then((response) => {
       if (cancelled) {
         return;
       }
@@ -69,33 +72,39 @@ export function useInventoryDetail(id: string | undefined) {
         return response;
       }
 
-      navigate(`/sales/draft/${response.value.draftId}`);
+      void navigate(`/sales/draft/${response.value.draftId}`);
       return { ok: true, value: undefined };
     },
     [navigate],
   );
 
-  const setNoDesarmar = useCallback(async (input: NoDesarmarInput): Promise<Result<void>> => {
-    setIsMutating(true);
-    const response = await inventoryRepository.setNoDesarmar(input);
-    setIsMutating(false);
-    if (!response.ok) {
-      return response;
-    }
-    reload();
-    return { ok: true, value: undefined };
-  }, [reload]);
+  const setNoDesarmar = useCallback(
+    async (input: NoDesarmarInput): Promise<Result<void>> => {
+      setIsMutating(true);
+      const response = await inventoryRepository.setNoDesarmar(input);
+      setIsMutating(false);
+      if (!response.ok) {
+        return response;
+      }
+      reload();
+      return { ok: true, value: undefined };
+    },
+    [reload],
+  );
 
-  const correctCost = useCallback(async (input: CostCorrectionInput): Promise<Result<void>> => {
-    setIsMutating(true);
-    const response = await inventoryRepository.correctAcquisitionCost(input);
-    setIsMutating(false);
-    if (!response.ok) {
-      return response;
-    }
-    reload();
-    return { ok: true, value: undefined };
-  }, [reload]);
+  const correctCost = useCallback(
+    async (input: CostCorrectionInput): Promise<Result<void>> => {
+      setIsMutating(true);
+      const response = await inventoryRepository.correctAcquisitionCost(input);
+      setIsMutating(false);
+      if (!response.ok) {
+        return response;
+      }
+      reload();
+      return { ok: true, value: undefined };
+    },
+    [reload],
+  );
 
   const correctBaseline = useCallback(
     async (input: BaselineCorrectionInput): Promise<Result<void>> => {

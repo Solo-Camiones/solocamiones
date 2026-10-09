@@ -1,0 +1,13 @@
+[Unit]
+Description=Daily Solo Camiones Assistant purge timer (America/Santo_Domingo)
+Documentation=file:///opt/solocamiones/docs/assistant-ops/OPERATIONS.md
+
+[Timer]
+OnCalendar=*-*-* 03:00:00
+Timezone=America/Santo_Domingo
+Persistent=true
+RandomizedDelaySec=10min
+Unit=solocamiones-assistant-purge.service
+
+[Install]
+WantedBy=timers.target

@@ -17,7 +17,7 @@ export type LineMoneyInput = {
   type: InvoiceLineType;
   unitPrice: MoneyInput;
   quantity?: MoneyInput;
-  fiscal: boolean;
+  applyItbis: boolean;
 };
 
 export type LineMoney = {
@@ -70,6 +70,7 @@ export type LineProfitInput = {
   type: InvoiceLineType;
   unitPrice: MoneyInput;
   quantity: MoneyInput;
+  base?: Prisma.Decimal | null;
   gross: Prisma.Decimal | null;
   acquisitionCostDop: Prisma.Decimal | null;
   costProvenance: CostProvenance | null;

@@ -27,11 +27,30 @@ const invoiceDraftSnapshot = z
     customerId: z.uuid(),
   })
   .strict();
+const quoteDraftSnapshot = z
+  .object({
+    status: z.literal('QUOTE_DRAFT'),
+    quoteNumber: z.null(),
+    currency: z.enum(['DOP', 'USD']),
+    fiscal: z.boolean(),
+    applyItbis: z.boolean(),
+    customerId: z.uuid(),
+  })
+  .strict();
 const invoiceCustomerSnapshot = z
   .object({
     name: z.string(),
     rnc: z.string().nullable(),
     phone: z.string().nullable(),
+  })
+  .strict();
+/** Header money after invoice-level discount (SALE commercial totals). */
+const invoiceMoneyTotalsSnapshot = z
+  .object({
+    gross: z.string(),
+    base: z.string(),
+    itbis: z.string(),
+    discount: z.string(),
   })
   .strict();
 const invoiceConfirmedSnapshot = z
@@ -42,13 +61,7 @@ const invoiceConfirmedSnapshot = z
     fiscal: z.boolean(),
     customerId: z.uuid(),
     customerSnapshot: invoiceCustomerSnapshot,
-    totals: z
-      .object({
-        gross: z.string(),
-        base: z.string(),
-        itbis: z.string(),
-      })
-      .strict(),
+    totals: invoiceMoneyTotalsSnapshot,
     confirmedAt: z.string(),
     dueDate: z.iso.date(),
     confirmedByUserId: z.uuid(),
@@ -90,6 +103,16 @@ const customerSnapshot = z
     address: z.string().nullable(),
     notes: z.string().nullable(),
     isDefault: z.boolean(),
+    customerType: z.enum(['CASH', 'CREDIT']),
+    creditLimitDop: z.string().nullable(),
+    creditTermDays: z.union([
+      z.literal(30),
+      z.literal(45),
+      z.literal(60),
+      z.literal(90),
+      z.literal(120),
+      z.null(),
+    ]),
     contacts: z.array(
       z
         .object({
@@ -241,6 +264,102 @@ export const historyEventSchema = z
         ...invoiceBase,
         eventType: z.literal('INVOICE_DRAFT_CREATED'),
         payload: invoiceDraftSnapshot,
+      })
+      .strict(),
+    z
+      .object({
+        ...invoiceBase,
+        eventType: z.literal('QUOTE_DRAFT_CREATED'),
+        payload: quoteDraftSnapshot,
+      })
+      .strict(),
+    z
+      .object({
+        ...invoiceBase,
+        eventType: z.literal('QUOTE_ISSUED'),
+        payload: z
+          .object({
+            quoteNumber: z.string().regex(/^COT-\d{6}$/),
+            issuedAt: z.iso.datetime(),
+            expiresAt: z.iso.datetime(),
+            customerSnapshot: invoiceCustomerSnapshot,
+            totals: invoiceMoneyTotalsSnapshot,
+          })
+          .strict(),
+      })
+      .strict(),
+    z
+      .object({
+        ...invoiceBase,
+        eventType: z.literal('QUOTE_DUPLICATED'),
+        payload: z
+          .object({
+            sourceQuoteId: z.uuid(),
+            sourceQuoteNumber: z.string().regex(/^COT-\d{6}$/),
+            duplicatedQuoteId: z.uuid(),
+          })
+          .strict(),
+      })
+      .strict(),
+    z
+      .object({
+        ...invoiceBase,
+        eventType: z.literal('QUOTE_CONVERTED'),
+        payload: z
+          .object({
+            quoteNumber: z.string().regex(/^COT-\d{6}$/),
+            invoiceNumber: z.string().regex(/^FAC-\d{6}$/),
+            issuedAt: z.iso.datetime(),
+            convertedAt: z.iso.datetime(),
+          })
+          .strict(),
+      })
+      .strict(),
+    z
+      .object({
+        ...invoiceBase,
+        eventType: z.literal('CONDUCE_ISSUED'),
+        payload: z
+          .object({
+            conduceNumber: z.string().regex(/^CON-\d{6}$/),
+            currency: z.enum(['DOP', 'USD']),
+            customerId: z.uuid(),
+            customerSnapshot: invoiceCustomerSnapshot,
+            totals: invoiceMoneyTotalsSnapshot,
+            issuedAt: z.iso.datetime(),
+            dueDate: z.iso.date(),
+            confirmedByUserId: z.uuid(),
+            confirmedByName: z.string().min(1),
+          })
+          .strict(),
+      })
+      .strict(),
+    z
+      .object({
+        ...invoiceBase,
+        eventType: z.literal('QUOTE_CONVERTED_TO_CONDUCE'),
+        payload: z
+          .object({
+            quoteNumber: z.string().regex(/^COT-\d{6}$/),
+            conduceNumber: z.string().regex(/^CON-\d{6}$/),
+            issuedAt: z.iso.datetime(),
+            convertedAt: z.iso.datetime(),
+          })
+          .strict(),
+      })
+      .strict(),
+    z
+      .object({
+        ...invoiceBase,
+        eventType: z.literal('CONDUCE_INVOICED'),
+        payload: z
+          .object({
+            conduceNumber: z.string().regex(/^CON-\d{6}$/),
+            invoiceNumber: z.string().regex(/^FAC-\d{6}$/),
+            fiscal: z.boolean(),
+            invoicedAt: z.iso.datetime(),
+          })
+          .strict(),
       })
       .strict(),
     z

@@ -89,9 +89,16 @@ export type CustomerContact = {
   isPrimary?: boolean;
 };
 
+export type CustomerType = 'CASH' | 'CREDIT';
+
+export type CreditTermDays = 30 | 45 | 60 | 90 | 120;
+
 export type Customer = {
   id: string;
   name: string;
+  customerType: CustomerType;
+  creditLimitDop?: string;
+  creditTermDays?: CreditTermDays;
   rnc?: string;
   address?: string;
   notes?: string;
@@ -126,9 +133,17 @@ export type Service = {
   active: boolean;
 };
 
-export type InvoiceStatus = 'DRAFT' | 'COMPLETED' | 'CANCELLED';
+export type InvoiceStatus =
+  'DRAFT' | 'QUOTE_DRAFT' | 'QUOTE_ISSUED' | 'CONDUCE' | 'COMPLETED' | 'CANCELLED';
 export type PaymentState =
-  'UNPAID' | 'PARTIALLY_PAID' | 'PENDING' | 'OVERDUE' | 'PAID' | 'PAID_LATE' | 'CANCELLED';
+  | 'UNPAID'
+  | 'PENDING'
+  | 'PARTIALLY_PAID'
+  | 'OVERDUE'
+  | 'PARTIALLY_PAID_OVERDUE'
+  | 'PAID'
+  | 'PAID_LATE'
+  | 'CANCELLED';
 export type Currency = 'DOP' | 'USD';
 
 export type LineType = 'ITEM' | 'QTY' | 'GENERIC' | 'EXTERNAL' | 'SERVICE' | 'DELIVERY';
@@ -158,6 +173,10 @@ export type InvoiceLine = {
   unitPrice: number;
   taxable: boolean;
   pricePending?: boolean;
+  /** Frozen completed-document money; drafts omit it and recalculate from unit price. */
+  base?: number;
+  itbis?: number;
+  gross?: number;
   /** DOP cost copied at line creation so later inventory edits do not rewrite the sale. */
   acquisitionCostDop?: number;
   costProvenance?: 'ACTUAL' | 'ESTIMATED' | 'UNKNOWN';
@@ -183,10 +202,19 @@ export type Payment = {
 export type Invoice = {
   id: string;
   number?: string;
+  quoteNumber?: string;
+  quoteIssuedAt?: string;
+  quoteExpiresAt?: string;
+  conduceNumber?: string;
+  conduceIssuedAt?: string;
+  invoiceIssuedAt?: string;
   status: InvoiceStatus;
   customerId: string;
   currency: Currency;
   fiscal: boolean;
+  applyItbis?: boolean;
+  /** Invoice-level commercial discount percent (0–100). Defaults to 0. */
+  discountPercent?: number;
   lines: InvoiceLine[];
   payments: Payment[];
   paymentState: PaymentState;
@@ -212,6 +240,9 @@ export type Invoice = {
   customerSnapshot?: {
     name: string;
     rnc?: string;
+    phone?: string;
+    customerType?: CustomerType;
+    creditTermDays?: CreditTermDays;
   };
   /**
    * SALE-008: exact hierarchy delivered for each assembly line, frozen at confirm.
@@ -277,6 +308,10 @@ export type AppState = {
   fxAvailable: boolean;
   fxRateDopPerUsd: number;
   facSeq: number;
+  /** Next unused public quote number (COT-000001). */
+  cotSeq?: number;
+  /** Next unused public conduce number (CON-000001). */
+  conSeq?: number;
   /** Next unused number per category id for individually tracked item codes. */
   itemCodeSeq: Record<string, number>;
 };

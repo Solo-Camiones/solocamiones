@@ -60,9 +60,7 @@ export function nextServiceId(services: Service[], name: string): string {
  * indistinguishable slots, so it is rejected instead of silently dropped.
  */
 function parseExpectedComponents(input: string[] | undefined): Result<string[]> {
-  const names = (input ?? [])
-    .map((entry) => entry.trim())
-    .filter((entry) => entry.length > 0);
+  const names = (input ?? []).map((entry) => entry.trim()).filter((entry) => entry.length > 0);
 
   const seen = new Set<string>();
   for (const name of names) {
@@ -201,10 +199,7 @@ function hasDuplicateParentNames(entries: { parentId: string; expectedComponentN
  * Builds an all-or-nothing category edit. Operational references use category
  * names in the prototype, so a rename must migrate them in the same commit.
  */
-export function prepareCategoryStateChange(
-  state: AppState,
-  category: Category,
-): Result<AppState> {
+export function prepareCategoryStateChange(state: AppState, category: Category): Result<AppState> {
   const previous = state.categories.find((entry) => entry.id === category.id);
   if (!previous) {
     const staged = structuredClone(state);
@@ -271,9 +266,7 @@ export function prepareCategoryStateChange(
 }
 
 export function prepareServiceSave(services: Service[], input: SaveServiceInput): Result<Service> {
-  const existing = 'id' in input
-    ? services.find((service) => service.id === input.id)
-    : undefined;
+  const existing = 'id' in input ? services.find((service) => service.id === input.id) : undefined;
   if ('id' in input && !existing) {
     return err({ code: 'NOT_FOUND', message: 'Servicio no encontrado' });
   }
@@ -287,8 +280,7 @@ export function prepareServiceSave(services: Service[], input: SaveServiceInput)
   }
 
   const duplicateName = services.some(
-    (service) =>
-      service.name.toLowerCase() === name.toLowerCase() && service.id !== existing?.id,
+    (service) => service.name.toLowerCase() === name.toLowerCase() && service.id !== existing?.id,
   );
   if (duplicateName) {
     return err({ code: 'CONFLICT', message: 'Ya existe un servicio con ese nombre' });

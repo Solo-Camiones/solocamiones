@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { render, screen, within } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createMemoryRouter, RouterProvider } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -10,10 +10,18 @@ vi.hoisted(() => vi.stubEnv('VITE_USE_MOCK_API', 'false'));
 import { router as appRouter } from '../../../src/router';
 import { AuthProvider } from '../../../src/features/auth/AuthContext';
 import { CapabilitiesProvider } from '../../../src/shared/config/CapabilitiesProvider';
+import { businessDateString } from '../../../src/shared/domain/business-date';
 import { ToastProvider, Toaster, money } from '../../../src/shared/ui';
 import type { Role } from '../../../src/api/contracts/entities';
 import { chooseSelectOption } from '../../support/select-menu';
 import '../../support/dom';
+
+/** Calendar day `YYYY-MM-DD` offset from the business timezone "today". */
+function businessDayOffset(days: number): string {
+  const [year, month, day] = businessDateString(new Date()).split('-').map(Number);
+  const utc = new Date(Date.UTC(year, month - 1, day + days));
+  return utc.toISOString().slice(0, 10);
+}
 
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status });
 
@@ -42,8 +50,14 @@ type CompletedRow = {
   currency: 'DOP' | 'USD';
   customer: { id: string; name: string; rnc: string | null; isDefault: boolean };
   confirmedAt: string;
+  saleCondition?: 'CASH' | 'CREDIT';
   totals: { gross: string; base: string; itbis: string };
-  payments: Array<{ kind: 'PAYMENT' | 'REFUND'; amount: string; method: string; effectiveDate: string }>;
+  payments: Array<{
+    kind: 'PAYMENT' | 'REFUND';
+    amount: string;
+    method: string;
+    effectiveDate: string;
+  }>;
   profitability?: {
     status: ProfitabilityStatus;
     reason: ProfitabilityReason;
@@ -65,6 +79,10 @@ let fetchMock: ReturnType<typeof vi.fn>;
 
 beforeEach(() => {
   role = 'ADMINISTRATOR';
+  // Keep fixture days inside the "30 días" window regardless of wall-clock date.
+  // T16:00Z maps to the same calendar day in America/Santo_Domingo.
+  const inWindowDay = businessDayOffset(-5);
+  const inWindowAt = `${inWindowDay}T16:00:00.000Z`;
   invoices = [
     {
       id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
@@ -72,9 +90,12 @@ beforeEach(() => {
       number: 'FAC-000001',
       currency: 'DOP',
       customer,
-      confirmedAt: '2026-09-01T16:00:00.000Z',
+      confirmedAt: inWindowAt,
+      saleCondition: 'CASH',
       totals: { gross: '18000.00', base: '18000.00', itbis: '0.00' },
-      payments: [{ kind: 'PAYMENT', amount: '18000.00', method: 'CASH', effectiveDate: '2026-09-01' }],
+      payments: [
+        { kind: 'PAYMENT', amount: '18000.00', method: 'CASH', effectiveDate: inWindowDay },
+      ],
       profitability: {
         status: 'CALCULATED',
         reason: null,
@@ -88,7 +109,8 @@ beforeEach(() => {
       number: 'FAC-000002',
       currency: 'USD',
       customer,
-      confirmedAt: '2026-09-01T16:00:00.000Z',
+      confirmedAt: inWindowAt,
+      saleCondition: 'CREDIT',
       totals: { gross: '1200.00', base: '1200.00', itbis: '0.00' },
       payments: [],
       profitability: {
@@ -104,7 +126,8 @@ beforeEach(() => {
       number: 'FAC-000003',
       currency: 'DOP',
       customer,
-      confirmedAt: '2026-09-01T16:00:00.000Z',
+      confirmedAt: inWindowAt,
+      saleCondition: 'CREDIT',
       totals: { gross: '2000.00', base: '2000.00', itbis: '0.00' },
       payments: [],
       profitability: {
@@ -118,11 +141,18 @@ beforeEach(() => {
   fetchMock = vi.fn(async (path: string, init?: RequestInit) => {
     const url = String(path);
     if (path === '/api/auth/session' || path === '/api/auth/me') return json(identity(role));
+    if (url.startsWith('/api/sales/receivables') && !init?.method) {
+      return json({ invoices: [], customers: [], total: 0, page: 1, pageSize: 10 });
+    }
     if (url.startsWith('/api/sales?status=CANCELLED') && !init?.method) {
       return json({ items: [], total: 0, page: 1, pageSize: 10 });
     }
+    if (url.startsWith('/api/sales?status=CONDUCE') && !init?.method) {
+      return json({ items: [], total: 0, page: 1, pageSize: 10 });
+    }
     if (url.startsWith('/api/sales?status=COMPLETED') && !init?.method) {
-      const items = role === 'ADMINISTRATOR' ? invoices : invoices.map(({ profitability: _, ...rest }) => rest);
+      const items =
+        role === 'ADMINISTRATOR' ? invoices : invoices.map(({ profitability: _, ...rest }) => rest);
       return json({ items, total: items.length, page: 1, pageSize: 10 });
     }
     const retry = url.match(/^\/api\/profitability\/([^/]+)\/retry$/);
@@ -184,39 +214,30 @@ function mount(path = '/profitability') {
 }
 
 describe('HTTP profitability flow', () => {
-  it('lists DOP profit, retries pending FX, records judged profit, and has no demo FX toggle', async () => {
+  it('shows period KPIs without charts, invoice detail, or demo FX toggle', async () => {
     const user = userEvent.setup();
     mount();
 
     expect(await screen.findByRole('heading', { name: 'Rentabilidad' })).toBeVisible();
     await chooseSelectOption(user, 'Período', '30 días');
-    expect(screen.getByRole('img', { name: 'Evolución financiera' })).toBeVisible();
     expect(screen.getAllByText('Cobrado neto').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Cuentas por cobrar').length).toBeGreaterThan(0);
+    expect(screen.getByText('Ventas al contado')).toBeVisible();
+    expect(screen.getByText('Ventas a crédito')).toBeVisible();
+    expect(screen.getByText('Total ventas')).toBeVisible();
+    expect(screen.getAllByText(money(18_000, 'DOP')).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(money(2_000, 'DOP')).length).toBeGreaterThan(0);
+    expect(screen.getByText('Cobrado efectivo')).toBeVisible();
     expect(screen.getByRole('link', { name: 'Rentabilidad' })).toBeVisible();
-    expect(screen.queryByRole('button', { name: /tasa de cambio \(demo\)/i })).not.toBeInTheDocument();
-    expect(screen.queryByText('Tasa de demostración')).not.toBeInTheDocument();
-    expect(screen.getAllByText(money(5_700, 'DOP')).length).toBeGreaterThan(0);
-    expect(screen.getAllByText('Pendiente de tasa de cambio').length).toBeGreaterThan(0);
-
-    await user.click(screen.getByRole('button', { name: 'Reintentar' }));
-    expect(await screen.findByText('Cálculo de rentabilidad reintentado')).toBeVisible();
-    expect(screen.getAllByText(money(7_177, 'DOP')).length).toBeGreaterThan(0);
-
-    await user.click(screen.getByRole('button', { name: 'Registrar ganancia' }));
-    const dialog = await screen.findByRole('dialog');
-    await user.type(within(dialog).getByLabelText('Ganancia bruta en pesos'), '1800');
-    await user.click(within(dialog).getByRole('button', { name: 'Guardar ganancia' }));
-
-    expect(await screen.findByText('Ganancia bruta registrada')).toBeVisible();
-    expect(screen.getAllByText(money(1_800, 'DOP')).length).toBeGreaterThan(0);
-    expect(screen.getByText('Registrada por administrador')).toBeVisible();
     expect(
-      fetchMock.mock.calls.some(
-        ([requestPath, init]) =>
-          String(requestPath) === '/api/profitability/cccccccc-cccc-4ccc-8ccc-cccccccccccc/manual-gross-profit' &&
-          init?.method === 'POST',
-      ),
-    ).toBe(true);
+      screen.queryByRole('button', { name: /tasa de cambio \(demo\)/i }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText('Tasa de demostración')).not.toBeInTheDocument();
+    expect(screen.queryByRole('img', { name: 'Evolución financiera' })).not.toBeInTheDocument();
+    expect(screen.queryByText('Detalle de rentabilidad por factura')).not.toBeInTheDocument();
+    expect(screen.queryByText('FAC-000001')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Reintentar' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Registrar ganancia' })).not.toBeInTheDocument();
   });
 
   it('denies a seller the profitability screen without listing sales for a snapshot', async () => {

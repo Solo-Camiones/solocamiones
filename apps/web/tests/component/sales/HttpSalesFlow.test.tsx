@@ -18,6 +18,9 @@ import { chooseSelectOption } from '../../support/select-menu';
 const cashCustomer = {
   id: '11111111-1111-4111-8111-111111111111',
   name: 'Cliente contado',
+  customerType: 'CASH' as const,
+  creditLimitDop: null,
+  creditTermDays: null,
   rnc: null,
   address: null,
   notes: null,
@@ -30,6 +33,9 @@ const cashCustomer = {
 const fleetCustomer = {
   id: '44444444-4444-4444-8444-444444444444',
   name: 'Flota Este',
+  customerType: 'CASH' as const,
+  creditLimitDop: null,
+  creditTermDays: null,
   rnc: '131098765',
   address: null,
   notes: null,
@@ -72,7 +78,15 @@ type ApiInvoice = {
   number: string | null;
   currency: 'DOP' | 'USD';
   fiscal: boolean;
-  customer: { id: string; name: string; rnc: string | null; isDefault: boolean };
+  applyItbis: boolean;
+  discountPercent?: string;
+  customer: {
+    id: string;
+    name: string;
+    rnc: string | null;
+    isDefault: boolean;
+    customerType?: 'CASH' | 'CREDIT';
+  };
   customerSnapshot: { name: string; rnc: string | null; phone: string | null } | null;
   confirmedAt: string | null;
   dueDate: string | null;
@@ -86,7 +100,7 @@ type ApiInvoice = {
   refunded: string;
   balance: string;
   lines: ApiLine[];
-  totals: { gross: string; base: string; itbis: string };
+  totals: { gross: string; base: string; itbis: string; discount?: string };
   createdAt: string;
   updatedAt: string;
   document?: { status: 'READY' } | { status: 'FAILED'; errorId: string };
@@ -122,11 +136,14 @@ function emptyInvoice(id = draftId): ApiInvoice {
     number: null,
     currency: 'DOP',
     fiscal: false,
+    applyItbis: false,
+    discountPercent: '0.00',
     customer: {
       id: cashCustomer.id,
       name: cashCustomer.name,
       rnc: cashCustomer.rnc,
       isDefault: true,
+      customerType: cashCustomer.customerType,
     },
     customerSnapshot: null,
     confirmedAt: null,
@@ -141,7 +158,7 @@ function emptyInvoice(id = draftId): ApiInvoice {
     refunded: '0.00',
     balance: '0.00',
     lines: [],
-    totals: { gross: '0.00', base: '0.00', itbis: '0.00' },
+    totals: { gross: '0.00', base: '0.00', itbis: '0.00', discount: '0.00' },
     createdAt: '2026-09-09T12:00:00.000Z',
     updatedAt: '2026-09-09T12:00:00.000Z',
   };
@@ -231,10 +248,7 @@ beforeEach(() => {
         const body = JSON.parse(String(init.body ?? '{}')) as {
           payment?: { amount: string; method: string };
         };
-        if (
-          body.payment == null &&
-          JSON.stringify(body) !== '{}'
-        ) {
+        if (body.payment == null && JSON.stringify(body) !== '{}') {
           throw new Error(`Unexpected confirm body: ${String(init.body)}`);
         }
         const number = `FAC-${String(nextFacNumber).padStart(6, '0')}`;
@@ -317,6 +331,7 @@ beforeEach(() => {
                 name: nextCustomer.name,
                 rnc: nextCustomer.rnc,
                 isDefault: nextCustomer.isDefault,
+                customerType: nextCustomer.customerType,
               }
             : current.customer,
         };
@@ -414,7 +429,7 @@ describe('M21 HTTP POS draft UI', () => {
 
     expect(await screen.findByRole('heading', { name: 'Punto de venta' })).toBeVisible();
     expect(screen.getByLabelText('Cliente')).toHaveTextContent(/Cliente contado/);
-    expect(screen.getByRole('checkbox')).toBeDisabled();
+    expect(screen.getByLabelText(/Factura con comprobante fiscal/)).toBeDisabled();
 
     await user.click(screen.getByRole('button', { name: 'Agregar línea' }));
     await user.click(await screen.findByLabelText('Tipo de línea'));
@@ -437,9 +452,9 @@ describe('M21 HTTP POS draft UI', () => {
     );
     expect(JSON.parse(genericCall![1].body)).toMatchObject({
       type: 'GENERIC',
-      costProvenance: 'UNKNOWN',
       unitPrice: '100.00',
     });
+    expect(JSON.parse(genericCall![1].body)).not.toHaveProperty('costProvenance');
 
     await user.click(screen.getByRole('button', { name: 'Agregar línea' }));
     await chooseSelectOption(user, 'Tipo de línea', 'SERVICE');
@@ -463,7 +478,6 @@ describe('M21 HTTP POS draft UI', () => {
     const externalDescription = screen.getByLabelText('Descripción');
     await user.clear(externalDescription);
     await user.type(externalDescription, 'Bomba comprada');
-    await user.type(screen.getByLabelText('Costo de adquisición en pesos (opcional)'), '20');
     await user.clear(screen.getByLabelText('Precio'));
     await user.type(screen.getByLabelText('Precio'), '80');
     await user.click(screen.getByRole('button', { name: 'Agregar' }));
@@ -476,9 +490,9 @@ describe('M21 HTTP POS draft UI', () => {
     });
     expect(JSON.parse(externalCall![1].body)).toMatchObject({
       type: 'EXTERNAL',
-      costProvenance: 'ACTUAL',
-      acquisitionCostDop: '20.00',
+      unitPrice: '80.00',
     });
+    expect(JSON.parse(externalCall![1].body)).not.toHaveProperty('acquisitionCostDop');
 
     await user.click(screen.getByLabelText('Moneda'));
     await user.click(screen.getByRole('option', { name: 'Dólares (USD)' }));
@@ -536,7 +550,7 @@ async function addGenericLine(
 }
 
 async function confirmOpenSale(user: ReturnType<typeof userEvent.setup>) {
-  await user.click(screen.getByRole('button', { name: 'Confirmar venta' }));
+  await user.click(screen.getByRole('button', { name: 'Confirmar factura' }));
   const dialog = await screen.findByRole('dialog', { name: 'Confirmar venta' });
   expect(within(dialog).getByText('Pago inicial')).toBeVisible();
   await user.click(within(dialog).getByRole('button', { name: 'Confirmar venta' }));
@@ -572,7 +586,7 @@ describe('M22 HTTP confirmation UI', () => {
     expect(await screen.findByRole('heading', { name: 'FAC-000001' })).toBeVisible();
     expect(screen.getByText(/Flota Este/)).toBeVisible();
     expect(screen.getByText('Filtro de aceite')).toBeVisible();
-    await user.click(screen.getByRole('button', { name: 'Vista previa del documento' }));
+    await user.click(screen.getByRole('button', { name: 'Ver factura' }));
     const dialog = await screen.findByRole('dialog');
     expect(within(dialog).getByText('NCF: ______________________')).toBeVisible();
     expect(within(dialog).getByTitle('FAC-000001.pdf')).toBeVisible();
@@ -626,9 +640,7 @@ describe('M22 HTTP confirmation UI', () => {
 
     expect(await screen.findByRole('heading', { name: 'FAC-000009' })).toBeVisible();
     expect(screen.getByText(/Referencia: pdf-err-9/)).toBeVisible();
-    expect(
-      screen.queryByRole('button', { name: 'Vista previa del documento' }),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Ver factura' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Regenerar documento' })).not.toBeInTheDocument();
     expect(screen.queryByText('Rentabilidad')).not.toBeInTheDocument();
   });
@@ -653,7 +665,7 @@ describe('M22 HTTP confirmation UI', () => {
     expect(screen.getByText(/Referencia: pdf-err-9/)).toBeVisible();
     await user.click(screen.getByRole('button', { name: 'Regenerar documento' }));
 
-    expect(await screen.findByRole('button', { name: 'Vista previa del documento' })).toBeVisible();
+    expect(await screen.findByRole('button', { name: 'Ver factura' })).toBeVisible();
     expect(screen.queryByText(/Referencia: pdf-err-9/)).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Regenerar documento' })).not.toBeInTheDocument();
     expect(

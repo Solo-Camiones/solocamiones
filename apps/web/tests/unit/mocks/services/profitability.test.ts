@@ -1,7 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
 import { createInitialState } from '../../../../src/mocks/data/seed';
-import { retryUsdProfitability, recordManualGrossProfit, setFxAvailable } from '../../../../src/mocks/services/profitability-commands';
+import {
+  retryUsdProfitability,
+  recordManualGrossProfit,
+  setFxAvailable,
+} from '../../../../src/mocks/services/profitability-commands';
 import { buildProfitabilitySnapshot } from '../../../../src/mocks/services/profitability-catalog';
 import { invoiceProfitUsd, usdProfitToDop } from '../../../../src/mocks/services/usd-profitability';
 import { roundMoney } from '../../../../src/mocks/services/invoice-money';
@@ -42,6 +46,8 @@ describe('USD profitability', () => {
     const profitDop = usdProfitToDop(profitUsd, 61.5);
     expect(profitabilityForInvoice(state, invoice, admin)?.profit).toBe(profitDop);
     expect(snapshot?.profitDop).toBe(roundMoney(8_900 + profitDop));
+    expect(snapshot?.outstandingDop).toBe(31_100);
+    expect(snapshot?.outstandingUsd).toBe(0);
     expect(snapshot).not.toHaveProperty('profitUsd');
   });
 

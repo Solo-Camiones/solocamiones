@@ -120,4 +120,3 @@ describe('MockAuthRepository', () => {
     expect(admin?.name).toBe('Administrador Demo');
   });
 });
-

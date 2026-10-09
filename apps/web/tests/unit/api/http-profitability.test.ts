@@ -21,6 +21,16 @@ function emptySalesPage() {
   return json({ items: [], total: 0, page: 1, pageSize: 10 });
 }
 
+function emptyReceivables() {
+  return json({ invoices: [], customers: [], total: 0, page: 1, pageSize: 10 });
+}
+
+/** Receivables are loaded alongside sales when composing the snapshot. */
+function stubReceivablesIfNeeded(url: string): Response | null {
+  if (url.startsWith('/api/sales/receivables')) return emptyReceivables();
+  return null;
+}
+
 function listItem(
   id: string,
   number: string,
@@ -29,10 +39,17 @@ function listItem(
     reason: 'UNKNOWN_COST' | 'PENDING_FX_RATE' | null;
     profitDop: string | null;
     margin: string | null;
-    fx?: { exchangeRateDopPerUsd: string; source: string; rateUpdatedAt: string; obtainedAt: string };
+    fx?: {
+      exchangeRateDopPerUsd: string;
+      source: string;
+      rateUpdatedAt: string;
+      obtainedAt: string;
+    };
   },
   extra: {
     confirmedAt?: string;
+    saleCondition?: 'CASH' | 'CREDIT';
+    totalsGross?: string;
     payments?: Array<{
       kind: 'PAYMENT' | 'REFUND';
       amount: string;
@@ -48,7 +65,8 @@ function listItem(
     currency: id === pendingId ? 'USD' : 'DOP',
     customer: cashCustomer,
     confirmedAt: extra.confirmedAt ?? '2026-09-01T16:00:00.000Z',
-    totals: { gross: '118.00', base: '100.00', itbis: '18.00' },
+    saleCondition: extra.saleCondition ?? 'CASH',
+    totals: { gross: extra.totalsGross ?? '118.00', base: '100.00', itbis: '18.00' },
     payments: extra.payments ?? [],
     profitability,
   };
@@ -64,23 +82,34 @@ const calculated = listItem(
     margin: '42.37',
   },
   {
+    saleCondition: 'CASH',
     payments: [{ kind: 'PAYMENT', amount: '80.00', method: 'CASH', effectiveDate: '2026-09-01' }],
   },
 );
 
-const pending = listItem(pendingId, 'FAC-000002', {
-  status: 'UNAVAILABLE',
-  reason: 'PENDING_FX_RATE',
-  profitDop: null,
-  margin: null,
-});
+const pending = listItem(
+  pendingId,
+  'FAC-000002',
+  {
+    status: 'UNAVAILABLE',
+    reason: 'PENDING_FX_RATE',
+    profitDop: null,
+    margin: null,
+  },
+  { saleCondition: 'CASH', totalsGross: '1200.00' },
+);
 
-const unknown = listItem(unknownId, 'FAC-000003', {
-  status: 'UNAVAILABLE',
-  reason: 'UNKNOWN_COST',
-  profitDop: null,
-  margin: null,
-});
+const unknown = listItem(
+  unknownId,
+  'FAC-000003',
+  {
+    status: 'UNAVAILABLE',
+    reason: 'UNKNOWN_COST',
+    profitDop: null,
+    margin: null,
+  },
+  { saleCondition: 'CREDIT', totalsGross: '2000.00' },
+);
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -88,7 +117,37 @@ describe('HTTP profitability contract', () => {
   it('composes the snapshot from completed sales pages and omits seller rows without profit', async () => {
     const fetchMock = vi.fn(async (path: string) => {
       const url = String(path);
+      const receivables = stubReceivablesIfNeeded(url);
+      if (receivables) {
+        return json({
+          invoices: [],
+          customers: [
+            {
+              customerId: cashCustomer.id,
+              customerName: cashCustomer.name,
+              currency: 'DOP',
+              invoiceCount: 1,
+              invoiced: '2000.00',
+              paid: '500.00',
+              balance: '1500.00',
+            },
+            {
+              customerId: cashCustomer.id,
+              customerName: cashCustomer.name,
+              currency: 'USD',
+              invoiceCount: 1,
+              invoiced: '1200.00',
+              paid: '0.00',
+              balance: '1200.00',
+            },
+          ],
+          total: 0,
+          page: 1,
+          pageSize: 10,
+        });
+      }
       if (url.startsWith('/api/sales?status=CANCELLED')) return emptySalesPage();
+      if (url.startsWith('/api/sales?status=CONDUCE')) return emptySalesPage();
       if (url === '/api/sales?status=COMPLETED&page=1&pageSize=10') {
         return json({ items: [calculated, pending], total: 3, page: 1, pageSize: 10 });
       }
@@ -104,12 +163,23 @@ describe('HTTP profitability contract', () => {
     if (!result.ok) return;
 
     expect(result.value.pendingFxCount).toBe(1);
+    expect(result.value.outstandingDop).toBe(1500);
+    expect(result.value.outstandingUsd).toBe(1200);
     expect(result.value.profitDop).toBe(50);
     expect(result.value.collectedDop).toBe(80);
     expect(result.value.invoicesMissingProfitCount).toBe(2);
-    expect(result.value.charts?.profitByDay.find((point) => point.key === '2026-09-01')?.amount).toBe(
-      50,
-    );
+    expect(
+      result.value.charts?.profitByDay.find((point) => point.key === '2026-09-01')?.amount,
+    ).toBe(50);
+    expect(
+      result.value.charts?.invoicedCashByDay.find((point) => point.key === '2026-09-01')?.amount,
+    ).toBe(118);
+    expect(
+      result.value.charts?.invoicedCreditByDay.find((point) => point.key === '2026-09-01')?.amount,
+    ).toBe(2000);
+    expect(
+      result.value.charts?.collectedByMethodByDay.find((point) => point.key === '2026-09-01'),
+    ).toMatchObject({ CASH: 80, TRANSFER: 0, CHECK: 0 });
     expect(result.value.invoices.map((row) => row.number)).toEqual([
       'FAC-000001',
       'FAC-000002',
@@ -130,17 +200,23 @@ describe('HTTP profitability contract', () => {
   it('retries USD profitability and records judged DOP profit with CSRF, then reloads the snapshot', async () => {
     const fetchMock = vi.fn(async (path: string, init?: RequestInit) => {
       const url = String(path);
+      const receivables = stubReceivablesIfNeeded(url);
+      if (receivables) return receivables;
       if (url.includes(`/api/profitability/${pendingId}/retry`) && init?.method === 'POST') {
         expect(new Headers(init.headers).get('X-Requested-With')).toBe('XMLHttpRequest');
         expect(JSON.parse(String(init.body))).toEqual({});
         return json({ id: pendingId });
       }
-      if (url.includes(`/api/profitability/${unknownId}/manual-gross-profit`) && init?.method === 'POST') {
+      if (
+        url.includes(`/api/profitability/${unknownId}/manual-gross-profit`) &&
+        init?.method === 'POST'
+      ) {
         expect(new Headers(init.headers).get('X-Requested-With')).toBe('XMLHttpRequest');
         expect(JSON.parse(String(init.body))).toEqual({ profitDop: '1800.00' });
         return json({ id: unknownId });
       }
       if (url.startsWith('/api/sales?status=CANCELLED')) return emptySalesPage();
+      if (url.startsWith('/api/sales?status=CONDUCE')) return emptySalesPage();
       if (url.startsWith('/api/sales?status=COMPLETED')) {
         return json({
           items: [
@@ -234,7 +310,10 @@ describe('HTTP profitability contract', () => {
         'fetch',
         vi.fn(async (path: string) => {
           const url = String(path);
+          const receivables = stubReceivablesIfNeeded(url);
+          if (receivables) return receivables;
           if (url.startsWith('/api/sales?status=CANCELLED')) return emptySalesPage();
+          if (url.startsWith('/api/sales?status=CONDUCE')) return emptySalesPage();
           if (url.startsWith('/api/sales?status=COMPLETED')) {
             return json({ items: [usdWithoutProfitFx], total: 1, page: 1, pageSize: 10 });
           }
@@ -280,7 +359,10 @@ describe('HTTP profitability contract', () => {
       'fetch',
       vi.fn(async (path: string) => {
         const url = String(path);
+        const receivables = stubReceivablesIfNeeded(url);
+        if (receivables) return receivables;
         if (url.startsWith('/api/sales?status=CANCELLED')) return emptySalesPage();
+        if (url.startsWith('/api/sales?status=CONDUCE')) return emptySalesPage();
         if (url.startsWith('/api/sales?status=COMPLETED')) {
           return json({ items: rowsWithoutProfit, total: 2, page: 1, pageSize: 10 });
         }
@@ -293,6 +375,8 @@ describe('HTTP profitability contract', () => {
       value: {
         profitDop: 0,
         collectedDop: 0,
+        outstandingDop: 0,
+        outstandingUsd: 0,
         pendingFxCount: 0,
         invoices: [],
         charts: null,
@@ -312,7 +396,10 @@ describe('HTTP profitability contract', () => {
       'fetch',
       vi.fn(async (path: string) => {
         const url = String(path);
+        const receivables = stubReceivablesIfNeeded(url);
+        if (receivables) return receivables;
         if (url.startsWith('/api/sales?status=CANCELLED')) return emptySalesPage();
+        if (url.startsWith('/api/sales?status=CONDUCE')) return emptySalesPage();
         if (url.startsWith('/api/sales?status=COMPLETED')) {
           return json({ items: [unnumbered], total: 1, page: 1, pageSize: 10 });
         }
@@ -327,6 +414,72 @@ describe('HTTP profitability contract', () => {
         invoices: [{ number: 'ffffffff-ffff-4fff-8fff-ffffffffffff', confirmedAt: null }],
       },
     });
+  });
+
+  it('includes CONDUCE sales in period KPIs and labels them with CON- when FAC- is absent', async () => {
+    const conduceId = '99999999-9999-4999-8999-999999999999';
+    const conduce = {
+      ...listItem(
+        conduceId,
+        'FAC-unused',
+        {
+          status: 'CALCULATED',
+          reason: null,
+          profitDop: '90.00',
+          margin: '30.00',
+        },
+        {
+          saleCondition: 'CREDIT',
+          totalsGross: '300.00',
+          payments: [
+            { kind: 'PAYMENT', amount: '100.00', method: 'TRANSFER', effectiveDate: '2026-09-01' },
+          ],
+        },
+      ),
+      status: 'CONDUCE' as const,
+      number: null,
+      conduceNumber: 'CON-000001',
+    };
+
+    const fetchMock = vi.fn(async (path: string) => {
+      const url = String(path);
+      const receivables = stubReceivablesIfNeeded(url);
+      if (receivables) return receivables;
+      if (url.startsWith('/api/sales?status=COMPLETED')) return emptySalesPage();
+      if (url.startsWith('/api/sales?status=CANCELLED')) return emptySalesPage();
+      if (url.startsWith('/api/sales?status=CONDUCE')) {
+        return json({ items: [conduce], total: 1, page: 1, pageSize: 10 });
+      }
+      throw new Error(`Unexpected ${path}`);
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await repository.getSnapshot();
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+
+    expect(
+      fetchMock.mock.calls.some(([path]) => String(path).startsWith('/api/sales?status=CONDUCE')),
+    ).toBe(true);
+    expect(result.value.profitDop).toBe(90);
+    expect(result.value.collectedDop).toBe(100);
+    expect(
+      result.value.charts?.invoicedCreditByDay.find((point) => point.key === '2026-09-01')?.amount,
+    ).toBe(300);
+    expect(
+      result.value.charts?.invoicedCashByDay.find((point) => point.key === '2026-09-01')?.amount,
+    ).toBe(0);
+    expect(
+      result.value.charts?.collectedByMethodByDay.find((point) => point.key === '2026-09-01'),
+    ).toMatchObject({ CASH: 0, TRANSFER: 100, CHECK: 0 });
+    expect(result.value.invoices).toEqual([
+      expect.objectContaining({
+        id: conduceId,
+        number: 'CON-000001',
+        profit: 90,
+        href: `/sales/${conduceId}`,
+      }),
+    ]);
   });
 
   it.each([
@@ -348,6 +501,8 @@ describe('HTTP profitability contract', () => {
   it('serializes manual profit to two decimals', async () => {
     const fetchMock = vi.fn(async (path: string, init?: RequestInit) => {
       const url = String(path);
+      const receivables = stubReceivablesIfNeeded(url);
+      if (receivables) return receivables;
       if (url.includes(`/api/profitability/${unknownId}/manual-gross-profit`)) {
         const requestInit = init as RequestInit;
         expect(init?.method).toBe('POST');

@@ -5,15 +5,13 @@ import type { Category } from '../../api/contracts/entities';
 import type { InventoryListFilters, InventoryListRow } from '../../api/contracts/inventory';
 import type { AppError } from '../../shared/auth/types';
 import { categoryRepository, inventoryRepository } from '../../api/repositories';
-import {
-  inventoryFiltersFromSearch,
-  inventorySearchFromFilters,
-} from './inventory-list-search';
+import { inventoryFiltersFromSearch, inventorySearchFromFilters } from './inventory-list-search';
+import { beginQueryReload } from '../../shared/query/begin-query-reload';
 
 type CatalogQuery =
   | { status: 'loading' }
   | { status: 'error'; error: AppError }
-  | { status: 'ready'; rows: InventoryListRow[] };
+  | { status: 'ready'; rows: InventoryListRow[]; isRefreshing: boolean };
 
 /**
  * Loads the unified inventory catalog. Filter state lives in the URL so
@@ -28,7 +26,7 @@ export function useInventoryCatalog() {
   const [reloadToken, setReloadToken] = useState(0);
 
   useEffect(() => {
-    categoryRepository.list().then((response) => {
+    void categoryRepository.list().then((response) => {
       if (response.ok) {
         setCategories(response.value);
       }
@@ -37,9 +35,9 @@ export function useInventoryCatalog() {
 
   useEffect(() => {
     let cancelled = false;
-    setResult({ status: 'loading' });
+    setResult(beginQueryReload);
 
-    inventoryRepository.listCatalog(filters).then((response) => {
+    void inventoryRepository.listCatalog(filters).then((response) => {
       if (cancelled) {
         return;
       }
@@ -49,7 +47,7 @@ export function useInventoryCatalog() {
         return;
       }
 
-      setResult({ status: 'ready', rows: response.value });
+      setResult({ status: 'ready', rows: response.value, isRefreshing: false });
     });
 
     return () => {

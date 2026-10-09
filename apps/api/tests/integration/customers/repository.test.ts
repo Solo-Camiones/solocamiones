@@ -22,11 +22,12 @@ describe('CustomerRepository (PostgreSQL)', () => {
       name: 'Cliente contado',
       rnc: null,
       isDefault: true,
+      customerType: 'CASH',
+      creditLimitDop: null,
+      creditTermDays: null,
       contacts: [],
     });
-    expect(generic?.id).toMatch(
-      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
-    );
+    expect(generic?.id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);
   });
 
   it('creates ordinary customers with contacts and finds them by id', async () => {
@@ -58,9 +59,11 @@ describe('CustomerRepository (PostgreSQL)', () => {
     await repository.create({ name: 'Juan' });
     await expect(repository.create({ name: 'Juan' })).resolves.toMatchObject({ name: 'Juan' });
     await repository.create({ name: 'Fiscal A', rnc: '00112345678' });
-    await expect(repository.create({ name: 'Fiscal B', rnc: '00112345678' })).rejects.toMatchObject({
-      code: 'P2002',
-    });
+    await expect(repository.create({ name: 'Fiscal B', rnc: '00112345678' })).rejects.toMatchObject(
+      {
+        code: 'P2002',
+      },
+    );
   });
 
   it('searches by name or RNC and keeps Cliente contado first', async () => {
