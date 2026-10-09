@@ -1,0 +1,14 @@
+# Gitleaks config for Solo Camiones.
+# Extends default rules; allowlist covers known non-secrets only.
+
+title = "solocamiones"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Documented local smoke placeholders; never production credentials"
+regexTarget = "match"
+regexes = [
+  '''smoke-metrics-token-change-me''',
+]
