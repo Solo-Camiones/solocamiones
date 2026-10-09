@@ -2,7 +2,9 @@
 # Used by Compose services `backup` and `verify-restore` (profile operations).
 FROM postgres:16-alpine
 
-RUN apk add --no-cache \
+# Refresh Alpine packages so Trivy sees current security fixes on the backup image.
+RUN apk upgrade --no-cache \
+    && apk add --no-cache \
       bash \
       age \
       aws-cli \

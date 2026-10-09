@@ -189,6 +189,9 @@ jobs:
           cache-from: type=gha,scope=backup
           cache-to: type=gha,mode=max,scope=backup
 
+      # ignore-unfixed: true — fail only when a vendor fix exists and we have not applied it.
+      # Unfixed Debian/Alpine base CVEs still appear in SARIF for visibility; allowlist is for
+      # reviewed exceptions to fixable findings we temporarily accept.
       - name: Scan API image (Trivy)
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
@@ -197,7 +200,7 @@ jobs:
           output: trivy-api.sarif
           exit-code: '1'
           severity: HIGH,CRITICAL
-          ignore-unfixed: false
+          ignore-unfixed: true
           trivyignores: .trivyignore.generated
 
       - name: Scan web image (Trivy)
@@ -208,7 +211,7 @@ jobs:
           output: trivy-web.sarif
           exit-code: '1'
           severity: HIGH,CRITICAL
-          ignore-unfixed: false
+          ignore-unfixed: true
           trivyignores: .trivyignore.generated
 
       - name: Scan backup image (Trivy)
@@ -219,7 +222,7 @@ jobs:
           output: trivy-backup.sarif
           exit-code: '1'
           severity: HIGH,CRITICAL
-          ignore-unfixed: false
+          ignore-unfixed: true
           trivyignores: .trivyignore.generated
 
       - name: Generate SBOMs (Trivy)

@@ -2,7 +2,9 @@ FROM node:22-bookworm-slim AS build
 
 WORKDIR /app
 
+# Pull Debian security updates for base packages (e.g. perl, pcre2) before install.
 RUN apt-get update \
+    && apt-get upgrade -y --no-install-recommends \
     && apt-get install -y --no-install-recommends openssl \
     && rm -rf /var/lib/apt/lists/*
 
@@ -36,9 +38,17 @@ FROM node:22-bookworm-slim AS runtime
 
 WORKDIR /app
 
+# Runtime stage: same security upgrades as build (final image is what Trivy scans).
+# Drop npm/yarn/corepack — production only runs `node`, and the bundled npm tree
+# otherwise surfaces HIGH/CRITICAL findings that are irrelevant at runtime.
 RUN apt-get update \
+    && apt-get upgrade -y --no-install-recommends \
     && apt-get install -y --no-install-recommends openssl \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* \
+    && rm -rf /usr/local/lib/node_modules \
+    && rm -f /usr/local/bin/npm /usr/local/bin/npx \
+             /usr/local/bin/yarn /usr/local/bin/yarnpkg \
+             /usr/local/bin/corepack
 
 ENV NODE_ENV=production
 ENV PORT=3000

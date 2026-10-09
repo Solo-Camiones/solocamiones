@@ -1,10 +1,7 @@
 import { MemoryStore, rateLimit } from 'express-rate-limit';
 
 import { AppError } from '../../infrastructure/errors/app-error.js';
-import {
-  METRICS_RATE_LIMIT_MAX_REQUESTS,
-  METRICS_RATE_LIMIT_WINDOW_MS,
-} from './constants.js';
+import { METRICS_RATE_LIMIT_MAX_REQUESTS, METRICS_RATE_LIMIT_WINDOW_MS } from './constants.js';
 
 const metricsRateLimitStore = new MemoryStore();
 

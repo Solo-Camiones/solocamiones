@@ -2,6 +2,10 @@ FROM node:22-bookworm-slim AS build
 
 WORKDIR /app
 
+RUN apt-get update \
+    && apt-get upgrade -y --no-install-recommends \
+    && rm -rf /var/lib/apt/lists/*
+
 RUN npm install --ignore-scripts --global npm@11.19.1
 
 COPY package.json package-lock.json .npmrc ./

@@ -18,7 +18,7 @@ Guía operativa para diagnosticar fallos del asistente sin exponer secretos. Zon
 
 Verificación segura de salud de la app (no prueba OpenAI):
 
-En **staging/production**, `/api/health/*` exige JWT de Cloudflare Access (M1). Desde un browser con WARP/Access, o con un Access service token (Better Stack / automatización):
+En **staging/production**, `/api/health/*` exige JWT de Cloudflare Access (M1). Los intentos fallidos de JWT Access se limitan por IP (60 / 15 min → `429 TOO_MANY_REQUESTS`); un JWT válido no consume ese presupuesto. Desde un browser con WARP/Access, o con un Access service token (Better Stack / automatización):
 
 ```bash
 # Ejemplo con sesión Access ya establecida en el cliente, o headers de service token CF.

@@ -25,6 +25,7 @@ import { usersRouter } from './features/users/routes.js';
 import {
   createAllowedHostsMiddleware,
   createCloudflareAccessMiddleware,
+  cloudflareAccessRateLimiter,
   errorHandler,
   notFoundHandler,
   requestIdMiddleware,
@@ -136,9 +137,15 @@ export function createApp(options: CreateAppOptions = {}): express.Application {
 
   app.use(requestIdMiddleware);
   app.use(createAllowedHostsMiddleware(allowedHosts));
+  // Perimeter JWT checks run before route-level limiters; rate-limit failed Access
+  // attempts when enabled so health and early 401s cannot be flooded unbounded.
+  const cloudflareAccessConfig = options.cloudflareAccess;
+  if (cloudflareAccessConfig != null) {
+    app.use(cloudflareAccessRateLimiter);
+  }
   app.use(
     createCloudflareAccessMiddleware({
-      config: options.cloudflareAccess,
+      config: cloudflareAccessConfig,
       verifyJwt: options.verifyCloudflareAccessJwt,
     }),
   );

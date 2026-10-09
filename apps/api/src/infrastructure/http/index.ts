@@ -10,6 +10,12 @@ export type {
   CloudflareAccessJwtVerifyInput,
   CloudflareAccessMiddlewareOptions,
 } from './cloudflare-access.js';
+export {
+  CLOUDFLARE_ACCESS_RATE_LIMIT_MAX_ATTEMPTS,
+  CLOUDFLARE_ACCESS_RATE_LIMIT_WINDOW_MS,
+  cloudflareAccessRateLimiter,
+  resetCloudflareAccessRateLimit,
+} from './cloudflare-access-rate-limit.js';
 export { errorHandler } from './error-handler.js';
 export { notFoundHandler } from './not-found-handler.js';
 export { createApiRateLimiter, DEFAULT_API_RATE_LIMIT_MAX_REQUESTS } from './rate-limit.js';
