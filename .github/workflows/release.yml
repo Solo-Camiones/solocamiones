@@ -150,26 +150,31 @@ jobs:
           ignore-unfixed: true
           trivyignores: .trivyignore.generated
 
-      - name: Generate SBOMs for published images
-        run: |
-          docker run --rm \
-            -v /var/run/docker.sock:/var/run/docker.sock \
-            -v "$PWD:/out" \
-            aquasec/trivy:0.70.0 \
-            image --format cyclonedx --output /out/sbom-api.cdx.json \
-            "${{ steps.meta.outputs.api_image }}@${{ steps.build_api.outputs.digest }}"
-          docker run --rm \
-            -v /var/run/docker.sock:/var/run/docker.sock \
-            -v "$PWD:/out" \
-            aquasec/trivy:0.70.0 \
-            image --format cyclonedx --output /out/sbom-web.cdx.json \
-            "${{ steps.meta.outputs.web_image }}@${{ steps.build_web.outputs.digest }}"
-          docker run --rm \
-            -v /var/run/docker.sock:/var/run/docker.sock \
-            -v "$PWD:/out" \
-            aquasec/trivy:0.70.0 \
-            image --format cyclonedx --output /out/sbom-backup.cdx.json \
-            "${{ steps.meta.outputs.backup_image }}@${{ steps.build_backup.outputs.digest }}"
+      # Use trivy-action (not raw docker run) so GHCR auth from docker/login-action is available.
+      # Images are push-only (not loaded locally); Trivy must pull by digest with registry credentials.
+      - name: Generate API SBOM
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: ${{ steps.meta.outputs.api_image }}@${{ steps.build_api.outputs.digest }}
+          format: cyclonedx
+          output: sbom-api.cdx.json
+          exit-code: '0'
+
+      - name: Generate web SBOM
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: ${{ steps.meta.outputs.web_image }}@${{ steps.build_web.outputs.digest }}
+          format: cyclonedx
+          output: sbom-web.cdx.json
+          exit-code: '0'
+
+      - name: Generate backup SBOM
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: ${{ steps.meta.outputs.backup_image }}@${{ steps.build_backup.outputs.digest }}
+          format: cyclonedx
+          output: sbom-backup.cdx.json
+          exit-code: '0'
 
       - name: Upload release evidence
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
