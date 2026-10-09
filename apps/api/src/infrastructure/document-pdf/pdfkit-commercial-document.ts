@@ -116,7 +116,7 @@ const CONTACT_ICON_PATHS = {
 function formatDiscountPercentLabel(percent: string): string {
   const parsed = Number(percent);
   const normalized = Number.isFinite(parsed) ? parsed : 0;
-  return String(parseFloat(normalized.toFixed(2)));
+  return String(Number.parseFloat(normalized.toFixed(2)));
 }
 
 function addMoneyStrings(left: string, right: string): string {

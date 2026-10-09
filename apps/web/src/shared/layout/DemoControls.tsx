@@ -24,7 +24,7 @@ export function DemoControls() {
   async function finishReset(message: string) {
     await logout();
     pushToast(message, 'success');
-    navigate('/login', { replace: true });
+    void navigate('/login', { replace: true });
   }
 
   async function handleReset() {

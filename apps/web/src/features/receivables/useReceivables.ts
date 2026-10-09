@@ -17,7 +17,7 @@ export function useReceivables(page: number, filters: ReceivablesFilters = {}) {
   useEffect(() => {
     let cancelled = false;
     setResult(beginQueryReload);
-    salesRepository
+    void salesRepository
       .listReceivables(page, {
         customerId,
         invoice,

@@ -22,7 +22,7 @@ export function useProfitability() {
     let cancelled = false;
     setQuery(beginQueryReload);
 
-    profitabilityRepository.getSnapshot().then((response) => {
+    void profitabilityRepository.getSnapshot().then((response) => {
       if (cancelled) {
         return;
       }

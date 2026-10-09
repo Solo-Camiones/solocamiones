@@ -22,7 +22,7 @@ export function useRecoveryRequests() {
   useEffect(() => {
     let cancelled = false;
     setResult(beginQueryReload);
-    userRepository.listRecoveryRequests().then((response) => {
+    void userRepository.listRecoveryRequests().then((response) => {
       if (cancelled) return;
       setResult(
         response.ok

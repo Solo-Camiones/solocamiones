@@ -35,7 +35,7 @@ export function useCustomers(page: number, customerType?: CustomerType) {
     let cancelled = false;
     setResult(beginQueryReload);
 
-    customerRepository.search(query, page, customerType).then((response) => {
+    void customerRepository.search(query, page, customerType).then((response) => {
       if (cancelled) {
         return;
       }

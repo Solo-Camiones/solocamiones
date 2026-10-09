@@ -109,7 +109,7 @@ export function WorkOrdersPage() {
       return;
     }
     setModalOpen(false);
-    navigate(`/work-orders/${response.value}`);
+    void navigate(`/work-orders/${response.value}`);
   }
 
   if (result.status === 'error') {

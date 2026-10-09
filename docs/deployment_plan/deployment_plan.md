@@ -524,7 +524,7 @@ Todo push aprobado a `develop`:
 1. Construye API/web una vez.
 2. Publica tags por SHA en GHCR.
 3. Resuelve digests.
-4. Conecta al VPS staging usando secreto SSH/Tailscale aprobado.
+4. Une el runner a Tailscale (OAuth CI) y conecta al VPS staging por SSH privado (`STAGING_SSH_*` + known_hosts).
 5. Ejecuta migración one-shot.
 6. Actualiza servicios.
 7. Espera health checks.

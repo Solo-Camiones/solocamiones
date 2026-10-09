@@ -26,7 +26,7 @@ export function useInventoryCatalog() {
   const [reloadToken, setReloadToken] = useState(0);
 
   useEffect(() => {
-    categoryRepository.list().then((response) => {
+    void categoryRepository.list().then((response) => {
       if (response.ok) {
         setCategories(response.value);
       }
@@ -37,7 +37,7 @@ export function useInventoryCatalog() {
     let cancelled = false;
     setResult(beginQueryReload);
 
-    inventoryRepository.listCatalog(filters).then((response) => {
+    void inventoryRepository.listCatalog(filters).then((response) => {
       if (cancelled) {
         return;
       }

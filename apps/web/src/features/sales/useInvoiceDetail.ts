@@ -36,7 +36,7 @@ export function useInvoiceDetail(id: string | undefined) {
     let cancelled = false;
     setResult({ status: 'loading' });
 
-    salesRepository.getInvoice(id).then((response) => {
+    void salesRepository.getInvoice(id).then((response) => {
       if (cancelled) {
         return;
       }
@@ -47,11 +47,11 @@ export function useInvoiceDetail(id: string | undefined) {
       }
 
       if (response.value.status === 'DRAFT') {
-        navigate(`/sales/draft/${response.value.id}`, { replace: true });
+        void navigate(`/sales/draft/${response.value.id}`, { replace: true });
         return;
       }
       if (response.value.status === 'QUOTE_DRAFT' || response.value.status === 'QUOTE_ISSUED') {
-        navigate(`/sales/quote/${response.value.id}`, { replace: true });
+        void navigate(`/sales/quote/${response.value.id}`, { replace: true });
         return;
       }
 

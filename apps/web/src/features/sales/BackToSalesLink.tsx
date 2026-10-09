@@ -28,11 +28,11 @@ export function BackToSalesLink() {
 
   function handleBack() {
     if (canGoBackInApp(navigator)) {
-      navigate(-1);
+      void navigate(-1);
       return;
     }
 
-    navigate(SALES_FALLBACK_PATH);
+    void navigate(SALES_FALLBACK_PATH);
   }
 
   return (

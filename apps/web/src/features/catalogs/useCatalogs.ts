@@ -48,7 +48,7 @@ export function useCatalogs() {
       ? categoryRepository.list()
       : Promise.resolve({ ok: true as const, value: [] as Category[] });
 
-    Promise.all([categoryRequest, serviceRepository.list()]).then(
+    void Promise.all([categoryRequest, serviceRepository.list()]).then(
       ([categoryResponse, serviceResponse]) => {
         if (cancelled) {
           return;

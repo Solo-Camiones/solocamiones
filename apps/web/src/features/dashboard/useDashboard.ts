@@ -23,7 +23,7 @@ export function useDashboard(): DashboardQuery {
     let cancelled = false;
     setQuery(beginQueryReload);
 
-    dashboardRepository.getSnapshot().then((result) => {
+    void dashboardRepository.getSnapshot().then((result) => {
       if (cancelled) {
         return;
       }

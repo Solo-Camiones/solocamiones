@@ -108,7 +108,7 @@ export function SellerSalesPage() {
 
   useEffect(() => {
     let cancelled = false;
-    loadSellerPickerOptions().then((result) => {
+    void loadSellerPickerOptions().then((result) => {
       if (cancelled) return;
       if (!result.ok) {
         setSellersStatus('error');

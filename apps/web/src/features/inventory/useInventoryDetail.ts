@@ -40,7 +40,7 @@ export function useInventoryDetail(id: string | undefined) {
     let cancelled = false;
     setResult({ status: 'loading' });
 
-    inventoryRepository.getDetail(id).then((response) => {
+    void inventoryRepository.getDetail(id).then((response) => {
       if (cancelled) {
         return;
       }
@@ -72,7 +72,7 @@ export function useInventoryDetail(id: string | undefined) {
         return response;
       }
 
-      navigate(`/sales/draft/${response.value.draftId}`);
+      void navigate(`/sales/draft/${response.value.draftId}`);
       return { ok: true, value: undefined };
     },
     [navigate],

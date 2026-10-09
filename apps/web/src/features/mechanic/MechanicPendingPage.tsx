@@ -34,7 +34,7 @@ export function MechanicPendingPage() {
       return;
     }
     pushToast('Orden tomada', 'success');
-    navigate(response.value.href);
+    void navigate(response.value.href);
   }
 
   return (
