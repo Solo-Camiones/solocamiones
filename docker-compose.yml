@@ -85,7 +85,9 @@ services:
     restart: 'no'
     environment:
       <<: *api-environment
-    command: ['npm', 'run', 'db:migrate:deploy:runtime', '-w', '@solocamiones/api']
+    # Runtime image drops npm (Trivy). Use node --run against the workspace package.json.
+    working_dir: /app/apps/api
+    command: ['node', '--run', 'db:migrate:deploy:runtime']
     depends_on:
       db:
         condition: service_healthy

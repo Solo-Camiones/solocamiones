@@ -178,7 +178,9 @@ services:
     restart: 'no'
     environment:
       DATABASE_URL: ${DATABASE_MIGRATION_URL:?DATABASE_MIGRATION_URL is required}
-    command: ['npm', 'run', 'db:migrate:deploy:runtime', '-w', '@solocamiones/api']
+    # Runtime image drops npm (Trivy). Use node --run against the workspace package.json.
+    working_dir: /app/apps/api
+    command: ['node', '--run', 'db:migrate:deploy:runtime']
     networks:
       - database
     depends_on:
@@ -446,7 +448,9 @@ services:
       LOG_LEVEL: ${LOG_LEVEL:-info}
       DATABASE_URL: ${DATABASE_URL:?DATABASE_URL is required}
       ASSISTANT_RETENTION_DAYS: ${ASSISTANT_RETENTION_DAYS:-90}
-    command: ['npm', 'run', 'assistant:purge:runtime', '-w', '@solocamiones/api']
+    # Runtime image drops npm (Trivy). Use node --run against the workspace package.json.
+    working_dir: /app/apps/api
+    command: ['node', '--run', 'assistant:purge:runtime']
     networks:
       - database
     depends_on:
