@@ -128,7 +128,7 @@ Staging debe reservar espacio para PostgreSQL, 30 días de métricas, Docker ima
 | `scripts/deployment/deploy.sh`                | Pull por digest, backup/verificación, migración y recreación controlada.                 |
 | `scripts/deployment/backup-postgres.sh`       | Dump, validación, cifrado, checksum, manifiesto y upload R2.                             |
 | `scripts/deployment/verify-restore.sh`        | Restauración segura en base nueva y validaciones.                                        |
-| `scripts/deployment/smoke-staging.mjs`        | Smoke tests repetibles de staging.                                                       |
+| `scripts/deployment/smoke-staging.sh`         | Smoke tests repetibles de staging (curl/jq en el host; sin Node en el VPS).              |
 | `.github/workflows/ci.yml`                    | Gate de Pull Request.                                                                    |
 | `.github/workflows/release.yml`               | Build, scan, SBOM, publicación GHCR y deploy de staging.                                 |
 | `.github/workflows/promote-production.yml`    | Promoción manual del digest validado.                                                    |

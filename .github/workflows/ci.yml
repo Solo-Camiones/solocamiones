@@ -73,6 +73,9 @@ jobs:
       - name: Assert API runtime compose commands avoid npm
         run: node scripts/deployment/assert-api-runtime-no-npm-commands.mjs
 
+      - name: Assert staging smoke uses host shell (no Node on VPS)
+        run: node scripts/deployment/assert-deploy-smoke-host-runtime.mjs
+
       - name: Format check
         run: npm run format:check
 

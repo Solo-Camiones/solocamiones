@@ -2,7 +2,7 @@
 # Controlled VPS deploy by immutable image digests (M5.4 / M5.5).
 #
 # Pulls GHCR digests, runs one-shot migrate, recreates app services, waits for
-# health, then runs the minimal staging smoke (or skips smoke in dry-run).
+# health, then runs the minimal staging smoke via smoke-staging.sh (or skips smoke in dry-run).
 #
 # Required:
 #   --env staging|production
@@ -218,7 +218,8 @@ SMOKE_STATUS="skipped"
 if [[ "${SKIP_SMOKE}" -eq 0 && "${APP_ENV}" == "staging" ]]; then
   echo "deploy.sh: running minimal staging smoke"
   SMOKE_BASE_URL="${SMOKE_BASE_URL:-https://staging.solocamiones.com}"
-  node "${ROOT_DIR}/scripts/deployment/smoke-staging.mjs" --base-url "${SMOKE_BASE_URL}"
+  # Host has curl/jq from bootstrap; Node is not installed on the VPS.
+  bash "${ROOT_DIR}/scripts/deployment/smoke-staging.sh" --base-url "${SMOKE_BASE_URL}"
   SMOKE_STATUS="passed"
 fi
 
