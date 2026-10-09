@@ -65,14 +65,14 @@ never use a database that must be preserved.
 
 ## Smoke scope by milestone
 
-| Check                                                                                             | Current automation                                  | When completed |
-| ------------------------------------------------------------------------------------------------- | --------------------------------------------------- | -------------- |
-| Migrations from a clean database                                                                  | API integration global setup                        | M4             |
-| `GET /api/health/live` returns 200                                                                | Real API integration test                           | M4             |
-| `GET /api/health/ready` returns 200 with database/migrations ready                                | Real PostgreSQL integration test                    | M4             |
-| Readiness returns 503 for database/migration failures                                             | HTTP tests with repository doubles                  | M4             |
-| Valid login sets a session cookie; invalid/inactive login is rejected                             | Add `tests/integration/access/*.test.ts`            | M6             |
-| Session lookup accepts a valid cookie and rejects missing/expired sessions; logout invalidates it | Reuse a Supertest agent and test fixtures           | M6             |
+| Check                                                                                             | Current automation                                    | When completed |
+| ------------------------------------------------------------------------------------------------- | ----------------------------------------------------- | -------------- |
+| Migrations from a clean database                                                                  | API integration global setup                          | M4             |
+| `GET /api/health/live` returns 200                                                                | Real API integration test                             | M4             |
+| `GET /api/health/ready` returns 200 with database/migrations ready                                | Real PostgreSQL integration test                      | M4             |
+| Readiness returns 503 for database/migration failures                                             | HTTP tests with repository doubles                    | M4             |
+| Valid login sets a session cookie; invalid/inactive login is rejected                             | Add `tests/integration/access/*.test.ts`              | M6             |
+| Session lookup accepts a valid cookie and rejects missing/expired sessions; logout invalidates it | Reuse a Supertest agent and test fixtures             | M6             |
 | Administrator allowed; Seller/Mechanic denied; missing session rejected                           | `tests/integration/access/authorization-http.test.ts` | M7             |
 | Mechanic receives only the allowed session projection                                             | Same file + unit `projection.test.ts`                 | M7             |
 

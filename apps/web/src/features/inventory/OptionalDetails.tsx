@@ -15,9 +15,7 @@ export function OptionalDetails({
 }: OptionalDetailsProps) {
   return (
     <details className="rounded-lg border border-navy-200 bg-navy-50/40 p-3">
-      <summary className="cursor-pointer text-sm font-medium text-navy">
-        {summary}
-      </summary>
+      <summary className="cursor-pointer text-sm font-medium text-navy">{summary}</summary>
       <p className="mt-2 text-xs text-navy-400">
         No es necesario para registrar. Puede completarse después desde el detalle.
       </p>

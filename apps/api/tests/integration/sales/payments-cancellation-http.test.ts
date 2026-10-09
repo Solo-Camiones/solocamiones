@@ -557,12 +557,15 @@ describe('payments, due date, and cancellation HTTP', () => {
     async (_field, change) => {
       const admin = await fixture(request.agent(createTestApp()), 'ADMINISTRATOR');
       const invoice = await confirmInvoice(admin.agent);
-      await admin.agent.post(`${SALES}/${invoice.id}/payments`).set(CSRF).send({
-        amount: '400.00',
-        method: 'CHECK',
-        effectiveDate: businessDateString(new Date(invoice.confirmedAt)),
-        idempotencyKey: randomUUID(),
-      });
+      await admin.agent
+        .post(`${SALES}/${invoice.id}/payments`)
+        .set(CSRF)
+        .send({
+          amount: '400.00',
+          method: 'CHECK',
+          effectiveDate: businessDateString(new Date(invoice.confirmedAt)),
+          idempotencyKey: randomUUID(),
+        });
       const body = {
         reason: 'Solicitud del cliente',
         refundAmount: '400.00',
@@ -603,7 +606,9 @@ describe('payments, due date, and cancellation HTTP', () => {
     expect(first.status).toBe(200);
     expect(mismatch.status).toBe(409);
     expect(mismatch.body.error.message).toBe(CANCELLATION_IDEMPOTENCY_MISMATCH_MESSAGE);
-    await expect(prisma.invoicePayment.count({ where: { invoiceId: invoice.id } })).resolves.toBe(0);
+    await expect(prisma.invoicePayment.count({ where: { invoiceId: invoice.id } })).resolves.toBe(
+      0,
+    );
   });
 
   it('rejects cancellation while the invoice is still a draft', async () => {

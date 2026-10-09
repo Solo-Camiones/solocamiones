@@ -16,7 +16,9 @@
 const DEFAULT_TIMEOUT_MS = 15_000;
 
 function printUsage() {
-  console.log(`Usage: smoke-staging.mjs --base-url <url> [--cf-access-client-id <id>] [--cf-access-client-secret <secret>]`);
+  console.log(
+    `Usage: smoke-staging.mjs --base-url <url> [--cf-access-client-id <id>] [--cf-access-client-secret <secret>]`,
+  );
 }
 
 function parseArgs(argv) {

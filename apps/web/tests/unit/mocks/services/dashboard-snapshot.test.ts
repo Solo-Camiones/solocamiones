@@ -100,7 +100,9 @@ describe('buildDashboardSnapshot', () => {
     });
 
     expect(adminSnapshot.pendingCatalogReviews).toHaveLength(3);
-    expect(adminSnapshot.pendingCatalogReviews?.every((row) => row.kind === 'PENDING_NA')).toBe(true);
+    expect(adminSnapshot.pendingCatalogReviews?.every((row) => row.kind === 'PENDING_NA')).toBe(
+      true,
+    );
     expect(adminSnapshot.kpis.pendingCatalogValidations).toBe(3);
     expect(adminSnapshot.pendingCatalogReviews?.some((row) => row.itemId === 'MOT-001')).toBe(true);
     expect(sellerSnapshot.pendingCatalogReviews).toBeUndefined();

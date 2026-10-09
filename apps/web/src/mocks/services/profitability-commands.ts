@@ -74,7 +74,9 @@ export function setFxAvailable(
   appendEvent(
     state,
     'DEMO_FX_TOGGLED',
-    input.available ? 'Tasa de cambio de demostración activada' : 'Tasa de cambio de demostración desactivada',
+    input.available
+      ? 'Tasa de cambio de demostración activada'
+      : 'Tasa de cambio de demostración desactivada',
     actor,
     { fxAvailableBefore: previous, fxAvailableAfter: input.available },
   );
@@ -122,7 +124,11 @@ export function retryUsdProfitability(
   const numberBefore = invoice.number;
   const outcome = applyUsdProfitability(state, invoice);
 
-  if (invoice.payments.length !== paymentsBefore || invoice.status !== statusBefore || invoice.number !== numberBefore) {
+  if (
+    invoice.payments.length !== paymentsBefore ||
+    invoice.status !== statusBefore ||
+    invoice.number !== numberBefore
+  ) {
     return err({
       code: 'INTERNAL',
       message: 'El reintento no debe alterar el estado comercial',
@@ -132,7 +138,8 @@ export function retryUsdProfitability(
   if (outcome === 'PENDING_FX') {
     return err({
       code: 'VALIDATION',
-      message: 'Tasa de cambio no disponible. Active la tasa de cambio de demostración y reintente.',
+      message:
+        'Tasa de cambio no disponible. Active la tasa de cambio de demostración y reintente.',
     });
   }
 
@@ -189,7 +196,8 @@ export function recordManualGrossProfit(
   if (invoice.profitabilityPendingFx === true) {
     return err({
       code: 'CONFLICT',
-      message: 'Reintente primero el cálculo con la tasa de cambio; no registre un monto mientras esté pendiente',
+      message:
+        'Reintente primero el cálculo con la tasa de cambio; no registre un monto mientras esté pendiente',
     });
   }
 
@@ -223,17 +231,11 @@ export function recordManualGrossProfit(
   }
 
   const number = invoice.number ?? invoice.conduceNumber ?? invoice.id;
-  appendEvent(
-    state,
-    'GROSS_PROFIT_RECORDED',
-    `Ganancia bruta registrada para ${number}`,
-    actor,
-    {
-      invoiceId: invoice.id,
-      before,
-      after: profitDop,
-    },
-  );
+  appendEvent(state, 'GROSS_PROFIT_RECORDED', `Ganancia bruta registrada para ${number}`, actor, {
+    invoiceId: invoice.id,
+    before,
+    after: profitDop,
+  });
 
   return ok(invoice);
 }

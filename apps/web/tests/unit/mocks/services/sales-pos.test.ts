@@ -18,10 +18,7 @@ import {
   setDraftLinePrice,
   setDraftMeta,
 } from '../../../../src/mocks/services/sales-commands';
-import {
-  buildInvoiceDetail,
-  toSalesListRow,
-} from '../../../../src/mocks/services/sales-catalog';
+import { buildInvoiceDetail, toSalesListRow } from '../../../../src/mocks/services/sales-catalog';
 import { buildPosDraftView } from '../../../../src/mocks/services/sales-draft';
 import {
   invoiceBalance,

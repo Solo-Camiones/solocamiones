@@ -131,7 +131,11 @@ export class ProfitabilityService {
       const existing = await sales.findById(invoiceId);
       if (!existing) throw AppError.notFound('Invoice not found');
 
-      const appendRetry = async (outcome: 'RECORDED' | 'UNAVAILABLE', reason: string | null, quote: FxRateQuote | null) => {
+      const appendRetry = async (
+        outcome: 'RECORDED' | 'UNAVAILABLE',
+        reason: string | null,
+        quote: FxRateQuote | null,
+      ) => {
         await history.append({
           actor: { actorType: 'USER', actorUserId: actorId },
           subjectType: 'INVOICE',

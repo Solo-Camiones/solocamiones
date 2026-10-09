@@ -121,7 +121,7 @@ jobs:
           cat release-digests.txt
 
       - name: Scan published API image
-        uses: aquasecurity/trivy-action@6c175e9c4083a92bbca2f9724c8a5e33bc2d97a5 # v0.30.0
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           image-ref: ${{ steps.meta.outputs.api_image }}@${{ steps.build_api.outputs.digest }}
           format: table
@@ -130,7 +130,7 @@ jobs:
           trivyignores: .trivyignore.generated
 
       - name: Scan published web image
-        uses: aquasecurity/trivy-action@6c175e9c4083a92bbca2f9724c8a5e33bc2d97a5 # v0.30.0
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           image-ref: ${{ steps.meta.outputs.web_image }}@${{ steps.build_web.outputs.digest }}
           format: table
@@ -139,7 +139,7 @@ jobs:
           trivyignores: .trivyignore.generated
 
       - name: Scan published backup image
-        uses: aquasecurity/trivy-action@6c175e9c4083a92bbca2f9724c8a5e33bc2d97a5 # v0.30.0
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           image-ref: ${{ steps.meta.outputs.backup_image }}@${{ steps.build_backup.outputs.digest }}
           format: table
@@ -152,19 +152,19 @@ jobs:
           docker run --rm \
             -v /var/run/docker.sock:/var/run/docker.sock \
             -v "$PWD:/out" \
-            aquasec/trivy:0.58.1 \
+            aquasec/trivy:0.70.0 \
             image --format cyclonedx --output /out/sbom-api.cdx.json \
             "${{ steps.meta.outputs.api_image }}@${{ steps.build_api.outputs.digest }}"
           docker run --rm \
             -v /var/run/docker.sock:/var/run/docker.sock \
             -v "$PWD:/out" \
-            aquasec/trivy:0.58.1 \
+            aquasec/trivy:0.70.0 \
             image --format cyclonedx --output /out/sbom-web.cdx.json \
             "${{ steps.meta.outputs.web_image }}@${{ steps.build_web.outputs.digest }}"
           docker run --rm \
             -v /var/run/docker.sock:/var/run/docker.sock \
             -v "$PWD:/out" \
-            aquasec/trivy:0.58.1 \
+            aquasec/trivy:0.70.0 \
             image --format cyclonedx --output /out/sbom-backup.cdx.json \
             "${{ steps.meta.outputs.backup_image }}@${{ steps.build_backup.outputs.digest }}"
 

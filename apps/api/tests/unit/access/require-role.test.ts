@@ -38,7 +38,11 @@ describe('requireRole', () => {
 
   it('allows any listed role', () => {
     const next = vi.fn();
-    requireRole('SELLER', 'ADMINISTRATOR')(authRequest('SELLER'), {} as Response, next as NextFunction);
+    requireRole('SELLER', 'ADMINISTRATOR')(
+      authRequest('SELLER'),
+      {} as Response,
+      next as NextFunction,
+    );
     expect(next).toHaveBeenCalledWith();
   });
 });

@@ -73,7 +73,10 @@ export function mechanicNextAction(order: MechanicWorkOrderView): string {
   return 'Revise el estado de la orden.';
 }
 
-export function mechanicCardActionLabel(order: MechanicWorkOrderView, canTakeHere: boolean): string {
+export function mechanicCardActionLabel(
+  order: MechanicWorkOrderView,
+  canTakeHere: boolean,
+): string {
   if (canTakeHere && order.actions.canTake) {
     return 'Tomar orden';
   }

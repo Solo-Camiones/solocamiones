@@ -1,7 +1,4 @@
-import type {
-  ProfitabilityInvoiceRow,
-  ProfitabilitySnapshot,
-} from '../contracts/profitability';
+import type { ProfitabilityInvoiceRow, ProfitabilitySnapshot } from '../contracts/profitability';
 import {
   buildProfitabilitySeries,
   roundMoney,

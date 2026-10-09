@@ -3,14 +3,14 @@
 > **Plantilla de documentación de milestones web.**  
 > Cada milestone futuro puede replicar esta estructura: contexto → decisiones → entregables → flujo → verificación → pendientes.
 
-| Campo | Valor |
-|---|---|
-| **ID plan** | WM1 |
-| **Estado** | Completado |
-| **Fecha** | 2026-08-27 |
-| **Referencia** | [`docs/plans_web/plan-001.md`](../../plans_web/plan-001.md) § WM1 |
-| **Alcance** | Solo frontend (`apps/web`). Sin backend, sin pantallas de negocio. |
-| **Siguiente** | WM2 — Login, shell por rol, guards |
+| Campo          | Valor                                                              |
+| -------------- | ------------------------------------------------------------------ |
+| **ID plan**    | WM1                                                                |
+| **Estado**     | Completado                                                         |
+| **Fecha**      | 2026-08-27                                                         |
+| **Referencia** | [`docs/plans_web/plan-001.md`](../../plans_web/plan-001.md) § WM1  |
+| **Alcance**    | Solo frontend (`apps/web`). Sin backend, sin pantallas de negocio. |
+| **Siguiente**  | WM2 — Login, shell por rol, guards                                 |
 
 ---
 
@@ -121,12 +121,12 @@ Componentes → hooks (futuro) → Repository interface → MockRepository | Htt
 
 ## 4. Dependencias añadidas
 
-| Paquete | Tipo | Propósito |
-|---|---|---|
-| `tailwindcss` + `@tailwindcss/vite` | dev | Design system v4 |
-| `react-router-dom` | dep | Routing SPA |
-| `@fontsource/inter` | dep | Tipografía UI |
-| `@fontsource/jetbrains-mono` | dep | IDs, códigos, montos tabulares |
+| Paquete                             | Tipo | Propósito                      |
+| ----------------------------------- | ---- | ------------------------------ |
+| `tailwindcss` + `@tailwindcss/vite` | dev  | Design system v4               |
+| `react-router-dom`                  | dep  | Routing SPA                    |
+| `@fontsource/inter`                 | dep  | Tipografía UI                  |
+| `@fontsource/jetbrains-mono`        | dep  | IDs, códigos, montos tabulares |
 
 Sin librerías de estado global (Redux, Zustand). El plan prefiere estado local + repositorios hasta que sea necesario.
 
@@ -189,19 +189,19 @@ apps/web/src/
 
 ### 6.1 Design system (`shared/ui/`)
 
-| Componente | Responsabilidad |
-|---|---|
-| `Button` | Variantes primary/secondary/ghost/danger, tamaños sm/md/lg |
-| `Card` | Contenedor con borde y padding configurable |
-| `Chip` | Etiquetas de estado (neutral, brand, amber, success, danger) |
-| `Field` + `Input` + `Select` + `Textarea` | Formularios accesibles con label, hint, error |
-| `Modal` | Diálogo modal básico |
-| `Info` | Alertas informativas (info, warning, success, error) |
-| `Empty` | Estado vacío con título, descripción y acción opcional |
-| `Toaster` + `useToast` | Notificaciones temporales |
-| `SectionTitle` | Título de sección con subtítulo y acción |
-| `Mono` | Texto monoespaciado (IDs, códigos) |
-| `money()` | Formateo DOP/USD con `Intl.NumberFormat` |
+| Componente                                | Responsabilidad                                              |
+| ----------------------------------------- | ------------------------------------------------------------ |
+| `Button`                                  | Variantes primary/secondary/ghost/danger, tamaños sm/md/lg   |
+| `Card`                                    | Contenedor con borde y padding configurable                  |
+| `Chip`                                    | Etiquetas de estado (neutral, brand, amber, success, danger) |
+| `Field` + `Input` + `Select` + `Textarea` | Formularios accesibles con label, hint, error                |
+| `Modal`                                   | Diálogo modal básico                                         |
+| `Info`                                    | Alertas informativas (info, warning, success, error)         |
+| `Empty`                                   | Estado vacío con título, descripción y acción opcional       |
+| `Toaster` + `useToast`                    | Notificaciones temporales                                    |
+| `SectionTitle`                            | Título de sección con subtítulo y acción                     |
+| `Mono`                                    | Texto monoespaciado (IDs, códigos)                           |
+| `money()`                                 | Formateo DOP/USD con `Intl.NumberFormat`                     |
 
 Los chips de dominio (`CommercialChip`, `InvoiceStatusChip`, etc.) se añaden en milestones de inventario/ventas (WM5–WM7).
 
@@ -220,17 +220,17 @@ Enums alineados con la documentación de producto (`AVAILABLE`/`SOLD`, `DRAFT`/`
 
 ### 6.3 Interfaces de repositorio (`api/contracts/repositories.ts`)
 
-| Repositorio | Métodos (WM1) | Implementación futura |
-|---|---|---|
-| `AuthRepository` | login, logout, getSession, getCurrentUser | WM2 mock → M10 HTTP |
-| `UserRepository` | list, getById, save | WM11 |
-| `InventoryRepository` | listItems, getItem, listQtyProducts, getQtyProduct | WM5–WM6 |
-| `CustomerRepository` | list, search, getById, save | WM4 |
-| `SalesRepository` | listInvoices, getInvoice | WM7–WM8 |
-| `WorkOrderRepository` | list, getById, listForMechanic | WM9–WM10 |
-| `CategoryRepository` | list, save | WM11 |
-| `ServiceRepository` | list, save | WM11 |
-| `EventRepository` | list | WM3+ |
+| Repositorio           | Métodos (WM1)                                      | Implementación futura |
+| --------------------- | -------------------------------------------------- | --------------------- |
+| `AuthRepository`      | login, logout, getSession, getCurrentUser          | WM2 mock → M10 HTTP   |
+| `UserRepository`      | list, getById, save                                | WM11                  |
+| `InventoryRepository` | listItems, getItem, listQtyProducts, getQtyProduct | WM5–WM6               |
+| `CustomerRepository`  | list, search, getById, save                        | WM4                   |
+| `SalesRepository`     | listInvoices, getInvoice                           | WM7–WM8               |
+| `WorkOrderRepository` | list, getById, listForMechanic                     | WM9–WM10              |
+| `CategoryRepository`  | list, save                                         | WM11                  |
+| `ServiceRepository`   | list, save                                         | WM11                  |
+| `EventRepository`     | list                                               | WM3+                  |
 
 En WM1 los `Mock*Repository` implementan lectura básica; mutaciones y auth quedan como stubs o `NOT_FOUND`.
 
@@ -238,19 +238,19 @@ En WM1 los `Mock*Repository` implementan lectura básica; mutaciones y auth qued
 
 Contenido alineado con el plan y `USE_CASE_FLOWS.md`:
 
-| Entidad | Cantidad | Notas |
-|---|---|---|
-| Usuarios | 4 | `admin`, `laura`, `carlos`, `pedro` — pwd `demo1234` |
-| Ítems | 9 | Jerarquía CAM-001 → MOT-001/002/003 + piezas |
-| Known missing | 1 | Turbo faltante en MOT-002 |
-| Productos cantidad | 2 | Aceite, filtro de aire |
-| Clientes | 3 | C0 Cliente Contado (default), C1, C2 |
-| Categorías | 7 | Camión, Motor, Alternador, Turbo, … |
-| Servicios | 3 | 2 activos, 1 inactivo |
-| Facturas | 5 | 1 borrador + FAC-096/097/098/099 |
-| Órdenes de trabajo | 4 | OD-DEMO-060 asignada a `pedro` (In Progress) |
-| Eventos | 3 | Confirmación, claim OT, pago parcial |
-| Meta | — | `fxAvailable: false`, `facSeq: 100`, tasa 61.50 |
+| Entidad            | Cantidad | Notas                                                |
+| ------------------ | -------- | ---------------------------------------------------- |
+| Usuarios           | 4        | `admin`, `laura`, `carlos`, `pedro` — pwd `demo1234` |
+| Ítems              | 9        | Jerarquía CAM-001 → MOT-001/002/003 + piezas         |
+| Known missing      | 1        | Turbo faltante en MOT-002                            |
+| Productos cantidad | 2        | Aceite, filtro de aire                               |
+| Clientes           | 3        | C0 Cliente Contado (default), C1, C2                 |
+| Categorías         | 7        | Camión, Motor, Alternador, Turbo, …                  |
+| Servicios          | 3        | 2 activos, 1 inactivo                                |
+| Facturas           | 5        | 1 borrador + FAC-096/097/098/099                     |
+| Órdenes de trabajo | 4        | OD-DEMO-060 asignada a `pedro` (In Progress)         |
+| Eventos            | 3        | Confirmación, claim OT, pago parcial                 |
+| Meta               | —        | `fxAvailable: false`, `facSeq: 100`, tasa 61.50      |
 
 Casos de demo preparados para milestones posteriores:
 
@@ -298,13 +298,13 @@ Reglas vigentes:
 
 ## 8. Criterios de aceptación
 
-| Criterio | Estado |
-|---|---|
-| `npm run dev` muestra UI con tokens SoloCamiones | ✅ |
-| Seed carga sin errores; `npm run typecheck` pasa | ✅ |
-| Ningún feature importa `seed.ts` directamente | ✅ |
-| Ningún componente contiene reglas de negocio | ✅ |
-| Plan refleja convención mock→API | ✅ |
+| Criterio                                         | Estado |
+| ------------------------------------------------ | ------ |
+| `npm run dev` muestra UI con tokens SoloCamiones | ✅     |
+| Seed carga sin errores; `npm run typecheck` pasa | ✅     |
+| Ningún feature importa `seed.ts` directamente    | ✅     |
+| Ningún componente contiene reglas de negocio     | ✅     |
+| Plan refleja convención mock→API                 | ✅     |
 
 ---
 
@@ -332,18 +332,18 @@ npm run build
 
 ## 10. Explícitamente fuera de alcance (WM1)
 
-| Tema | Milestone responsable |
-|---|---|
-| Login, sesión, logout | WM2 |
-| Shell con sidebar por rol | WM2 |
-| `ProtectedRoute`, guards UX | WM2 |
-| Matriz completa de `policies.ts` | WM2 |
-| Pantallas Dashboard, Inventario, Ventas, … | WM3–WM12 |
-| Servicios mock con lógica de negocio | WM2+ (por dominio) |
-| `mocks/services/` | WM5+ |
-| Escenarios demo (12) | WM12 |
-| `Http*Repository` | WM12 |
-| Tests E2E | Recomendados desde WM7 |
+| Tema                                       | Milestone responsable  |
+| ------------------------------------------ | ---------------------- |
+| Login, sesión, logout                      | WM2                    |
+| Shell con sidebar por rol                  | WM2                    |
+| `ProtectedRoute`, guards UX                | WM2                    |
+| Matriz completa de `policies.ts`           | WM2                    |
+| Pantallas Dashboard, Inventario, Ventas, … | WM3–WM12               |
+| Servicios mock con lógica de negocio       | WM2+ (por dominio)     |
+| `mocks/services/`                          | WM5+                   |
+| Escenarios demo (12)                       | WM12                   |
+| `Http*Repository`                          | WM12                   |
+| Tests E2E                                  | Recomendados desde WM7 |
 
 ---
 

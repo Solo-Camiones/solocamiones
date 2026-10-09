@@ -41,19 +41,19 @@ en el password manager / release notes. Los snapshots usan Azure (ver
 
 ## Progreso (actualizado 2026-10-06)
 
-| Ítem | Estado |
-| ---- | ------ |
-| Prerrequisitos cuentas (`age`, R2, Tailscale, Better Stack, password manager, OpenAI staging) | Hecho |
-| Azure VM + NSG 22 cerrado a Internet | Hecho |
-| Bootstrap Ubuntu + UFW Cloudflare allowlist + Tailscale | Hecho |
-| SSH `deploy` (y `many`) por Tailscale | Hecho (tras recovery `AllowUsers`) |
-| `sync-host-tree` → `/opt/solocamiones` | Hecho |
-| `/etc/solocamiones/staging.env` | Hecho (`CF_ACCESS_*` pendiente) |
-| `db` + `bootstrap-db` + `test-db-roles` | Hecho |
-| Nameservers dominio → Cloudflare | **En curso / pendiente operador** |
-| DNS `staging` + Origin Cert + AOP + Access/WARP | Pendiente |
-| GHCR digests + `deploy.sh` + api/web/edge | Pendiente |
-| Backups horarios / obs / Assistant | Pendiente |
+| Ítem                                                                                          | Estado                             |
+| --------------------------------------------------------------------------------------------- | ---------------------------------- |
+| Prerrequisitos cuentas (`age`, R2, Tailscale, Better Stack, password manager, OpenAI staging) | Hecho                              |
+| Azure VM + NSG 22 cerrado a Internet                                                          | Hecho                              |
+| Bootstrap Ubuntu + UFW Cloudflare allowlist + Tailscale                                       | Hecho                              |
+| SSH `deploy` (y `many`) por Tailscale                                                         | Hecho (tras recovery `AllowUsers`) |
+| `sync-host-tree` → `/opt/solocamiones`                                                        | Hecho                              |
+| `/etc/solocamiones/staging.env`                                                               | Hecho (`CF_ACCESS_*` pendiente)    |
+| `db` + `bootstrap-db` + `test-db-roles`                                                       | Hecho                              |
+| Nameservers dominio → Cloudflare                                                              | **En curso / pendiente operador**  |
+| DNS `staging` + Origin Cert + AOP + Access/WARP                                               | Pendiente                          |
+| GHCR digests + `deploy.sh` + api/web/edge                                                     | Pendiente                          |
+| Backups horarios / obs / Assistant                                                            | Pendiente                          |
 
 Lecciones registradas:
 

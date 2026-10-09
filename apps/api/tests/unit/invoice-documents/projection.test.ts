@@ -1,7 +1,11 @@
 import { Prisma } from '@prisma/client';
 import { describe, expect, it } from 'vitest';
 
-import { toConducePdfFacts, toInvoicePdfFacts, toQuotePdfFacts } from '../../../src/features/invoice-documents/projection.js';
+import {
+  toConducePdfFacts,
+  toInvoicePdfFacts,
+  toQuotePdfFacts,
+} from '../../../src/features/invoice-documents/projection.js';
 import type { InvoiceRecord } from '../../../src/features/sales/types.js';
 
 function invoice(overrides: Record<string, unknown> = {}): InvoiceRecord {
@@ -76,7 +80,13 @@ describe('toInvoicePdfFacts', () => {
       customerPhone: null,
       sellerName: null,
       invoiceIssuedAt: new Date('2026-09-08T18:00:00.000Z'),
-      totals: { gross: '118.00', base: '118.00', itbis: '0.00', discount: '0.00', discountPercent: '0.00' },
+      totals: {
+        gross: '118.00',
+        base: '118.00',
+        itbis: '0.00',
+        discount: '0.00',
+        discountPercent: '0.00',
+      },
       lines: [
         {
           description: 'Filtro',
@@ -416,7 +426,13 @@ describe('toConducePdfFacts', () => {
       originQuoteNumber: 'COT-000012',
       sellerName: 'María Pérez',
       conduceIssuedAt,
-      totals: { gross: '118.00', base: '118.00', itbis: '0.00', discount: '0.00', discountPercent: '0.00' },
+      totals: {
+        gross: '118.00',
+        base: '118.00',
+        itbis: '0.00',
+        discount: '0.00',
+        discountPercent: '0.00',
+      },
     });
     expect(facts).not.toHaveProperty('paymentState');
     expect(facts).not.toHaveProperty('balance');
@@ -424,7 +440,9 @@ describe('toConducePdfFacts', () => {
   });
 
   it('keeps regenerable after conversion and marks cancelled conduces', () => {
-    expect(toConducePdfFacts(issuedConduce({ status: 'COMPLETED', number: 'FAC-000001' }))).toMatchObject({
+    expect(
+      toConducePdfFacts(issuedConduce({ status: 'COMPLETED', number: 'FAC-000001' })),
+    ).toMatchObject({
       status: 'CONDUCE',
       conduceNumber: 'CON-000001',
     });

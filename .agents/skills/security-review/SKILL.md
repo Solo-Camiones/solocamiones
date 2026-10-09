@@ -163,12 +163,19 @@ Do not inflate severity.
 For each finding provide:
 
 ### Finding
+
 ### Severity
+
 ### Status
+
 ### Evidence
+
 ### Attack scenario
+
 ### Impact
+
 ### Recommended fix
+
 ### Files/components affected
 
 Then provide:

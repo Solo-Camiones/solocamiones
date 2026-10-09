@@ -53,7 +53,17 @@ const trendClass: Record<KpiTrend['tone'], string> = {
   neutral: 'text-navy-400',
 };
 
-export function KpiCard({ label, value, hint, tone = 'default', icon, trend, to, actionLabel, size = 'md' }: KpiCardProps) {
+export function KpiCard({
+  label,
+  value,
+  hint,
+  tone = 'default',
+  icon,
+  trend,
+  to,
+  actionLabel,
+  size = 'md',
+}: KpiCardProps) {
   const footerAction = to && actionLabel ? actionLabel : null;
   const hasFooter = Boolean(trend || hint || footerAction);
 
@@ -64,7 +74,10 @@ export function KpiCard({ label, value, hint, tone = 'default', icon, trend, to,
         <div className="flex shrink-0 items-center gap-2">
           {icon}
           {to && !actionLabel ? (
-            <span className="text-sm font-medium text-navy-300 transition-transform duration-150 group-hover:translate-x-0.5" aria-hidden="true">
+            <span
+              className="text-sm font-medium text-navy-300 transition-transform duration-150 group-hover:translate-x-0.5"
+              aria-hidden="true"
+            >
               →
             </span>
           ) : null}
@@ -81,7 +94,9 @@ export function KpiCard({ label, value, hint, tone = 'default', icon, trend, to,
       </p>
       {hasFooter ? (
         <div className="mt-1 flex min-h-[1rem] flex-wrap items-center gap-x-2 gap-y-0.5">
-          {trend ? <p className={`text-xs font-medium ${trendClass[trend.tone]}`}>{trend.label}</p> : null}
+          {trend ? (
+            <p className={`text-xs font-medium ${trendClass[trend.tone]}`}>{trend.label}</p>
+          ) : null}
           {hint ? <p className="text-xs text-navy-400">{hint}</p> : null}
           {footerAction ? (
             <p className="text-xs font-medium text-brand-dark">{footerAction}</p>

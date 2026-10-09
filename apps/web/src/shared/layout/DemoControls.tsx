@@ -55,7 +55,12 @@ export function DemoControls() {
         }}
       />
       */}
-      <Button variant="secondary" size="sm" onClick={() => void handleReset()} disabled={isResetting}>
+      <Button
+        variant="secondary"
+        size="sm"
+        onClick={() => void handleReset()}
+        disabled={isResetting}
+      >
         {isResetting ? 'Reiniciando…' : 'Reiniciar datos demo'}
       </Button>
     </div>

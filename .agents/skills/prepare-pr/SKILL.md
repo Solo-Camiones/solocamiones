@@ -170,12 +170,19 @@ Use the project's naming conventions when identifiable.
 Include:
 
 ### Summary
+
 ### What changed
+
 ### Why
+
 ### Testing
+
 ### Documentation
+
 ### Database changes
+
 ### Security considerations
+
 ### Screenshots/manual verification if relevant
 
 # 13. Git safety
@@ -197,6 +204,7 @@ These require explicit user instruction.
 Return:
 
 ## PR readiness
+
 Ready / Needs attention
 
 ## Blocking issues

@@ -1,7 +1,11 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
 
 import type { PaymentMethod } from '../../api/contracts/entities';
-import type { ConfirmInvoicePayment, IssueConduceInput, PosDraftView } from '../../api/contracts/sales';
+import type {
+  ConfirmInvoicePayment,
+  IssueConduceInput,
+  PosDraftView,
+} from '../../api/contracts/sales';
 import { useAuth } from '../auth/useAuth';
 import { useAppCapabilities } from '../../shared/config/CapabilitiesProvider';
 import { UX_TERMS } from '../../shared/copy/glossary';
@@ -26,7 +30,8 @@ const FULL_PAYMENT_REQUIRED_MESSAGE =
   'Los clientes de contado y las facturas en USD deben pagarse completos al confirmar. No se vende a crédito.';
 const CONDUCE_FULL_PAYMENT_REQUIRED_MESSAGE =
   'Este conduce requiere pago completo al emitir (Cliente contado, Vendedor o USD sin excepción Admin).';
-const INITIAL_PAYMENT_REQUIRED_MESSAGE = 'El pago inicial debe ser mayor que cero y no superar el total.';
+const INITIAL_PAYMENT_REQUIRED_MESSAGE =
+  'El pago inicial debe ser mayor que cero y no superar el total.';
 const DUE_DATE_REQUIRED_MESSAGE =
   'Indique la fecha de vencimiento cuando el conduce de contado queda con saldo.';
 const SELLER_CREDIT_COLLECTION_MESSAGE =
@@ -197,8 +202,7 @@ export function ConfirmSaleModal({
         }
       }
 
-      const remaining =
-        draft.totals.gross - (payment ? Math.round(payment.amount * 100) / 100 : 0);
+      const remaining = draft.totals.gross - (payment ? Math.round(payment.amount * 100) / 100 : 0);
       const needsDueDate = namedCashAdminBalanceAllowed && remaining > 0;
       if (needsDueDate) {
         if (!dueDate.trim()) {
@@ -409,7 +413,12 @@ export function ConfirmSaleModal({
           )}
 
           <div className="flex justify-end gap-2 pt-2">
-            <Button type="button" variant="secondary" onClick={requestClose} disabled={isConfirming}>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={requestClose}
+              disabled={isConfirming}
+            >
               Cancelar
             </Button>
             <Button

@@ -1,13 +1,13 @@
 # Milestone UX-5 — Ventas / POS: prevención de errores y claridad
 
-| Campo | Valor |
-|---|---|
-| **ID plan** | UX-5 |
-| **Estado** | Completado |
-| **Fecha** | 2026-09-02 |
+| Campo          | Valor                                                                                                  |
+| -------------- | ------------------------------------------------------------------------------------------------------ |
+| **ID plan**    | UX-5                                                                                                   |
+| **Estado**     | Completado                                                                                             |
+| **Fecha**      | 2026-09-02                                                                                             |
 | **Referencia** | [`docs/plans_web/UX_FRONTEND_HARDENING_PLAN.md`](../../plans_web/UX_FRONTEND_HARDENING_PLAN.md) § UX-5 |
-| **Alcance** | Solo frontend (`apps/web`). No cambia reglas de negocio ni el backend. |
-| **Siguiente** | UX-6 — Experiencia del mecánico |
+| **Alcance**    | Solo frontend (`apps/web`). No cambia reglas de negocio ni el backend.                                 |
+| **Siguiente**  | UX-6 — Experiencia del mecánico                                                                        |
 
 ---
 

@@ -23,7 +23,12 @@ describe('Field', () => {
     expect(input).not.toHaveAttribute('aria-invalid');
 
     rerender(
-      <Field label="Nombre" htmlFor="field-name" hint="Como aparece en la factura" error="Escriba el nombre comercial">
+      <Field
+        label="Nombre"
+        htmlFor="field-name"
+        hint="Como aparece en la factura"
+        error="Escriba el nombre comercial"
+      >
         <div>
           <Input id="field-name" />
         </div>

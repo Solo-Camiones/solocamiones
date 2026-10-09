@@ -28,7 +28,8 @@ const COPY = {
   calculatedProfitExists: 'Esta factura ya tiene ganancia bruta calculada a partir del costo',
   pendingFxManualProfit:
     'Reintente primero el cálculo con la tasa de cambio; no registre un monto mientras esté pendiente',
-  fxRetryCompletedUsdOnly: 'Solo se puede reintentar rentabilidad en facturas en dólares completadas',
+  fxRetryCompletedUsdOnly:
+    'Solo se puede reintentar rentabilidad en facturas en dólares completadas',
   fxRetryNotPending: 'Esta factura no tiene rentabilidad pendiente de tasa de cambio',
   fxRetryRateUnavailable: 'Tasa de cambio histórica no disponible para la fecha de confirmación',
   inventoryLinesUnavailable:
@@ -106,9 +107,10 @@ const KNOWN_TEXT: Record<string, { text: string; field?: string }> = {
   'Esta factura ya tiene ganancia bruta calculada a partir del costo': {
     text: COPY.calculatedProfitExists,
   },
-  'Reintente primero el cálculo con la tasa de cambio; no registre un monto mientras esté pendiente': {
-    text: COPY.pendingFxManualProfit,
-  },
+  'Reintente primero el cálculo con la tasa de cambio; no registre un monto mientras esté pendiente':
+    {
+      text: COPY.pendingFxManualProfit,
+    },
   'Solo se puede reintentar rentabilidad en facturas en dólares completadas': {
     text: COPY.fxRetryCompletedUsdOnly,
   },
@@ -118,9 +120,10 @@ const KNOWN_TEXT: Record<string, { text: string; field?: string }> = {
   'Tasa de cambio histórica no disponible para la fecha de confirmación': {
     text: COPY.fxRetryRateUnavailable,
   },
-  'Inventory-backed lines are not available; this invoice cannot create, reserve, or consume stock': {
-    text: COPY.inventoryLinesUnavailable,
-  },
+  'Inventory-backed lines are not available; this invoice cannot create, reserve, or consume stock':
+    {
+      text: COPY.inventoryLinesUnavailable,
+    },
   'This line type has a fixed quantity of 1': { text: COPY.fixedLineQuantity },
   'A draft can have at most one DELIVERY line': { text: COPY.duplicateDelivery },
   'Inactive catalog services cannot be added to a draft': { text: COPY.inactiveService },
@@ -210,7 +213,9 @@ function translateByPath(path: string): { text: string; field: string } | undefi
   return undefined;
 }
 
-function readIssues(details: Record<string, unknown> | undefined): Array<{ path: string; message: string }> {
+function readIssues(
+  details: Record<string, unknown> | undefined,
+): Array<{ path: string; message: string }> {
   const raw = details?.issues;
   if (!Array.isArray(raw)) return [];
 
@@ -239,13 +244,18 @@ function summarize(fields: Record<string, string>): string {
   return `Revise: ${labels.join(', ')}.`;
 }
 
-function presentFromIssues(issues: Array<{ path: string; message: string }>): PresentedError | undefined {
+function presentFromIssues(
+  issues: Array<{ path: string; message: string }>,
+): PresentedError | undefined {
   const fields: Record<string, string> = {};
 
   for (const issue of issues) {
     const known = translateKnown(issue.message);
     const mapped = known
-      ? { text: known.text, field: known.field ?? (fieldLabel(issue.path) ? issue.path : undefined) }
+      ? {
+          text: known.text,
+          field: known.field ?? (fieldLabel(issue.path) ? issue.path : undefined),
+        }
       : fieldLabel(issue.path)
         ? translateByPath(issue.path)
         : undefined;

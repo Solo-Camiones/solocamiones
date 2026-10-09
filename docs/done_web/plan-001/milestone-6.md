@@ -5,7 +5,7 @@
 | **ID plan**    | WM6                                                                  |
 | **Estado**     | Completado                                                           |
 | **Fecha**      | 2026-08-28                                                           |
-| **Referencia** | [`docs/plans_web/plan-001.md`](../../plans_web/plan-001.md) § WM6       |
+| **Referencia** | [`docs/plans_web/plan-001.md`](../../plans_web/plan-001.md) § WM6    |
 | **Alcance**    | Registro individual, por cantidad y ensamblajes con baseline inicial |
 | **Siguiente**  | WM7 — Ventas: listado, detalle, pagos, cancelación y PDF             |
 

@@ -1,13 +1,13 @@
 # Milestone UX-6 — Experiencia del mecánico
 
-| Campo | Valor |
-|---|---|
-| **ID plan** | UX-6 |
-| **Estado** | Completado |
-| **Fecha** | 2026-09-02 |
+| Campo          | Valor                                                                                                  |
+| -------------- | ------------------------------------------------------------------------------------------------------ |
+| **ID plan**    | UX-6                                                                                                   |
+| **Estado**     | Completado                                                                                             |
+| **Fecha**      | 2026-09-02                                                                                             |
 | **Referencia** | [`docs/plans_web/UX_FRONTEND_HARDENING_PLAN.md`](../../plans_web/UX_FRONTEND_HARDENING_PLAN.md) § UX-6 |
-| **Alcance** | Solo frontend (`apps/web`), app del mecánico. No cambia reglas de negocio ni el backend. |
-| **Siguiente** | UX-7 — Responsive Admin/Seller |
+| **Alcance**    | Solo frontend (`apps/web`), app del mecánico. No cambia reglas de negocio ni el backend.               |
+| **Siguiente**  | UX-7 — Responsive Admin/Seller                                                                         |
 
 ---
 

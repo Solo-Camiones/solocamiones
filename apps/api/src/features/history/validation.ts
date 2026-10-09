@@ -105,7 +105,14 @@ const customerSnapshot = z
     isDefault: z.boolean(),
     customerType: z.enum(['CASH', 'CREDIT']),
     creditLimitDop: z.string().nullable(),
-    creditTermDays: z.union([z.literal(30), z.literal(45), z.literal(60), z.literal(90), z.literal(120), z.null()]),
+    creditTermDays: z.union([
+      z.literal(30),
+      z.literal(45),
+      z.literal(60),
+      z.literal(90),
+      z.literal(120),
+      z.null(),
+    ]),
     contacts: z.array(
       z
         .object({

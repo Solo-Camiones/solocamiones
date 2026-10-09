@@ -40,7 +40,10 @@ export function ProfitabilityPeriodControls({
         </Select>
       </div>
       {preset !== 'custom' ? (
-        <span className="text-right text-xs text-navy-400" aria-label="Rango de fechas del período seleccionado">
+        <span
+          className="text-right text-xs text-navy-400"
+          aria-label="Rango de fechas del período seleccionado"
+        >
           {formatDateRange(resolvedRange.from, resolvedRange.to)}
         </span>
       ) : null}

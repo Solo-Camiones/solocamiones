@@ -103,7 +103,11 @@ function linkedDismantlingOrders(state: AppState, invoiceId: string): WorkOrder[
   );
 }
 
-function restoreSoldItem(state: AppState, item: Item, woStatus: WorkOrder['status'] | undefined): void {
+function restoreSoldItem(
+  state: AppState,
+  item: Item,
+  woStatus: WorkOrder['status'] | undefined,
+): void {
   if (item.commercialState !== 'SOLD') {
     return;
   }
@@ -123,7 +127,11 @@ function restoreSoldItem(state: AppState, item: Item, woStatus: WorkOrder['statu
   }
 }
 
-function restoreInventoryForInvoice(state: AppState, invoice: Invoice, woByPiece: Map<string, WorkOrder>): void {
+function restoreInventoryForInvoice(
+  state: AppState,
+  invoice: Invoice,
+  woByPiece: Map<string, WorkOrder>,
+): void {
   for (const line of invoice.lines) {
     if (line.itemId) {
       const item = itemById(state.items, line.itemId);
@@ -195,7 +203,9 @@ export function addPayment(state: AppState, actor: User, input: AddPaymentInput)
   }
 
   if (input.idempotencyKey) {
-    const existing = invoice.payments.find((payment) => payment.idempotencyKey === input.idempotencyKey);
+    const existing = invoice.payments.find(
+      (payment) => payment.idempotencyKey === input.idempotencyKey,
+    );
     if (existing) {
       return ok(invoice);
     }
@@ -240,7 +250,11 @@ export function addPayment(state: AppState, actor: User, input: AddPaymentInput)
   return ok(invoice);
 }
 
-export function cancelInvoice(state: AppState, actor: User, input: CancelInvoiceInput): Result<Invoice> {
+export function cancelInvoice(
+  state: AppState,
+  actor: User,
+  input: CancelInvoiceInput,
+): Result<Invoice> {
   const found = findInvoice(state, input.invoiceId);
   if (!found.ok) {
     return found;
@@ -299,7 +313,8 @@ export function cancelInvoice(state: AppState, actor: User, input: CancelInvoice
     if (!input.refundMethod) {
       return err({
         code: 'VALIDATION',
-        message: 'La cancelación requiere el método del reembolso cuando el monto es mayor que cero',
+        message:
+          'La cancelación requiere el método del reembolso cuando el monto es mayor que cero',
       });
     }
 

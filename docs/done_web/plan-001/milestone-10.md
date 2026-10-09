@@ -1,13 +1,13 @@
 # Milestone 10 — WM10: Experiencia Mecánico (móvil)
 
-| Campo          | Valor                                                           |
-| -------------- | --------------------------------------------------------------- |
-| **ID plan**    | WM10                                                            |
-| **Estado**     | Completado                                                      |
-| **Fecha**      | 2026-09-01                                                      |
-| **Referencia** | [`docs/plans_web/plan-001.md`](../../plans_web/plan-001.md) § WM10 |
+| Campo          | Valor                                                                            |
+| -------------- | -------------------------------------------------------------------------------- |
+| **ID plan**    | WM10                                                                             |
+| **Estado**     | Completado                                                                       |
+| **Fecha**      | 2026-09-01                                                                       |
+| **Referencia** | [`docs/plans_web/plan-001.md`](../../plans_web/plan-001.md) § WM10               |
 | **Alcance**    | Cola móvil, claim atómico, evidencia BEFORE/AFTER, completar desarme/instalación |
-| **Siguiente**  | WM11 — Catálogos y usuarios (admin)                             |
+| **Siguiente**  | WM11 — Catálogos y usuarios (admin)                                              |
 
 ---
 
@@ -35,12 +35,12 @@ WM9 ya lista OT de escritorio y permite crear/reasignar/cancelar. Completar no m
 
 ### 3.3 Completar cambia jerarquía; crear no
 
-| Acción | Efecto físico |
-| --- | --- |
-| Completar desarme | Pieza `INDEPENDENT`; comercial no cambia (`SOLD` sigue `SOLD`); KMC `REMOVED_AFTER_BASELINE` en el padre directo; completitud solo de ese padre; ubicación opcional |
-| Completar instalación | Relación actual; resuelve un KMC compatible por nombre de categoría; no inventa venta |
-| Evidencia | Mínimo 1 BEFORE + 1 AFTER (nombres de archivo simulados, igual que el registro de inventario) |
-| Otro mecánico | `FORBIDDEN`; la UI no ofrece cargar ni completar |
+| Acción                | Efecto físico                                                                                                                                                       |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Completar desarme     | Pieza `INDEPENDENT`; comercial no cambia (`SOLD` sigue `SOLD`); KMC `REMOVED_AFTER_BASELINE` en el padre directo; completitud solo de ese padre; ubicación opcional |
+| Completar instalación | Relación actual; resuelve un KMC compatible por nombre de categoría; no inventa venta                                                                               |
+| Evidencia             | Mínimo 1 BEFORE + 1 AFTER (nombres de archivo simulados, igual que el registro de inventario)                                                                       |
+| Otro mecánico         | `FORBIDDEN`; la UI no ofrece cargar ni completar                                                                                                                    |
 
 ## 4. Archivos principales
 
@@ -66,14 +66,14 @@ apps/web/src/
 
 ## 5. Criterios de aceptación
 
-| Criterio | Estado |
-| --- | --- |
-| Flujo venta instalada → desarme → `Vendido + Independiente` | ✅ `TUR-009` / `OD-DEMO-060` |
-| OT de otro mecánico no editable | ✅ `FORBIDDEN` en servicio + UI |
-| Payload mecánico sin campos comerciales | ✅ proyección + JSON |
-| `takeOrder` falla si ya reclamada | ✅ segundo claim `CONFLICT` |
-| Completar falla sin evidencia o sin ser asignado | ✅ |
-| UX táctil adecuada en móvil | ✅ layout ~430px, botones `min-h-12`, bottom nav |
+| Criterio                                                    | Estado                                           |
+| ----------------------------------------------------------- | ------------------------------------------------ |
+| Flujo venta instalada → desarme → `Vendido + Independiente` | ✅ `TUR-009` / `OD-DEMO-060`                     |
+| OT de otro mecánico no editable                             | ✅ `FORBIDDEN` en servicio + UI                  |
+| Payload mecánico sin campos comerciales                     | ✅ proyección + JSON                             |
+| `takeOrder` falla si ya reclamada                           | ✅ segundo claim `CONFLICT`                      |
+| Completar falla sin evidencia o sin ser asignado            | ✅                                               |
+| UX táctil adecuada en móvil                                 | ✅ layout ~430px, botones `min-h-12`, bottom nav |
 
 ## 6. Verificación
 

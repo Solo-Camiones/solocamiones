@@ -1,8 +1,9 @@
 import express from 'express';
 import request from 'supertest';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { createApp } from '../../../src/app.js';
+import { resetMetricsRateLimit } from '../../../src/features/health/metrics-rate-limit.js';
 import {
   CF_ACCESS_JWT_HEADER,
   createCloudflareAccessMiddleware,
@@ -10,6 +11,11 @@ import {
 } from '../../../src/infrastructure/http/cloudflare-access.js';
 
 describe('cloudflare access middleware', () => {
+  afterEach(async () => {
+    await resetMetricsRateLimit();
+    delete process.env.METRICS_BEARER_TOKEN;
+  });
+
   it('skips verification when Access config is absent', async () => {
     const app = express();
     app.use(createCloudflareAccessMiddleware({ config: null }));
@@ -46,14 +52,10 @@ describe('cloudflare access middleware', () => {
     const missing = await request(app).get('/__test/ping');
     expect(missing.status).toBe(401);
 
-    const invalid = await request(app)
-      .get('/__test/ping')
-      .set(CF_ACCESS_JWT_HEADER, 'bad-token');
+    const invalid = await request(app).get('/__test/ping').set(CF_ACCESS_JWT_HEADER, 'bad-token');
     expect(invalid.status).toBe(401);
 
-    const valid = await request(app)
-      .get('/__test/ping')
-      .set(CF_ACCESS_JWT_HEADER, 'valid-token');
+    const valid = await request(app).get('/__test/ping').set(CF_ACCESS_JWT_HEADER, 'valid-token');
     expect(valid.status).toBe(200);
     expect(verifyJwt).toHaveBeenCalled();
   });
@@ -74,12 +76,8 @@ describe('cloudflare access middleware', () => {
       verifyCloudflareAccessJwt: verifyJwt,
     });
 
-    const ok = await request(app)
-      .get('/metrics')
-      .set('Authorization', 'Bearer metrics-secret');
+    const ok = await request(app).get('/metrics').set('Authorization', 'Bearer metrics-secret');
     expect(ok.status).toBe(200);
     expect(verifyJwt).not.toHaveBeenCalled();
-
-    delete process.env.METRICS_BEARER_TOKEN;
   });
 });

@@ -32,9 +32,7 @@ describe('trust proxy policy', () => {
       extraRouters: [{ path: '/__test', router: probe }],
     });
 
-    const response = await request(app)
-      .get('/__test/ip')
-      .set('X-Forwarded-For', '203.0.113.10');
+    const response = await request(app).get('/__test/ip').set('X-Forwarded-For', '203.0.113.10');
 
     expect(response.status).toBe(200);
     expect(String(response.body.ip)).not.toContain('203.0.113.10');
@@ -50,9 +48,7 @@ describe('trust proxy policy', () => {
       extraRouters: [{ path: '/__test', router: probe }],
     });
 
-    const response = await request(app)
-      .get('/__test/ip')
-      .set('X-Forwarded-For', '203.0.113.10');
+    const response = await request(app).get('/__test/ip').set('X-Forwarded-For', '203.0.113.10');
 
     expect(response.status).toBe(200);
     expect(String(response.body.ip)).toContain('203.0.113.10');

@@ -110,6 +110,7 @@ Authorization: Bearer <METRICS_BEARER_TOKEN>
 
 - Scraping desde Prometheus en la red Docker/`monitoring` o vía Tailscale (M4).
 - En staging/production, `GET /metrics` está **exento** de Cloudflare Access y de `ALLOWED_HOSTS` para permitir scrape interno; sigue exigiendo bearer.
+- Rate limit dedicado por IP (`express-rate-limit`, 60 req / 15 min) sobre el scrape; exceso → `429 TOO_MANY_REQUESTS`. Holgado para Prometheus (~15s) y un par HA; acota fuerza bruta del bearer.
 - **No** publicar `/metrics` en el Nginx edge; **no** poner el token en el frontend.
 - Readiness (`/api/health/ready`) permanece independiente de OpenAI y de este endpoint.
 - Series HTTP adicionales (M4.1): `http_requests_total`, `http_request_duration_seconds`, `http_rate_limit_rejections_total`.

@@ -56,7 +56,8 @@ describe('ExchangeRateApiClient', () => {
 
     const quota = await new ExchangeRateApiClient({
       apiKey: API_KEY,
-      fetchImpl: async () => jsonResponse({ result: 'error', 'error-type': 'quota-reached' }, false),
+      fetchImpl: async () =>
+        jsonResponse({ result: 'error', 'error-type': 'quota-reached' }, false),
     }).getUsdToDopRate();
     expect(quota).toEqual({ ok: false, reason: 'quota-reached' });
 
@@ -342,9 +343,6 @@ describe('ExchangeRateApiClient', () => {
       ok: false,
       reason: 'http-error',
     });
-    expect(warn).toHaveBeenCalledWith(
-      { reason: 'http-error' },
-      'ExchangeRate-API lookup failed',
-    );
+    expect(warn).toHaveBeenCalledWith({ reason: 'http-error' }, 'ExchangeRate-API lookup failed');
   });
 });

@@ -41,7 +41,10 @@ async function confirmCreditInvoice(agent: request.Agent, customerId?: string) {
     unitPrice: '1000.00',
   });
   const assignedCustomerId = await assignNamedCustomerForCredit(agent, draft.body.id, customerId);
-  const confirmed = await agent.post(`/api/sales/${draft.body.id}/confirm`).set(TEST_CSRF_HEADERS).send({});
+  const confirmed = await agent
+    .post(`/api/sales/${draft.body.id}/confirm`)
+    .set(TEST_CSRF_HEADERS)
+    .send({});
   expect(confirmed.status).toBe(200);
   return { invoice: confirmed.body, customerId: assignedCustomerId };
 }
@@ -117,12 +120,8 @@ describe('seller sales report HTTP', () => {
     const unauthenticated = await anonymous.get(`${REPORT}?${reportQuery()}`);
     const denied = await seller.agent.get(`${REPORT}?${reportQuery()}`);
     const missingDates = await admin.agent.get(REPORT);
-    const inverted = await admin.agent.get(
-      `${REPORT}?dateFrom=2026-09-30&dateTo=2026-09-01`,
-    );
-    const badFormat = await admin.agent.get(
-      `${REPORT}?dateFrom=09-01-2026&dateTo=2026-09-18`,
-    );
+    const inverted = await admin.agent.get(`${REPORT}?dateFrom=2026-09-30&dateTo=2026-09-01`);
+    const badFormat = await admin.agent.get(`${REPORT}?dateFrom=09-01-2026&dateTo=2026-09-18`);
 
     expect(unauthenticated.status).toBe(401);
     expect(denied.status).toBe(403);

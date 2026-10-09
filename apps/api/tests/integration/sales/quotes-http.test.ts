@@ -132,18 +132,44 @@ describe('convertible quotes HTTP (QUOTE-001/002)', () => {
       .send({});
     expect(retry.status).toBe(200);
     expect(retry.body.quoteNumber).toBe('COT-000001');
-    expect(await prisma.invoiceSequence.findUnique({ where: { name: 'COT' } })).toMatchObject({ nextValue: 2 });
-    expect((await agent.patch(`${ROOT}/${draft.id}`).set(TEST_CSRF_HEADERS).send({ currency: 'USD' })).status).toBe(409);
-    expect((await agent.post(`${ROOT}/${draft.id}/payments`).set(TEST_CSRF_HEADERS).send({ amount: '1.00', method: 'CASH', effectiveDate: '2026-09-16', idempotencyKey: 'quote-pay' })).status).toBe(403);
+    expect(await prisma.invoiceSequence.findUnique({ where: { name: 'COT' } })).toMatchObject({
+      nextValue: 2,
+    });
+    expect(
+      (await agent.patch(`${ROOT}/${draft.id}`).set(TEST_CSRF_HEADERS).send({ currency: 'USD' }))
+        .status,
+    ).toBe(409);
+    expect(
+      (
+        await agent.post(`${ROOT}/${draft.id}/payments`).set(TEST_CSRF_HEADERS).send({
+          amount: '1.00',
+          method: 'CASH',
+          effectiveDate: '2026-09-16',
+          idempotencyKey: 'quote-pay',
+        })
+      ).status,
+    ).toBe(403);
   });
 
   it('converts the same aggregate with current credit rules and frozen identity', async () => {
     const { agent } = await fixture();
     const customer = await creditCustomer();
     const draft = await quoteWithLine(agent, customer.id);
-    const issued = await agent.post(`${ROOT}/${draft.id}/issue-quote`).set(TEST_CSRF_HEADERS).send({});
+    const issued = await agent
+      .post(`${ROOT}/${draft.id}/issue-quote`)
+      .set(TEST_CSRF_HEADERS)
+      .send({});
     expect(issued.status).toBe(200);
-    expect((await agent.post(`${ROOT}/${draft.id}/payments`).set(TEST_CSRF_HEADERS).send({ amount: '1.00', method: 'CASH', effectiveDate: '2026-09-16', idempotencyKey: 'quote-pay' })).status).toBe(409);
+    expect(
+      (
+        await agent.post(`${ROOT}/${draft.id}/payments`).set(TEST_CSRF_HEADERS).send({
+          amount: '1.00',
+          method: 'CASH',
+          effectiveDate: '2026-09-16',
+          idempotencyKey: 'quote-pay',
+        })
+      ).status,
+    ).toBe(409);
 
     await prisma.customer.update({
       where: { id: customer.id },
@@ -163,24 +189,53 @@ describe('convertible quotes HTTP (QUOTE-001/002)', () => {
       customer: { customerType: 'CREDIT', creditTermDays: 90 },
     });
     expect(converted.body.lines).toHaveLength(1);
-    expect(converted.body.lines[0]).toMatchObject({ description: 'Filtro', notes: 'Nota por línea', unitPrice: '100.00' });
-    const retry = await agent.post(`${ROOT}/${draft.id}/convert-quote`).set(TEST_CSRF_HEADERS).send({});
+    expect(converted.body.lines[0]).toMatchObject({
+      description: 'Filtro',
+      notes: 'Nota por línea',
+      unitPrice: '100.00',
+    });
+    const retry = await agent
+      .post(`${ROOT}/${draft.id}/convert-quote`)
+      .set(TEST_CSRF_HEADERS)
+      .send({});
     expect(retry.status).toBe(200);
     expect(retry.body.number).toBe('FAC-000001');
     expect(await prisma.invoiceLine.count({ where: { invoiceId: draft.id } })).toBe(1);
-    expect(await prisma.historyEvent.count({ where: { subjectId: draft.id, eventType: 'QUOTE_CONVERTED' } })).toBe(1);
+    expect(
+      await prisma.historyEvent.count({
+        where: { subjectId: draft.id, eventType: 'QUOTE_CONVERTED' },
+      }),
+    ).toBe(1);
   });
 
   it('duplicates issued quotes as independent editable drafts', async () => {
     const { agent } = await fixture();
     const source = await quoteWithLine(agent, (await creditCustomer()).id);
     await agent.post(`${ROOT}/${source.id}/issue-quote`).set(TEST_CSRF_HEADERS).send({});
-    const duplicated = await agent.post(`${ROOT}/${source.id}/duplicate-quote`).set(TEST_CSRF_HEADERS).send({});
+    const duplicated = await agent
+      .post(`${ROOT}/${source.id}/duplicate-quote`)
+      .set(TEST_CSRF_HEADERS)
+      .send({});
     expect(duplicated.status).toBe(201);
-    expect(duplicated.body).toMatchObject({ status: 'QUOTE_DRAFT', quoteNumber: null, number: null });
+    expect(duplicated.body).toMatchObject({
+      status: 'QUOTE_DRAFT',
+      quoteNumber: null,
+      number: null,
+    });
     expect(duplicated.body.id).not.toBe(source.id);
-    expect(duplicated.body.lines[0]).toMatchObject({ description: 'Filtro', notes: 'Nota por línea', unitPrice: '100.00' });
-    expect((await agent.patch(`${ROOT}/${duplicated.body.id}`).set(TEST_CSRF_HEADERS).send({ applyItbis: false })).status).toBe(200);
+    expect(duplicated.body.lines[0]).toMatchObject({
+      description: 'Filtro',
+      notes: 'Nota por línea',
+      unitPrice: '100.00',
+    });
+    expect(
+      (
+        await agent
+          .patch(`${ROOT}/${duplicated.body.id}`)
+          .set(TEST_CSRF_HEADERS)
+          .send({ applyItbis: false })
+      ).status,
+    ).toBe(200);
   });
 
   it('rejects expired conversion and a normal draft on the explicit command', async () => {
@@ -194,13 +249,21 @@ describe('convertible quotes HTTP (QUOTE-001/002)', () => {
         quoteExpiresAt: new Date('2026-01-31T03:59:59.999Z'),
       },
     });
-    const expired = await agent.post(`${ROOT}/${source.id}/convert-quote`).set(TEST_CSRF_HEADERS).send({});
+    const expired = await agent
+      .post(`${ROOT}/${source.id}/convert-quote`)
+      .set(TEST_CSRF_HEADERS)
+      .send({});
     expect(expired.status).toBe(409);
     expect(expired.body.error.message).toBe(EXPIRED_QUOTE_CONVERT_MESSAGE);
-    expect(await prisma.invoiceSequence.findUnique({ where: { name: 'FAC' } })).toMatchObject({ nextValue: 1 });
+    expect(await prisma.invoiceSequence.findUnique({ where: { name: 'FAC' } })).toMatchObject({
+      nextValue: 1,
+    });
 
     const normal = await agent.post(ROOT).set(TEST_CSRF_HEADERS).send({});
-    const wrongCommand = await agent.post(`${ROOT}/${normal.body.id}/convert-quote`).set(TEST_CSRF_HEADERS).send({});
+    const wrongCommand = await agent
+      .post(`${ROOT}/${normal.body.id}/convert-quote`)
+      .set(TEST_CSRF_HEADERS)
+      .send({});
     expect(wrongCommand.status).toBe(409);
     expect(wrongCommand.body.error.message).toBe(QUOTE_ISSUED_ONLY_CONVERT_MESSAGE);
   });
@@ -211,11 +274,14 @@ describe('convertible quotes HTTP (QUOTE-001/002)', () => {
       data: { name: 'Cliente contado nombrado', customerType: 'CASH' },
     });
     const draft = await quoteWithLine(agent, customer.id);
-    expect((await agent.post(`${ROOT}/${draft.id}/issue-quote`).set(TEST_CSRF_HEADERS).send({})).status).toBe(
-      200,
-    );
+    expect(
+      (await agent.post(`${ROOT}/${draft.id}/issue-quote`).set(TEST_CSRF_HEADERS).send({})).status,
+    ).toBe(200);
 
-    const unpaid = await agent.post(`${ROOT}/${draft.id}/convert-quote`).set(TEST_CSRF_HEADERS).send({});
+    const unpaid = await agent
+      .post(`${ROOT}/${draft.id}/convert-quote`)
+      .set(TEST_CSRF_HEADERS)
+      .send({});
     expect(unpaid.status).toBe(409);
     expect(unpaid.body.error.message).toBe(CASH_CUSTOMER_CREDIT_FORBIDDEN_MESSAGE);
     expect(await prisma.invoice.findUnique({ where: { id: draft.id } })).toMatchObject({
@@ -223,15 +289,21 @@ describe('convertible quotes HTTP (QUOTE-001/002)', () => {
       number: null,
     });
 
-    const confirmInstead = await agent.post(`${ROOT}/${draft.id}/confirm`).set(TEST_CSRF_HEADERS).send({
-      payment: { amount: '118.00', method: 'CASH' },
-    });
+    const confirmInstead = await agent
+      .post(`${ROOT}/${draft.id}/confirm`)
+      .set(TEST_CSRF_HEADERS)
+      .send({
+        payment: { amount: '118.00', method: 'CASH' },
+      });
     expect(confirmInstead.status).toBe(409);
     expect(confirmInstead.body.error.message).toBe(DRAFT_ONLY_CONFIRM_MESSAGE);
 
-    const converted = await agent.post(`${ROOT}/${draft.id}/convert-quote`).set(TEST_CSRF_HEADERS).send({
-      payment: { amount: '118.00', method: 'CASH' },
-    });
+    const converted = await agent
+      .post(`${ROOT}/${draft.id}/convert-quote`)
+      .set(TEST_CSRF_HEADERS)
+      .send({
+        payment: { amount: '118.00', method: 'CASH' },
+      });
     expect(converted.status).toBe(200);
     expect(converted.body).toMatchObject({
       id: draft.id,
@@ -250,16 +322,24 @@ describe('convertible quotes HTTP (QUOTE-001/002)', () => {
       agent.post(`${ROOT}/${first.id}/issue-quote`).set(TEST_CSRF_HEADERS).send({}),
       agent.post(`${ROOT}/${second.id}/issue-quote`).set(TEST_CSRF_HEADERS).send({}),
     ]);
-    expect(results.map((result) => result.body.quoteNumber).sort()).toEqual(['COT-000001', 'COT-000002']);
+    expect(results.map((result) => result.body.quoteNumber).sort()).toEqual([
+      'COT-000001',
+      'COT-000002',
+    ]);
 
     const mechanic = await fixture('MECHANIC');
-    expect((await mechanic.agent.post(`${ROOT}/quotes`).set(TEST_CSRF_HEADERS).send({})).status).toBe(403);
+    expect(
+      (await mechanic.agent.post(`${ROOT}/quotes`).set(TEST_CSRF_HEADERS).send({})).status,
+    ).toBe(403);
   });
 
   it('lets Seller download an issued quote as COT- without changing the aggregate', async () => {
     const { agent } = await fixture('SELLER');
     const draft = await quoteWithLine(agent, (await creditCustomer()).id);
-    const issued = await agent.post(`${ROOT}/${draft.id}/issue-quote`).set(TEST_CSRF_HEADERS).send({});
+    const issued = await agent
+      .post(`${ROOT}/${draft.id}/issue-quote`)
+      .set(TEST_CSRF_HEADERS)
+      .send({});
     expect(issued.status).toBe(200);
 
     const pdf = await agent.get(`${ROOT}/${draft.id}/pdf`).buffer(true);
@@ -286,7 +366,10 @@ describe('convertible quotes HTTP (QUOTE-001/002)', () => {
       }),
     ).toBe(1);
 
-    const converted = await agent.post(`${ROOT}/${draft.id}/convert-quote`).set(TEST_CSRF_HEADERS).send({});
+    const converted = await agent
+      .post(`${ROOT}/${draft.id}/convert-quote`)
+      .set(TEST_CSRF_HEADERS)
+      .send({});
     expect(converted.status).toBe(200);
     expect(converted.body).toMatchObject({
       status: 'COMPLETED',
@@ -310,9 +393,9 @@ describe('convertible quotes HTTP (QUOTE-001/002)', () => {
     const { agent } = await fixture();
     const mechanic = await fixture('MECHANIC');
     const source = await quoteWithLine(agent, (await creditCustomer()).id);
-    expect((await agent.post(`${ROOT}/${source.id}/issue-quote`).set(TEST_CSRF_HEADERS).send({})).status).toBe(
-      200,
-    );
+    expect(
+      (await agent.post(`${ROOT}/${source.id}/issue-quote`).set(TEST_CSRF_HEADERS).send({})).status,
+    ).toBe(200);
     await prisma.invoice.update({
       where: { id: source.id },
       data: {

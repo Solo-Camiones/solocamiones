@@ -918,10 +918,7 @@ function ensureDismantlingOrder(
 }
 
 /** Shared SALE-002 / CON-001 inventory gate before FAC- or CON- recognition. */
-function validateReservedInventoryForRecognition(
-  state: AppState,
-  invoice: Invoice,
-): Result<void> {
+function validateReservedInventoryForRecognition(state: AppState, invoice: Invoice): Result<void> {
   for (const line of invoice.lines) {
     if (line.itemId) {
       const item = itemById(state.items, line.itemId);
@@ -1199,10 +1196,7 @@ function prepareIssuedQuoteForConversion(
   return ok({ frozenIdentity, itemReservations, quantityReservations });
 }
 
-function rollbackQuoteConversion(
-  quote: Invoice,
-  reservations: QuoteConversionReservations,
-): void {
+function rollbackQuoteConversion(quote: Invoice, reservations: QuoteConversionReservations): void {
   quote.status = 'QUOTE_ISSUED';
   for (const snapshot of reservations.itemReservations) {
     snapshot.item.reservedByDraftId = snapshot.reservedByDraftId;

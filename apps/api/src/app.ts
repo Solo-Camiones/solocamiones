@@ -20,6 +20,7 @@ import { SellerSalesReportRepository } from './features/sales/seller-sales-repor
 import { SalesRepository } from './features/sales/repository.js';
 import { salesTransaction } from './features/sales/transaction.js';
 import { healthRouter, metricsRouter } from './features/health/routes.js';
+import { metricsRateLimiter } from './features/health/metrics-rate-limit.js';
 import { usersRouter } from './features/users/routes.js';
 import {
   createAllowedHostsMiddleware,
@@ -147,8 +148,8 @@ export function createApp(options: CreateAppOptions = {}): express.Application {
   app.use(express.json({ limit: JSON_BODY_LIMIT_BYTES }));
   app.use('/api/health', healthRouter);
   // Scrape path is intentional outside /api/health so readiness stays DB-only (AI-008).
-  // Not proxied by public Nginx; Access/Host exempt; METRICS_BEARER_TOKEN required (M4.1).
-  app.use('/metrics', metricsRouter);
+  // Not proxied by public Nginx; Access/Host exempt; bearer + dedicated rate limit (M4.1).
+  app.use('/metrics', metricsRateLimiter, metricsRouter);
   app.use('/api/auth', apiRateLimiter, accessRouter);
   app.use('/api/admin/users', apiRateLimiter, usersRouter);
   app.use('/api/customers', apiRateLimiter, customersRouter);

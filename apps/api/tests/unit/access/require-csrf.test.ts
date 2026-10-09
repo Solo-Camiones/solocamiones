@@ -20,7 +20,9 @@ describe('requireCsrfHeader', () => {
 
     const rejected = vi.fn();
     requireCsrfHeader(
-      { get: (name: string) => (name === CSRF_REQUEST_HEADER ? undefined : 'nope') } as unknown as Request,
+      {
+        get: (name: string) => (name === CSRF_REQUEST_HEADER ? undefined : 'nope'),
+      } as unknown as Request,
       {} as Response,
       rejected as NextFunction,
     );

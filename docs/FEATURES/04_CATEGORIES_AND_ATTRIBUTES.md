@@ -60,6 +60,7 @@ Tire and Rim keep their validated specific fields rather than being forced into 
 ## Implementation checklist
 
 ### Domain / persistence
+
 - [ ] Define category records and active/usable behavior.
 - [x] Define validated category attribute schemas. Frontend mock: bounded `Category.attributes` with closed types (`text` | `number` | `select`), unique keys, and max 8 fields. Persistence/HTTP remain for Release 4.
 - [ ] Define expected-component definitions for assembly categories.
@@ -68,12 +69,14 @@ Tire and Rim keep their validated specific fields rather than being forced into 
 - [x] Implement Tire and Rim specific validation. Frontend mock: Goma (tipo, medida, diámetro) and Rin (material, medida) as required category attributes (CAT-002/003).
 
 ### Frontend
+
 - [x] Administrator category management. Prototype mock: `/catalogs`, `catalogs.manage` (WM11). Category create requires `codePrefix`; edits keep the existing prefix.
 - [x] Expected-component definition management. Assembly categories require at least one expected component name; definitions do not create inventory. Adding a name backfills unsold assemblies with a provisional NA pending Administrator confirm/missing.
 - [x] Mechanical/service catalog remains handled by Sales/Admin integration as specified. Inactive services are omitted from POS `buildPosDraftView` and rejected in `addDraftLine`.
 - [x] Dynamic but bounded registration fields based on selected category. Prototype: no free-text attribute textarea; fields come from the category definition (wizard, present-component form, ordinary edit).
 
 ### Tests
+
 - [x] Seller/Mechanic catalog-maintenance denial. Covered in the frontend mock repository suite (WM11); HTTP API tests remain for the categories release.
 - [x] Invalid category-specific attributes rejected. Unknown keys, missing required Goma/Rin/Batería fields, and invalid types are rejected in the mock inventory commands.
 - [x] Catalog changes do not rewrite historical inventory/invoices. Creating a category does not insert items; inventory keeps existing `categoryId` references.

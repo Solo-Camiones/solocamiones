@@ -41,9 +41,7 @@ export async function listCategoriesWithHttp(): Promise<Result<Category[]>> {
   throw new Error('HttpCategoryRepository no implementado — use VITE_USE_MOCK_API=true (WM12)');
 }
 
-export async function saveCategoryWithHttp(
-  _input: SaveCategoryInput,
-): Promise<Result<Category>> {
+export async function saveCategoryWithHttp(_input: SaveCategoryInput): Promise<Result<Category>> {
   throw new Error('HttpCategoryRepository no implementado — use VITE_USE_MOCK_API=true (WM12)');
 }
 

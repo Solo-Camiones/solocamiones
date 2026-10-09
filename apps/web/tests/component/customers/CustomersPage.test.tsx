@@ -34,7 +34,10 @@ describe('CustomersPage', () => {
 
     expect(await screen.findByText('Transportes del Caribe SRL')).toBeVisible();
     expect(screen.queryByRole('columnheader', { name: 'Facturas' })).not.toBeInTheDocument();
-    await user.type(screen.getByLabelText('Buscar por nombre o identificación fiscal'), '101-98765');
+    await user.type(
+      screen.getByLabelText('Buscar por nombre o identificación fiscal'),
+      '101-98765',
+    );
 
     expect(await screen.findByText('Logística Norte SA')).toBeVisible();
     expect(screen.queryByText('Transportes del Caribe SRL')).not.toBeInTheDocument();
@@ -67,9 +70,7 @@ describe('CustomersPage', () => {
     expect(within(row!).getByText('809-555-0200')).toBeVisible();
     expect(within(row!).getByText('compras@tdc.example')).toBeVisible();
     expect(screen.queryByText('Carlos Peña')).not.toBeInTheDocument();
-    expect(
-      screen.queryByRole('button', { name: 'Ver 2 contactos' }),
-    ).toBeVisible();
+    expect(screen.queryByRole('button', { name: 'Ver 2 contactos' })).toBeVisible();
     expect(screen.queryByRole('button', { name: 'Ver 1 contactos' })).not.toBeInTheDocument();
 
     await user.click(within(row!).getByRole('button', { name: 'Ver 2 contactos' }));

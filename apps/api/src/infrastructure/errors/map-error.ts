@@ -64,10 +64,7 @@ function readErrorStatus(error: unknown): number | undefined {
   return undefined;
 }
 
-function clientErrorResponse(
-  code: AppErrorCode,
-  message: string,
-): MappedErrorResponse {
+function clientErrorResponse(code: AppErrorCode, message: string): MappedErrorResponse {
   return {
     status: HTTP_STATUS_BY_ERROR_CODE[code],
     body: {
@@ -84,7 +81,10 @@ function mapBodyParserClientError(error: unknown): MappedErrorResponse | undefin
   const type = readErrorType(error);
   const status = readErrorStatus(error);
 
-  if (type === BODY_PARSER_PAYLOAD_TOO_LARGE_TYPE || status === HTTP_STATUS_BY_ERROR_CODE.PAYLOAD_TOO_LARGE) {
+  if (
+    type === BODY_PARSER_PAYLOAD_TOO_LARGE_TYPE ||
+    status === HTTP_STATUS_BY_ERROR_CODE.PAYLOAD_TOO_LARGE
+  ) {
     return clientErrorResponse('PAYLOAD_TOO_LARGE', PAYLOAD_TOO_LARGE_CLIENT_MESSAGE);
   }
 

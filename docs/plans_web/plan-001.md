@@ -272,9 +272,9 @@ El resto del prototipo (inventario, ventas, OT, etc.) permanece mock hasta los r
 | WM6  | Registro de inventario                                 | completado |
 | WM7  | Ventas: listado, detalle, pagos, cancelación, PDF      | completado |
 | WM8  | Punto de venta y borradores (POS)                      | completado |
-| WM9  | Órdenes de trabajo (escritorio)                        | completado  |
-| WM10 | Experiencia Mecánico (móvil)                           | completado  |
-| WM11 | Catálogos y usuarios (admin)                           | completado  |
+| WM9  | Órdenes de trabajo (escritorio)                        | completado |
+| WM10 | Experiencia Mecánico (móvil)                           | completado |
+| WM11 | Catálogos y usuarios (admin)                           | completado |
 | WM12 | Rentabilidad, recuperación, escenarios demo, prep API  | completado |
 
 ### Diagrama de dependencias
@@ -805,17 +805,17 @@ Cada escenario reinicia datos y documenta qué credenciales usar para login.
 
 ## Historial del documento
 
-| Fecha      | Cambio                                                                                                         |
-| ---------- | -------------------------------------------------------------------------------------------------------------- |
-| 2026-08-27 | Creación inicial del plan con 12 milestones, endurecimiento vs Figma, login por formulario con 4 usuarios seed |
-| 2026-08-27 | WM2 completado: login, shell por rol, guards, sesión mock, demo-controls                                       |
-| 2026-08-28 | WM4 completado: CRUD clientes, C0 no editable, búsqueda nombre/RNC                                             |
-| 2026-08-28 | WM3 completado: dashboard operativo por rol, KPIs, facturas recientes, timeline                                |
-| 2026-08-28 | WM5 completado: inventario unificado, búsqueda, detalle, chips, acciones admin y reserva a borrador            |
-| 2026-08-28 | WM6 completado: registro individual, por cantidad y ensamblajes anidados con baseline recursivo y atómico      |
-| 2026-08-31 | WM7 completado: listado de ventas, detalle, pagos, cancelación con ramas OT, PDF interno e ITBIS por flag fiscal |
+| Fecha      | Cambio                                                                                                                                                                      |
+| ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-08-27 | Creación inicial del plan con 12 milestones, endurecimiento vs Figma, login por formulario con 4 usuarios seed                                                              |
+| 2026-08-27 | WM2 completado: login, shell por rol, guards, sesión mock, demo-controls                                                                                                    |
+| 2026-08-28 | WM4 completado: CRUD clientes, C0 no editable, búsqueda nombre/RNC                                                                                                          |
+| 2026-08-28 | WM3 completado: dashboard operativo por rol, KPIs, facturas recientes, timeline                                                                                             |
+| 2026-08-28 | WM5 completado: inventario unificado, búsqueda, detalle, chips, acciones admin y reserva a borrador                                                                         |
+| 2026-08-28 | WM6 completado: registro individual, por cantidad y ensamblajes anidados con baseline recursivo y atómico                                                                   |
+| 2026-08-31 | WM7 completado: listado de ventas, detalle, pagos, cancelación con ramas OT, PDF interno e ITBIS por flag fiscal                                                            |
 | 2026-09-01 | WM8 integrado sobre WM7: POS, confirmación atómica `FAC-`, snapshot de cliente e ITBIS fiscal. Criterios WM7 re-verificados (24 pruebas de ciclo post-venta siguen verdes). |
-| 2026-09-01 | WM9 completado: listado/detalle de OT de escritorio, creación manual, reasignación y cancelación admin. Completar desarme sigue en WM10. |
-| 2026-09-01 | WM10 completado: app móvil del mecánico, claim atómico, evidencia BEFORE/AFTER y completar desarme/instalación sin datos comerciales. |
-| 2026-09-01 | WM11 completado: catálogos admin (categorías/servicios) y gestión de usuarios en memoria; login de cuentas nuevas y POS sin servicios inactivos. |
-| 2026-09-01 | WM12 completado: rentabilidad USD con toggle FX y reintento, liberación de reservas, 12 escenarios demo y composition root `VITE_USE_MOCK_API`. |
+| 2026-09-01 | WM9 completado: listado/detalle de OT de escritorio, creación manual, reasignación y cancelación admin. Completar desarme sigue en WM10.                                    |
+| 2026-09-01 | WM10 completado: app móvil del mecánico, claim atómico, evidencia BEFORE/AFTER y completar desarme/instalación sin datos comerciales.                                       |
+| 2026-09-01 | WM11 completado: catálogos admin (categorías/servicios) y gestión de usuarios en memoria; login de cuentas nuevas y POS sin servicios inactivos.                            |
+| 2026-09-01 | WM12 completado: rentabilidad USD con toggle FX y reintento, liberación de reservas, 12 escenarios demo y composition root `VITE_USE_MOCK_API`.                             |

@@ -3,7 +3,10 @@ import { createHash } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 
 import { SESSION_TOKEN_BYTES } from '../../../src/features/access/constants.js';
-import { generateSessionToken, hashSessionToken } from '../../../src/features/access/session-token.js';
+import {
+  generateSessionToken,
+  hashSessionToken,
+} from '../../../src/features/access/session-token.js';
 
 describe('session token', () => {
   it('generates unique opaque hex tokens of the configured length', () => {

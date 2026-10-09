@@ -225,7 +225,9 @@ describe('buildInventoryCatalog', () => {
 
   it('filters assemblies and incomplete assemblies', () => {
     const assemblies = buildInventoryCatalog(state, { quick: ['assemblies'] }).map((row) => row.id);
-    expect(assemblies).toEqual(expect.arrayContaining(['CAM-001', 'MOT-001', 'MOT-002', 'MOT-003']));
+    expect(assemblies).toEqual(
+      expect.arrayContaining(['CAM-001', 'MOT-001', 'MOT-002', 'MOT-003']),
+    );
     expect(assemblies.every((id) => !id.startsWith('QTY-'))).toBe(true);
 
     const incomplete = buildInventoryCatalog(state, { quick: ['incomplete'] }).map((row) => row.id);
@@ -256,9 +258,9 @@ describe('buildInventoryCatalog', () => {
         },
       ],
     };
-    expect(buildInventoryCatalog(withReviews, { pendingCatalog: true }).map((row) => row.id)).toEqual(
-      ['MOT-001'],
-    );
+    expect(
+      buildInventoryCatalog(withReviews, { pendingCatalog: true }).map((row) => row.id),
+    ).toEqual(['MOT-001']);
   });
 });
 
@@ -922,12 +924,17 @@ describe('inventory commands', () => {
 
     expect(result.ok).toBe(true);
     expect(state.pendingCatalogReviews.some((entry) => entry.parentId === 'MOT-001')).toBe(false);
-    expect(isComplete(state.items.find((item) => item.id === 'MOT-001')!, state.knownMissing, state.categories)).toBe(
-      true,
-    );
+    expect(
+      isComplete(
+        state.items.find((item) => item.id === 'MOT-001')!,
+        state.knownMissing,
+        state.categories,
+      ),
+    ).toBe(true);
     expect(
       state.knownMissing.some(
-        (entry) => entry.parentId === 'MOT-001' && entry.expectedComponentName === 'Bomba de aceite',
+        (entry) =>
+          entry.parentId === 'MOT-001' && entry.expectedComponentName === 'Bomba de aceite',
       ),
     ).toBe(false);
   });
@@ -1032,8 +1039,7 @@ describe('inventory commands', () => {
     );
     expect(
       state.pendingCatalogReviews.some(
-        (entry) =>
-          entry.parentId === 'CAM-001' && entry.expectedComponentName === 'Motor auxiliar',
+        (entry) => entry.parentId === 'CAM-001' && entry.expectedComponentName === 'Motor auxiliar',
       ),
     ).toBe(false);
   });
@@ -1081,7 +1087,9 @@ describe('quantity stock receipt and adjustment', () => {
     expect(result.ok).toBe(true);
     expect(state.qtyProducts.find((product) => product.id === 'QTY-AVG-001')?.onHand).toBe(15);
     expect(
-      buildQtyProductDetail(state, 'QTY-AVG-001')?.events.find((event) => event.type === 'QTY_STOCK_RECEIVED'),
+      buildQtyProductDetail(state, 'QTY-AVG-001')?.events.find(
+        (event) => event.type === 'QTY_STOCK_RECEIVED',
+      ),
     ).toMatchObject({
       actorName: 'Laura Pérez',
     });

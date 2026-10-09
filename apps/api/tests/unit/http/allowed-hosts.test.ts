@@ -27,9 +27,7 @@ describe('allowed hosts middleware', () => {
       extraRouters: [{ path: '/__test', router: probe }],
     });
 
-    const accepted = await request(app)
-      .get('/__test/ping')
-      .set('Host', 'staging.solocamiones.com');
+    const accepted = await request(app).get('/__test/ping').set('Host', 'staging.solocamiones.com');
     expect(accepted.status).toBe(200);
 
     const rejected = await request(app).get('/__test/ping').set('Host', 'evil.example');

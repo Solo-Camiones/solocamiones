@@ -49,17 +49,20 @@ describe('pendingEnrichmentLabels', () => {
 
 describe('mergeBaselineEntries', () => {
   it('keeps previously entered present components when returning to step 2', () => {
-    const merged = mergeBaselineEntries(['Motor', 'Transmisión'], [
-      {
-        expectedComponentName: 'Motor',
-        status: 'PRESENT',
-        item: {
-          name: 'Motor',
-          categoryId: 'CAT-ENG',
-          condition: 'USED',
+    const merged = mergeBaselineEntries(
+      ['Motor', 'Transmisión'],
+      [
+        {
+          expectedComponentName: 'Motor',
+          status: 'PRESENT',
+          item: {
+            name: 'Motor',
+            categoryId: 'CAT-ENG',
+            condition: 'USED',
+          },
         },
-      },
-    ]);
+      ],
+    );
 
     expect(merged[0]).toMatchObject({
       expectedComponentName: 'Motor',

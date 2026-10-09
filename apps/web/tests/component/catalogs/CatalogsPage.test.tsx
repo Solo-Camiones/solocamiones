@@ -90,7 +90,9 @@ describe('CatalogsPage', () => {
     await user.click(screen.getByRole('button', { name: 'Guardar' }));
 
     expect(await screen.findByText('No se pudo guardar')).toBeVisible();
-    expect(screen.getByText(/El componente esperado «Alternador» ya está en la lista/)).toBeVisible();
+    expect(
+      screen.getByText(/El componente esperado «Alternador» ya está en la lista/),
+    ).toBeVisible();
     expect(screen.getByRole('dialog')).toBeVisible();
     expect(screen.queryByText('Categoría actualizada')).not.toBeInTheDocument();
   });

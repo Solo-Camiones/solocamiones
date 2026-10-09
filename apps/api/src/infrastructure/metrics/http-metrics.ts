@@ -61,7 +61,8 @@ export function httpMetricsMiddleware(req: Request, res: Response, next: NextFun
   const method = req.method.toUpperCase();
 
   res.on('finish', () => {
-    const durationSeconds = Number(process.hrtime.bigint() - startedAt) / Number(NANOSECONDS_PER_SECOND);
+    const durationSeconds =
+      Number(process.hrtime.bigint() - startedAt) / Number(NANOSECONDS_PER_SECOND);
     const code = res.statusCode;
 
     httpRequestsTotal.inc({

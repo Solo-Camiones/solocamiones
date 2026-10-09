@@ -1,13 +1,13 @@
 # Milestone UX-0 — Capabilities y separación Prototype / Production
 
-| Campo | Valor |
-|---|---|
-| **ID plan** | UX-0 |
-| **Estado** | Completado |
-| **Fecha** | 2026-09-02 |
+| Campo          | Valor                                                                                                  |
+| -------------- | ------------------------------------------------------------------------------------------------------ |
+| **ID plan**    | UX-0                                                                                                   |
+| **Estado**     | Completado                                                                                             |
+| **Fecha**      | 2026-09-02                                                                                             |
 | **Referencia** | [`docs/plans_web/UX_FRONTEND_HARDENING_PLAN.md`](../../plans_web/UX_FRONTEND_HARDENING_PLAN.md) § UX-0 |
-| **Alcance** | Solo frontend (`apps/web`). No cambia reglas de negocio ni el backend. |
-| **Siguiente** | UX-2 — Navegación y arquitectura de información |
+| **Alcance**    | Solo frontend (`apps/web`). No cambia reglas de negocio ni el backend.                                 |
+| **Siguiente**  | UX-2 — Navegación y arquitectura de información                                                        |
 
 ---
 
@@ -28,17 +28,17 @@ Los componentes preguntan `capabilities.inventory`, no `if (release >= 4)`.
 
 ### Presets
 
-| Preset | Qué habilita (acumulativo) |
-|---|---|
-| `release-1` | Acceso y `/users` |
-| `release-2` | + clientes, ventas no inventario, rentabilidad admin |
-| `release-3` | + pagos y cancelación de factura |
+| Preset      | Qué habilita (acumulativo)                                                        |
+| ----------- | --------------------------------------------------------------------------------- |
+| `release-1` | Acceso y `/users`                                                                 |
+| `release-2` | + clientes, ventas no inventario, rentabilidad admin                              |
+| `release-3` | + pagos y cancelación de factura                                                  |
 | `release-4` | + inventario independiente/cantidad y catálogos (sin jerarquía ni venta de stock) |
-| `release-5` | + líneas ITEM/QTY y agregar a borrador |
-| `release-6` | + jerarquía, baseline, ensamblajes, No desarmar |
-| `release-7` | + órdenes de trabajo y app mecánico |
-| `release-8` | + `/recovery` |
-| `prototype` | Todo lo anterior + controles demo |
+| `release-5` | + líneas ITEM/QTY y agregar a borrador                                            |
+| `release-6` | + jerarquía, baseline, ensamblajes, No desarmar                                   |
+| `release-7` | + órdenes de trabajo y app mecánico                                               |
+| `release-8` | + `/recovery`                                                                     |
+| `prototype` | Todo lo anterior + controles demo                                                 |
 
 Selección: `VITE_CAPABILITIES_PRESET` (documentado en `.env.example`). Si no se define, el valor es `prototype`.
 

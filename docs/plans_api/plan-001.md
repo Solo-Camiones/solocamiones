@@ -17,17 +17,15 @@
 - **Estado API:** M1–M11 completados. Auth HTTP, `requireAuth`/`requireRole`, gestión y recuperación de contraseña están disponibles. History M9 persiste eventos atómicos de usuarios, perfil, contraseña y recuperación. CI GitHub (`R1 quality`) verificado.
 - **Ciclo por milestone:** plan → implementación → pruebas → revisión → commit. La integración web se hace **solo** cuando la función API cumple el criterio de la sección Integración API → Web.
 
-
-
 ## Alcance total de Release 1
 
-| Incluido | Excluido |
-|---|---|
-| Scaffold FE/BE, Prisma, PostgreSQL local, validación, errores, tests, CI local | Facturas, clientes, inventario, Work Orders, fotos, CxC, CxP |
-| Login por `username`, sesiones, roles, gestión de usuarios, autorización server-side | Dashboard KPIs del prototipo, recovery/diagnostics completos (Release 8) |
-| History envelope + eventos de ciclo de vida de usuarios | Otros tipos de evento de negocio (Release 2+) |
-| Bootstrap CLI del primer Administrator | Staging, producción, hosting, RPO/RTO, HTTPS productivo, backups gestionados, rollback productivo |
-| Verificación en browser de flujos UI | Object storage (Release 4+) |
+| Incluido                                                                             | Excluido                                                                                          |
+| ------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------- |
+| Scaffold FE/BE, Prisma, PostgreSQL local, validación, errores, tests, CI local       | Facturas, clientes, inventario, Work Orders, fotos, CxC, CxP                                      |
+| Login por `username`, sesiones, roles, gestión de usuarios, autorización server-side | Dashboard KPIs del prototipo, recovery/diagnostics completos (Release 8)                          |
+| History envelope + eventos de ciclo de vida de usuarios                              | Otros tipos de evento de negocio (Release 2+)                                                     |
+| Bootstrap CLI del primer Administrator                                               | Staging, producción, hosting, RPO/RTO, HTTPS productivo, backups gestionados, rollback productivo |
+| Verificación en browser de flujos UI                                                 | Object storage (Release 4+)                                                                       |
 
 ## Decisiones cerradas (fuente de verdad)
 
@@ -51,10 +49,10 @@ El prototipo web ya está listo para Access/Users. El cuello de botella es la AP
 
 **Una función está lista para integrar** cuando se cumplen los tres lados:
 
-| Lado | Listo cuando |
-|---|---|
-| API | Módulo con routes, controller, service, repository, validation, types; tests de la función; errores HTTP estables (M3) |
-| Web | Pantalla/flujo + interfaz de repositorio + stub HTTP en `apps/web/src/api/` (ya cubierto por WM2/WM11/WM12 para auth, perfil y usuarios) |
+| Lado               | Listo cuando                                                                                                                                                               |
+| ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| API                | Módulo con routes, controller, service, repository, validation, types; tests de la función; errores HTTP estables (M3)                                                     |
+| Web                | Pantalla/flujo + interfaz de repositorio + stub HTTP en `apps/web/src/api/` (ya cubierto por WM2/WM11/WM12 para auth, perfil y usuarios)                                   |
 | Alcance de release | La función pertenece a Release 1. Tener UI mock de un release posterior **no** autoriza a integrar esa API ahora ([`../DEVELOPMENT_PLAN.md`](../DEVELOPMENT_PLAN.md) §1.7) |
 
 Hasta entonces: `VITE_USE_MOCK_API` distinto de `false` (mocks). No mezclar login real con listados mock de usuarios, ni al revés.
@@ -65,44 +63,44 @@ Hasta entonces: `VITE_USE_MOCK_API` distinto de `false` (mocks). No mezclar logi
 sesión y perfil; M11 completó administración y recuperación de contraseña. History
 M9 continúa como persistencia interna sin UI nueva.
 
-| Función API | ¿Integrable ahora? | Motivo |
-|---|---|---|
-| `GET /api/health/live` | Opcional (ops) | API completa. El prototipo **ya no** tiene pantalla de health; no es Feature 01. Se puede usar a mano o en CI. |
-| `GET /api/health/ready` | Opcional (ops) | Igual: readiness de PostgreSQL, no flujo de usuario. |
-| Login / logout / sesión / perfil propio | Sí, integrado | Endpoints M6–M7 conectados y verificados en M10. |
-| Gestión Administrator de usuarios y recuperación de contraseña | Sí, integrado | Backend M8 conectado y verificado en M11. |
-| History de usuarios | Sin integración UI R1 | Envelope y eventos implementados y verificados. Es persistencia interna + tests, sin endpoint público de historial. |
-| Clientes, facturas, inventario, OT, dashboard KPIs y recovery operacional | No (fuera de R1) | UI mock existe; API y release correspondientes son R2+. |
+| Función API                                                               | ¿Integrable ahora?    | Motivo                                                                                                              |
+| ------------------------------------------------------------------------- | --------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `GET /api/health/live`                                                    | Opcional (ops)        | API completa. El prototipo **ya no** tiene pantalla de health; no es Feature 01. Se puede usar a mano o en CI.      |
+| `GET /api/health/ready`                                                   | Opcional (ops)        | Igual: readiness de PostgreSQL, no flujo de usuario.                                                                |
+| Login / logout / sesión / perfil propio                                   | Sí, integrado         | Endpoints M6–M7 conectados y verificados en M10.                                                                    |
+| Gestión Administrator de usuarios y recuperación de contraseña            | Sí, integrado         | Backend M8 conectado y verificado en M11.                                                                           |
+| History de usuarios                                                       | Sin integración UI R1 | Envelope y eventos implementados y verificados. Es persistencia interna + tests, sin endpoint público de historial. |
+| Clientes, facturas, inventario, OT, dashboard KPIs y recovery operacional | No (fuera de R1)      | UI mock existe; API y release correspondientes son R2+.                                                             |
 
 ### Matriz Release 1 — primer momento integrable
 
-| Función | Componentes API | Componentes web (ya existen) | Primer momento integrable | Trabajo de integración |
-|---|---|---|---|---|
-| Health live/ready | M1–M2 | Ninguno de producto (se quitó el health check de WM1) | **Después de M2** (ya cumplido) | No hay slice de producto. Smoke/CI solamente. |
-| Contrato de errores (`errorId`, 400/401/403/409/500) | M3 | Toasts / `Result<T, AppError>` | Después de M3 | No se “integra” una pantalla. M10–M11 **mapean** estos códigos. Sin M3 no se cablea auth. |
-| Test harness / CI | M4 | — | Nunca a UI | Plantilla de smoke; se completa cuando existan login y policies. |
-| User/Session + bootstrap CLI | M5 | — | Nunca a UI | Persistencia y CLI. El web sigue en mock hasta que haya HTTP. |
-| `POST /api/auth/login`, `POST /api/auth/logout`, `GET /api/auth/session` | M6 | `AuthRepository`, `LoginForm`, `AuthContext`, `credentials: 'include'` previsto | **Después de M6** a nivel de cliente HTTP; **no** activar mock→HTTP de sesión hasta M7 | El swap real es M10. Tras M6 se puede implementar `auth-api.ts` contra el contrato, pero la proyección Mechanic/roles llega en M7. |
-| `GET /api/auth/me`, `PATCH /api/auth/me` (perfil propio: name, phone, email, password; no username/rol/active) | M6 (mismo módulo `access`) | `ProfilePage`, `updateOwnProfile` | **Después de M6** (mismo corte que login) | Incluir estos endpoints en M6: el web ya los declara en `endpoint-map.ts`. Feature 01 checklist frontend. |
-| Policies `requireRole` / proyección `/session` | M7 | Shell por rol, `policies.ts` (UX, no seguridad) | **Después de M7** | Primera integración de producto: M10. Login real + cookie + 401/403. |
-| `POST/GET/PATCH` usuarios Administrator | M8 | `UserTable`, `UserFormModal`, `UserRepository` | **Después de M8** | Integración en M11. Alinear paths web (`/api/users`) vs este plan (`/api/admin/users`) en el cliente HTTP; **la API de este plan es la fuente HTTP**. |
-| Eventos `USER_*` | M9 | Sin pantalla R1 | **No integrar UI en R1** | Append en la misma transacción que M8. El exit gate de M11 **verifica** eventos por API/tests, no por una vista nueva. |
+| Función                                                                                                        | Componentes API            | Componentes web (ya existen)                                                    | Primer momento integrable                                                              | Trabajo de integración                                                                                                                                |
+| -------------------------------------------------------------------------------------------------------------- | -------------------------- | ------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Health live/ready                                                                                              | M1–M2                      | Ninguno de producto (se quitó el health check de WM1)                           | **Después de M2** (ya cumplido)                                                        | No hay slice de producto. Smoke/CI solamente.                                                                                                         |
+| Contrato de errores (`errorId`, 400/401/403/409/500)                                                           | M3                         | Toasts / `Result<T, AppError>`                                                  | Después de M3                                                                          | No se “integra” una pantalla. M10–M11 **mapean** estos códigos. Sin M3 no se cablea auth.                                                             |
+| Test harness / CI                                                                                              | M4                         | —                                                                               | Nunca a UI                                                                             | Plantilla de smoke; se completa cuando existan login y policies.                                                                                      |
+| User/Session + bootstrap CLI                                                                                   | M5                         | —                                                                               | Nunca a UI                                                                             | Persistencia y CLI. El web sigue en mock hasta que haya HTTP.                                                                                         |
+| `POST /api/auth/login`, `POST /api/auth/logout`, `GET /api/auth/session`                                       | M6                         | `AuthRepository`, `LoginForm`, `AuthContext`, `credentials: 'include'` previsto | **Después de M6** a nivel de cliente HTTP; **no** activar mock→HTTP de sesión hasta M7 | El swap real es M10. Tras M6 se puede implementar `auth-api.ts` contra el contrato, pero la proyección Mechanic/roles llega en M7.                    |
+| `GET /api/auth/me`, `PATCH /api/auth/me` (perfil propio: name, phone, email, password; no username/rol/active) | M6 (mismo módulo `access`) | `ProfilePage`, `updateOwnProfile`                                               | **Después de M6** (mismo corte que login)                                              | Incluir estos endpoints en M6: el web ya los declara en `endpoint-map.ts`. Feature 01 checklist frontend.                                             |
+| Policies `requireRole` / proyección `/session`                                                                 | M7                         | Shell por rol, `policies.ts` (UX, no seguridad)                                 | **Después de M7**                                                                      | Primera integración de producto: M10. Login real + cookie + 401/403.                                                                                  |
+| `POST/GET/PATCH` usuarios Administrator                                                                        | M8                         | `UserTable`, `UserFormModal`, `UserRepository`                                  | **Después de M8**                                                                      | Integración en M11. Alinear paths web (`/api/users`) vs este plan (`/api/admin/users`) en el cliente HTTP; **la API de este plan es la fuente HTTP**. |
+| Eventos `USER_*`                                                                                               | M9                         | Sin pantalla R1                                                                 | **No integrar UI en R1**                                                               | Append en la misma transacción que M8. El exit gate de M11 **verifica** eventos por API/tests, no por una vista nueva.                                |
 
 ### Qué hacer después de cada milestone
 
-| Al terminar | Integrar a web | No integrar todavía |
-|---|---|---|
-| **M1** (hecho) | Health stub si la app era el placeholder | Auth, usuarios |
-| **M2** (hecho) | Nada de producto. Health ready queda para CI/manual | Auth, usuarios. El prototipo web sigue 100 % mock |
-| **M3** | Nada de pantallas. Deja el contrato de error que M10–M11 consumirán | Login HTTP |
-| **M4** | Nada de UI | Login HTTP (los tests de smoke auth esperan M6–M7) |
-| **M5** | Nada de UI. Bootstrap CLI crea el admin real para pruebas posteriores | Login HTTP |
-| **M6** | **Preparar** `HttpAuthRepository` (login/logout/session/me/profile). Aún no poner `VITE_USE_MOCK_API=false` como default | Shell por rol contra proyección incompleta; usuarios admin |
-| **M7** | Auth **queda integrable** (login/sesión/perfil/shell). En este plan el swap se hace en M10, después de M8, para probar los 3 roles con usuarios reales | `/users` (falta M8); cualquier pantalla R2+ |
-| **M8** | Usuarios admin **quedan integrables**. El swap se hace en M11 (tras M10) | History UI; facturación |
-| **M9** | Nada de UI nueva | Recovery/diagnostics (Release 8) |
-| **M10** | Auth HTTP verificado en browser (3 roles) | Gestión de usuarios si M8 no está |
-| **M11** | Usuarios HTTP + exit gate R1 | Release 2 (clientes/facturas) |
+| Al terminar    | Integrar a web                                                                                                                                         | No integrar todavía                                        |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------- |
+| **M1** (hecho) | Health stub si la app era el placeholder                                                                                                               | Auth, usuarios                                             |
+| **M2** (hecho) | Nada de producto. Health ready queda para CI/manual                                                                                                    | Auth, usuarios. El prototipo web sigue 100 % mock          |
+| **M3**         | Nada de pantallas. Deja el contrato de error que M10–M11 consumirán                                                                                    | Login HTTP                                                 |
+| **M4**         | Nada de UI                                                                                                                                             | Login HTTP (los tests de smoke auth esperan M6–M7)         |
+| **M5**         | Nada de UI. Bootstrap CLI crea el admin real para pruebas posteriores                                                                                  | Login HTTP                                                 |
+| **M6**         | **Preparar** `HttpAuthRepository` (login/logout/session/me/profile). Aún no poner `VITE_USE_MOCK_API=false` como default                               | Shell por rol contra proyección incompleta; usuarios admin |
+| **M7**         | Auth **queda integrable** (login/sesión/perfil/shell). En este plan el swap se hace en M10, después de M8, para probar los 3 roles con usuarios reales | `/users` (falta M8); cualquier pantalla R2+                |
+| **M8**         | Usuarios admin **quedan integrables**. El swap se hace en M11 (tras M10)                                                                               | History UI; facturación                                    |
+| **M9**         | Nada de UI nueva                                                                                                                                       | Recovery/diagnostics (Release 8)                           |
+| **M10**        | Auth HTTP verificado en browser (3 roles)                                                                                                              | Gestión de usuarios si M8 no está                          |
+| **M11**        | Usuarios HTTP + exit gate R1                                                                                                                           | Release 2 (clientes/facturas)                              |
 
 **Release 1 cerrado:** solo Access/Users (+ health + envelope de history) habla con API real. El resto del prototipo permanece mock hasta su release en [`../DEVELOPMENT_PLAN.md`](../DEVELOPMENT_PLAN.md).
 
@@ -136,19 +134,19 @@ flowchart TD
 
 ## Milestones — estado
 
-| ID | Milestone | Estado | Integración web |
-|---|---|---|---|
-| M1 | Scaffold monorepo FE/BE + convenciones + health stub | completado | Health stub (histórico; ya no es UI de producto) |
-| M2 | PostgreSQL + Prisma + health readiness | completado | **Nada de producto.** Health solo CI/ops |
-| M3 | Errores, logging, validación HTTP | completado | Contrato de errores; aún sin pantallas HTTP |
-| M4 | Test harness + CI baseline (smoke R1) | completado | Ninguna |
-| M5 | Modelo User/Session + bootstrap CLI admin | completado en local | Ninguna (CLI, no HTTP) |
-| M6 | Login/logout/sesiones + perfil propio (AUTH-001) | completado en local | Cliente HTTP auth **preparable**; swap no default |
-| M7 | Autorización server-side (AUTH-002/005) | completado en local | **Listo para M10** (auth + shell); swap no default |
-| M8 | User management backend (AUTH-003/004) | completado en local | **Listo para M11** (`/users`) |
-| M9 | History envelope R1 + eventos de usuarios | completado en local | Sin UI R1; tests/API en el exit gate |
-| M10 | Integrar auth HTTP (login/sesión/perfil/shell) | completado en local | Swap `AuthRepository` mock → HTTP |
-| M11 | Integrar users HTTP + exit gate Release 1 | completado y verificado en local | Swap `UserRepository` mock → HTTP completado |
+| ID  | Milestone                                            | Estado                           | Integración web                                    |
+| --- | ---------------------------------------------------- | -------------------------------- | -------------------------------------------------- |
+| M1  | Scaffold monorepo FE/BE + convenciones + health stub | completado                       | Health stub (histórico; ya no es UI de producto)   |
+| M2  | PostgreSQL + Prisma + health readiness               | completado                       | **Nada de producto.** Health solo CI/ops           |
+| M3  | Errores, logging, validación HTTP                    | completado                       | Contrato de errores; aún sin pantallas HTTP        |
+| M4  | Test harness + CI baseline (smoke R1)                | completado                       | Ninguna                                            |
+| M5  | Modelo User/Session + bootstrap CLI admin            | completado en local              | Ninguna (CLI, no HTTP)                             |
+| M6  | Login/logout/sesiones + perfil propio (AUTH-001)     | completado en local              | Cliente HTTP auth **preparable**; swap no default  |
+| M7  | Autorización server-side (AUTH-002/005)              | completado en local              | **Listo para M10** (auth + shell); swap no default |
+| M8  | User management backend (AUTH-003/004)               | completado en local              | **Listo para M11** (`/users`)                      |
+| M9  | History envelope R1 + eventos de usuarios            | completado en local              | Sin UI R1; tests/API en el exit gate               |
+| M10 | Integrar auth HTTP (login/sesión/perfil/shell)       | completado en local              | Swap `AuthRepository` mock → HTTP                  |
+| M11 | Integrar users HTTP + exit gate Release 1            | completado y verificado en local | Swap `UserRepository` mock → HTTP completado       |
 
 ---
 
@@ -157,6 +155,7 @@ flowchart TD
 **Objetivo:** Crear la estructura mínima ejecutable del monolito modular (frontend + backend) con TypeScript, scripts de desarrollo y convención feature-based.
 
 **Alcance:**
+
 - `apps/web/` — React + Vite + TypeScript
 - `apps/api/` — Node.js + Express + TypeScript
 - ESLint + Prettier + `tsconfig` estricto
@@ -165,18 +164,22 @@ flowchart TD
 - README mínimo de arranque local
 
 **Principales cambios esperados:**
+
 - `package.json` raíz (npm workspaces recomendado)
 - Express app vacía + Vite app placeholder
 - Convención `feature/{routes,controller,service,repository,validation,types}` con stub `health`
 
 **Dependencias / decisiones:**
+
 - Same-origin en despliegue futuro; en local: proxy Vite → API o puertos coordinados
 
 **Pruebas:**
+
 - `npm run typecheck` y `npm run build` pasan
 - Smoke manual: health stub responde
 
 **Definición de terminado:**
+
 - Clonar, instalar, ejecutar FE+BE en local, ver health check.
 - Sin lógica de negocio ni BD.
 
@@ -189,21 +192,25 @@ flowchart TD
 **Objetivo:** Persistencia PostgreSQL local con Prisma, migraciones y health readiness.
 
 **Alcance:**
+
 - Cliente Prisma singleton + cierre graceful
 - Migración inicial
 - `GET /health/live` y `GET /health/ready`
 - PostgreSQL local nativo o contenedor
 
 **Principales cambios esperados:**
+
 - `apps/api/src/infrastructure/database/`
 - `DATABASE_URL` en `.env.example`
 - Scripts `db:migrate`, `db:generate`
 
 **Pruebas:**
+
 - Integration: readiness falla sin BD, pasa con BD
 - Migración aplicable en BD limpia
 
 **Definición de terminado:**
+
 - API reporta readiness real contra PostgreSQL local.
 - Migraciones reproducibles desde cero.
 
@@ -216,6 +223,7 @@ flowchart TD
 **Objetivo:** Infraestructura transversal: errores, middleware, logs estructurados, validación runtime.
 
 **Alcance:**
+
 - Taxonomía de errores de aplicación
 - Correlation/request ID, error mapper, secure headers básicos
 - Logger estructurado (Pino recomendado)
@@ -223,10 +231,12 @@ flowchart TD
 - Respuestas con `errorId` seguro al cliente
 
 **Pruebas:**
+
 - Unit: mapeo error → status HTTP
 - Integration: 400 consistente; 500 genérico + errorId
 
 **Definición de terminado:**
+
 - Pipeline estándar request → validate → controller → service operativo.
 - Logs correlacionables por request ID.
 
@@ -255,16 +265,19 @@ El gate de auditoría permanece obligatorio.
 **Objetivo:** Unit + integration contra PostgreSQL real; CI sin despliegue.
 
 **Alcance:**
+
 - Vitest (o Jest) + Supertest
 - BD de test separada (`DATABASE_URL_TEST`)
 - GitHub Actions: install → lint → typecheck → unit → integration → build
 - **Smoke R1 en CI:** migraciones, `/health/live`, `/health/ready`, login, sesión, autorización (cuando existan en milestones posteriores; plantilla lista desde M4, completada en M6–M7)
 
 **Pruebas:**
+
 - CI verde
 - Integration test health/ready como plantilla
 
 **Definición de terminado:**
+
 - CI bloquea merge si falla typecheck o tests.
 - Smoke scope R1 documentado y automatizable.
 
@@ -326,6 +339,7 @@ M5 cumple su definición de terminado local. M4 quedó cerrado en GitHub el 2026
 **Objetivo:** Modelar usuarios, roles, sesiones y bootstrap del primer Administrator.
 
 **Alcance:**
+
 - Campos MVP confirmados: `name`, `username` (unique), `phone?`, `email?`, `role`, `active`, `passwordHash`, `createdAt`, `updatedAt`
 - Enum rol: `ADMINISTRATOR`, `SELLER`, `MECHANIC`
 - Tabla `Session`: token opaco, `userId`, `expiresAt`
@@ -334,14 +348,17 @@ M5 cumple su definición de terminado local. M4 quedó cerrado en GitHub el 2026
 - Validación contraseña: mínimo 6 caracteres
 
 **Dependencias / decisiones:**
+
 - Argon2id implementado: 19 MiB de memoria, 2 iteraciones y paralelismo 1; salt aleatorio por hash.
 
 **Pruebas:**
+
 - Unique constraint en `username`
 - Usuario inactive no borrado físicamente
 - Bootstrap exitoso en BD vacía; rechazo si ya hay usuarios
 
 **Definición de terminado:**
+
 - Migración User + Session con FKs e índices.
 - Bootstrap CLI documentado y testeado.
 - Repositorios testeados sin HTTP de auth aún.
@@ -355,6 +372,7 @@ M5 cumple su definición de terminado local. M4 quedó cerrado en GitHub el 2026
 **Objetivo:** Login por `username` + password; sesiones same-origin con cookie HttpOnly.
 
 **Alcance:**
+
 - `POST /api/auth/login` — verificación credenciales, sesión nueva, rotación
 - `POST /api/auth/logout`
 - `GET /api/auth/session`
@@ -367,9 +385,11 @@ M5 cumple su definición de terminado local. M4 quedó cerrado en GitHub el 2026
 - Middleware `requireAuth` + recheck active user
 
 **Dependencias / decisiones:**
+
 - CSRF para mutaciones — decidir en plan del milestone
 
 **Pruebas:**
+
 - Login válido → cookie + session OK
 - Credenciales inválidas / inactive → rechazo
 - Logout invalida sesión
@@ -377,6 +397,7 @@ M5 cumple su definición de terminado local. M4 quedó cerrado en GitHub el 2026
 - PATCH propio: actualiza contacto; rechaza username/rol/active; password corta o actual incorrecta → 400
 
 **Definición de terminado:**
+
 - AUTH-001 cubierto por tests automatizados vía API.
 - Perfil propio cubierto por tests (validación + rechazo de campos de cuenta).
 
@@ -396,6 +417,7 @@ queda para el release de OT. El prototipo web permanece en mock.
 **Objetivo:** Enforcement de roles en servidor; base para matriz de [`../ROLES_AND_PERMISSIONS.md`](../ROLES_AND_PERMISSIONS.md).
 
 **Alcance:**
+
 - Helpers/policies: `requireRole(...)`, `requireAdministrator`
 - Proyección mínima por rol en `/api/auth/session`:
   - Mechanic: solo datos mínimos de sesión (`id`, `username`, `name`, `role`) — **sin datos comerciales**
@@ -404,11 +426,13 @@ queda para el release de OT. El prototipo web permanece en mock.
 - Documentar que proyección WO completa queda para release de Work Orders
 
 **Pruebas:**
+
 - Seller/Mechanic → 403 en ruta admin-only
 - Administrator → 200
 - Request sin sesión → 401
 
 **Definición de terminado:**
+
 - Tests negativos de rol vía Supertest.
 - Mechanic verificado solo con proyección mínima + denegaciones.
 
@@ -423,6 +447,7 @@ queda para el release de OT. El prototipo web permanece en mock.
 **Objetivo cumplido:** administración HTTP de cuentas, desactivación sin borrado, primer acceso restringido, cambio propio de contraseña y recuperación autorizada. Implementación y contrato detallados en [`milestone-8-verification.md`](milestone-8-verification.md); evidencia de cierre en [`../done_api/release-1.md`](../done_api/release-1.md).
 
 **Endpoints entregados:**
+
 - `POST /api/admin/users`: name, username, role y contacto opcional; sin contraseña elegida por Administrator. Servidor asigna `solocamiones` y `mustChangePassword=true`.
 - `GET /api/admin/users`: listado paginado, incluye inactivos.
 - `PATCH /api/admin/users/:id`: perfil, username, rol y estado; rechaza credenciales y manipulación del flag.
@@ -431,6 +456,7 @@ queda para el release de OT. El prototipo web permanece en mock.
 - `POST /api/admin/users/recovery-requests/:id/resolve`: otro Administrator aprueba con `identityVerified=true` o rechaza. Al aprobar el sistema genera contraseña temporal aleatoria, sin vencimiento, devuelta una sola vez para entrega personal.
 
 **Reglas implementadas:**
+
 - Solo Administrator activo y sin cambio pendiente administra cuentas/solicitudes; autorización repetida dentro del servicio.
 - Ningún administrador puede desactivarse, quitarse su rol o resolver su propia solicitud. Las transacciones protegen la permanencia de un Administrator activo ante concurrencia.
 - Cuentas existentes y bootstrap conservan contraseña y flag false. Activación/rol no restablecen credenciales ni eliminan restricciones pendientes.
@@ -449,6 +475,7 @@ queda para el release de OT. El prototipo web permanece en mock.
 **Integración web pendiente:** M10 adapta perfil/login/solicitud de recuperación; M11 conecta administración y resolución de solicitudes y elimina contraseña del formulario. M8 no modifica frontend ni activa HTTP web.
 
 ---
+
 ## Milestone 9 — History mínimo Release 1 (HIST-001/002 slice)
 
 **Estado:** completado y verificado localmente (2026-09-05). Evidencia en [`milestone-9-verification.md`](milestone-9-verification.md).
@@ -456,6 +483,7 @@ queda para el release de OT. El prototipo web permanece en mock.
 **Objetivo:** Envelope reutilizable + eventos de administración de usuarios.
 
 **Alcance:**
+
 - Tabla `HistoryEvent`: UUID, `occurredAt`, `actorType`, `actorUserId` (FK User para actores autenticados; null para ANONYMOUS/SYSTEM), `eventType`, `subjectType`, `subjectId`, `payload` JSONB.
 - Tipos R1: `USER_CREATED`, `USER_ROLE_CHANGED`, `USER_ACTIVATED`, `USER_DEACTIVATED`, `USER_PROFILE_CHANGED`, `USER_PASSWORD_CHANGED` y `USER_RECOVERY_REQUESTED/APPROVED/REJECTED/EXPIRED/CANCELLED`.
 - Decisiones aprobadas por el owner: perfil con valores anteriores/nuevos (name, username, phone, email); cambio propio de contraseña obligatorio/voluntario solo con metadata; bootstrap con actor SYSTEM y origen CLI; solicitudes públicas con actor ANONYMOUS; vencimientos SYSTEM; cancelaciones con actor y motivo. Sin backfill de acontecimientos desconocidos.
@@ -464,11 +492,13 @@ queda para el release de OT. El prototipo web permanece en mock.
 - Validación estricta por evento y payload; repositorio interno solo append; trigger PostgreSQL rechaza UPDATE/DELETE. No-op no genera evento de cambio.
 
 **Pruebas:**
+
 - Crear/desactivar → eventos append-only
 - Actor desactivado resoluble en eventos previos
 - Operación fallida → sin evento de éxito
 
 **Definición de terminado:**
+
 - AUTH-004 + HIST-002 demostrables con integration test.
 - Sin recuperación operativa/diagnósticos de Release 8 ni eventos de otros dominios. Recuperación de contraseña M8 sí incluida.
 
@@ -485,6 +515,7 @@ queda para el release de OT. El prototipo web permanece en mock.
 **Objetivo:** Sustituir el mock de `AuthRepository` por la API de M6–M7. La UI de login/shell/perfil **ya existe** (prototipo WM2 + perfil); se adapta al cambio obligatorio añadido en M8.
 
 **Alcance:**
+
 - Implementar `HttpAuthRepository` / `auth-api.ts`: login, logout, session, me, `updateOwnProfile`
 - `credentials: 'include'` y manejo de cookie HttpOnly
 - Mapear 401 (sesión expirada / inactive) y errores de validación a la UX existente
@@ -498,12 +529,14 @@ queda para el release de OT. El prototipo web permanece en mock.
 - Default de desarrollo puede seguir en mock hasta que este milestone esté verde; entonces auth R1 usa API real
 
 **Pruebas:**
+
 - Browser: login/logout por 3 roles con usuarios de bootstrap/M8 (no las credenciales demo del mock)
 - Mechanic no ve nav admin/comercial
 - Perfil propio persiste tras recargar
 - Browser: primer acceso de los tres roles obliga a cambiar contraseña; errores mantienen la restricción; completar exige nuevo login y permite después el shell correspondiente.
 
 **Definición de terminado:**
+
 - Checklist frontend Feature 01 de login/logout/session/nav/perfil contra API local.
 - Inventario, ventas, clientes, OT, etc. **siguen en mock**.
 
@@ -518,6 +551,7 @@ queda para el release de OT. El prototipo web permanece en mock.
 **Objetivo:** Sustituir el mock de `UserRepository` por la API de M8 y cerrar Release 1 en local.
 
 **Alcance:**
+
 - `HttpUserRepository`: list → `GET /api/admin/users`; create → `POST`; update/deactivate/role → `PATCH /api/admin/users/:id`
 - Listado: `name`, `username`, rol, estado, phone/email si existen
 - Quitar contraseña de creación/edición en `UserFormModal`, contratos y adaptadores de usuarios, incluidos mocks usados por pruebas. No ofrecer reset libre; agregar atención de solicitudes de recuperación y entrega única de contraseña temporal generada por el sistema. Informar al crear que la contraseña inicial es `solocamiones` y debe cambiarse al entrar; no obtenerla de una respuesta API.
@@ -526,12 +560,14 @@ queda para el release de OT. El prototipo web permanece en mock.
 - Confirmar que history `USER_*` se escribe (tests/API), sin pantalla nueva de historial
 
 **Pruebas:**
+
 - Browser E2E local: Admin crea Seller sin elegir contraseña; Seller entra con `solocamiones`, cambia desde perfil, vuelve a iniciar sesión y obtiene acceso; Admin desactiva y login falla.
 - Seller intenta ruta admin → 403 API + UX coherente
 - Suite CI smoke R1 completa: migraciones, health, login, sesión, autorización
 - Feature 01 acceptance criteria verificables end-to-end en local
 
 **Definición de terminado (exit gate Release 1):**
+
 - Access and Users completamente funcional y probado en **entorno local**.
 - Roles autentican localmente; requests directos no autorizados fallan.
 - Migraciones limpias en BD local fresca.

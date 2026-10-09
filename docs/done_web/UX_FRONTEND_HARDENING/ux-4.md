@@ -1,13 +1,13 @@
 # Milestone UX-4 — Inventario: jerarquía visual e interacción
 
-| Campo | Valor |
-|---|---|
-| **ID plan** | UX-4 |
-| **Estado** | Completado |
-| **Fecha** | 2026-09-02 |
+| Campo          | Valor                                                                                                  |
+| -------------- | ------------------------------------------------------------------------------------------------------ |
+| **ID plan**    | UX-4                                                                                                   |
+| **Estado**     | Completado                                                                                             |
+| **Fecha**      | 2026-09-02                                                                                             |
 | **Referencia** | [`docs/plans_web/UX_FRONTEND_HARDENING_PLAN.md`](../../plans_web/UX_FRONTEND_HARDENING_PLAN.md) § UX-4 |
-| **Alcance** | Solo frontend (`apps/web`). No cambia reglas de negocio ni el backend. |
-| **Siguiente** | UX-5 — Ventas/POS: prevención de errores y claridad |
+| **Alcance**    | Solo frontend (`apps/web`). No cambia reglas de negocio ni el backend.                                 |
+| **Siguiente**  | UX-5 — Ventas/POS: prevención de errores y claridad                                                    |
 
 ---
 
@@ -21,12 +21,12 @@ El corte de negocio sigue siendo **Release 1 ACTIVE**. Inventario, reservas, jer
 
 ### Jerarquía visual (inventario)
 
-| Capa | Qué se muestra | Tratamiento |
-|---|---|---|
-| Principal | `Disponible` | Texto seminegrita, no chip |
-| Excepción comercial | `Vendido`, `No disponible` | Chip danger / amber |
-| Contexto | `Instalado en [padre]`, `Por cantidad`, `Ensamblaje` | Texto secundario (SEARCH-002) |
-| Excepción | `Incompleto`, `Reservado`, `No desarmar`, trabajo físico activo | Chip amber o danger |
+| Capa                | Qué se muestra                                                  | Tratamiento                   |
+| ------------------- | --------------------------------------------------------------- | ----------------------------- |
+| Principal           | `Disponible`                                                    | Texto seminegrita, no chip    |
+| Excepción comercial | `Vendido`, `No disponible`                                      | Chip danger / amber           |
+| Contexto            | `Instalado en [padre]`, `Por cantidad`, `Ensamblaje`            | Texto secundario (SEARCH-002) |
+| Excepción           | `Incompleto`, `Reservado`, `No desarmar`, trabajo físico activo | Chip amber o danger           |
 
 No se pinta `Independiente`, `Completo` ni `Pieza`: son el caso normal. El listado compacta reserva/`No desarmar` (sin id de borrador ni raíz); el detalle conserva esa referencia.
 

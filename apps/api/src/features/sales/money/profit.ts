@@ -86,7 +86,11 @@ export function calculateLineUsdProfitBreakdown(
   line: LineProfitInput,
   applyItbis: boolean,
   exchangeRateDopPerUsd: Prisma.Decimal,
-): { profitability: Profitability; sellingPrice: Prisma.Decimal; profitUsd: Prisma.Decimal | null } {
+): {
+  profitability: Profitability;
+  sellingPrice: Prisma.Decimal;
+  profitUsd: Prisma.Decimal | null;
+} {
   const sellingPriceUsd = sellingPriceOf(line, applyItbis);
   const costUsd = usdCostBasis(line, exchangeRateDopPerUsd);
   if (costUsd == null) {
@@ -140,15 +144,13 @@ export function manualProfitability(
 }
 
 /** COST-003 for a commercially recognized sale (CONDUCE or COMPLETED). */
-export function calculatedCompletedProfitability(
-  invoice: {
-    status: string;
-    currency: string;
-    applyItbis: boolean;
-    lines: readonly LineProfitInput[];
-    exchangeRateDopPerUsd?: Prisma.Decimal | null;
-  },
-): Profitability | null {
+export function calculatedCompletedProfitability(invoice: {
+  status: string;
+  currency: string;
+  applyItbis: boolean;
+  lines: readonly LineProfitInput[];
+  exchangeRateDopPerUsd?: Prisma.Decimal | null;
+}): Profitability | null {
   // CON-006: profitability is recognized at conduce emission, not only at FAC-.
   if (invoice.status !== 'COMPLETED' && invoice.status !== 'CONDUCE') return null;
   if (invoice.currency === 'USD') {

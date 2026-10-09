@@ -1,5 +1,12 @@
 import { CORPORATE_PROFILE } from '../document-profile/index.js';
-import { BORDER, BRAND_BLUE, BRAND_NAVY, LIGHT_BLUE, LOGO_PATH, MUTED } from '../document-pdf/brand-tokens.js';
+import {
+  BORDER,
+  BRAND_BLUE,
+  BRAND_NAVY,
+  LIGHT_BLUE,
+  LOGO_PATH,
+  MUTED,
+} from '../document-pdf/brand-tokens.js';
 import {
   formatBusinessDate,
   formatBusinessDateTime,
@@ -188,9 +195,14 @@ function drawFooter(document: PdfDocument, generatedAt: Date): void {
       .fillColor(MUTED)
       .font('Helvetica')
       .fontSize(6.5)
-      .text(`Saldo actualizado al ${formatBusinessDateTime(generatedAt)}`, left + 300, footerTop + 32, {
-        width: rightColumnWidth,
-      });
+      .text(
+        `Saldo actualizado al ${formatBusinessDateTime(generatedAt)}`,
+        left + 300,
+        footerTop + 32,
+        {
+          width: rightColumnWidth,
+        },
+      );
     document.text(INVOICE_PDF_INTERNAL_NOTICE, left + 300, footerTop + 46, {
       width: rightColumnWidth,
     });

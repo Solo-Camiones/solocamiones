@@ -35,10 +35,7 @@ export function ProfilePage() {
 
   return (
     <>
-      <PageHeader
-        title="Mi perfil"
-        description="Nombre y datos de contacto."
-      />
+      <PageHeader title="Mi perfil" description="Nombre y datos de contacto." />
       <div className="space-y-4">
         {user.mustChangePassword && (
           <Info tone="warning" title="Debe cambiar su contraseña">

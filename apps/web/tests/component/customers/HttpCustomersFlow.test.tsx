@@ -160,7 +160,9 @@ describe('M19 HTTP customer directory UI', () => {
 
     const cashRow = screen.getByText('Cliente contado').closest('tr');
     expect(cashRow).not.toBeNull();
-    expect(within(cashRow as HTMLTableRowElement).getByRole('button', { name: 'Editar' })).toBeDisabled();
+    expect(
+      within(cashRow as HTMLTableRowElement).getByRole('button', { name: 'Editar' }),
+    ).toBeDisabled();
 
     await user.click(screen.getByRole('button', { name: 'Nuevo cliente' }));
     await user.type(screen.getByLabelText('Nombre'), 'Flota Este');
@@ -213,8 +215,8 @@ describe('M19 HTTP customer directory UI', () => {
 
     expect(await screen.findByText('Acceso no autorizado')).toBeVisible();
     expect(screen.queryByText('Cliente contado')).not.toBeInTheDocument();
-    expect(
-      fetchMock.mock.calls.some(([path]) => String(path).startsWith('/api/customers')),
-    ).toBe(false);
+    expect(fetchMock.mock.calls.some(([path]) => String(path).startsWith('/api/customers'))).toBe(
+      false,
+    );
   });
 });

@@ -150,13 +150,17 @@ After editing:
 Return:
 
 ## Documentation updated
+
 Files changed.
 
 ## Changes documented
+
 Important behavior added/changed.
 
 ## Conflicts discovered
+
 Code/documentation inconsistencies.
 
 ## Questions
+
 Any unresolved source-of-truth issues.

@@ -4,7 +4,20 @@ import { Link } from 'react-router-dom';
 import type { QtyProductDetailView } from '../../api/contracts/inventory';
 import { locationDisplay } from '../../shared/copy/glossary';
 import { InventoryStatusCluster } from '../../shared/domain';
-import { Button, Card, EventTimeline, Field, GuardedModal, Info, Input, Mono, SectionTitle, Textarea, money, isFormDirty } from '../../shared/ui';
+import {
+  Button,
+  Card,
+  EventTimeline,
+  Field,
+  GuardedModal,
+  Info,
+  Input,
+  Mono,
+  SectionTitle,
+  Textarea,
+  money,
+  isFormDirty,
+} from '../../shared/ui';
 import { PhotoGrid } from './PhotoGrid';
 
 export function QtyProductDetail({
@@ -169,31 +182,31 @@ export function QtyProductDetail({
         isBusy={isMutating}
       >
         {({ requestClose }) => (
-        <div className="space-y-3">
-          {error && (
-            <Info tone="error" title="No se pudieron guardar los datos">
-              {error}
-            </Info>
-          )}
-          <QtyDetailsForm
-            name={detail.name}
-            brand={detail.brand}
-            location={detail.location}
-            disabled={isMutating}
-            onDirtyChange={setEditDirty}
-            onCancel={requestClose}
-            onSubmit={async (input) => {
-              const message = await onEdit(input);
-              if (message) {
-                setError(message);
-                return;
-              }
-              setError(null);
-              setEditOpen(false);
-              setEditDirty(false);
-            }}
-          />
-        </div>
+          <div className="space-y-3">
+            {error && (
+              <Info tone="error" title="No se pudieron guardar los datos">
+                {error}
+              </Info>
+            )}
+            <QtyDetailsForm
+              name={detail.name}
+              brand={detail.brand}
+              location={detail.location}
+              disabled={isMutating}
+              onDirtyChange={setEditDirty}
+              onCancel={requestClose}
+              onSubmit={async (input) => {
+                const message = await onEdit(input);
+                if (message) {
+                  setError(message);
+                  return;
+                }
+                setError(null);
+                setEditOpen(false);
+                setEditDirty(false);
+              }}
+            />
+          </div>
         )}
       </GuardedModal>
 
@@ -209,28 +222,28 @@ export function QtyProductDetail({
         isBusy={isMutating}
       >
         {({ requestClose }) => (
-        <div className="space-y-3">
-          {error && (
-            <Info tone="error" title="No se pudo registrar la entrada">
-              {error}
-            </Info>
-          )}
-          <ReceiveQtyForm
-            disabled={isMutating}
-            onDirtyChange={setReceiveDirty}
-            onCancel={requestClose}
-            onSubmit={async (input) => {
-              const message = await onReceive(input);
-              if (message) {
-                setError(message);
-                return;
-              }
-              setError(null);
-              setReceiveOpen(false);
-              setReceiveDirty(false);
-            }}
-          />
-        </div>
+          <div className="space-y-3">
+            {error && (
+              <Info tone="error" title="No se pudo registrar la entrada">
+                {error}
+              </Info>
+            )}
+            <ReceiveQtyForm
+              disabled={isMutating}
+              onDirtyChange={setReceiveDirty}
+              onCancel={requestClose}
+              onSubmit={async (input) => {
+                const message = await onReceive(input);
+                if (message) {
+                  setError(message);
+                  return;
+                }
+                setError(null);
+                setReceiveOpen(false);
+                setReceiveDirty(false);
+              }}
+            />
+          </div>
         )}
       </GuardedModal>
 
@@ -246,30 +259,30 @@ export function QtyProductDetail({
         isBusy={isMutating}
       >
         {({ requestClose }) => (
-        <div className="space-y-3">
-          {error && (
-            <Info tone="error" title="No se pudo ajustar la existencia">
-              {error}
-            </Info>
-          )}
-          <AdjustQtyForm
-            onHand={detail.onHand}
-            reserved={detail.reserved}
-            disabled={isMutating}
-            onDirtyChange={setAdjustDirty}
-            onCancel={requestClose}
-            onSubmit={async (input) => {
-              const message = await onAdjust(input);
-              if (message) {
-                setError(message);
-                return;
-              }
-              setError(null);
-              setAdjustOpen(false);
-              setAdjustDirty(false);
-            }}
-          />
-        </div>
+          <div className="space-y-3">
+            {error && (
+              <Info tone="error" title="No se pudo ajustar la existencia">
+                {error}
+              </Info>
+            )}
+            <AdjustQtyForm
+              onHand={detail.onHand}
+              reserved={detail.reserved}
+              disabled={isMutating}
+              onDirtyChange={setAdjustDirty}
+              onCancel={requestClose}
+              onSubmit={async (input) => {
+                const message = await onAdjust(input);
+                if (message) {
+                  setError(message);
+                  return;
+                }
+                setError(null);
+                setAdjustOpen(false);
+                setAdjustDirty(false);
+              }}
+            />
+          </div>
         )}
       </GuardedModal>
     </div>

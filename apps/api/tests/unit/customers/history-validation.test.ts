@@ -12,9 +12,7 @@ const snapshot = {
   customerType: 'CREDIT' as const,
   creditLimitDop: '10000.00',
   creditTermDays: 60,
-  contacts: [
-    { name: 'Ana', phone: '8090000000', email: null, title: null, isPrimary: true },
-  ],
+  contacts: [{ name: 'Ana', phone: '8090000000', email: null, title: null, isPrimary: true }],
 };
 
 describe('customer history validation', () => {

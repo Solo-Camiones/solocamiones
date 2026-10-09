@@ -87,7 +87,9 @@ function useControlA11y(
   const id = explicitId ?? field?.controlId;
   const describedBy = mergeDescribedBy(field?.describedBy, describedByFromProps);
   const invalid =
-    invalidFromProps === true || invalidFromProps === 'true' || (invalidFromProps == null && field?.invalid)
+    invalidFromProps === true ||
+    invalidFromProps === 'true' ||
+    (invalidFromProps == null && field?.invalid)
       ? true
       : undefined;
 

@@ -1,7 +1,15 @@
 import type { ProfitabilityRepository } from '../../api/contracts/repositories';
-import type { RecordManualGrossProfitInput, RetryUsdProfitabilityInput, SetFxAvailableInput } from '../../api/contracts/profitability';
+import type {
+  RecordManualGrossProfitInput,
+  RetryUsdProfitabilityInput,
+  SetFxAvailableInput,
+} from '../../api/contracts/profitability';
 import { err, ok } from '../../shared/auth/types';
-import { recordManualGrossProfit, retryUsdProfitability, setFxAvailable } from '../services/profitability-commands';
+import {
+  recordManualGrossProfit,
+  retryUsdProfitability,
+  setFxAvailable,
+} from '../services/profitability-commands';
 import { buildProfitabilitySnapshot } from '../services/profitability-catalog';
 import { requirePermission } from '../services/require-permission';
 import { cloneForRead, getMockState } from '../state';

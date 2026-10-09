@@ -86,7 +86,10 @@ export function isNamedCashCustomer(customer: ConfirmationCustomer): boolean {
   return customer.customerType === 'CASH' && !customer.isDefault;
 }
 
-function requiresFullSettlement(customer: ConfirmationCustomer, currency: InvoiceCurrency): boolean {
+function requiresFullSettlement(
+  customer: ConfirmationCustomer,
+  currency: InvoiceCurrency,
+): boolean {
   return customer.customerType === 'CASH' || customer.isDefault || currency === 'USD';
 }
 
@@ -168,9 +171,7 @@ export function resolveConduceDueDate(input: {
 }): Date {
   const { customer, currency, actorRole, confirmedAt, newBalance, actorDueDate } = input;
   const needsActorDueDate =
-    actorRole === 'ADMINISTRATOR' &&
-    isNamedCashCustomer(customer) &&
-    newBalance.greaterThan(0);
+    actorRole === 'ADMINISTRATOR' && isNamedCashCustomer(customer) && newBalance.greaterThan(0);
 
   if (needsActorDueDate) {
     if (actorDueDate == null) {

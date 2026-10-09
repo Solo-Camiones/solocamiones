@@ -2,12 +2,15 @@ import request from 'supertest';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { createApp } from '../../../src/app.js';
+import { METRICS_RATE_LIMIT_MAX_REQUESTS } from '../../../src/features/health/constants.js';
+import { resetMetricsRateLimit } from '../../../src/features/health/metrics-rate-limit.js';
 import { CF_ACCESS_JWT_HEADER } from '../../../src/infrastructure/http/cloudflare-access.js';
 import { resetAssistantMetricsForTests } from '../../../src/infrastructure/metrics/index.js';
 
 describe('GET /metrics', () => {
-  afterEach(() => {
+  afterEach(async () => {
     resetAssistantMetricsForTests();
+    await resetMetricsRateLimit();
     delete process.env.METRICS_BEARER_TOKEN;
   });
 
@@ -27,6 +30,33 @@ describe('GET /metrics', () => {
       .set('Authorization', 'Bearer metrics-secret');
     expect(ok.status).toBe(200);
     expect(ok.text).toContain('#');
+  });
+
+  it('rate-limits scrape attempts from the same client with 429 TOO_MANY_REQUESTS', async () => {
+    process.env.METRICS_BEARER_TOKEN = 'metrics-secret';
+    const app = createApp({ trustProxy: true });
+    const clientIp = '203.0.113.50';
+
+    for (let attempt = 0; attempt < METRICS_RATE_LIMIT_MAX_REQUESTS; attempt += 1) {
+      const response = await request(app)
+        .get('/metrics')
+        .set('X-Forwarded-For', clientIp)
+        .set('Authorization', 'Bearer wrong-token');
+      expect(response.status).toBe(401);
+    }
+
+    const limited = await request(app)
+      .get('/metrics')
+      .set('X-Forwarded-For', clientIp)
+      .set('Authorization', 'Bearer wrong-token');
+    expect(limited.status).toBe(429);
+    expect(limited.body.error.code).toBe('TOO_MANY_REQUESTS');
+
+    const otherClient = await request(app)
+      .get('/metrics')
+      .set('X-Forwarded-For', '203.0.113.51')
+      .set('Authorization', 'Bearer metrics-secret');
+    expect(otherClient.status).toBe(200);
   });
 
   it('skips Cloudflare Access and Host allow-list for internal scrapes', async () => {

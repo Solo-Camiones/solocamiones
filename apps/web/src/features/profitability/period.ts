@@ -67,7 +67,11 @@ export function resolvePeriodRange(input: {
   return first <= second ? { from: first, to: second } : { from: second, to: first };
 }
 
-export function evolutionChartRange(range: DateRange, preset: PeriodPreset, today: string): DateRange {
+export function evolutionChartRange(
+  range: DateRange,
+  preset: PeriodPreset,
+  today: string,
+): DateRange {
   if (preset === 'custom' || range.to !== today) {
     return range;
   }

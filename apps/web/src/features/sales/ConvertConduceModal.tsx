@@ -72,7 +72,10 @@ export function ConvertConduceModal({
             </span>
           </label>
           <Field label="NCF" htmlFor={`${fiscalId}-ncf`}>
-            <p id={`${fiscalId}-ncf`} className="rounded-lg border border-navy-100 bg-navy-50 px-3 py-2">
+            <p
+              id={`${fiscalId}-ncf`}
+              className="rounded-lg border border-navy-100 bg-navy-50 px-3 py-2"
+            >
               NCF: ______________________
             </p>
           </Field>

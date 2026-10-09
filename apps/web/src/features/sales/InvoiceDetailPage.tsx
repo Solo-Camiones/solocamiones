@@ -22,7 +22,13 @@ import { useInvoiceDetail } from './useInvoiceDetail';
 
 function InvoiceDetailSkeleton() {
   return (
-    <div role="status" aria-busy="true" aria-live="polite" aria-label="Cargando factura" className="space-y-6">
+    <div
+      role="status"
+      aria-busy="true"
+      aria-live="polite"
+      aria-label="Cargando factura"
+      className="space-y-6"
+    >
       <p className="sr-only">Cargando factura</p>
       {/* Header placeholder */}
       <div className="space-y-2">
@@ -128,10 +134,7 @@ export function InvoiceDetailPage() {
     <>
       <PageHeader
         leading={<BackToSalesLink />}
-        breadcrumbs={[
-          { label: 'Ventas', to: '/sales' },
-          { label: primaryNumber },
-        ]}
+        breadcrumbs={[{ label: 'Ventas', to: '/sales' }, { label: primaryNumber }]}
         title={primaryNumber}
         description={`${detail.customerName}${detail.customerRnc ? ` · ${formatFiscalId(detail.customerRnc)}` : ''}${
           originParts.length > 0 ? ` · ${originParts.join(' · ')}` : ''
@@ -257,9 +260,7 @@ export function InvoiceDetailPage() {
           capabilities.payments &&
           detail.paymentState && <PaymentChip state={detail.paymentState} />}
         <FiscalChip fiscal={detail.fiscal} />
-        {detail.conduceNumber && detail.number ? (
-          <Chip>Origen {detail.conduceNumber}</Chip>
-        ) : null}
+        {detail.conduceNumber && detail.number ? <Chip>Origen {detail.conduceNumber}</Chip> : null}
         {detail.quoteNumber ? <Chip>Origen {detail.quoteNumber}</Chip> : null}
         <Chip>{detail.currency}</Chip>
       </div>

@@ -45,10 +45,7 @@ export type RecentInvoicesListProps = {
   showPaymentState?: boolean;
 };
 
-export function RecentInvoicesList({
-  invoices,
-  showPaymentState = true,
-}: RecentInvoicesListProps) {
+export function RecentInvoicesList({ invoices, showPaymentState = true }: RecentInvoicesListProps) {
   return (
     <section>
       <SectionTitle

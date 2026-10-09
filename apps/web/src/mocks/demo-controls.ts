@@ -12,7 +12,8 @@ import { getMockState, resetMockState } from './state';
 export type { DemoScenario } from './scenarios';
 export { DEMO_SCENARIOS } from './scenarios';
 
-const DEV_ONLY_MESSAGE = 'Los controles demo solo están disponibles cuando prototypeControls está habilitado.';
+const DEV_ONLY_MESSAGE =
+  'Los controles demo solo están disponibles cuando prototypeControls está habilitado.';
 
 function isDemoControlsEnabled(): boolean {
   return getAppCapabilities().prototypeControls;
@@ -68,15 +69,15 @@ export function findDemoScenarioForHint(hint: StoredDemoScenarioHint): DemoScena
       ? DEMO_SCENARIOS.find((entry) => entry.id === hint.scenarioId)
       : undefined) ??
     DEMO_SCENARIOS.find(
-      (entry) =>
-        entry.suggestedUsername === hint.suggestedUsername && entry.title === hint.title,
+      (entry) => entry.suggestedUsername === hint.suggestedUsername && entry.title === hint.title,
     ) ??
     DEMO_SCENARIOS.find((entry) => entry.suggestedUsername === hint.suggestedUsername)
   );
 }
 
 /** Login aside payload: stored hint plus password from DEMO_SCENARIOS. */
-export function readDemoLoginHint(): (StoredDemoScenarioHint & { suggestedPassword: string }) | null {
+export function readDemoLoginHint():
+  (StoredDemoScenarioHint & { suggestedPassword: string }) | null {
   const stored = readLastDemoScenarioHint();
   if (!stored) {
     return null;

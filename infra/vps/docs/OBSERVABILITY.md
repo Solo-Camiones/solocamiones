@@ -4,13 +4,13 @@ Guía operativa del stack de métricas, logs y uptime. Secretos reales viven sol
 
 ## Componentes
 
-| Pieza | Compose | Cuándo |
-| ----- | ------- | ------ |
-| `postgres-exporter` | siempre | Staging y producción |
-| `node-exporter` | profile `host-metrics` | VPS Linux (monta `/proc`/`/sys`) |
-| `prometheus` + `grafana` | profile `observability` | **Solo staging** |
-| `vector` | profile `logs` | Staging y producción (Better Stack) |
-| `GET /metrics` (API) | servicio `api` | Scrape interno con `METRICS_BEARER_TOKEN` |
+| Pieza                    | Compose                 | Cuándo                                    |
+| ------------------------ | ----------------------- | ----------------------------------------- |
+| `postgres-exporter`      | siempre                 | Staging y producción                      |
+| `node-exporter`          | profile `host-metrics`  | VPS Linux (monta `/proc`/`/sys`)          |
+| `prometheus` + `grafana` | profile `observability` | **Solo staging**                          |
+| `vector`                 | profile `logs`          | Staging y producción (Better Stack)       |
+| `GET /metrics` (API)     | servicio `api`          | Scrape interno con `METRICS_BEARER_TOKEN` |
 
 ## Arranque en el host de staging
 

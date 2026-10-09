@@ -122,7 +122,13 @@ describe('prepareCustomerSave', () => {
       {
         name: 'Flota Este',
         contacts: [
-          { name: 'María Reyes', phone: '809-555-0100', email: 'maria@example.com', title: 'Compras', isPrimary: true },
+          {
+            name: 'María Reyes',
+            phone: '809-555-0100',
+            email: 'maria@example.com',
+            title: 'Compras',
+            isPrimary: true,
+          },
           { name: 'Carlos Peña', email: 'carlos@example.com', title: 'Operaciones' },
         ],
       },
@@ -226,16 +232,27 @@ describe('prepareCustomerSave', () => {
     expect(
       prepareCustomerSave(
         seedCustomers,
-        { name: 'Nuevo', customerType: 'CREDIT', creditLimitDop: '1.00', creditTermDays: 30, rnc: '131000001' },
+        {
+          name: 'Nuevo',
+          customerType: 'CREDIT',
+          creditLimitDop: '1.00',
+          creditTermDays: 30,
+          rnc: '131000001',
+        },
         ctx,
       ),
-    ).toMatchObject({ ok: false, error: { code: 'FORBIDDEN', message: INSUFFICIENT_PERMISSIONS_MESSAGE } });
+    ).toMatchObject({
+      ok: false,
+      error: { code: 'FORBIDDEN', message: INSUFFICIENT_PERMISSIONS_MESSAGE },
+    });
 
     expect(
       prepareCustomerSave(seedCustomers, { name: 'Nuevo', creditLimitDop: '1.00' }, ctx),
     ).toMatchObject({ ok: false, error: { code: 'FORBIDDEN' } });
 
-    expect(prepareCustomerSave(seedCustomers, { id: 'C1', name: 'Transportes del Caribe SRL' }, ctx)).toMatchObject({
+    expect(
+      prepareCustomerSave(seedCustomers, { id: 'C1', name: 'Transportes del Caribe SRL' }, ctx),
+    ).toMatchObject({
       ok: false,
       error: { code: 'FORBIDDEN' },
     });

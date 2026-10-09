@@ -13,7 +13,11 @@ import { disconnectPrisma, prisma } from '../../../src/infrastructure/database/i
 import { createTestApp } from '../../helpers/app.js';
 import { successfulUsdDopRate, staticFxRateProvider } from '../../helpers/fx.js';
 import { clearTestHistory } from '../../helpers/history.js';
-import { assignNamedCustomerForCredit, cashSaleFullPayment, seedKnownLineCost } from '../../helpers/sales.js';
+import {
+  assignNamedCustomerForCredit,
+  cashSaleFullPayment,
+  seedKnownLineCost,
+} from '../../helpers/sales.js';
 
 const users = new UserRepository();
 const PASSWORD = 'personal-password';

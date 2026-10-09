@@ -15,7 +15,11 @@ import { UserRepository } from '../../../src/features/users/repository.js';
 import { disconnectPrisma, prisma } from '../../../src/infrastructure/database/index.js';
 import { createTestApp } from '../../helpers/app.js';
 import { clearTestHistory } from '../../helpers/history.js';
-import { assignNamedCustomerForCredit, cashSaleFullPayment, seedKnownLineCost } from '../../helpers/sales.js';
+import {
+  assignNamedCustomerForCredit,
+  cashSaleFullPayment,
+  seedKnownLineCost,
+} from '../../helpers/sales.js';
 
 const app = createTestApp();
 const users = new UserRepository();

@@ -11,7 +11,8 @@ const MECHANIC_NAV: { id: string; label: string; path: string; requiresWorkOrder
 export function MechanicBottomNav() {
   const { workOrders } = useAppCapabilities();
   const items = MECHANIC_NAV.filter((item) => !item.requiresWorkOrders || workOrders);
-  const columns = items.length === 1 ? 'grid-cols-1' : items.length === 2 ? 'grid-cols-2' : 'grid-cols-3';
+  const columns =
+    items.length === 1 ? 'grid-cols-1' : items.length === 2 ? 'grid-cols-2' : 'grid-cols-3';
 
   return (
     <nav

@@ -52,11 +52,7 @@ const cashDraft: PosDraftView = {
   customerType: 'CASH',
 };
 
-function renderModal(
-  draft: PosDraftView,
-  role: 'ADMINISTRATOR' | 'SELLER',
-  onConfirm = vi.fn(),
-) {
+function renderModal(draft: PosDraftView, role: 'ADMINISTRATOR' | 'SELLER', onConfirm = vi.fn()) {
   renderWithProviders(
     <ConfirmSaleModal
       open
@@ -76,9 +72,7 @@ describe('ConfirmSaleModal', () => {
     const user = userEvent.setup();
     const onConfirm = renderModal(creditDraft, 'SELLER');
 
-    expect(
-      screen.getByText(/El Administrador registra el pago/),
-    ).toBeVisible();
+    expect(screen.getByText(/El Administrador registra el pago/)).toBeVisible();
     expect(screen.queryByLabelText('Pago inicial')).not.toBeInTheDocument();
 
     const dialog = screen.getByRole('dialog', { name: 'Confirmar venta' });

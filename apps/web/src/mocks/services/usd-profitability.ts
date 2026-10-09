@@ -5,11 +5,7 @@ import { lineCostDop } from './gross-profit';
 
 export const DEMO_FX_SOURCE = 'DEMO_FX';
 
-export type UsdProfitabilityOutcome =
-  | 'CALCULATED'
-  | 'PENDING_FX'
-  | 'UNAVAILABLE_COST'
-  | 'SKIPPED';
+export type UsdProfitabilityOutcome = 'CALCULATED' | 'PENDING_FX' | 'UNAVAILABLE_COST' | 'SKIPPED';
 
 /**
  * Demo FX adapter — the live rate is never applied unless `fxAvailable` is on.
@@ -104,7 +100,10 @@ function clearUsdProfit(invoice: Invoice): void {
  * Secondary enrichment after a valid USD sale. Never mutates payments, inventory, or FAC-.
  */
 export function applyUsdProfitability(state: AppState, invoice: Invoice): UsdProfitabilityOutcome {
-  if (invoice.currency !== 'USD' || (invoice.status !== 'COMPLETED' && invoice.status !== 'CONDUCE')) {
+  if (
+    invoice.currency !== 'USD' ||
+    (invoice.status !== 'COMPLETED' && invoice.status !== 'CONDUCE')
+  ) {
     return 'SKIPPED';
   }
 

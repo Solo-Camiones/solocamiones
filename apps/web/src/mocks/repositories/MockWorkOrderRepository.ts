@@ -160,10 +160,7 @@ export class MockWorkOrderRepository implements WorkOrderRepository {
       return permission;
     }
 
-    return mechanicView(
-      permission.value,
-      completeDesarme(getMockState(), permission.value, input),
-    );
+    return mechanicView(permission.value, completeDesarme(getMockState(), permission.value, input));
   }
 
   async completeInstalacion(input: CompleteWorkOrderInput) {

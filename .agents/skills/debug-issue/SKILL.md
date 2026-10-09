@@ -148,9 +148,15 @@ Do not document internal bug-fix details unless they affect expected system beha
 Report:
 
 ## Root cause
+
 ## Fix
+
 ## Files changed
+
 ## Tests added/updated
+
 ## Validation
+
 ## Documentation impact
+
 ## Remaining risks

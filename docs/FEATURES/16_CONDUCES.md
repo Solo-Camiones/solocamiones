@@ -4,7 +4,7 @@
 
 **CONFIRMED (documentation).** This file is the implementation source of truth for requirement IDs: `CON-001, CON-002, CON-003, CON-004, CON-005, CON-006`.
 
-These IDs were added 2026-09-20 for the commercial-conduce change set sequenced in `docs/plan_feature_conduce/IMPLEMENTATION_PLAN.md`. That plan is technical sequencing and progress only. **Do not implement behavior from the plan file when a CON-* ID exists here.**
+These IDs were added 2026-09-20 for the commercial-conduce change set sequenced in `docs/plan_feature_conduce/IMPLEMENTATION_PLAN.md`. That plan is technical sequencing and progress only. _*Do not implement behavior from the plan file when a CON-* ID exists here._*
 
 **Implementation status (2026-10-01):** M1–M8 **Verificado** by owner authorization for the first production release (`v2.0.0`). See `docs/RELEASES/v2.0.0.md`.
 
@@ -68,18 +68,18 @@ DRAFT / QUOTE_ISSUED → COMPLETED (factura directa, sin CON-) → CANCELLED
 
 ### Permission and payment matrix (conduce emission)
 
-| Case | Rule |
-|---|---|
-| Seller + `CASH` (any, including default `Cliente contado`) | Full payment required at emission. |
-| Seller + `CREDIT` DOP | No initial payment; credit limit and term apply. |
-| Seller + USD | Full payment required. |
-| Administrator + named `CASH` DOP/USD | Payment zero, partial, or full; if balance remains, `dueDate` must be on or after the local emission calendar day (`America/Santo_Domingo`). |
-| Administrator + default `Cliente contado` | Full payment required (same as Seller). |
-| Administrator + `CREDIT` DOP | Payment zero, partial, or full; limit and term apply. |
-| Administrator + `CREDIT` USD | Full payment required. |
-| Later collections on an open conduce or its later invoice | Administrator only (`POST /api/sales/:id/payments`). |
-| Convert conduce → invoice | Administrator and Seller. |
-| Cancel / refund | Administrator only. |
+| Case                                                       | Rule                                                                                                                                         |
+| ---------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| Seller + `CASH` (any, including default `Cliente contado`) | Full payment required at emission.                                                                                                           |
+| Seller + `CREDIT` DOP                                      | No initial payment; credit limit and term apply.                                                                                             |
+| Seller + USD                                               | Full payment required.                                                                                                                       |
+| Administrator + named `CASH` DOP/USD                       | Payment zero, partial, or full; if balance remains, `dueDate` must be on or after the local emission calendar day (`America/Santo_Domingo`). |
+| Administrator + default `Cliente contado`                  | Full payment required (same as Seller).                                                                                                      |
+| Administrator + `CREDIT` DOP                               | Payment zero, partial, or full; limit and term apply.                                                                                        |
+| Administrator + `CREDIT` USD                               | Full payment required.                                                                                                                       |
+| Later collections on an open conduce or its later invoice  | Administrator only (`POST /api/sales/:id/payments`).                                                                                         |
+| Convert conduce → invoice                                  | Administrator and Seller.                                                                                                                    |
+| Cancel / refund                                            | Administrator only.                                                                                                                          |
 
 Direct invoice confirmation does **not** use the Administrator named-`CASH` balance exception: SALE-005 / PAY-001 remain in force for `FAC-` without `CON-`.
 
@@ -107,10 +107,10 @@ Direct invoice confirmation does **not** use the Administrator named-`CASH` bala
 
 ### Domain and lifecycle (M2–M3)
 
-- [x] `CONDUCE` status on the sales aggregate with `conduceNumber` / `conduceIssuedAt` / `invoiceIssuedAt` (CON-001). *(Domain/migration M2, 2026-09-20.)*
-- [x] Independent `CON-` sequence; no reuse after cancellation (CON-001). *(Sequence + uniqueness M2; emission path M3, 2026-09-20.)*
-- [x] Issue conduce from draft; convert quote → conduce; convert conduce → invoice with `{ fiscal: boolean }` (CON-001, CON-003). *(M3, 2026-09-20.)*
-- [x] Idempotent issue/convert; immutable issued conduce (CON-001, CON-003). *(M3, 2026-09-20.)*
+- [x] `CONDUCE` status on the sales aggregate with `conduceNumber` / `conduceIssuedAt` / `invoiceIssuedAt` (CON-001). _(Domain/migration M2, 2026-09-20.)_
+- [x] Independent `CON-` sequence; no reuse after cancellation (CON-001). _(Sequence + uniqueness M2; emission path M3, 2026-09-20.)_
+- [x] Issue conduce from draft; convert quote → conduce; convert conduce → invoice with `{ fiscal: boolean }` (CON-001, CON-003). _(M3, 2026-09-20.)_
+- [x] Idempotent issue/convert; immutable issued conduce (CON-001, CON-003). _(M3, 2026-09-20.)_
 
 ### Domain migration notes (M2)
 
@@ -129,17 +129,17 @@ Direct invoice confirmation does **not** use the Administrator named-`CASH` bala
 
 ### Payments, CxC, cancellation (M4)
 
-- [x] Full actor/customer/currency/payment matrix including named-`CASH` Admin exception and default-`Cliente contado` full-pay rule (CON-002). *(2026-09-20)*
-- [x] Credit exposure includes open conduce balances *(M3)*; [x] `dueDate` rules for Admin named-`CASH` with balance (CON-002). *(2026-09-20)*
-- [x] Later payments on `CONDUCE`/`COMPLETED` Administrator-only; [x] convert preserves ledger *(M3)* (CON-002, CON-003). *(2026-09-20)*
-- [x] Cancel/refund zero..net for conduce and for invoice-only operations (CON-005, CANCEL-002). *(2026-09-20)*
-- [x] Documented inventory effects when ITEM/QTY enabled: emit consumes; cancel restores once; convert does not touch inventory (CON-005). *(documented 2026-09-20; ITEM/QTY runtime remains later releases)*
-- [x] CxC open list and account-statement PDF include open `CONDUCE` balances; document filter accepts `FAC-` and `CON-`. *(2026-09-20)*
+- [x] Full actor/customer/currency/payment matrix including named-`CASH` Admin exception and default-`Cliente contado` full-pay rule (CON-002). _(2026-09-20)_
+- [x] Credit exposure includes open conduce balances _(M3)_; [x] `dueDate` rules for Admin named-`CASH` with balance (CON-002). _(2026-09-20)_
+- [x] Later payments on `CONDUCE`/`COMPLETED` Administrator-only; [x] convert preserves ledger _(M3)_ (CON-002, CON-003). _(2026-09-20)_
+- [x] Cancel/refund zero..net for conduce and for invoice-only operations (CON-005, CANCEL-002). _(2026-09-20)_
+- [x] Documented inventory effects when ITEM/QTY enabled: emit consumes; cancel restores once; convert does not touch inventory (CON-005). _(documented 2026-09-20; ITEM/QTY runtime remains later releases)_
+- [x] CxC open list and account-statement PDF include open `CONDUCE` balances; document filter accepts `FAC-` and `CON-`. _(2026-09-20)_
 
 ### Documents (M5)
 
-- [x] Conduce PDF renderer and `GET /api/sales/:id/conduce.pdf` (CON-004). *(API on-demand like quotes; unit + HTTP 2026-09-20)*
-- [x] Invoice PDF shows origin `CON-` when applicable; both PDFs remain downloadable after conversion (CON-004). *(invoice facts use `invoiceIssuedAt`; unit + HTTP 2026-09-20)*
+- [x] Conduce PDF renderer and `GET /api/sales/:id/conduce.pdf` (CON-004). _(API on-demand like quotes; unit + HTTP 2026-09-20)_
+- [x] Invoice PDF shows origin `CON-` when applicable; both PDFs remain downloadable after conversion (CON-004). _(invoice facts use `invoiceIssuedAt`; unit + HTTP 2026-09-20)_
 
 ### Documents runtime notes (M5)
 
@@ -151,17 +151,17 @@ Direct invoice confirmation does **not** use the Administrator named-`CASH` bala
 
 ### Reports and history (M6)
 
-- [x] Profitability, CxC, KPIs, seller-sales, and history include conduces once (CON-006). *(API FX/profit at emission; seller-sales CON-/FAC- + origin; KPI “Ventas”; integration 15 passed 2026-09-21)*
-- [x] History events `CONDUCE_ISSUED`, `QUOTE_CONVERTED_TO_CONDUCE`, `CONDUCE_INVOICED` *(written in M3; timeline descriptions M6)* (CON-006).
+- [x] Profitability, CxC, KPIs, seller-sales, and history include conduces once (CON-006). _(API FX/profit at emission; seller-sales CON-/FAC- + origin; KPI “Ventas”; integration 15 passed 2026-09-21)_
+- [x] History events `CONDUCE_ISSUED`, `QUOTE_CONVERTED_TO_CONDUCE`, `CONDUCE_INVOICED` _(written in M3; timeline descriptions M6)_ (CON-006).
 
 ### Reports runtime notes (M6)
 
-| Surface | Commercial date | Primary document | Origin |
-|---|---|---|---|
-| Profitability / period KPIs | `confirmedAt` | `number ?? conduceNumber` | N/A (one aggregate row) |
-| Seller-sales JSON/PDF | `confirmedAt` (sales) / `quoteIssuedAt` (quotes) | `CON-` while `CONDUCE`; `FAC-` after convert | `originNumber` = `CON-` after convert |
-| Invoice / conduce PDF | documentary `invoiceIssuedAt` / `conduceIssuedAt` | per CON-004 | per CON-004 |
-| FX / profitability | at conduce emission (`confirmedAt` UTC day for retry) | same sale | convert does not re-run FX |
+| Surface                     | Commercial date                                       | Primary document                             | Origin                                |
+| --------------------------- | ----------------------------------------------------- | -------------------------------------------- | ------------------------------------- |
+| Profitability / period KPIs | `confirmedAt`                                         | `number ?? conduceNumber`                    | N/A (one aggregate row)               |
+| Seller-sales JSON/PDF       | `confirmedAt` (sales) / `quoteIssuedAt` (quotes)      | `CON-` while `CONDUCE`; `FAC-` after convert | `originNumber` = `CON-` after convert |
+| Invoice / conduce PDF       | documentary `invoiceIssuedAt` / `conduceIssuedAt`     | per CON-004                                  | per CON-004                           |
+| FX / profitability          | at conduce emission (`confirmedAt` UTC day for retry) | same sale                                    | convert does not re-run FX            |
 
 - Administrator Rentabilidad KPI labels use **Ventas** (not Facturado-only) so emitted conduces are included correctly.
 - Database checks `Invoice_fx_rate_check` and `Invoice_manual_gross_profit_check` allow those facts on `CONDUCE` (`20260921000000_conduce_recognized_profitability`).
@@ -204,18 +204,19 @@ Direct invoice confirmation does **not** use the Administrator named-`CASH` bala
 **Requirement:** Initial payment at conduce emission follows the matrix in this file. Later collections reuse `POST /api/sales/:id/payments` and are Administrator-only. Open `CREDIT` DOP conduce balances count toward the customer credit limit.  
 **Business Reason:** Counter and credit sales must keep Seller limits while allowing Administrator flexibility on named cash conduces.  
 **Main Flow:** Actor supplies allowed initial payment (and `dueDate` when required); system validates customer type, currency, limit, and permissions, then records the ledger and derived payment state.  
-**Business Rules:**  
-- Seller + any `CASH` (including default `Cliente contado`): full payment required.  
-- Seller + `CREDIT` DOP: zero initial payment; limit and snapshotted term apply; `dueDate` = local emission date + `creditTermDays` end of day in `America/Santo_Domingo`.  
-- Seller + USD: full payment required.  
-- Administrator + **named** `CASH` DOP or USD: zero, partial, or full payment. If balance remains, actor-supplied `dueDate` must be on or after the local emission calendar day (end of day). This is not a customer-type change to `CREDIT` and does not use credit limit.  
-- Administrator + default `Cliente contado`: full payment required.  
-- Administrator + `CREDIT` DOP: zero, partial, or full within limit/term.  
-- Administrator + `CREDIT` USD: full payment required.  
+**Business Rules:**
+
+- Seller + any `CASH` (including default `Cliente contado`): full payment required.
+- Seller + `CREDIT` DOP: zero initial payment; limit and snapshotted term apply; `dueDate` = local emission date + `creditTermDays` end of day in `America/Santo_Domingo`.
+- Seller + USD: full payment required.
+- Administrator + **named** `CASH` DOP or USD: zero, partial, or full payment. If balance remains, actor-supplied `dueDate` must be on or after the local emission calendar day (end of day). This is not a customer-type change to `CREDIT` and does not use credit limit.
+- Administrator + default `Cliente contado`: full payment required.
+- Administrator + `CREDIT` DOP: zero, partial, or full within limit/term.
+- Administrator + `CREDIT` USD: full payment required.
 - A payment of 0 is not persisted. Direct invoice confirmation without conduce keeps SALE-005 / PAY-001 (all `CASH`, including default and named, settle in full; USD cannot confirm with remaining balance).  
-**Important Exceptions/Edge Cases:** Exceeding credit limit is rejected even for Administrator. Concurrent credit exposures include open conduce balances.  
-**Dependencies:** SALE-005, CUST-002, CUST-004, CUST-005, PAY-001, PAY-007, CON-001.  
-**Acceptance Notes:** Seller named-`CASH` conduce with partial payment is rejected. Administrator named-`CASH` DOP conduce with partial payment and valid `dueDate` succeeds and appears in AR. Administrator default `Cliente contado` conduce with partial payment is rejected. Direct Admin named-`CASH` invoice confirm with partial payment remains rejected.
+  **Important Exceptions/Edge Cases:** Exceeding credit limit is rejected even for Administrator. Concurrent credit exposures include open conduce balances.  
+  **Dependencies:** SALE-005, CUST-002, CUST-004, CUST-005, PAY-001, PAY-007, CON-001.  
+  **Acceptance Notes:** Seller named-`CASH` conduce with partial payment is rejected. Administrator named-`CASH` DOP conduce with partial payment and valid `dueDate` succeeds and appears in AR. Administrator default `Cliente contado` conduce with partial payment is rejected. Direct Admin named-`CASH` invoice confirm with partial payment remains rejected.
 
 ---
 

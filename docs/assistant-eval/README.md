@@ -4,12 +4,12 @@ Dataset versionado y runner para validación continua de calidad y seguridad. De
 
 ## Decisiones de este paquete
 
-| Tema           | Decisión                                                                   |
-| -------------- | -------------------------------------------------------------------------- |
-| Entorno “real” | Local o staging VPS con OpenAI y recursos exclusivos del ambiente          |
-| Exactitud ≥90% | Heurística automática + **revisión humana** del reporte real (5B)          |
-| Datos vivos    | Fixtures deterministas sembradas por el runner                             |
-| Costo          | Estimación vía `pricing.json`                                              |
+| Tema           | Decisión                                                          |
+| -------------- | ----------------------------------------------------------------- |
+| Entorno “real” | Local o staging VPS con OpenAI y recursos exclusivos del ambiente |
+| Exactitud ≥90% | Heurística automática + **revisión humana** del reporte real (5B) |
+| Datos vivos    | Fixtures deterministas sembradas por el runner                    |
+| Costo          | Estimación vía `pricing.json`                                     |
 
 ## Layout
 

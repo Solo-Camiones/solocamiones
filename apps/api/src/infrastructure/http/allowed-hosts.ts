@@ -10,11 +10,7 @@ import { isMetricsScrapePath } from './cloudflare-access.js';
  */
 export function createAllowedHostsMiddleware(allowedHosts: readonly string[]) {
   if (allowedHosts.length === 0) {
-    return function skipAllowedHosts(
-      _req: Request,
-      _res: Response,
-      next: NextFunction,
-    ): void {
+    return function skipAllowedHosts(_req: Request, _res: Response, next: NextFunction): void {
       next();
     };
   }

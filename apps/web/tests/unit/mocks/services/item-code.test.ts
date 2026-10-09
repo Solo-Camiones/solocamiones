@@ -30,7 +30,12 @@ describe('item-code', () => {
     const state = createInitialState();
     const seq = { ...state.itemCodeSeq };
     const first = allocateItemCode(state.categories, seq, ['ALT-012'], 'CAT-ALT');
-    const second = allocateItemCode(state.categories, seq, ['ALT-012', first.ok ? first.value : ''], 'CAT-ALT');
+    const second = allocateItemCode(
+      state.categories,
+      seq,
+      ['ALT-012', first.ok ? first.value : ''],
+      'CAT-ALT',
+    );
 
     expect(first.ok && first.value).toBe('ALT-013');
     expect(second.ok && second.value).toBe('ALT-014');

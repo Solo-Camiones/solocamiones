@@ -41,7 +41,12 @@ describe('MockCategoryRepository', () => {
     expect(listed.ok).toBe(true);
     if (listed.ok) {
       expect(listed.value).toContainEqual(
-        expect.objectContaining({ id: 'CAT-BOMBA', name: 'Bomba', codePrefix: 'BOM', isAssembly: true }),
+        expect.objectContaining({
+          id: 'CAT-BOMBA',
+          name: 'Bomba',
+          codePrefix: 'BOM',
+          isAssembly: true,
+        }),
       );
     }
     expect(getMockState().items.every((item) => item.categoryId !== 'CAT-BOMBA')).toBe(true);
@@ -59,7 +64,11 @@ describe('MockCategoryRepository', () => {
 
     expect(saved.ok).toBe(true);
     const reviews = getMockState().pendingCatalogReviews;
-    expect(reviews.map((entry) => entry.parentId).sort()).toEqual(['MOT-001', 'MOT-002', 'MOT-003']);
+    expect(reviews.map((entry) => entry.parentId).sort()).toEqual([
+      'MOT-001',
+      'MOT-002',
+      'MOT-003',
+    ]);
     expect(reviews.every((entry) => entry.expectedComponentName === 'Bomba de aceite')).toBe(true);
     expect(getMockState().items.find((item) => item.id === 'MOT-001')?.complete).toBe(true);
     expect(getMockState().items.find((item) => item.id === 'MOT-002')?.complete).toBe(false);
@@ -101,16 +110,14 @@ describe('MockCategoryRepository', () => {
 
     expect(saved.ok).toBe(true);
     expect(
-      getMockState()
-        .categories.find((category) => category.id === 'CAT-ENG')
-        ?.expectedComponents,
+      getMockState().categories.find((category) => category.id === 'CAT-ENG')?.expectedComponents,
     ).toContain('Alternador HD');
     expect(getMockState().knownMissing.find((entry) => entry.id === 'KM-003')).toMatchObject({
       expectedComponentName: 'Alternador HD',
     });
-    expect(getMockState().pendingCatalogReviews.find((entry) => entry.id === 'PCR-001')).toMatchObject(
-      { expectedComponentName: 'Alternador HD' },
-    );
+    expect(
+      getMockState().pendingCatalogReviews.find((entry) => entry.id === 'PCR-001'),
+    ).toMatchObject({ expectedComponentName: 'Alternador HD' });
   });
 
   it('rejects changing the assembly kind of a category with inventory', async () => {

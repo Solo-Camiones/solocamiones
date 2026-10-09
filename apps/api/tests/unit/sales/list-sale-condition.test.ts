@@ -123,7 +123,14 @@ describe('toPublicInvoiceListItem saleCondition', () => {
 
   it('omits saleCondition on drafts', () => {
     const item = toPublicInvoiceListItem(
-      listInvoice({ status: 'DRAFT', confirmedAt: null, number: null, gross: null, base: null, itbis: null }),
+      listInvoice({
+        status: 'DRAFT',
+        confirmedAt: null,
+        number: null,
+        gross: null,
+        base: null,
+        itbis: null,
+      }),
       { role: 'ADMINISTRATOR' },
     );
     expect(item.saleCondition).toBeUndefined();

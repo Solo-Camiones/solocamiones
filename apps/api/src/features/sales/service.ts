@@ -1111,8 +1111,7 @@ export class SalesService {
       return await this.transaction(async ({ sales, history }) => {
         await sales.lockById(invoice.id);
         const existing = await sales.findById(invoice.id);
-        const recognized =
-          existing?.status === 'COMPLETED' || existing?.status === 'CONDUCE';
+        const recognized = existing?.status === 'COMPLETED' || existing?.status === 'CONDUCE';
         if (
           existing == null ||
           !recognized ||

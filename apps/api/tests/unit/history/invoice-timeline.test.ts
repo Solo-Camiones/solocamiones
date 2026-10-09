@@ -4,11 +4,7 @@ import { toInvoiceHistoryEntries } from '../../../src/features/history/invoice-t
 
 const occurredAt = new Date('2026-09-10T12:00:00.000Z');
 
-function row(
-  eventType: string,
-  payload: unknown,
-  actorName: string | null = 'Ana Pérez',
-) {
+function row(eventType: string, payload: unknown, actorName: string | null = 'Ana Pérez') {
   return {
     id: '11111111-1111-4111-8111-111111111111',
     occurredAt,
@@ -82,7 +78,9 @@ describe('invoice history timeline', () => {
     (role) => {
       const rows = [
         row('INVOICE_GROSS_PROFIT_RECORDED', { before: null, after: '10.00' }),
-        row('INVOICE_USD_FX_RECORDED', { after: { exchangeRateDopPerUsd: '61.5', source: 'DEMO_FX' } }),
+        row('INVOICE_USD_FX_RECORDED', {
+          after: { exchangeRateDopPerUsd: '61.5', source: 'DEMO_FX' },
+        }),
         row('INVOICE_USD_FX_RETRIED', { outcome: 'UNAVAILABLE' }),
         row('INVOICE_PDF_GENERATED', { status: 'READY' }),
       ];
@@ -133,9 +131,9 @@ describe('invoice history timeline', () => {
   });
 
   it('skips unknown event types instead of exposing raw payloads', () => {
-    expect(toInvoiceHistoryEntries([row('USER_CREATED', { name: 'secret' })], 'ADMINISTRATOR')).toEqual(
-      [],
-    );
+    expect(
+      toInvoiceHistoryEntries([row('USER_CREATED', { name: 'secret' })], 'ADMINISTRATOR'),
+    ).toEqual([]);
   });
 
   it.each([
@@ -183,20 +181,26 @@ describe('invoice history timeline', () => {
   });
 
   it.each([
-    [{ amount: '10.00', currency: 'USD', method: 'TRANSFER' }, 'Pago de 10.00 USD en transferencia'],
+    [
+      { amount: '10.00', currency: 'USD', method: 'TRANSFER' },
+      'Pago de 10.00 USD en transferencia',
+    ],
     [{ amount: '20.00', currency: 'DOP', method: 'CHECK' }, 'Pago de 20.00 DOP en cheque'],
     [{ amount: '30.00', method: 'CARD' }, 'Pago de 30.00 en card'],
     [null, 'Pago de 0.00 en pago'],
     [[], 'Pago de 0.00 en pago'],
   ])('describes payment payload %# without exposing missing fields', (payload, description) => {
-    expect(toInvoiceHistoryEntries([row('PAYMENT_RECORDED', payload)], 'ADMINISTRATOR')[0]?.description).toBe(
-      description,
-    );
+    expect(
+      toInvoiceHistoryEntries([row('PAYMENT_RECORDED', payload)], 'ADMINISTRATOR')[0]?.description,
+    ).toBe(description);
   });
 
   it.each([
     ['DEMO_FX', 'Tasa USD 61.5 DOP/USD registrada (tasa de demostración)'],
-    ['MANUAL_SOURCE', 'Tasa USD 61.5 DOP/USD registrada (origen del tipo de cambio · MANUAL_SOURCE)'],
+    [
+      'MANUAL_SOURCE',
+      'Tasa USD 61.5 DOP/USD registrada (origen del tipo de cambio · MANUAL_SOURCE)',
+    ],
   ])('describes the %s FX source without leaking provider details', (source, description) => {
     const entries = toInvoiceHistoryEntries(
       [

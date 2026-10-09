@@ -7,10 +7,7 @@ export {
   resetAssistantMetricsForTests,
 } from './assistant-metrics.js';
 export type { AssistantRunMetricStatus } from './assistant-metrics.js';
-export {
-  classifyHttpRouteGroup,
-  httpMetricsMiddleware,
-} from './http-metrics.js';
+export { classifyHttpRouteGroup, httpMetricsMiddleware } from './http-metrics.js';
 export {
   PROMETHEUS_CONTENT_TYPE,
   ensureDefaultMetrics,

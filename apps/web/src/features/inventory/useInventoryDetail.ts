@@ -30,7 +30,10 @@ export function useInventoryDetail(id: string | undefined) {
 
   useEffect(() => {
     if (!id) {
-      setResult({ status: 'error', error: { code: 'VALIDATION', message: 'Falta el identificador' } });
+      setResult({
+        status: 'error',
+        error: { code: 'VALIDATION', message: 'Falta el identificador' },
+      });
       return;
     }
 
@@ -75,27 +78,33 @@ export function useInventoryDetail(id: string | undefined) {
     [navigate],
   );
 
-  const setNoDesarmar = useCallback(async (input: NoDesarmarInput): Promise<Result<void>> => {
-    setIsMutating(true);
-    const response = await inventoryRepository.setNoDesarmar(input);
-    setIsMutating(false);
-    if (!response.ok) {
-      return response;
-    }
-    reload();
-    return { ok: true, value: undefined };
-  }, [reload]);
+  const setNoDesarmar = useCallback(
+    async (input: NoDesarmarInput): Promise<Result<void>> => {
+      setIsMutating(true);
+      const response = await inventoryRepository.setNoDesarmar(input);
+      setIsMutating(false);
+      if (!response.ok) {
+        return response;
+      }
+      reload();
+      return { ok: true, value: undefined };
+    },
+    [reload],
+  );
 
-  const correctCost = useCallback(async (input: CostCorrectionInput): Promise<Result<void>> => {
-    setIsMutating(true);
-    const response = await inventoryRepository.correctAcquisitionCost(input);
-    setIsMutating(false);
-    if (!response.ok) {
-      return response;
-    }
-    reload();
-    return { ok: true, value: undefined };
-  }, [reload]);
+  const correctCost = useCallback(
+    async (input: CostCorrectionInput): Promise<Result<void>> => {
+      setIsMutating(true);
+      const response = await inventoryRepository.correctAcquisitionCost(input);
+      setIsMutating(false);
+      if (!response.ok) {
+        return response;
+      }
+      reload();
+      return { ok: true, value: undefined };
+    },
+    [reload],
+  );
 
   const correctBaseline = useCallback(
     async (input: BaselineCorrectionInput): Promise<Result<void>> => {

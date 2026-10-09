@@ -134,12 +134,7 @@ export type Service = {
 };
 
 export type InvoiceStatus =
-  | 'DRAFT'
-  | 'QUOTE_DRAFT'
-  | 'QUOTE_ISSUED'
-  | 'CONDUCE'
-  | 'COMPLETED'
-  | 'CANCELLED';
+  'DRAFT' | 'QUOTE_DRAFT' | 'QUOTE_ISSUED' | 'CONDUCE' | 'COMPLETED' | 'CANCELLED';
 export type PaymentState =
   | 'UNPAID'
   | 'PENDING'

@@ -39,7 +39,12 @@ function listItem(
     reason: 'UNKNOWN_COST' | 'PENDING_FX_RATE' | null;
     profitDop: string | null;
     margin: string | null;
-    fx?: { exchangeRateDopPerUsd: string; source: string; rateUpdatedAt: string; obtainedAt: string };
+    fx?: {
+      exchangeRateDopPerUsd: string;
+      source: string;
+      rateUpdatedAt: string;
+      obtainedAt: string;
+    };
   },
   extra: {
     confirmedAt?: string;
@@ -82,19 +87,29 @@ const calculated = listItem(
   },
 );
 
-const pending = listItem(pendingId, 'FAC-000002', {
-  status: 'UNAVAILABLE',
-  reason: 'PENDING_FX_RATE',
-  profitDop: null,
-  margin: null,
-}, { saleCondition: 'CASH', totalsGross: '1200.00' });
+const pending = listItem(
+  pendingId,
+  'FAC-000002',
+  {
+    status: 'UNAVAILABLE',
+    reason: 'PENDING_FX_RATE',
+    profitDop: null,
+    margin: null,
+  },
+  { saleCondition: 'CASH', totalsGross: '1200.00' },
+);
 
-const unknown = listItem(unknownId, 'FAC-000003', {
-  status: 'UNAVAILABLE',
-  reason: 'UNKNOWN_COST',
-  profitDop: null,
-  margin: null,
-}, { saleCondition: 'CREDIT', totalsGross: '2000.00' });
+const unknown = listItem(
+  unknownId,
+  'FAC-000003',
+  {
+    status: 'UNAVAILABLE',
+    reason: 'UNKNOWN_COST',
+    profitDop: null,
+    margin: null,
+  },
+  { saleCondition: 'CREDIT', totalsGross: '2000.00' },
+);
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -153,15 +168,15 @@ describe('HTTP profitability contract', () => {
     expect(result.value.profitDop).toBe(50);
     expect(result.value.collectedDop).toBe(80);
     expect(result.value.invoicesMissingProfitCount).toBe(2);
-    expect(result.value.charts?.profitByDay.find((point) => point.key === '2026-09-01')?.amount).toBe(
-      50,
-    );
-    expect(result.value.charts?.invoicedCashByDay.find((point) => point.key === '2026-09-01')?.amount).toBe(
-      118,
-    );
-    expect(result.value.charts?.invoicedCreditByDay.find((point) => point.key === '2026-09-01')?.amount).toBe(
-      2000,
-    );
+    expect(
+      result.value.charts?.profitByDay.find((point) => point.key === '2026-09-01')?.amount,
+    ).toBe(50);
+    expect(
+      result.value.charts?.invoicedCashByDay.find((point) => point.key === '2026-09-01')?.amount,
+    ).toBe(118);
+    expect(
+      result.value.charts?.invoicedCreditByDay.find((point) => point.key === '2026-09-01')?.amount,
+    ).toBe(2000);
     expect(
       result.value.charts?.collectedByMethodByDay.find((point) => point.key === '2026-09-01'),
     ).toMatchObject({ CASH: 80, TRANSFER: 0, CHECK: 0 });
@@ -192,7 +207,10 @@ describe('HTTP profitability contract', () => {
         expect(JSON.parse(String(init.body))).toEqual({});
         return json({ id: pendingId });
       }
-      if (url.includes(`/api/profitability/${unknownId}/manual-gross-profit`) && init?.method === 'POST') {
+      if (
+        url.includes(`/api/profitability/${unknownId}/manual-gross-profit`) &&
+        init?.method === 'POST'
+      ) {
         expect(new Headers(init.headers).get('X-Requested-With')).toBe('XMLHttpRequest');
         expect(JSON.parse(String(init.body))).toEqual({ profitDop: '1800.00' });
         return json({ id: unknownId });
@@ -440,15 +458,17 @@ describe('HTTP profitability contract', () => {
     expect(result.ok).toBe(true);
     if (!result.ok) return;
 
-    expect(fetchMock.mock.calls.some(([path]) => String(path).startsWith('/api/sales?status=CONDUCE'))).toBe(
-      true,
-    );
+    expect(
+      fetchMock.mock.calls.some(([path]) => String(path).startsWith('/api/sales?status=CONDUCE')),
+    ).toBe(true);
     expect(result.value.profitDop).toBe(90);
     expect(result.value.collectedDop).toBe(100);
-    expect(result.value.charts?.invoicedCreditByDay.find((point) => point.key === '2026-09-01')?.amount).toBe(
-      300,
-    );
-    expect(result.value.charts?.invoicedCashByDay.find((point) => point.key === '2026-09-01')?.amount).toBe(0);
+    expect(
+      result.value.charts?.invoicedCreditByDay.find((point) => point.key === '2026-09-01')?.amount,
+    ).toBe(300);
+    expect(
+      result.value.charts?.invoicedCashByDay.find((point) => point.key === '2026-09-01')?.amount,
+    ).toBe(0);
     expect(
       result.value.charts?.collectedByMethodByDay.find((point) => point.key === '2026-09-01'),
     ).toMatchObject({ CASH: 0, TRANSFER: 100, CHECK: 0 });

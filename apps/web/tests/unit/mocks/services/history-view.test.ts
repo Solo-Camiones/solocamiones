@@ -10,9 +10,12 @@ describe('history-view', () => {
     expect(carlos?.active).toBe(false);
 
     expect(resolveActorName(state.users, 'U-CARLOS')).toBe('Carlos Méndez');
-    expect(toHistoryEventView(state.events.find((event) => event.id === 'EV-004')!, state.users).actorName).toBe(
-      'Carlos Méndez',
-    );
+    expect(
+      toHistoryEventView(
+        state.events.find((event) => event.id === 'EV-004')!,
+        state.users,
+      ).actorName,
+    ).toBe('Carlos Méndez');
   });
 
   it('falls back to the stored actor id when the user directory has no match', () => {

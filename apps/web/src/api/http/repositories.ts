@@ -12,7 +12,11 @@ import type {
   UserRepository,
   WorkOrderRepository,
 } from '../contracts/repositories';
-import type { ConfirmInvoicePayment, ConvertConduceToInvoiceInput, IssueConduceInput } from '../contracts/sales';
+import type {
+  ConfirmInvoicePayment,
+  ConvertConduceToInvoiceInput,
+  IssueConduceInput,
+} from '../contracts/sales';
 import type { UpdateOwnProfileInput } from '../contracts/profile';
 import {
   loginWithHttp,
@@ -256,7 +260,9 @@ export class HttpSalesRepository implements SalesRepository {
     return listSellerSalesReportWithHttp(filters);
   }
 
-  async getSellerSalesReportPdf(filters: Parameters<SalesRepository['getSellerSalesReportPdf']>[0]) {
+  async getSellerSalesReportPdf(
+    filters: Parameters<SalesRepository['getSellerSalesReportPdf']>[0],
+  ) {
     return getSellerSalesReportPdfWithHttp(filters);
   }
 

@@ -59,6 +59,7 @@ Confirmation must always reread/revalidate current stock, hierarchy, restriction
 ## Implementation checklist
 
 ### Domain / persistence
+
 - [ ] Define reservation ownership, status, line linkage, and version.
 - [ ] Unique-item active reservation constraint.
 - [ ] Quantity atomic reserve/release logic.
@@ -69,11 +70,13 @@ Confirmation must always reread/revalidate current stock, hierarchy, restriction
 - [ ] No scheduled expiry job.
 
 ### Frontend
+
 - [ ] Show reservation conflicts clearly.
 - [ ] Release reservation on line removal/discard.
 - [x] Administrator recovery view for abandoned Drafts.
 
 ### Tests
+
 - [ ] Two-Draft unique item race.
 - [ ] Quantity oversubscription race.
 - [x] Parent/descendant overlap cases.

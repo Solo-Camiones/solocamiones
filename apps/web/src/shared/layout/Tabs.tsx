@@ -23,7 +23,12 @@ export function Tabs<T extends string>({
   const baseId = useId();
 
   function handleKeyDown(event: KeyboardEvent<HTMLButtonElement>, index: number) {
-    if (event.key !== 'ArrowRight' && event.key !== 'ArrowLeft' && event.key !== 'Home' && event.key !== 'End') {
+    if (
+      event.key !== 'ArrowRight' &&
+      event.key !== 'ArrowLeft' &&
+      event.key !== 'Home' &&
+      event.key !== 'End'
+    ) {
       return;
     }
 

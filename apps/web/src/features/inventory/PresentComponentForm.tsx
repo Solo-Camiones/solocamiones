@@ -39,8 +39,7 @@ export function PresentComponentForm({
   return (
     <div className="space-y-3 rounded-lg border border-navy-100 bg-navy-50 p-3">
       <p className="text-sm text-navy-400">
-        Código al guardar:{' '}
-        <span className="font-mono text-navy">{category.codePrefix}</span>
+        Código al guardar: <span className="font-mono text-navy">{category.codePrefix}</span>
       </p>
       <div className="grid gap-3 sm:grid-cols-2">
         <Field label="Nombre" htmlFor={`${prefix}-name`}>

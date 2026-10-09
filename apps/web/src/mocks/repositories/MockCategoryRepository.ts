@@ -1,7 +1,10 @@
 import type { SaveCategoryInput } from '../../api/contracts/catalogs';
 import type { CategoryRepository } from '../../api/contracts/repositories';
 import { ok } from '../../shared/auth/types';
-import { addedExpectedComponentNames, backfillPendingExpectedComponents } from '../services/catalogs-reviews';
+import {
+  addedExpectedComponentNames,
+  backfillPendingExpectedComponents,
+} from '../services/catalogs-reviews';
 import {
   prepareCategorySave,
   prepareCategoryStateChange,
@@ -33,9 +36,7 @@ export class MockCategoryRepository implements CategoryRepository {
     }
 
     const category = prepared.value;
-    const previous = input.id
-      ? state.categories.find((entry) => entry.id === input.id)
-      : undefined;
+    const previous = input.id ? state.categories.find((entry) => entry.id === input.id) : undefined;
     const addedNames =
       previous?.isAssembly === true
         ? addedExpectedComponentNames(previous.expectedComponents, category.expectedComponents)

@@ -14,7 +14,10 @@ describe('toPageLoadMessage', () => {
 
   it('keeps specific business messages', () => {
     expect(
-      toPageLoadMessage('No tiene permiso para realizar esta acción', 'No pudimos cargar el inicio.'),
+      toPageLoadMessage(
+        'No tiene permiso para realizar esta acción',
+        'No pudimos cargar el inicio.',
+      ),
     ).toBe('No tiene permiso para realizar esta acción');
   });
 });

@@ -14,16 +14,16 @@ La especificación de producto vive en [`docs/`](docs/). Este README describe el
 
 Con `VITE_USE_MOCK_API` distinto de `true` (el valor por defecto y el de producción):
 
-| Área                | En producción                                                                                                                                                                         |
-| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Acceso y usuarios   | Login/sesión, perfil, roles Administrador y Vendedor, alta/edición, recuperación autorizada de contraseña                                                                             |
-| Clientes            | Directorio, Cliente contado, snapshot en factura                                                                                                                                      |
-| Catálogos           | Servicios mecánicos (`/api/catalogs/services`). Categorías de inventario **ocultas**                                                                                                  |
-| Ventas              | Borradores, cotizaciones `COT-`, conduces `CON-` y facturas `FAC-` con líneas GENERIC / SERVICE / DELIVERY / EXTERNAL. Moneda DOP o USD, ITBIS y PDF reproducible                     |
-| Pagos y CxC         | Reglas CASH/CREDIT, pago inicial según documento/rol, pagos posteriores, vencimiento por plazo comercial, filtros de abiertas y estado de cuenta PDF                                  |
-| Cancelación         | Anulación de factura o conduce no inventariado (Administrador), reembolso entre cero y el neto cobrado, PDF de cancelación                                                            |
-| Rentabilidad        | Costo DOP, ganancia, equivalencia USD (tasa externa no bloquea la venta). Visible solo a Administrador                                                                                |
-| Historial comercial | Actividad de cotización, conduce o factura: emisión/conversión, pago, PDF y cancelación; utilidad/FX solo Administrador                                                               |
+| Área                | En producción                                                                                                                                                                                                              |
+| ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Acceso y usuarios   | Login/sesión, perfil, roles Administrador y Vendedor, alta/edición, recuperación autorizada de contraseña                                                                                                                  |
+| Clientes            | Directorio, Cliente contado, snapshot en factura                                                                                                                                                                           |
+| Catálogos           | Servicios mecánicos (`/api/catalogs/services`). Categorías de inventario **ocultas**                                                                                                                                       |
+| Ventas              | Borradores, cotizaciones `COT-`, conduces `CON-` y facturas `FAC-` con líneas GENERIC / SERVICE / DELIVERY / EXTERNAL. Moneda DOP o USD, ITBIS y PDF reproducible                                                          |
+| Pagos y CxC         | Reglas CASH/CREDIT, pago inicial según documento/rol, pagos posteriores, vencimiento por plazo comercial, filtros de abiertas y estado de cuenta PDF                                                                       |
+| Cancelación         | Anulación de factura o conduce no inventariado (Administrador), reembolso entre cero y el neto cobrado, PDF de cancelación                                                                                                 |
+| Rentabilidad        | Costo DOP, ganancia, equivalencia USD (tasa externa no bloquea la venta). Visible solo a Administrador                                                                                                                     |
+| Historial comercial | Actividad de cotización, conduce o factura: emisión/conversión, pago, PDF y cancelación; utilidad/FX solo Administrador                                                                                                    |
 | Asistente de IA     | Panel global solo para Administrador, RAG sobre corpus aprobado y seis herramientas comerciales de lectura. Se habilitará para Administradores desde el primer día productivo; AI-010 continuará como evaluación periódica |
 
 Roles: **Administrador** y **Vendedor**. El Mecánico y su app móvil no forman parte de esta versión.

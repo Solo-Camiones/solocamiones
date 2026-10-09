@@ -1,6 +1,10 @@
 import { useCallback, useEffect, useState } from 'react';
 
-import type { ProfitabilitySnapshot, RecordManualGrossProfitInput, RetryUsdProfitabilityInput } from '../../api/contracts/profitability';
+import type {
+  ProfitabilitySnapshot,
+  RecordManualGrossProfitInput,
+  RetryUsdProfitabilityInput,
+} from '../../api/contracts/profitability';
 import { profitabilityRepository } from '../../api/repositories';
 import type { AppError, Result } from '../../shared/auth/types';
 import { beginQueryReload } from '../../shared/query/begin-query-reload';

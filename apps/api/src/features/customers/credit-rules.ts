@@ -69,9 +69,7 @@ export function hasCreditWriteIntent(input: {
   creditTermDays?: number | null;
 }): boolean {
   return (
-    input.customerType === 'CREDIT' ||
-    input.creditLimitDop != null ||
-    input.creditTermDays != null
+    input.customerType === 'CREDIT' || input.creditLimitDop != null || input.creditTermDays != null
   );
 }
 

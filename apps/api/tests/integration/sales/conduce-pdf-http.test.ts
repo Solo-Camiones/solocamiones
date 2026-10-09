@@ -69,15 +69,12 @@ async function draftWithLine(agent: request.Agent, customerId: string) {
     .set(TEST_CSRF_HEADERS)
     .send({ customerId, applyItbis: true, fiscal: false });
   expect(draft.status).toBe(201);
-  const line = await agent
-    .post(`${SALES}/${draft.body.id}/lines`)
-    .set(TEST_CSRF_HEADERS)
-    .send({
-      type: 'GENERIC',
-      description: 'Aceite',
-      notes: 'Nota PDF',
-      unitPrice: '100.00',
-    });
+  const line = await agent.post(`${SALES}/${draft.body.id}/lines`).set(TEST_CSRF_HEADERS).send({
+    type: 'GENERIC',
+    description: 'Aceite',
+    notes: 'Nota PDF',
+    unitPrice: '100.00',
+  });
   expect(line.status).toBe(201);
   return line.body;
 }

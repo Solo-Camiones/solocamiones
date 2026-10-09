@@ -12,7 +12,8 @@ vi.mock('../../../src/features/health/repository.js', () => ({
   },
 }));
 
-const { getLivenessStatus, getReadinessStatus } = await import('../../../src/features/health/service.js');
+const { getLivenessStatus, getReadinessStatus } =
+  await import('../../../src/features/health/service.js');
 
 describe('health service', () => {
   beforeEach(() => {

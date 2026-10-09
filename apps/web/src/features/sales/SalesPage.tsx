@@ -156,9 +156,7 @@ export function SalesPage() {
             <Button variant="secondary" onClick={() => navigate('/sales/quote/new')}>
               Nueva cotización
             </Button>
-            <Button onClick={() => navigate('/sales/draft/new')}>
-              Nuevo borrador
-            </Button>
+            <Button onClick={() => navigate('/sales/draft/new')}>Nuevo borrador</Button>
           </div>
         }
       />

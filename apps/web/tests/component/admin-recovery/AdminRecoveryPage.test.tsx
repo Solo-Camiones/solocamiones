@@ -29,7 +29,9 @@ describe('AdminRecoveryPage', () => {
     await user.click(screen.getByRole('button', { name: 'Liberar reserva' }));
 
     expect(await screen.findByText('Reserva liberada y borrador descartado')).toBeVisible();
-    expect(getMockState().items.find((item) => item.id === 'ALT-004')?.reservedByDraftId).toBeUndefined();
+    expect(
+      getMockState().items.find((item) => item.id === 'ALT-004')?.reservedByDraftId,
+    ).toBeUndefined();
     expect(getMockState().invoices.some((invoice) => invoice.id === 'INV-DRAFT-01')).toBe(false);
   });
 });

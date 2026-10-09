@@ -1,9 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import {
-  businessDateString,
-  businessDayRange,
-} from '../../../src/features/payments/dates.js';
+import { businessDateString, businessDayRange } from '../../../src/features/payments/dates.js';
 
 describe('businessDateString', () => {
   it('uses America/Santo_Domingo calendar days', () => {

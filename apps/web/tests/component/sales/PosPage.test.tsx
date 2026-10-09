@@ -585,7 +585,9 @@ describe('PosPage', () => {
     expect(created.ok).toBe(true);
     if (!created.ok) return;
     const quoteId = created.value.draftId;
-    expect((await mockSalesRepository.setDraftMeta({ draftId: quoteId, customerId: 'C1' })).ok).toBe(true);
+    expect(
+      (await mockSalesRepository.setDraftMeta({ draftId: quoteId, customerId: 'C1' })).ok,
+    ).toBe(true);
     expect(
       (
         await mockSalesRepository.addLine({
@@ -615,7 +617,9 @@ describe('PosPage', () => {
     expect(created.ok).toBe(true);
     if (!created.ok) return;
     const quoteId = created.value.draftId;
-    expect((await mockSalesRepository.setDraftMeta({ draftId: quoteId, customerId: 'C1' })).ok).toBe(true);
+    expect(
+      (await mockSalesRepository.setDraftMeta({ draftId: quoteId, customerId: 'C1' })).ok,
+    ).toBe(true);
     expect(
       (
         await mockSalesRepository.addLine({
@@ -637,7 +641,9 @@ describe('PosPage', () => {
     expect(created.ok).toBe(true);
     if (!created.ok) return;
     const quoteId = created.value.draftId;
-    expect((await mockSalesRepository.setDraftMeta({ draftId: quoteId, customerId: 'C1' })).ok).toBe(true);
+    expect(
+      (await mockSalesRepository.setDraftMeta({ draftId: quoteId, customerId: 'C1' })).ok,
+    ).toBe(true);
     expect(
       (
         await mockSalesRepository.addLine({
@@ -679,7 +685,9 @@ describe('PosPage', () => {
     expect(created.ok).toBe(true);
     if (!created.ok) return;
     const quoteId = created.value.draftId;
-    expect((await mockSalesRepository.setDraftMeta({ draftId: quoteId, customerId: 'C1' })).ok).toBe(true);
+    expect(
+      (await mockSalesRepository.setDraftMeta({ draftId: quoteId, customerId: 'C1' })).ok,
+    ).toBe(true);
     expect(
       (
         await mockSalesRepository.addLine({
@@ -711,7 +719,9 @@ describe('PosPage', () => {
     expect(created.ok).toBe(true);
     if (!created.ok) return;
     const quoteId = created.value.draftId;
-    expect((await mockSalesRepository.setDraftMeta({ draftId: quoteId, customerId: 'C1' })).ok).toBe(true);
+    expect(
+      (await mockSalesRepository.setDraftMeta({ draftId: quoteId, customerId: 'C1' })).ok,
+    ).toBe(true);
     expect(
       (
         await mockSalesRepository.addLine({

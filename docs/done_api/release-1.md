@@ -21,6 +21,7 @@ Crear la estructura mínima ejecutable del monolito modular (frontend + backend)
 ### Qué se entregó
 
 #### Raíz del monorepo
+
 - `package.json` con **npm workspaces** (`apps/*`)
 - Scripts: `dev`, `build`, `lint`, `typecheck`, `format`
 - ESLint (flat config) + Prettier
@@ -28,6 +29,7 @@ Crear la estructura mínima ejecutable del monolito modular (frontend + backend)
 - `concurrently` para levantar API + web con un solo comando
 
 #### Backend — `apps/api`
+
 - Node.js + Express + TypeScript (ESM)
 - Feature stub `health` siguiendo la convención:
   - `routes` → `controller` → `service` → `repository` → `validation` → `types`
@@ -36,18 +38,19 @@ Crear la estructura mínima ejecutable del monolito modular (frontend + backend)
 - Dev con `tsx watch`
 
 #### Frontend — `apps/web`
+
 - React + Vite + TypeScript
 - Placeholder que consulta el health del API
 - Proxy Vite: `/api` → `http://localhost:3000` (same-origin en local)
 
 ### Decisiones técnicas
 
-| Decisión | Motivo |
-|---|---|
-| npm workspaces | Monorepo simple sin Turborepo/Nx |
-| Express + Vite | Stack confirmado en `ARCHITECTURE_PLAN` / `DEVELOPMENT_PLAN` |
-| Proxy Vite en local | Simula same-origin antes del despliegue |
-| Feature `health` como plantilla | Fija la convención arquitectónica desde el día 1 |
+| Decisión                        | Motivo                                                       |
+| ------------------------------- | ------------------------------------------------------------ |
+| npm workspaces                  | Monorepo simple sin Turborepo/Nx                             |
+| Express + Vite                  | Stack confirmado en `ARCHITECTURE_PLAN` / `DEVELOPMENT_PLAN` |
+| Proxy Vite en local             | Simula same-origin antes del despliegue                      |
+| Feature `health` como plantilla | Fija la convención arquitectónica desde el día 1             |
 
 ### Validación
 
@@ -77,6 +80,7 @@ Conectar PostgreSQL local con Prisma, establecer el workflow de migraciones, cli
 ### Qué se entregó
 
 #### Persistencia
+
 - Prisma **6.x** (`@prisma/client` + CLI)
 - `apps/api/prisma/schema.prisma` — baseline sin modelos de dominio
 - Migración inicial: `apps/api/prisma/migrations/20260826000000_init/`
@@ -85,35 +89,38 @@ Conectar PostgreSQL local con Prisma, establecer el workflow de migraciones, cli
 - Cierre graceful: `SIGINT` / `SIGTERM` → cierra HTTP + `prisma.$disconnect()`
 
 #### Health actualizado
-| Endpoint | Significado | Éxito | Fallo |
-|---|---|---|---|
-| `GET /api/health/live` | Proceso vivo | `200 { "status": "ok" }` | Proceso caído |
+
+| Endpoint                | Significado                                       | Éxito                                                                  | Fallo                                                                                   |
+| ----------------------- | ------------------------------------------------- | ---------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| `GET /api/health/live`  | Proceso vivo                                      | `200 { "status": "ok" }`                                               | Proceso caído                                                                           |
 | `GET /api/health/ready` | PostgreSQL alcanzable **y** migraciones aplicadas | `200 { "status": "ok", "database": "up", "migrations": "up_to_date" }` | `503` si BD caída, migraciones pendientes (`pending`) o no verificables (`unavailable`) |
 
 El frontend pasó a consultar `/api/health/live`.
 
 #### Scripts
-| Comando | Descripción |
-|---|---|
-| `npm run db:generate` | Genera Prisma Client |
-| `npm run db:migrate` | Migraciones interactivas en desarrollo |
-| `npm run db:migrate:deploy` | Aplica migraciones existentes |
-| `npm run db:studio` | Prisma Studio (API workspace) |
+
+| Comando                     | Descripción                            |
+| --------------------------- | -------------------------------------- |
+| `npm run db:generate`       | Genera Prisma Client                   |
+| `npm run db:migrate`        | Migraciones interactivas en desarrollo |
+| `npm run db:migrate:deploy` | Aplica migraciones existentes          |
+| `npm run db:studio`         | Prisma Studio (API workspace)          |
 
 `dotenv-cli` carga `../../.env` (raíz del monorepo) para los comandos Prisma.
 
 #### Documentación
+
 - `.env.example` con `DATABASE_URL` de ejemplo
 - `README.md` actualizado (prerrequisitos PostgreSQL, health endpoints, scripts DB)
 
 ### Decisiones técnicas
 
-| Decisión | Motivo |
-|---|---|
-| Prisma 6 (no 7) | Flujo clásico `url = env("DATABASE_URL")` en schema; Prisma 7 exige `prisma.config.ts` + adapters |
-| Live vs Ready separados | Distinguir “proceso arriba” de “BD disponible” |
-| Migración baseline vacía de dominio | Establece el workflow antes de User/Session (M5) |
-| Ping de BD en `HealthRepository` | Persistencia fuera del controller; mantiene capas |
+| Decisión                            | Motivo                                                                                            |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------- |
+| Prisma 6 (no 7)                     | Flujo clásico `url = env("DATABASE_URL")` en schema; Prisma 7 exige `prisma.config.ts` + adapters |
+| Live vs Ready separados             | Distinguir “proceso arriba” de “BD disponible”                                                    |
+| Migración baseline vacía de dominio | Establece el workflow antes de User/Session (M5)                                                  |
+| Ping de BD en `HealthRepository`    | Persistencia fuera del controller; mantiene capas                                                 |
 
 ### Validación
 
@@ -155,6 +162,7 @@ Instalar infraestructura transversal de errores de aplicación, logging estructu
 ### Qué se entregó
 
 #### Taxonomía y mapper
+
 - `apps/api/src/infrastructure/errors/` — `AppError` + `mapErrorToHttp`
 - Códigos: `VALIDATION`, `UNAUTHORIZED`, `FORBIDDEN`, `NOT_FOUND`, `PAYLOAD_TOO_LARGE`, `UNSUPPORTED_MEDIA_TYPE`, `CONFLICT`, `INTERNAL`
 - Envelope: `{ "error": { "code", "message", "errorId?", "details?" } }`
@@ -164,6 +172,7 @@ Instalar infraestructura transversal de errores de aplicación, logging estructu
 - Charset/encoding JSON no admitido → 415 `UNSUPPORTED_MEDIA_TYPE`
 
 #### Middleware HTTP
+
 - Request ID (`X-Request-Id` entrante o UUID generado)
 - `requestPath` capturado a la entrada (antes de que los routers recorten `req.path`)
 - Helmet
@@ -173,24 +182,26 @@ Instalar infraestructura transversal de errores de aplicación, logging estructu
 - Error handler Express de 4 argumentos
 
 #### Logging
+
 - Pino; `LOG_LEVEL` (`silent` en `NODE_ENV=test`)
 - 500 registra `requestId` + `errorId` + error interno
 
 #### Tests
+
 - Unit: mapeo error → status/código
 - Integration: 400 Zod (router **solo de tests**), 413/415, snapshot de path, 409, 404, 500 + `errorId`, Helmet, `X-Request-Id`
 - `createApp({ extraRouters })` es el seam de tests; no hay endpoint público de probe
 
 ### Decisiones de implementación (cerradas con el owner)
 
-| Decisión | Elección |
-|---|---|
-| Envelope | Anidado bajo `error` |
-| `errorId` | Solo 500 |
-| Headers | Helmet |
-| Cómo probar 400 | Router/schema solo en tests |
-| Rutas inexistentes | 404 `NOT_FOUND` con el envelope |
-| 413 / 415 | Códigos propios (`PAYLOAD_TOO_LARGE`, `UNSUPPORTED_MEDIA_TYPE`) |
+| Decisión           | Elección                                                        |
+| ------------------ | --------------------------------------------------------------- |
+| Envelope           | Anidado bajo `error`                                            |
+| `errorId`          | Solo 500                                                        |
+| Headers            | Helmet                                                          |
+| Cómo probar 400    | Router/schema solo en tests                                     |
+| Rutas inexistentes | 404 `NOT_FOUND` con el envelope                                 |
+| 413 / 415          | Códigos propios (`PAYLOAD_TOO_LARGE`, `UNSUPPORTED_MEDIA_TYPE`) |
 
 ### Validación
 
@@ -256,13 +267,13 @@ Completar el harness existente de Vitest + Supertest, ejecutar integraciones con
 
 Durante la preparación de CI, la auditoría identificó hallazgos en `deepmerge-ts` (a través de Prisma) y `qs`. El owner autorizó resolverlos preservando reglas y arquitectura. Estos ajustes acompañan a M4, pero se distinguen del harness y CI originales:
 
-| Cambio | Motivo y alcance |
-|---|---|
-| `qs` 6.15.3 → 6.16.0 en `package-lock.json` | Versión corregida compatible con los rangos ya declarados por Express, body-parser y Superagent |
-| Override raíz de `deepmerge-ts` a 8.0.0, limitado a `@prisma/config@6.19.3` | Corregir la dependencia interna manteniendo Prisma y Prisma Client en 6.19.3 |
-| npm 11.19.1 declarado en `package.json` | npm 11.17 ignoraba el override al atravesar el workspace; la versión nueva aplica el árbol esperado |
-| `.npmrc` con `engine-strict=true` y requisito npm `>=11.19.1 <12` | Rechazar instalaciones con un gestor incompatible antes de modificar el lockfile |
-| Ajustes en los Dockerfiles existentes de API/web y en CI | Instalar npm 11.19.1 e incluir `.npmrc` para reproducir la resolución de dependencias |
+| Cambio                                                                                | Motivo y alcance                                                                                       |
+| ------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| `qs` 6.15.3 → 6.16.0 en `package-lock.json`                                           | Versión corregida compatible con los rangos ya declarados por Express, body-parser y Superagent        |
+| Override raíz de `deepmerge-ts` a 8.0.0, limitado a `@prisma/config@6.19.3`           | Corregir la dependencia interna manteniendo Prisma y Prisma Client en 6.19.3                           |
+| npm 11.19.1 declarado en `package.json`                                               | npm 11.17 ignoraba el override al atravesar el workspace; la versión nueva aplica el árbol esperado    |
+| `.npmrc` con `engine-strict=true` y requisito npm `>=11.19.1 <12`                     | Rechazar instalaciones con un gestor incompatible antes de modificar el lockfile                       |
+| Ajustes en los Dockerfiles existentes de API/web y en CI                              | Instalar npm 11.19.1 e incluir `.npmrc` para reproducir la resolución de dependencias                  |
 | `tests/fixtures/prisma.config.ts` y `tests/unit/infrastructure/prisma-config.test.ts` | Validar la compatibilidad del override invocando la CLI real de Prisma con una configuración de prueba |
 
 El archivo de `fixtures` se utiliza únicamente en pruebas y no sustituye la configuración de la aplicación. La prueba cubre la carga de configuración y validación del esquema; las integraciones verifican además las migraciones. Se debe reevaluar el override cuando Prisma publique una corrección propia. No se aplicó `npm audit fix --force` ni se añadieron excepciones al gate de auditoría.
@@ -271,24 +282,24 @@ El owner actualizó posteriormente su npm global a **11.19.1**, y se comprobó q
 
 ### Validación realizada
 
-| Verificación | Resultado |
-|---|---|
-| Instalación limpia con `npm ci` y npm 11.19.1 | OK |
-| Árbol instalado mediante `npm ls` | Prisma/Client 6.19.3, deepmerge-ts 8.0.0, qs 6.16.0; sin dependencias inválidas con npm 11.19.1 |
-| Generación de Prisma y carga real de configuración | OK |
-| Unitarias API | 43 aprobadas |
-| Integraciones API con PostgreSQL real | 15 aprobadas |
-| Unitarias web | 256 aprobadas |
-| Integraciones web | 68 aprobadas |
-| Componentes web | 119 aprobadas |
-| Total del monorepo | **501 pruebas aprobadas** |
-| Typecheck de aplicaciones y pruebas | OK |
-| Lint | Sin errores; 4 advertencias preexistentes de React Fast Refresh |
-| Build API + web | OK; advertencia preexistente por tamaño del bundle web |
-| `npm audit --audit-level=high` | **0 vulnerabilidades** (2026-09-04, npm 11.19.1) |
-| Conexión de test deliberadamente inaccesible | La suite falla explícitamente antes de ejecutar pruebas |
-| Instalación con npm 11.17 | Rechazada con `EBADENGINE`; lockfile sin cambios |
-| Sintaxis del workflow YAML | Parseo correcto |
+| Verificación                                       | Resultado                                                                                       |
+| -------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| Instalación limpia con `npm ci` y npm 11.19.1      | OK                                                                                              |
+| Árbol instalado mediante `npm ls`                  | Prisma/Client 6.19.3, deepmerge-ts 8.0.0, qs 6.16.0; sin dependencias inválidas con npm 11.19.1 |
+| Generación de Prisma y carga real de configuración | OK                                                                                              |
+| Unitarias API                                      | 43 aprobadas                                                                                    |
+| Integraciones API con PostgreSQL real              | 15 aprobadas                                                                                    |
+| Unitarias web                                      | 256 aprobadas                                                                                   |
+| Integraciones web                                  | 68 aprobadas                                                                                    |
+| Componentes web                                    | 119 aprobadas                                                                                   |
+| Total del monorepo                                 | **501 pruebas aprobadas**                                                                       |
+| Typecheck de aplicaciones y pruebas                | OK                                                                                              |
+| Lint                                               | Sin errores; 4 advertencias preexistentes de React Fast Refresh                                 |
+| Build API + web                                    | OK; advertencia preexistente por tamaño del bundle web                                          |
+| `npm audit --audit-level=high`                     | **0 vulnerabilidades** (2026-09-04, npm 11.19.1)                                                |
+| Conexión de test deliberadamente inaccesible       | La suite falla explícitamente antes de ejecutar pruebas                                         |
+| Instalación con npm 11.17                          | Rechazada con `EBADENGINE`; lockfile sin cambios                                                |
+| Sintaxis del workflow YAML                         | Parseo correcto                                                                                 |
 
 Las comprobaciones locales se realizaron en Windows con Node.js 24. El owner confirmó el 2026-09-07 que la ejecución de **CI R1** en GitHub (Ubuntu/Node.js 22) y el check obligatorio `R1 quality` quedaron listos.
 
@@ -438,7 +449,6 @@ Modelar usuarios, roles y sesiones en PostgreSQL, añadir persistencia reutiliza
 
 Las integraciones utilizaron únicamente `DATABASE_URL_TEST`, reiniciaron esa base desechable y reaplicaron todas las migraciones. La verificación final no creó el administrador de desarrollo. El CLI compilado también rechazó correctamente una ejecución sin terminal interactiva.
 
-
 ### Fuera de alcance (intencional)
 
 - Login/logout, emisión y hashing de tokens, cookies, expiración, rate limiting y perfil propio (M6).
@@ -460,28 +470,28 @@ Exponer autenticación HTTP same-origin: login por `username` + password, sesion
 
 ### Endpoints (`/api/auth`)
 
-| Método | Ruta | Auth | CSRF | Cuerpo / resultado |
-|---|---|---|---|---|
-| `POST` | `/login` | público + rate limit | no | `{ username, password }` → `PublicAuthUser` + `Set-Cookie` |
-| `POST` | `/logout` | cookie opcional (idempotente) | sí | `204`; borra cookie y revoca hash si existía |
-| `GET` | `/session` | `requireAuth` | no | `PublicAuthUser` |
-| `GET` | `/me` | `requireAuth` | no | `PublicProfile` |
-| `PATCH` | `/me` | `requireAuth` | sí | `name`, `phone?`, `email?`, cambio de password; responde `PublicProfile` |
+| Método  | Ruta       | Auth                          | CSRF | Cuerpo / resultado                                                       |
+| ------- | ---------- | ----------------------------- | ---- | ------------------------------------------------------------------------ |
+| `POST`  | `/login`   | público + rate limit          | no   | `{ username, password }` → `PublicAuthUser` + `Set-Cookie`               |
+| `POST`  | `/logout`  | cookie opcional (idempotente) | sí   | `204`; borra cookie y revoca hash si existía                             |
+| `GET`   | `/session` | `requireAuth`                 | no   | `PublicAuthUser`                                                         |
+| `GET`   | `/me`      | `requireAuth`                 | no   | `PublicProfile`                                                          |
+| `PATCH` | `/me`      | `requireAuth`                 | sí   | `name`, `phone?`, `email?`, cambio de password; responde `PublicProfile` |
 
 Ninguna respuesta JSON incluye `passwordHash` ni el token opaco de sesión.
 
 ### Cookie, CSRF y rate limit
 
-| Decisión | Elección | Motivo |
-|---|---|---|
-| Cookie | `sid`, `HttpOnly`, `Path=/`, `SameSite=Lax`, `Secure` solo si `NODE_ENV=production` | Same-origin; HTTPS de despliegue aún no existe |
-| Token | 32 bytes aleatorios en hex; en BD solo SHA-256 hex del valor de la cookie | Una lectura de `Session` no entrega un identificador reutilizable |
-| TTL | 12 h absoluto, sin sliding | Confirmado en constantes de M6 paso 1 |
-| Rotación | Login crea sesión nueva y revoca el hash del `sid` previo si venía en la request | Evita reutilizar el identificador anterior |
-| CSRF | Header `X-Requested-With: XMLHttpRequest` en `PATCH` y `POST /logout` | Defensa adicional a SameSite=Lax; GET no lo exige; login es público |
-| Fallo CSRF | `403 FORBIDDEN` (`CSRF validation failed`) | Distinto de 401 de sesión ausente/expirada |
-| Rate limit | `express-rate-limit` 8.x solo en `POST /login`, 10 intentos / 15 min, clave IP | Fuerza bruta; exceso → `429 TOO_MANY_REQUESTS` con el envelope M3 |
-| Login fallido | Siempre `401` + `Invalid credentials` (usuario inexistente, password incorrecta o cuenta inactiva) | No filtrar cuál condición falló; verify dummy si no hay usuario |
+| Decisión      | Elección                                                                                           | Motivo                                                              |
+| ------------- | -------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| Cookie        | `sid`, `HttpOnly`, `Path=/`, `SameSite=Lax`, `Secure` solo si `NODE_ENV=production`                | Same-origin; HTTPS de despliegue aún no existe                      |
+| Token         | 32 bytes aleatorios en hex; en BD solo SHA-256 hex del valor de la cookie                          | Una lectura de `Session` no entrega un identificador reutilizable   |
+| TTL           | 12 h absoluto, sin sliding                                                                         | Confirmado en constantes de M6 paso 1                               |
+| Rotación      | Login crea sesión nueva y revoca el hash del `sid` previo si venía en la request                   | Evita reutilizar el identificador anterior                          |
+| CSRF          | Header `X-Requested-With: XMLHttpRequest` en `PATCH` y `POST /logout`                              | Defensa adicional a SameSite=Lax; GET no lo exige; login es público |
+| Fallo CSRF    | `403 FORBIDDEN` (`CSRF validation failed`)                                                         | Distinto de 401 de sesión ausente/expirada                          |
+| Rate limit    | `express-rate-limit` 8.x solo en `POST /login`, 10 intentos / 15 min, clave IP                     | Fuerza bruta; exceso → `429 TOO_MANY_REQUESTS` con el envelope M3   |
+| Login fallido | Siempre `401` + `Invalid credentials` (usuario inexistente, password incorrecta o cuenta inactiva) | No filtrar cuál condición falló; verify dummy si no hay usuario     |
 
 `PATCH /me` no acepta `username`, `role` ni `active` (schema Zod estricto). El repositorio de perfil propio tampoco persiste esos campos. Cambiar password exige password actual; actual incorrecta o nueva corta → `400 VALIDATION`.
 
@@ -500,10 +510,10 @@ Ninguna respuesta JSON incluye `passwordHash` ni el token opaco de sesión.
 
 ### Validación realizada
 
-| Verificación | Resultado |
-|---|---|
-| `npm run test:unit --workspace @solocamiones/api` | **113** aprobadas |
-| `npm run typecheck --workspace @solocamiones/api` | OK |
+| Verificación                                             | Resultado                                                                                                                                                                      |
+| -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `npm run test:unit --workspace @solocamiones/api`        | **113** aprobadas                                                                                                                                                              |
+| `npm run typecheck --workspace @solocamiones/api`        | OK                                                                                                                                                                             |
 | `npm run test:integration --workspace @solocamiones/api` | No ejecutado: Prisma AI safety bloqueó `migrate reset` sobre `truck_parts_test` (localhost:5433). No se usó `PRISMA_USER_CONSENT`. No se tocó `truck_parts_dev` ni producción. |
 
 ### Fuera de alcance (intencional)
@@ -527,18 +537,18 @@ permanece en mock.
 
 ### Policies
 
-| Helper | Comportamiento |
-|---|---|
+| Helper                  | Comportamiento                                                                                                                                   |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `requireRole(...roles)` | Sin `req.auth` → `401 UNAUTHORIZED`. Rol no listado → `403 FORBIDDEN` (`Insufficient permissions`, distinto del CSRF). Rol permitido → `next()`. |
-| `requireAdministrator` | `requireRole('ADMINISTRATOR')` |
+| `requireAdministrator`  | `requireRole('ADMINISTRATOR')`                                                                                                                   |
 
 Deben ir **después** de `requireAuth`. M8 repetirá la regla de Administrator en el service de `users`.
 
 ### Proyección `GET /api/auth/session`
 
-| Rol | Cuerpo |
-|---|---|
-| Mechanic | `{ id, username, name, role }` |
+| Rol                    | Cuerpo                                                        |
+| ---------------------- | ------------------------------------------------------------- |
+| Mechanic               | `{ id, username, name, role }`                                |
 | Seller / Administrator | identidad + `phone` + `email` (contacto propio, no comercial) |
 
 `GET /api/auth/me` sigue siendo perfil propio para **todos** los roles (Feature 01 self-service).
@@ -556,11 +566,11 @@ No gestiona usuarios; existe para tests negativos y smoke hasta que M8 monte `/a
 
 ### Validación realizada
 
-| Verificación | Resultado |
-|---|---|
-| `npx vitest run tests/unit` (API) | **120** aprobadas |
-| `npm run typecheck --workspace @solocamiones/api` | OK |
-| Integración HTTP autorización | Escrita; no ejecutada en esta sesión (mismo bloqueo de `migrate reset` sobre `truck_parts_test`) |
+| Verificación                                      | Resultado                                                                                        |
+| ------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| `npx vitest run tests/unit` (API)                 | **120** aprobadas                                                                                |
+| `npm run typecheck --workspace @solocamiones/api` | OK                                                                                               |
+| Integración HTTP autorización                     | Escrita; no ejecutada en esta sesión (mismo bloqueo de `migrate reset` sobre `truck_parts_test`) |
 
 ### Fuera de alcance (intencional)
 
@@ -598,18 +608,18 @@ Implementar administración HTTP de cuentas con primer acceso restringido, cambi
 
 ### Verificación realizada
 
-| Verificación | Resultado |
-|---|---|
-| Unitarias API | **130 aprobadas** |
-| Integraciones API PostgreSQL/HTTP | **87 aprobadas**, incluidas M6–M7 y 17 casos M8 |
-| Suite web sin cambios | **443 aprobadas** |
-| Total | **660 pruebas aprobadas** |
-| Typecheck API, tests API y web | OK |
-| Build API + web | OK; advertencia preexistente de tamaño del bundle web |
-| Lint | Sin errores; cuatro advertencias preexistentes de React Fast Refresh |
-| Migraciones limpias | Harness estándar reaplica las tres migraciones en `DATABASE_URL_TEST` |
-| Migración local de desarrollo | Aplicada a `truck_parts_dev` en localhost:5433 con `npm run db:migrate:deploy`, sin reset ni modificación de contraseñas |
-| Diff whitespace | `git diff --check` sin errores |
+| Verificación                      | Resultado                                                                                                                |
+| --------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| Unitarias API                     | **130 aprobadas**                                                                                                        |
+| Integraciones API PostgreSQL/HTTP | **87 aprobadas**, incluidas M6–M7 y 17 casos M8                                                                          |
+| Suite web sin cambios             | **443 aprobadas**                                                                                                        |
+| Total                             | **660 pruebas aprobadas**                                                                                                |
+| Typecheck API, tests API y web    | OK                                                                                                                       |
+| Build API + web                   | OK; advertencia preexistente de tamaño del bundle web                                                                    |
+| Lint                              | Sin errores; cuatro advertencias preexistentes de React Fast Refresh                                                     |
+| Migraciones limpias               | Harness estándar reaplica las tres migraciones en `DATABASE_URL_TEST`                                                    |
+| Migración local de desarrollo     | Aplicada a `truck_parts_dev` en localhost:5433 con `npm run db:migrate:deploy`, sin reset ni modificación de contraseñas |
+| Diff whitespace                   | `git diff --check` sin errores                                                                                           |
 
 Pruebas M8: tres roles, validación/inyección, secretos excluidos, CSRF, paginación, duplicados, desactivación/reactivación, solicitudes genéricas/duplicadas/vencidas, contraseña temporal sin vencimiento, aprobación entre administradores, prohibición de auto-resolución, concurrencia y rollback ante fallos simulados. El cambio desde perfil se prueba tanto obligatorio como voluntario. Se comprueba relectura de credenciales antes de emitir sesión.
 
@@ -626,6 +636,7 @@ Contrato de endpoints, ejemplos JSON, estructura, reglas y explicación paso a p
 - Correo, recuperación local de emergencia, staging o producción.
 
 ---
+
 ## Milestone 9 — History mínimo Release 1
 
 **Estado:** completado y verificado localmente.
@@ -645,17 +656,17 @@ Contrato de endpoints, ejemplos JSON, estructura, reglas y explicación paso a p
 
 ### Verificación realizada
 
-| Verificación | Resultado |
-|---|---|
-| Unitarias API | **139 aprobadas** |
-| Integraciones PostgreSQL/HTTP | **97 aprobadas**, incluidas 10 nuevas de M9 y regresiones M6–M8 |
-| Suite web | **443 aprobadas** en repetición completa |
-| Total | **679 pruebas aprobadas** |
-| Typecheck API, tests y web | OK |
-| Lint | Sin errores; cuatro advertencias preexistentes de React Fast Refresh |
-| Build API + web | OK; advertencia preexistente de tamaño del bundle web |
-| Migraciones limpias | Harness estándar reaplica las cuatro migraciones en `DATABASE_URL_TEST` |
-| Base local de desarrollo | Migración M9 aplicada a `truck_parts_dev` en localhost:5433 mediante `db:migrate:deploy`, sin reset ni cambios a cuentas existentes |
+| Verificación                  | Resultado                                                                                                                           |
+| ----------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| Unitarias API                 | **139 aprobadas**                                                                                                                   |
+| Integraciones PostgreSQL/HTTP | **97 aprobadas**, incluidas 10 nuevas de M9 y regresiones M6–M8                                                                     |
+| Suite web                     | **443 aprobadas** en repetición completa                                                                                            |
+| Total                         | **679 pruebas aprobadas**                                                                                                           |
+| Typecheck API, tests y web    | OK                                                                                                                                  |
+| Lint                          | Sin errores; cuatro advertencias preexistentes de React Fast Refresh                                                                |
+| Build API + web               | OK; advertencia preexistente de tamaño del bundle web                                                                               |
+| Migraciones limpias           | Harness estándar reaplica las cuatro migraciones en `DATABASE_URL_TEST`                                                             |
+| Base local de desarrollo      | Migración M9 aplicada a `truck_parts_dev` en localhost:5433 mediante `db:migrate:deploy`, sin reset ni cambios a cuentas existentes |
 
 La primera ejecución web tuvo un fallo de sincronización en `PosPage.test.tsx` al descartar un borrador. La suite de ese archivo pasó aislada (12 pruebas) y la repetición web completa pasó (443); no se modificó código web. Se registra la intermitencia, sin atribuirle una corrección en M9.
 
@@ -692,15 +703,15 @@ Detalle de decisiones, eventos, integración y operación en [`../plans_api/mile
 
 ### Verificación realizada
 
-| Verificación | Resultado |
-|---|---|
-| Unitarias API | **139 aprobadas** |
+| Verificación                 | Resultado                                                                                      |
+| ---------------------------- | ---------------------------------------------------------------------------------------------- |
+| Unitarias API                | **139 aprobadas**                                                                              |
 | Integraciones API/PostgreSQL | **97 aprobadas**, incluidas migraciones limpias, auth, autorización, users, recovery e history |
-| Suite web | **482 aprobadas** en 70 archivos; incluye cliente HTTP, UI HTTP y regresiones mock |
-| Total | **718 pruebas aprobadas** |
-| Typecheck aplicación y tests | OK |
-| Lint | Sin errores; cuatro advertencias preexistentes de React Fast Refresh |
-| Build API + web | OK; advertencia preexistente de tamaño del bundle web |
+| Suite web                    | **482 aprobadas** en 70 archivos; incluye cliente HTTP, UI HTTP y regresiones mock             |
+| Total                        | **718 pruebas aprobadas**                                                                      |
+| Typecheck aplicación y tests | OK                                                                                             |
+| Lint                         | Sin errores; cuatro advertencias preexistentes de React Fast Refresh                           |
+| Build API + web              | OK; advertencia preexistente de tamaño del bundle web                                          |
 
 La cobertura nueva verifica `POST` sin contraseña, `PATCH`, cookie, CSRF, varias páginas, exclusión de campos sensibles, errores HTTP, visibilidad exclusiva de Administrator, aprobación/rechazo y entrega única de contraseña temporal. Las integraciones M8–M9 vuelven a demostrar restricciones server-side, revocación, concurrencia e historial `USER_*` atómico.
 

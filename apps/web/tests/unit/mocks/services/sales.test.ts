@@ -93,9 +93,9 @@ describe('sales catalog seed', () => {
     });
     expect(withService.ok).toBe(true);
 
-    expect(setDraftMeta(state, seller, { draftId: created.value.draftId, applyItbis: true }).ok).toBe(
-      true,
-    );
+    expect(
+      setDraftMeta(state, seller, { draftId: created.value.draftId, applyItbis: true }).ok,
+    ).toBe(true);
     expect(
       setDraftMeta(state, seller, { draftId: created.value.draftId, discountPercent: 10 }).ok,
     ).toBe(true);

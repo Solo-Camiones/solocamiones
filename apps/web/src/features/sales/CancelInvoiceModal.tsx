@@ -60,7 +60,8 @@ export function CancelInvoiceModal({
   const fields = { reason, refundAmount, refundMethod, inProgressDecision };
   const [baseline, setBaseline] = useState(fields);
   const showWorkOrders = workOrdersEnabled && workOrders.length > 0;
-  const hasInProgress = showWorkOrders && workOrders.some((order) => order.status === 'IN_PROGRESS');
+  const hasInProgress =
+    showWorkOrders && workOrders.some((order) => order.status === 'IN_PROGRESS');
   const netCollected = Math.round(paid * 100) / 100;
 
   useEffect(() => {
@@ -241,7 +242,12 @@ export function CancelInvoiceModal({
               )}
 
               <div className="flex justify-end gap-2 pt-2">
-                <Button type="button" variant="secondary" onClick={requestClose} disabled={isSaving}>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={requestClose}
+                  disabled={isSaving}
+                >
                   Cerrar
                 </Button>
                 <Button type="submit" variant="danger" disabled={isSaving}>

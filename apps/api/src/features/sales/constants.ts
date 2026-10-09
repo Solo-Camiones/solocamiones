@@ -47,8 +47,7 @@ export const USD_INVOICE_MUST_BE_PAID_IN_FULL_MESSAGE =
   'Las facturas en USD deben pagarse por completo al confirmar';
 export const SELLER_CREDIT_CONFIRM_PAYMENT_FORBIDDEN_MESSAGE =
   'El Vendedor no puede registrar un pago al confirmar una venta a crédito';
-export const CREDIT_LIMIT_EXCEEDED_MESSAGE =
-  'El límite de crédito del cliente sería excedido';
+export const CREDIT_LIMIT_EXCEEDED_MESSAGE = 'El límite de crédito del cliente sería excedido';
 export const PAYMENT_IDEMPOTENCY_MISMATCH_MESSAGE =
   'La clave de idempotencia ya fue usada con datos de pago diferentes';
 export const CANCELLATION_IDEMPOTENCY_MISMATCH_MESSAGE =

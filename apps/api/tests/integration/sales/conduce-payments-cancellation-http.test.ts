@@ -259,15 +259,12 @@ describe('conduce payments, CxC, and cancellation (CON-002 / CON-005)', () => {
     const draft = await draftWithLine(agent, customer.id);
     const dueDate = businessDateString(new Date());
 
-    const onDraft = await agent
-      .post(`${ROOT}/${draft.id}/payments`)
-      .set(TEST_CSRF_HEADERS)
-      .send({
-        amount: '10.00',
-        method: 'CASH',
-        effectiveDate: dueDate,
-        idempotencyKey: randomUUID(),
-      });
+    const onDraft = await agent.post(`${ROOT}/${draft.id}/payments`).set(TEST_CSRF_HEADERS).send({
+      amount: '10.00',
+      method: 'CASH',
+      effectiveDate: dueDate,
+      idempotencyKey: randomUUID(),
+    });
     expect(onDraft.status).toBe(409);
     expect(onDraft.body.error.message).toBe(PAYMENT_COMPLETED_ONLY_MESSAGE);
 
@@ -297,15 +294,12 @@ describe('conduce payments, CxC, and cancellation (CON-002 / CON-005)', () => {
     const byCon = await agent.get(`${ROOT}/receivables?invoice=CON-000001`);
     expect(byCon.body.invoices[0].id).toBe(draft.id);
 
-    const cancelled = await agent
-      .post(`${ROOT}/${draft.id}/cancel`)
-      .set(TEST_CSRF_HEADERS)
-      .send({
-        reason: 'Cliente desistió',
-        refundAmount: '100.00',
-        refundMethod: 'CASH',
-        idempotencyKey: randomUUID(),
-      });
+    const cancelled = await agent.post(`${ROOT}/${draft.id}/cancel`).set(TEST_CSRF_HEADERS).send({
+      reason: 'Cliente desistió',
+      refundAmount: '100.00',
+      refundMethod: 'CASH',
+      idempotencyKey: randomUUID(),
+    });
     expect(cancelled.status).toBe(200);
     expect(cancelled.body).toMatchObject({
       status: 'CANCELLED',
@@ -357,15 +351,12 @@ describe('conduce payments, CxC, and cancellation (CON-002 / CON-005)', () => {
       });
     expect(paid.status).toBe(200);
 
-    const over = await agent
-      .post(`${ROOT}/${paidDraft.id}/cancel`)
-      .set(TEST_CSRF_HEADERS)
-      .send({
-        reason: 'Exceso',
-        refundAmount: '200.01',
-        refundMethod: 'CASH',
-        idempotencyKey: randomUUID(),
-      });
+    const over = await agent.post(`${ROOT}/${paidDraft.id}/cancel`).set(TEST_CSRF_HEADERS).send({
+      reason: 'Exceso',
+      refundAmount: '200.01',
+      refundMethod: 'CASH',
+      idempotencyKey: randomUUID(),
+    });
     expect(over.status).toBe(409);
     expect(over.body.error.message).toBe(CANCELLATION_REFUND_EXCEEDS_NET_MESSAGE);
   });

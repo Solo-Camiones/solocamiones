@@ -11,7 +11,9 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
-const allowlistPath = path.resolve(process.argv[2] ?? path.join(rootDir, 'infra/security/vulnerability-allowlist.yml'));
+const allowlistPath = path.resolve(
+  process.argv[2] ?? path.join(rootDir, 'infra/security/vulnerability-allowlist.yml'),
+);
 const outputPath = path.resolve(process.argv[3] ?? path.join(rootDir, '.trivyignore.generated'));
 
 function parseAllowlist(text) {
@@ -40,7 +42,10 @@ function parseAllowlist(text) {
       const colon = rest.indexOf(':');
       if (colon !== -1) {
         const key = rest.slice(0, colon).trim();
-        const value = rest.slice(colon + 1).trim().replace(/^['"]|['"]$/g, '');
+        const value = rest
+          .slice(colon + 1)
+          .trim()
+          .replace(/^['"]|['"]$/g, '');
         current[key] = value;
       }
       continue;
@@ -48,7 +53,10 @@ function parseAllowlist(text) {
     if (current && stripped.includes(':')) {
       const colon = stripped.indexOf(':');
       const key = stripped.slice(0, colon).trim();
-      const value = stripped.slice(colon + 1).trim().replace(/^['"]|['"]$/g, '');
+      const value = stripped
+        .slice(colon + 1)
+        .trim()
+        .replace(/^['"]|['"]$/g, '');
       current[key] = value;
     }
   }
@@ -71,11 +79,15 @@ const ids = [];
 entries.forEach((entry, index) => {
   const missing = ['id', 'justification', 'owner', 'expires'].filter((field) => !entry[field]);
   if (missing.length > 0) {
-    throw new Error(`generate-trivyignore: entry #${index + 1} missing required fields: ${missing.join(', ')}`);
+    throw new Error(
+      `generate-trivyignore: entry #${index + 1} missing required fields: ${missing.join(', ')}`,
+    );
   }
   const expires = new Date(`${entry.expires}T00:00:00Z`);
   if (Number.isNaN(expires.getTime())) {
-    throw new Error(`generate-trivyignore: entry #${index + 1} has invalid expires date: ${entry.expires}`);
+    throw new Error(
+      `generate-trivyignore: entry #${index + 1} has invalid expires date: ${entry.expires}`,
+    );
   }
   if (expires < today) {
     throw new Error(`generate-trivyignore: entry ${entry.id} expired on ${entry.expires}`);

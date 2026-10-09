@@ -19,7 +19,14 @@ export type PageHeaderProps = {
   breadcrumbs?: BreadcrumbItem[];
 };
 
-export function PageHeader({ title, description, actions, leading, compact = false, breadcrumbs }: PageHeaderProps) {
+export function PageHeader({
+  title,
+  description,
+  actions,
+  leading,
+  compact = false,
+  breadcrumbs,
+}: PageHeaderProps) {
   return (
     <header
       className={`flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between ${compact ? 'mb-5' : 'mb-8'}`}
@@ -28,7 +35,10 @@ export function PageHeader({ title, description, actions, leading, compact = fal
         {leading}
         <div className="min-w-0">
           {breadcrumbs && breadcrumbs.length > 0 && (
-            <nav aria-label="Breadcrumb" className="mb-1 flex items-center gap-1 text-xs text-navy-400">
+            <nav
+              aria-label="Breadcrumb"
+              className="mb-1 flex items-center gap-1 text-xs text-navy-400"
+            >
               {breadcrumbs.map((crumb, index) => (
                 <span key={index} className="flex items-center gap-1">
                   {index > 0 && <span aria-hidden>/</span>}
@@ -40,7 +50,9 @@ export function PageHeader({ title, description, actions, leading, compact = fal
                       {crumb.label}
                     </Link>
                   ) : (
-                    <span className="text-navy-300" aria-current="page">{crumb.label}</span>
+                    <span className="text-navy-300" aria-current="page">
+                      {crumb.label}
+                    </span>
                   )}
                 </span>
               ))}
@@ -48,7 +60,9 @@ export function PageHeader({ title, description, actions, leading, compact = fal
           )}
           <h1 className="text-2xl font-bold break-words text-navy sm:text-3xl">{title}</h1>
           {description && (
-            <p className={`max-w-2xl text-navy-400 ${compact ? 'mt-1 text-sm' : 'mt-2'}`}>{description}</p>
+            <p className={`max-w-2xl text-navy-400 ${compact ? 'mt-1 text-sm' : 'mt-2'}`}>
+              {description}
+            </p>
           )}
         </div>
       </div>

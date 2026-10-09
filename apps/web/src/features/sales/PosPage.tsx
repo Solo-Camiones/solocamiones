@@ -9,7 +9,16 @@ import { AssemblyKindChip, FiscalChip, RelationChip } from '../../shared/domain'
 import { BUSINESS_TIME_ZONE } from '../../shared/domain/business-date';
 import { useAppCapabilities } from '../../shared/config/CapabilitiesProvider';
 import { UNDO_TOAST_DURATION_MS, UX_TERMS } from '../../shared/copy/glossary';
-import { Button, Card, Chip, ConfirmActionModal, Info, money, useObjectUrlState, useToast } from '../../shared/ui';
+import {
+  Button,
+  Card,
+  Chip,
+  ConfirmActionModal,
+  Info,
+  money,
+  useObjectUrlState,
+  useToast,
+} from '../../shared/ui';
 import { AddLineModal } from './AddLineModal';
 import { AssemblyTree } from './AssemblyTree';
 import { ConfirmSaleModal, type ConfirmSaleMode } from './ConfirmSaleModal';

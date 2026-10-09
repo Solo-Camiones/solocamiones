@@ -52,7 +52,12 @@ type CompletedRow = {
   confirmedAt: string;
   saleCondition?: 'CASH' | 'CREDIT';
   totals: { gross: string; base: string; itbis: string };
-  payments: Array<{ kind: 'PAYMENT' | 'REFUND'; amount: string; method: string; effectiveDate: string }>;
+  payments: Array<{
+    kind: 'PAYMENT' | 'REFUND';
+    amount: string;
+    method: string;
+    effectiveDate: string;
+  }>;
   profitability?: {
     status: ProfitabilityStatus;
     reason: ProfitabilityReason;
@@ -88,7 +93,9 @@ beforeEach(() => {
       confirmedAt: inWindowAt,
       saleCondition: 'CASH',
       totals: { gross: '18000.00', base: '18000.00', itbis: '0.00' },
-      payments: [{ kind: 'PAYMENT', amount: '18000.00', method: 'CASH', effectiveDate: inWindowDay }],
+      payments: [
+        { kind: 'PAYMENT', amount: '18000.00', method: 'CASH', effectiveDate: inWindowDay },
+      ],
       profitability: {
         status: 'CALCULATED',
         reason: null,
@@ -144,7 +151,8 @@ beforeEach(() => {
       return json({ items: [], total: 0, page: 1, pageSize: 10 });
     }
     if (url.startsWith('/api/sales?status=COMPLETED') && !init?.method) {
-      const items = role === 'ADMINISTRATOR' ? invoices : invoices.map(({ profitability: _, ...rest }) => rest);
+      const items =
+        role === 'ADMINISTRATOR' ? invoices : invoices.map(({ profitability: _, ...rest }) => rest);
       return json({ items, total: items.length, page: 1, pageSize: 10 });
     }
     const retry = url.match(/^\/api\/profitability\/([^/]+)\/retry$/);
@@ -221,7 +229,9 @@ describe('HTTP profitability flow', () => {
     expect(screen.getAllByText(money(2_000, 'DOP')).length).toBeGreaterThan(0);
     expect(screen.getByText('Cobrado efectivo')).toBeVisible();
     expect(screen.getByRole('link', { name: 'Rentabilidad' })).toBeVisible();
-    expect(screen.queryByRole('button', { name: /tasa de cambio \(demo\)/i })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: /tasa de cambio \(demo\)/i }),
+    ).not.toBeInTheDocument();
     expect(screen.queryByText('Tasa de demostración')).not.toBeInTheDocument();
     expect(screen.queryByRole('img', { name: 'Evolución financiera' })).not.toBeInTheDocument();
     expect(screen.queryByText('Detalle de rentabilidad por factura')).not.toBeInTheDocument();

@@ -57,7 +57,9 @@ describe('role navigation', () => {
 
     const releaseOneAdmin = navGroupsForRole('ADMINISTRATOR', CAPABILITY_PRESETS['release-1']);
     expect(releaseOneAdmin.map((group) => group.id)).toEqual(['administration']);
-    expect(releaseOneAdmin.flatMap((group) => group.items.map((item) => item.id))).toEqual(['users']);
+    expect(releaseOneAdmin.flatMap((group) => group.items.map((item) => item.id))).toEqual([
+      'users',
+    ]);
   });
 
   it('maps every role to its correct home', () => {
@@ -102,9 +104,9 @@ describe('role navigation', () => {
   });
 
   it('blocks a role-permitted URL when its capability is disabled', () => {
-    expect(isRouteAllowedForRole('/inventory', 'ADMINISTRATOR', CAPABILITY_PRESETS['release-1'])).toBe(
-      false,
-    );
+    expect(
+      isRouteAllowedForRole('/inventory', 'ADMINISTRATOR', CAPABILITY_PRESETS['release-1']),
+    ).toBe(false);
     expect(isRouteAllowedForRole('/users', 'ADMINISTRATOR', CAPABILITY_PRESETS['release-1'])).toBe(
       true,
     );

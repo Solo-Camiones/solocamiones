@@ -94,9 +94,9 @@ describe('parseRuntimeConfig', () => {
     expect(() => parseRuntimeConfig({ ...BASE_DEPLOYED, APP_RELEASE: undefined })).toThrow(
       /APP_RELEASE/,
     );
-    expect(() =>
-      parseRuntimeConfig({ ...BASE_DEPLOYED, METRICS_BEARER_TOKEN: undefined }),
-    ).toThrow(/METRICS_BEARER_TOKEN/);
+    expect(() => parseRuntimeConfig({ ...BASE_DEPLOYED, METRICS_BEARER_TOKEN: undefined })).toThrow(
+      /METRICS_BEARER_TOKEN/,
+    );
   });
 
   it('rejects APP_ENV/NODE_ENV mismatches and invalid APP_RELEASE', () => {

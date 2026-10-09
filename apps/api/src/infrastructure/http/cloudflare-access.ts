@@ -52,16 +52,10 @@ export function isMetricsScrapePath(req: Pick<Request, 'method' | 'path'>): bool
  * Applies to mounted routes when enabled, including health probes.
  * Exempts GET /metrics so in-network scrapers can authenticate with METRICS_BEARER_TOKEN only.
  */
-export function createCloudflareAccessMiddleware(
-  options: CloudflareAccessMiddlewareOptions,
-) {
+export function createCloudflareAccessMiddleware(options: CloudflareAccessMiddlewareOptions) {
   const accessConfig = options.config;
   if (accessConfig == null) {
-    return function skipCloudflareAccess(
-      _req: Request,
-      _res: Response,
-      next: NextFunction,
-    ): void {
+    return function skipCloudflareAccess(_req: Request, _res: Response, next: NextFunction): void {
       next();
     };
   }

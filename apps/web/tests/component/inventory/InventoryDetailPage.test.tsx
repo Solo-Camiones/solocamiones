@@ -56,7 +56,9 @@ describe('InventoryDetailPage', () => {
     expect(screen.getByRole('button', { name: 'Agregar a borrador' })).toBeVisible();
     expect(screen.getByRole('button', { name: 'Editar datos' })).toBeVisible();
     expect(screen.queryByRole('button', { name: 'Corregir costo' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Orden de trabajo manual' })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Orden de trabajo manual' }),
+    ).not.toBeInTheDocument();
     expect(screen.queryByText('Órdenes de trabajo')).not.toBeInTheDocument();
   });
 

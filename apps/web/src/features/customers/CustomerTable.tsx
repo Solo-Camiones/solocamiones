@@ -26,7 +26,9 @@ function contactDisplayName(contact: CustomerContact): string {
 }
 
 function orderedContacts(contacts: CustomerContact[]): CustomerContact[] {
-  return [...contacts].sort((left, right) => Number(Boolean(right.isPrimary)) - Number(Boolean(left.isPrimary)));
+  return [...contacts].sort(
+    (left, right) => Number(Boolean(right.isPrimary)) - Number(Boolean(left.isPrimary)),
+  );
 }
 
 function CustomerContactsPanel({ contacts }: { contacts: CustomerContact[] }) {
@@ -75,10 +77,7 @@ export function CustomerTable({ rows, canManageCredit, onEdit }: CustomerTablePr
 
   if (rows.length === 0) {
     return (
-      <Empty
-        title="No hay clientes"
-        description="Pruebe otra búsqueda o cree un cliente nuevo."
-      />
+      <Empty title="No hay clientes" description="Pruebe otra búsqueda o cree un cliente nuevo." />
     );
   }
 
@@ -124,8 +123,7 @@ export function CustomerTable({ rows, canManageCredit, onEdit }: CustomerTablePr
                 </td>
                 <td className="px-4 py-3 text-navy-400">{formatFiscalId(row.rnc) || '—'}</td>
                 <td className="px-4 py-3 text-sm text-navy-400">
-                  {primary &&
-                  (trimmed(primary.name) || primary.phone || primary.email) ? (
+                  {primary && (trimmed(primary.name) || primary.phone || primary.email) ? (
                     <>
                       {trimmed(primary.name) && (
                         <span className="block font-medium text-navy">{trimmed(primary.name)}</span>

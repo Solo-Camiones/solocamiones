@@ -5,10 +5,7 @@ import type { Category } from '../../api/contracts/entities';
 import type { InventoryListFilters, InventoryListRow } from '../../api/contracts/inventory';
 import type { AppError } from '../../shared/auth/types';
 import { categoryRepository, inventoryRepository } from '../../api/repositories';
-import {
-  inventoryFiltersFromSearch,
-  inventorySearchFromFilters,
-} from './inventory-list-search';
+import { inventoryFiltersFromSearch, inventorySearchFromFilters } from './inventory-list-search';
 import { beginQueryReload } from '../../shared/query/begin-query-reload';
 
 type CatalogQuery =

@@ -140,7 +140,9 @@ describe('M20 HTTP mechanical service catalog UI', () => {
 
     const row = screen.getByText('Instalación mecánica').closest('tr');
     expect(row).not.toBeNull();
-    await user.click(within(row as HTMLTableRowElement).getByRole('button', { name: 'Desactivar' }));
+    await user.click(
+      within(row as HTMLTableRowElement).getByRole('button', { name: 'Desactivar' }),
+    );
     const deactivateDialog = await screen.findByRole('dialog', { name: 'Desactivar servicio' });
     await user.click(within(deactivateDialog).getByRole('button', { name: 'Desactivar' }));
     expect(await screen.findByText('Servicio desactivado')).toBeVisible();
@@ -156,7 +158,9 @@ describe('M20 HTTP mechanical service catalog UI', () => {
 
     const inactiveRow = screen.getByText('Instalación mecánica').closest('tr');
     expect(inactiveRow).not.toBeNull();
-    await user.click(within(inactiveRow as HTMLTableRowElement).getByRole('button', { name: 'Editar' }));
+    await user.click(
+      within(inactiveRow as HTMLTableRowElement).getByRole('button', { name: 'Editar' }),
+    );
     const nameField = screen.getByLabelText('Nombre');
     await user.clear(nameField);
     await user.type(nameField, 'Instalación especializada');

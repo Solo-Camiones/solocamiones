@@ -1,9 +1,6 @@
 import { z } from 'zod';
 
-import {
-  parseAssistantConfig,
-  type AssistantConfig,
-} from '../openai/config.js';
+import { parseAssistantConfig, type AssistantConfig } from '../openai/config.js';
 
 export const APP_ENVIRONMENTS = ['development', 'test', 'staging', 'production'] as const;
 export type AppEnvironment = (typeof APP_ENVIRONMENTS)[number];
@@ -136,9 +133,7 @@ function parseAppRelease(raw: string | undefined, deployed: boolean): string | u
  * Central fail-closed environment contract for API boot.
  * Staging/production require perimeter and observability secrets; Assistant may stay disabled.
  */
-export function parseRuntimeConfig(
-  environment: NodeJS.ProcessEnv = process.env,
-): RuntimeConfig {
+export function parseRuntimeConfig(environment: NodeJS.ProcessEnv = process.env): RuntimeConfig {
   const appEnv = parseAppEnvironment(environment.APP_ENV);
   const nodeEnv = assertNodeEnvMatchesAppEnv(appEnv, environment.NODE_ENV);
   const deployed = DEPLOYED_ENVIRONMENTS.has(appEnv);

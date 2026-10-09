@@ -82,7 +82,9 @@ describe('ProfitabilityPage', () => {
     // Cobrado efectivo: 5,500 + 3,600.
     expect(screen.getAllByText(money(5_500, 'DOP')).length).toBeGreaterThan(0);
     expect(screen.getAllByText(money(19_500 + 7_200 + 12_000, 'DOP')).length).toBeGreaterThan(0);
-    expect(screen.getAllByText(money(5_500 + 19_500 + 7_200 + 12_000, 'DOP')).length).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText(money(5_500 + 19_500 + 7_200 + 12_000, 'DOP')).length,
+    ).toBeGreaterThan(0);
     expect(screen.getAllByText(money(5_500 + 3_600, 'DOP')).length).toBeGreaterThan(0);
   });
 });

@@ -41,7 +41,10 @@ export function maxSequenceForPrefix(ids: string[], prefix: string): number {
 }
 
 /** Next unused number per category, never derived from MAX at allocation time. */
-export function buildItemCodeSeq(categories: Category[], itemIds: string[]): Record<string, number> {
+export function buildItemCodeSeq(
+  categories: Category[],
+  itemIds: string[],
+): Record<string, number> {
   const seq: Record<string, number> = {};
   for (const category of categories) {
     seq[category.id] = maxSequenceForPrefix(itemIds, category.codePrefix) + 1;
@@ -76,9 +79,7 @@ export function allocateItemCode(
     return err({ code: 'VALIDATION', message: 'La categoría seleccionada no existe' });
   }
 
-  const taken = new Set(
-    [...takenIds].map((id) => id.trim().toLocaleLowerCase()).filter(Boolean),
-  );
+  const taken = new Set([...takenIds].map((id) => id.trim().toLocaleLowerCase()).filter(Boolean));
   let next = seq[category.id] ?? 1;
   let code = formatItemCode(category.codePrefix, next);
   while (taken.has(code.toLocaleLowerCase())) {

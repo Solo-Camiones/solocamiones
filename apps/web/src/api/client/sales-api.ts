@@ -586,7 +586,9 @@ export function listSellerSalesReportWithHttp(
   filters: SellerSalesReportFilters,
 ): Promise<Result<SellerSalesReport>> {
   return request(() =>
-    httpClient<SellerSalesReport>(`${SALES_PATH}/reports/seller-sales?${sellerSalesReportQuery(filters)}`),
+    httpClient<SellerSalesReport>(
+      `${SALES_PATH}/reports/seller-sales?${sellerSalesReportQuery(filters)}`,
+    ),
   );
 }
 
