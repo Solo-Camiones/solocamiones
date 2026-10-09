@@ -268,6 +268,12 @@ R2_SECRET_ACCESS_KEY
 BACKUP_AGE_RECIPIENT
 ```
 
+Las URLs `DATABASE_URL`, `DATABASE_MIGRATION_URL`, `BACKUP_DATABASE_URL` y
+`RESTORE_DATABASE_URL` deben percent-encodear caracteres especiales de la
+contraseña (`#`, `?`, `/`, `@`, `:`, etc.). Prisma interpreta la cadena como URL;
+sin encode falla con `P1013` (puerto inválido). Los `ROLE_*_PASSWORD` del
+bootstrap no son URLs y no se encodean.
+
 ### 8.3 Separación obligatoria
 
 - Staging y producción tienen keys OpenAI y vector stores distintos.

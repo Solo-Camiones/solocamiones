@@ -180,6 +180,19 @@ hasta §8), token de Better Stack.
 
 Genera contraseñas fuertes y únicas por cada rol. Nunca reutilices valores de producción.
 
+**URLs Prisma (`DATABASE_URL`, `DATABASE_MIGRATION_URL`, `BACKUP_DATABASE_URL`,
+`RESTORE_DATABASE_URL`):** la contraseña dentro de la URL debe ir
+[percent-encoded](https://www.prisma.io/docs/orm/reference/connection-urls#special-characters).
+`ROLE_*_PASSWORD` se usa en claro (bootstrap/psql); la misma contraseña en
+`postgresql://user:PASSWORD@db:5432/...` no. Caracteres como `#`, `?`, `/`, `@`,
+`:` sin encode provocan `P1013: invalid port number in database URL` en
+`deploy.sh` → migrate, aunque `bootstrap-db` haya pasado.
+
+```bash
+# Encode solo la contraseña (no imprimas el resultado en tickets/chat).
+python3 -c 'import urllib.parse,sys; print(urllib.parse.quote(sys.argv[1], safe=""))' 'RAW_PASSWORD'
+```
+
 ---
 
 ## 6. Primer bootstrap de DB (antes o junto con el primer deploy de imagen)
