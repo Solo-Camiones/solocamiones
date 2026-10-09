@@ -28,6 +28,8 @@ RUN npm run build --workspace @solocamiones/web
 FROM nginxinc/nginx-unprivileged:1.27-alpine AS runtime
 
 USER root
+# Refresh Alpine packages so Trivy sees current security fixes (mirrors backup image).
+RUN apk upgrade --no-cache
 COPY apps/web/nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=build --chown=root:root /app/apps/web/dist /usr/share/nginx/html
 USER nginx
