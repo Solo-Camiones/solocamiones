@@ -25,8 +25,10 @@ if (!removesNpm) {
   process.exit(0);
 }
 
+// Use [ \t] / [^\r\n] instead of \s / . so list-item groups cannot overlap
+// across blank lines and trigger catastrophic backtracking (ReDoS).
 const npmCommandPattern =
-  /command:\s*\[\s*['"]npm['"]|command:\s*\n(?:\s+-\s+.*\n)*?\s+-\s+npm\b/;
+  /command:\s*\[\s*['"]npm['"]|command:\r?\n(?:[ \t]+-[ \t]+[^\r\n]*\r?\n)*[ \t]+-[ \t]+npm\b/;
 
 const offenders = [];
 for (const file of COMPOSE_FILES) {
