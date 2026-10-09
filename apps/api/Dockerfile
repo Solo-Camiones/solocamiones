@@ -41,6 +41,7 @@ WORKDIR /app
 # Runtime stage: same security upgrades as build (final image is what Trivy scans).
 # Drop npm/yarn/corepack — production only runs `node`, and the bundled npm tree
 # otherwise surfaces HIGH/CRITICAL findings that are irrelevant at runtime.
+# Compose one-shots (migrate, assistant-purge) must use `node --run`, never `npm`.
 RUN apt-get update \
     && apt-get upgrade -y --no-install-recommends \
     && apt-get install -y --no-install-recommends openssl \
