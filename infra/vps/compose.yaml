@@ -103,6 +103,8 @@ services:
       ALLOWED_HOSTS: ${ALLOWED_HOSTS:?ALLOWED_HOSTS is required}
       CF_ACCESS_TEAM_DOMAIN: ${CF_ACCESS_TEAM_DOMAIN:?CF_ACCESS_TEAM_DOMAIN is required}
       CF_ACCESS_AUD: ${CF_ACCESS_AUD:?CF_ACCESS_AUD is required}
+      # Default true: unset keeps origin JWT enforcement (secure). Explicit false/0 for temporary Bypass.
+      CF_ACCESS_REQUIRE_ORIGIN_JWT: ${CF_ACCESS_REQUIRE_ORIGIN_JWT:-true}
       METRICS_BEARER_TOKEN: ${METRICS_BEARER_TOKEN:?METRICS_BEARER_TOKEN is required}
       EXCHANGE_RATE_API_KEY: ${EXCHANGE_RATE_API_KEY:-}
       ASSISTANT_ENABLED: ${ASSISTANT_ENABLED:-false}
