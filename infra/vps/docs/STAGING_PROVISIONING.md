@@ -41,21 +41,21 @@ en el password manager / release notes. Los snapshots usan Azure (ver
 
 ## Progreso (actualizado 2026-10-10)
 
-| Ítem | Estado |
-| ---- | ------ |
-| Prerrequisitos cuentas (`age`, R2, Tailscale, Better Stack, password manager, OpenAI staging) | Hecho |
-| Azure VM + NSG 22 cerrado a Internet; 80/443 restringidos a Cloudflare | Hecho |
-| Bootstrap Ubuntu + UFW Cloudflare allowlist + Tailscale | Hecho |
-| SSH `deploy` (y `many`) por Tailscale | Hecho |
-| `sync-host-tree` → `/opt/solocamiones` | Hecho |
-| `/etc/solocamiones/staging.env` completo (incl. `CF_ACCESS_*`, digests, smoke token) | Hecho |
-| `db` + `bootstrap-db` + `test-db-roles` | Hecho |
-| Nameservers dominio → Cloudflare; DNS `staging` proxied | Hecho |
-| Origin Cert + AOP + Access/WARP + service token | Hecho |
-| GHCR digests + `deploy.sh` + api/web/edge healthy + smoke passed | Hecho |
-| Primer Administrator + password + datos sintéticos mínimos | Hecho |
-| Timers backup/purge + profiles obs/logs + Better Stack | Hecho |
-| Assistant corpus sync + `ASSISTANT_ENABLED` + kill switch | Hecho |
+| Ítem                                                                                          | Estado |
+| --------------------------------------------------------------------------------------------- | ------ |
+| Prerrequisitos cuentas (`age`, R2, Tailscale, Better Stack, password manager, OpenAI staging) | Hecho  |
+| Azure VM + NSG 22 cerrado a Internet; 80/443 restringidos a Cloudflare                        | Hecho  |
+| Bootstrap Ubuntu + UFW Cloudflare allowlist + Tailscale                                       | Hecho  |
+| SSH `deploy` (y `many`) por Tailscale                                                         | Hecho  |
+| `sync-host-tree` → `/opt/solocamiones`                                                        | Hecho  |
+| `/etc/solocamiones/staging.env` completo (incl. `CF_ACCESS_*`, digests, smoke token)          | Hecho  |
+| `db` + `bootstrap-db` + `test-db-roles`                                                       | Hecho  |
+| Nameservers dominio → Cloudflare; DNS `staging` proxied                                       | Hecho  |
+| Origin Cert + AOP + Access/WARP + service token                                               | Hecho  |
+| GHCR digests + `deploy.sh` + api/web/edge healthy + smoke passed                              | Hecho  |
+| Primer Administrator + password + datos sintéticos mínimos                                    | Hecho  |
+| Timers backup/purge + profiles obs/logs + Better Stack                                        | Hecho  |
+| Assistant corpus sync + `ASSISTANT_ENABLED` + kill switch                                     | Hecho  |
 
 Lecciones registradas:
 
@@ -250,11 +250,11 @@ docker compose --env-file /etc/solocamiones/staging.env -f infra/vps/compose.yam
 
 **Para qué:**
 
-| Profile | Servicios | Uso |
-| ------- | --------- | --- |
-| `host-metrics` | `node-exporter` | CPU/disco + textfile de backup |
+| Profile         | Servicios            | Uso                                                                                                                                                      |
+| --------------- | -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `host-metrics`  | `node-exporter`      | CPU/disco + textfile de backup                                                                                                                           |
 | `observability` | Prometheus + Grafana | Solo staging; bind Tailscale/loopback. **Cómo abrir UI:** `OBSERVABILITY.md` → «Cómo ver Grafana y Prometheus» (`ssh -L` si `MONITORING_BIND=127.0.0.1`) |
-| `logs` | Vector | Envío de logs Docker a Better Stack (`BETTERSTACK_SOURCE_TOKEN` + `BETTERSTACK_INGESTING_HOST`) |
+| `logs`          | Vector               | Envío de logs Docker a Better Stack (`BETTERSTACK_SOURCE_TOKEN` + `BETTERSTACK_INGESTING_HOST`)                                                          |
 
 Antes de subir Vector, en `staging.env`:
 
@@ -321,7 +321,7 @@ docker compose --env-file /etc/solocamiones/staging.env -f infra/vps/compose.yam
 
 `deploy.sh` deja evidencia en `/tmp/solocamiones-deploy-evidence/` y usa las imágenes solo en ese proceso (`export`). **No** actualiza `/etc/solocamiones/staging.env`. Mientras no se automatice (archivo root-only), el operador debe copiar los tres valores después de **cada** deploy exitoso (CI o manual).
 
-**Importante:** `/tmp` es **efímero**. Un reinicio de la VM o `systemd-tmpfiles` puede borrar la evidencia. Si `ls` falla con *No such file*, usa el **fallback** (contenedores / imágenes locales) más abajo. Ideal: persistir digests en el env **en la misma sesión** del deploy, antes de que desaparezca `/tmp`.
+**Importante:** `/tmp` es **efímero**. Un reinicio de la VM o `systemd-tmpfiles` puede borrar la evidencia. Si `ls` falla con _No such file_, usa el **fallback** (contenedores / imágenes locales) más abajo. Ideal: persistir digests en el env **en la misma sesión** del deploy, antes de que desaparezca `/tmp`.
 
 **1a. Preferido — `cat` de la evidencia** (hazlo en la misma sesión del deploy; `/tmp` puede borrarse):
 
@@ -351,7 +351,7 @@ backup_image=ghcr.io/solo-camiones/solocamiones-backup@sha256:...
 smoke=passed
 ```
 
-Si `ls`/`cat` fallan (*No such file*), la evidencia ya no está en `/tmp` → usa **1b**.
+Si `ls`/`cat` fallan (_No such file_), la evidencia ya no está en `/tmp` → usa **1b**.
 
 **1b. Fallback — stack ya desplegado** (solo si `/tmp` está vacío):
 
@@ -415,42 +415,42 @@ Plantilla versionada: `infra/vps/.env.staging.example`.
 
 ### Identidad Compose / hostname
 
-| Variable | Para qué |
-| -------- | -------- |
-| `COMPOSE_PROJECT_NAME` | Prefijo de contenedores/redes Compose (p. ej. `solocamiones_staging`). |
-| `PUBLIC_HOSTNAME` | Hostname público esperado por edge/Nginx. |
-| `SMOKE_BASE_URL` | URL base del smoke post-deploy (`deploy.sh` → `smoke-staging.sh`). Default si vacío: `https://staging.solocamiones.com`. **Solo host**; Compose no la inyecta a servicios. |
+| Variable               | Para qué                                                                                                                                                                   |
+| ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `COMPOSE_PROJECT_NAME` | Prefijo de contenedores/redes Compose (p. ej. `solocamiones_staging`).                                                                                                     |
+| `PUBLIC_HOSTNAME`      | Hostname público esperado por edge/Nginx.                                                                                                                                  |
+| `SMOKE_BASE_URL`       | URL base del smoke post-deploy (`deploy.sh` → `smoke-staging.sh`). Default si vacío: `https://staging.solocamiones.com`. **Solo host**; Compose no la inyecta a servicios. |
 
 ### TLS origen (montados en `edge`)
 
-| Variable | Para qué |
-| -------- | -------- |
-| `ORIGIN_TLS_CERT` | Path host al Origin Certificate Cloudflare (`.pem`). |
-| `ORIGIN_TLS_KEY` | Path host a la private key del Origin Cert (`0600`). |
-| `ORIGIN_CLIENT_CA` | Path host al CA de Authenticated Origin Pulls. |
+| Variable           | Para qué                                             |
+| ------------------ | ---------------------------------------------------- |
+| `ORIGIN_TLS_CERT`  | Path host al Origin Certificate Cloudflare (`.pem`). |
+| `ORIGIN_TLS_KEY`   | Path host a la private key del Origin Cert (`0600`). |
+| `ORIGIN_CLIENT_CA` | Path host al CA de Authenticated Origin Pulls.       |
 
 ### Runtime API
 
-| Variable | Para qué |
-| -------- | -------- |
-| `APP_ENV` | Debe ser `staging` (discrimina reglas de arranque; no cargar `.env` local). |
-| `NODE_ENV` | `production` en staging/producción. |
-| `APP_RELEASE` | Versión release (`vMAJOR.MINOR.PATCH`). |
-| `ALLOWED_HOSTS` | Host header permitido (`staging.solocamiones.com`). |
-| `TRUST_PROXY` | `1` — confiar en `X-Forwarded-*` detrás de Cloudflare/Nginx. |
-| `LOG_LEVEL` | Nivel Pino (`info`, etc.). |
-| `INITIAL_PASSWORD` | Contraseña temporal de **cuentas creadas por un Administrator** vía UI/API (no el bootstrap CLI). |
-| `EXCHANGE_RATE_API_KEY` | Opcional; proveedor FX para rentabilidad. |
+| Variable                | Para qué                                                                                          |
+| ----------------------- | ------------------------------------------------------------------------------------------------- |
+| `APP_ENV`               | Debe ser `staging` (discrimina reglas de arranque; no cargar `.env` local).                       |
+| `NODE_ENV`              | `production` en staging/producción.                                                               |
+| `APP_RELEASE`           | Versión release (`vMAJOR.MINOR.PATCH`).                                                           |
+| `ALLOWED_HOSTS`         | Host header permitido (`staging.solocamiones.com`).                                               |
+| `TRUST_PROXY`           | `1` — confiar en `X-Forwarded-*` detrás de Cloudflare/Nginx.                                      |
+| `LOG_LEVEL`             | Nivel Pino (`info`, etc.).                                                                        |
+| `INITIAL_PASSWORD`      | Contraseña temporal de **cuentas creadas por un Administrator** vía UI/API (no el bootstrap CLI). |
+| `EXCHANGE_RATE_API_KEY` | Opcional; proveedor FX para rentabilidad.                                                         |
 
 ### Cloudflare Access (JWT de perímetro)
 
-| Variable | Para qué |
-| -------- | -------- |
-| `CF_ACCESS_TEAM_DOMAIN` | Team domain Zero Trust (issuer JWKS). La API valida el JWT Access. |
-| `CF_ACCESS_AUD` | Audience de la **aplicación Access de staging** (distinto de producción). |
+| Variable                       | Para qué                                                                                                                                                                                                                                                                                                           |
+| ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `CF_ACCESS_TEAM_DOMAIN`        | Team domain Zero Trust (issuer JWKS). La API valida el JWT Access.                                                                                                                                                                                                                                                 |
+| `CF_ACCESS_AUD`                | Audience de la **aplicación Access de staging** (distinto de producción).                                                                                                                                                                                                                                          |
 | `CF_ACCESS_REQUIRE_ORIGIN_JWT` | `true` (default si omitido) = Express exige y verifica `Cf-Access-Jwt-Assertion`. `false`/`0` = la API no exige el JWT (excepción operativa temporal). `CF_ACCESS_TEAM_DOMAIN` y `CF_ACCESS_AUD` **siguen obligatorios** para reactivar sin reconfigurar secretos. Requiere recreate/restart del contenedor `api`. |
-| `CF_ACCESS_CLIENT_ID` | Client ID del **Access service token**. Lo lee `deploy.sh` en el host para el smoke (`CF-Access-Client-Id`). También el mismo tipo de credencial se usa en monitores Better Stack uptime. **No** es secreto de GitHub Actions; vive en `staging.env`. |
-| `CF_ACCESS_CLIENT_SECRET` | Secret del service token (`CF-Access-Client-Secret`). Misma nota que el ID. |
+| `CF_ACCESS_CLIENT_ID`          | Client ID del **Access service token**. Lo lee `deploy.sh` en el host para el smoke (`CF-Access-Client-Id`). También el mismo tipo de credencial se usa en monitores Better Stack uptime. **No** es secreto de GitHub Actions; vive en `staging.env`.                                                              |
+| `CF_ACCESS_CLIENT_SECRET`      | Secret del service token (`CF-Access-Client-Secret`). Misma nota que el ID.                                                                                                                                                                                                                                        |
 
 #### Acceso público temporal (Bypass Everyone + flag de origen)
 
@@ -463,58 +463,58 @@ Con Bypass off y JWT off, WARP+email en Cloudflare siguen protegiendo el edge; l
 
 ### Métricas
 
-| Variable | Para qué |
-| -------- | -------- |
-| `METRICS_BEARER_TOKEN` | Bearer obligatorio para `GET /metrics` (scrape Prometheus). |
-| `METRICS_SCRAPE_BIND` | Bind host del publish opcional `api:3000` (default loopback; en prod → IP Tailscale). |
-| `EXPORTER_BIND` | Bind de exporters (nunca `0.0.0.0` público). |
-| `MONITORING_BIND` | Bind de Prometheus/Grafana (loopback o IP Tailscale). |
-| `GRAFANA_ADMIN_USER` / `GRAFANA_ADMIN_PASSWORD` | Login Grafana. |
-| `GRAFANA_ROOT_URL` | URL raíz Grafana. |
-| `PRODUCTION_TAILSCALE_HOST` | Vacío hasta existir producción; scrape remoto desde staging. |
-| `PRODUCTION_METRICS_BEARER_TOKEN` | Bearer de la API de producción (scrape desde staging). |
+| Variable                                        | Para qué                                                                              |
+| ----------------------------------------------- | ------------------------------------------------------------------------------------- |
+| `METRICS_BEARER_TOKEN`                          | Bearer obligatorio para `GET /metrics` (scrape Prometheus).                           |
+| `METRICS_SCRAPE_BIND`                           | Bind host del publish opcional `api:3000` (default loopback; en prod → IP Tailscale). |
+| `EXPORTER_BIND`                                 | Bind de exporters (nunca `0.0.0.0` público).                                          |
+| `MONITORING_BIND`                               | Bind de Prometheus/Grafana (loopback o IP Tailscale).                                 |
+| `GRAFANA_ADMIN_USER` / `GRAFANA_ADMIN_PASSWORD` | Login Grafana.                                                                        |
+| `GRAFANA_ROOT_URL`                              | URL raíz Grafana.                                                                     |
+| `PRODUCTION_TAILSCALE_HOST`                     | Vacío hasta existir producción; scrape remoto desde staging.                          |
+| `PRODUCTION_METRICS_BEARER_TOKEN`               | Bearer de la API de producción (scrape desde staging).                                |
 
 ### Better Stack — dos credenciales distintas
 
-| Variable / lugar | Para qué |
-| ---------------- | -------- |
-| `BETTERSTACK_SOURCE_TOKEN` | Token del **source de logs**. Lo usa **Vector** (`profile logs`) como Bearer hacia Better Stack. |
-| `BETTERSTACK_INGESTING_HOST` | Host de ingesta del **mismo** source (UI Better Stack → Logs → Source), **sin** `https://`. Obligatorio si el panel muestra un host regional (`*.betterstackdata.com`); el genérico `in.logs.betterstack.com` suele devolver **401**. |
-| Access service token (`CF_ACCESS_CLIENT_*` o el mismo token configurado en la UI de Better Stack) | **Uptime monitors** HTTP a `/api/health/live` y `/ready`. No va a Vector; van como headers Access. |
+| Variable / lugar                                                                                  | Para qué                                                                                                                                                                                                                              |
+| ------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `BETTERSTACK_SOURCE_TOKEN`                                                                        | Token del **source de logs**. Lo usa **Vector** (`profile logs`) como Bearer hacia Better Stack.                                                                                                                                      |
+| `BETTERSTACK_INGESTING_HOST`                                                                      | Host de ingesta del **mismo** source (UI Better Stack → Logs → Source), **sin** `https://`. Obligatorio si el panel muestra un host regional (`*.betterstackdata.com`); el genérico `in.logs.betterstack.com` suele devolver **401**. |
+| Access service token (`CF_ACCESS_CLIENT_*` o el mismo token configurado en la UI de Better Stack) | **Uptime monitors** HTTP a `/api/health/live` y `/ready`. No va a Vector; van como headers Access.                                                                                                                                    |
 
 ### Assistant
 
-| Variable | Para qué |
-| -------- | -------- |
-| `ASSISTANT_ENABLED` | Kill switch. `false` hasta sync del corpus; `true` en operación. |
-| `OPENAI_API_KEY` | Key OpenAI **solo staging**. |
-| `OPENAI_CHAT_MODEL` | Modelo de chat del Assistant. |
-| `OPENAI_VECTOR_STORE_ID` | Vector store **solo staging**. |
-| `ASSISTANT_RETENTION_DAYS` | Retención para purge (default 90). |
+| Variable                   | Para qué                                                         |
+| -------------------------- | ---------------------------------------------------------------- |
+| `ASSISTANT_ENABLED`        | Kill switch. `false` hasta sync del corpus; `true` en operación. |
+| `OPENAI_API_KEY`           | Key OpenAI **solo staging**.                                     |
+| `OPENAI_CHAT_MODEL`        | Modelo de chat del Assistant.                                    |
+| `OPENAI_VECTOR_STORE_ID`   | Vector store **solo staging**.                                   |
+| `ASSISTANT_RETENTION_DAYS` | Retención para purge (default 90).                               |
 
 ### PostgreSQL / roles
 
-| Variable | Para qué |
-| -------- | -------- |
-| `POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_DB` | Superusuario bootstrap del contenedor `db`. |
-| `POSTGRES_VOLUME_NAME` | Nombre del volumen de datos. |
-| `ROLE_*_PASSWORD` | Passwords en claro para `bootstrap-db` (roles migration/runtime/backup/monitoring). |
-| `DATABASE_URL` | URL runtime (Prisma app) — password **URL-encoded**. |
-| `DATABASE_MIGRATION_URL` | URL migrate — password encoded. |
-| `BACKUP_DATABASE_URL` | URL rol backup — password encoded. |
-| `RESTORE_DATABASE_URL` | Solo drill restore; **≠** `DATABASE_URL`; DB `…_restore`. |
+| Variable                                              | Para qué                                                                            |
+| ----------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| `POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_DB` | Superusuario bootstrap del contenedor `db`.                                         |
+| `POSTGRES_VOLUME_NAME`                                | Nombre del volumen de datos.                                                        |
+| `ROLE_*_PASSWORD`                                     | Passwords en claro para `bootstrap-db` (roles migration/runtime/backup/monitoring). |
+| `DATABASE_URL`                                        | URL runtime (Prisma app) — password **URL-encoded**.                                |
+| `DATABASE_MIGRATION_URL`                              | URL migrate — password encoded.                                                     |
+| `BACKUP_DATABASE_URL`                                 | URL rol backup — password encoded.                                                  |
+| `RESTORE_DATABASE_URL`                                | Solo drill restore; **≠** `DATABASE_URL`; DB `…_restore`.                           |
 
 ### Backups R2 + age
 
-| Variable | Para qué |
-| -------- | -------- |
-| `R2_ENDPOINT` / `R2_BUCKET` / `R2_ACCESS_KEY_ID` / `R2_SECRET_ACCESS_KEY` | Destino de backups cifrados staging. |
-| `BACKUP_AGE_RECIPIENT` | Recipient **público** `age`; la private key solo en password manager. |
+| Variable                                                                  | Para qué                                                              |
+| ------------------------------------------------------------------------- | --------------------------------------------------------------------- |
+| `R2_ENDPOINT` / `R2_BUCKET` / `R2_ACCESS_KEY_ID` / `R2_SECRET_ACCESS_KEY` | Destino de backups cifrados staging.                                  |
+| `BACKUP_AGE_RECIPIENT`                                                    | Recipient **público** `age`; la private key solo en password manager. |
 
 ### Imágenes inmutables
 
-| Variable | Para qué |
-| -------- | -------- |
+| Variable                                   | Para qué                                                                                                                                        |
+| ------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------- |
 | `API_IMAGE` / `WEB_IMAGE` / `BACKUP_IMAGE` | Referencias `ghcr.io/…@sha256:…`. Las fija el operador tras `deploy.sh` (o CI) usando la evidencia. Sin ellas, Compose cae a `*:local` + build. |
 
 ---
@@ -523,16 +523,16 @@ Con Bypass off y JWT off, WARP+email en Cloudflare siguen protegiendo el edge; l
 
 Usados por workflows actuales. **No** guardar el contenido de `staging.env` aquí.
 
-| Secret | Workflow | Para qué |
-| ------ | -------- | -------- |
-| `STAGING_SSH_HOST` | `release.yml` → deploy-staging | IP/hostname **Tailscale** del host (`100.x` o MagicDNS). Nunca IP pública. |
-| `STAGING_SSH_USER` | idem | Usuario SSH (`deploy`). |
-| `STAGING_SSH_KEY` | idem | Clave privada cuyo pubkey está en `authorized_keys` de `deploy`. |
-| `STAGING_SSH_KNOWN_HOSTS` | idem | Salida de `ssh-keyscan` del host (`StrictHostKeyChecking=yes`). |
-| `TS_OAUTH_CLIENT_ID` | `release.yml` / `promote-production.yml` | OAuth client Tailscale para unir el **runner** al tailnet. |
-| `TS_OAUTH_SECRET` | idem | Secret del OAuth client (rotar si se filtra). |
-| `TS_TAGS` | idem | Tags del cliente, p. ej. `tag:ci` (debe coincidir con OAuth + ACLs). |
-| `SONAR_TOKEN` | `ci.yml` | Análisis SonarCloud/SonarQube. Si está vacío, el paso Sonar se omite. |
+| Secret                    | Workflow                                 | Para qué                                                                   |
+| ------------------------- | ---------------------------------------- | -------------------------------------------------------------------------- |
+| `STAGING_SSH_HOST`        | `release.yml` → deploy-staging           | IP/hostname **Tailscale** del host (`100.x` o MagicDNS). Nunca IP pública. |
+| `STAGING_SSH_USER`        | idem                                     | Usuario SSH (`deploy`).                                                    |
+| `STAGING_SSH_KEY`         | idem                                     | Clave privada cuyo pubkey está en `authorized_keys` de `deploy`.           |
+| `STAGING_SSH_KNOWN_HOSTS` | idem                                     | Salida de `ssh-keyscan` del host (`StrictHostKeyChecking=yes`).            |
+| `TS_OAUTH_CLIENT_ID`      | `release.yml` / `promote-production.yml` | OAuth client Tailscale para unir el **runner** al tailnet.                 |
+| `TS_OAUTH_SECRET`         | idem                                     | Secret del OAuth client (rotar si se filtra).                              |
+| `TS_TAGS`                 | idem                                     | Tags del cliente, p. ej. `tag:ci` (debe coincidir con OAuth + ACLs).       |
+| `SONAR_TOKEN`             | `ci.yml`                                 | Análisis SonarCloud/SonarQube. Si está vacío, el paso Sonar se omite.      |
 
 Generar `STAGING_SSH_KNOWN_HOSTS` desde una máquina ya en el tailnet:
 

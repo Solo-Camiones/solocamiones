@@ -20,17 +20,17 @@ El smoke Compose en laptop (`.env.smoke` / certs de desarrollo) se retiró por d
 
 **No** se publican en Cloudflare ni en `staging.solocamiones.com`. Puertos en el host:
 
-| Servicio | Puerto | Uso |
-| -------- | ------ | --- |
-| Grafana | **3001** | Dashboards / gráficos |
+| Servicio   | Puerto   | Uso                                |
+| ---------- | -------- | ---------------------------------- |
+| Grafana    | **3001** | Dashboards / gráficos              |
 | Prometheus | **9090** | Targets, consultas PromQL, alertas |
 
 El bind lo controla `MONITORING_BIND` en `/etc/solocamiones/staging.env`:
 
-| `MONITORING_BIND` | Cómo acceder |
-| ----------------- | ------------ |
-| `127.0.0.1` (default / ensayo actual) | Solo en la VM. Desde el PC: **túnel SSH** (abajo). |
-| IP Tailscale `100.x.x.x` | Desde el PC en el same tailnet: `http://100.x.x.x:3001` y `:9090`. Ajusta también `GRAFANA_ROOT_URL`. |
+| `MONITORING_BIND`                     | Cómo acceder                                                                                          |
+| ------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| `127.0.0.1` (default / ensayo actual) | Solo en la VM. Desde el PC: **túnel SSH** (abajo).                                                    |
+| IP Tailscale `100.x.x.x`              | Desde el PC en el same tailnet: `http://100.x.x.x:3001` y `:9090`. Ajusta también `GRAFANA_ROOT_URL`. |
 
 ### Túnel SSH (cuando el bind es loopback)
 
@@ -45,7 +45,7 @@ ssh -L 3001:127.0.0.1:3001 -L 9090:127.0.0.1:9090 \
 Luego en el navegador del PC:
 
 - Grafana: http://127.0.0.1:3001 — user/password = `GRAFANA_ADMIN_USER` / `GRAFANA_ADMIN_PASSWORD`
-- Prometheus: http://127.0.0.1:9090 — *Status → Targets* para scrapes `UP`
+- Prometheus: http://127.0.0.1:9090 — _Status → Targets_ para scrapes `UP`
 - Dashboards provisionados (carpeta **Solo Camiones**):
   - **Solo Camiones overview** — API, HTTP, Assistant, backup
   - **Solo Camiones host (CPU / RAM / disco)** — consumo actual del VPS (`job="node"`)
@@ -80,9 +80,9 @@ Variables relevantes (además del contrato API):
 
 ### Better Stack: logs vs uptime (no confundir)
 
-| Pieza | Credencial | Dónde |
-| ----- | ---------- | ----- |
-| **Logs** (ingesta) | `BETTERSTACK_SOURCE_TOKEN` + `BETTERSTACK_INGESTING_HOST` en `staging.env` | Contenedor `vector` (`profile logs`); ver `infra/vps/vector/vector.toml` |
+| Pieza                       | Credencial                                                                           | Dónde                                                                                                                                                                                         |
+| --------------------------- | ------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Logs** (ingesta)          | `BETTERSTACK_SOURCE_TOKEN` + `BETTERSTACK_INGESTING_HOST` en `staging.env`           | Contenedor `vector` (`profile logs`); ver `infra/vps/vector/vector.toml`                                                                                                                      |
 | **Uptime** (monitores HTTP) | Access **service token** → headers `CF-Access-Client-Id` / `CF-Access-Client-Secret` | UI Better Stack → monitores a `/api/health/live` y `/ready`. El mismo tipo de token vive en `staging.env` como `CF_ACCESS_CLIENT_ID` / `CF_ACCESS_CLIENT_SECRET` para el smoke de `deploy.sh` |
 
 Sin Access token, el uptime suele ver **401/403** aunque la app esté healthy (perímetro Access activo).

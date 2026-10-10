@@ -176,9 +176,7 @@ describe('cloudflare access middleware', () => {
 
     const clientIp = '203.0.113.95';
     for (let attempt = 0; attempt < CLOUDFLARE_ACCESS_RATE_LIMIT_MAX_ATTEMPTS + 5; attempt += 1) {
-      const response = await request(app)
-        .get('/api/health/live')
-        .set('X-Forwarded-For', clientIp);
+      const response = await request(app).get('/api/health/live').set('X-Forwarded-For', clientIp);
       expect(response.status).toBe(200);
     }
   });
