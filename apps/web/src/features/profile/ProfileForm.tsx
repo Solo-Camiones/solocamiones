@@ -36,9 +36,11 @@ function fieldsFromUser(user: AuthUser): FormFields {
 export function ProfileForm({ user, isSaving, error, onSubmit }: ProfileFormProps) {
   const [fields, setFields] = useState<FormFields>(() => fieldsFromUser(user));
 
+  // Auth refresh replaces the user object even when contact data is unchanged.
+  // Syncing on object identity would wipe in-progress edits (and flake clear+type tests).
   useEffect(() => {
     setFields(fieldsFromUser(user));
-  }, [user]);
+  }, [user.id, user.name, user.phone, user.email]);
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
