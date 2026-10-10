@@ -154,7 +154,7 @@ sudo chmod 600 /etc/solocamiones/certs/origin.key
 4. Activar **Authenticated Origin Pulls** para el hostname/zone cuando esté listo.
 5. Aplicación Cloudflare Access para staging (deny por defecto); **audience** distinto.
 6. Exigir **WARP** para usuarios humanos.
-7. Crear Access **service token** solo para uptime de Better Stack.
+7. Crear Access **service token(s)** para uptime de Better Stack y para el smoke de `deploy.sh` (policy Service Auth en la app Access de staging).
 8. WAF / rate limit en rutas de login; no cachear `/api/*`.
 
 El env de la API debe coincidir:
@@ -162,9 +162,11 @@ El env de la API debe coincidir:
 - `ALLOWED_HOSTS=staging.solocamiones.com`
 - `CF_ACCESS_TEAM_DOMAIN` / `CF_ACCESS_AUD` (audience de staging)
 
-`deploy.sh` (smoke de staging) también puede leer `SMOKE_BASE_URL` desde
-`/etc/solocamiones/staging.env` (solo host; Compose no la usa). Precedencia:
-variable de proceso → env file → `https://staging.solocamiones.com`.
+`deploy.sh` (smoke de staging) lee desde `/etc/solocamiones/staging.env`
+(solo host; Compose no las usa):
+
+- `SMOKE_BASE_URL` — precedencia: proceso → env file → `https://staging.solocamiones.com`
+- `CF_ACCESS_CLIENT_ID` / `CF_ACCESS_CLIENT_SECRET` — service token; sin ellos Access suele responder 403
 
 ---
 

@@ -26,6 +26,22 @@ export function deployShReadsSmokeBaseUrlFromEnvFile(deployText) {
   return readsFromEnvFile && hasDefault;
 }
 
+/**
+ * Staging smoke must pass Cloudflare Access service-token headers when configured.
+ * Credentials resolve from process env → ENV_FILE (Compose does not export them).
+ */
+export function deployShPassesCfAccessServiceTokenToSmoke(deployText) {
+  const readsClientId = /env_file_get\s+"\$\{ENV_FILE\}"\s+"CF_ACCESS_CLIENT_ID"/.test(deployText);
+  const readsClientSecret = /env_file_get\s+"\$\{ENV_FILE\}"\s+"CF_ACCESS_CLIENT_SECRET"/.test(
+    deployText,
+  );
+  const passesClientId = /--cf-access-client-id\s+"\$\{CF_ACCESS_CLIENT_ID\}"/.test(deployText);
+  const passesClientSecret = /--cf-access-client-secret\s+"\$\{CF_ACCESS_CLIENT_SECRET\}"/.test(
+    deployText,
+  );
+  return readsClientId && readsClientSecret && passesClientId && passesClientSecret;
+}
+
 function main() {
   const deployText = readFileSync(DEPLOY_SH, 'utf8');
   if (!deployShUsesHostShellSmoke(deployText)) {
@@ -37,6 +53,12 @@ function main() {
   if (!deployShReadsSmokeBaseUrlFromEnvFile(deployText)) {
     console.error(
       'assert-deploy-smoke-host-runtime: deploy.sh must resolve SMOKE_BASE_URL from ENV_FILE before the canonical default',
+    );
+    process.exit(1);
+  }
+  if (!deployShPassesCfAccessServiceTokenToSmoke(deployText)) {
+    console.error(
+      'assert-deploy-smoke-host-runtime: deploy.sh must resolve CF_ACCESS_CLIENT_ID/SECRET from ENV_FILE and pass them to smoke-staging.sh',
     );
     process.exit(1);
   }
