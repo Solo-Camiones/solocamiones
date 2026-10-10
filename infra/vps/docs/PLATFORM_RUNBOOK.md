@@ -11,7 +11,7 @@ Enlace Assistant (kill switch, 429, sync): `docs/assistant-ops/RUNBOOK.md`.
 ## Chequeos previos
 
 1. Confirmar ambiente (staging vs production).
-2. Abrir Grafana/Prometheus solo por Tailscale (o loopback en smoke).
+2. Abrir Grafana/Prometheus solo por Tailscale o túnel SSH a loopback (`ssh -L 3001:127.0.0.1:3001 -L 9090:127.0.0.1:9090`). Detalle: `OBSERVABILITY.md` → «Cómo ver Grafana y Prometheus».
 3. Verificar Better Stack uptime (si el origen responde vía Access service token).
 4. No abrir el origen a Internet ni desactivar Cloudflare Access como “bypass”.
 
@@ -56,8 +56,9 @@ Enlace Assistant (kill switch, 429, sync): `docs/assistant-ops/RUNBOOK.md`.
 
 1. Confirmar contenedor `api` healthy (TCP) y logs JSON recientes (sin secretos).
 2. Desde un cliente con Access/WARP: `/api/health/live` y `/ready`.
-3. Better Stack debe usar service token Cloudflare; un 401 en el monitor suele ser Access mal configurado, no caída de app.
-4. Readiness depende de DB/migraciones, **no** de OpenAI.
+3. Better Stack **uptime** debe usar service token Cloudflare; un 401 en el monitor suele ser Access mal configurado, no caída de app.
+4. Better Stack **logs** (Vector): 401 en el sink `better_stack` suele ser token vacío/equivocado **o** `BETTERSTACK_INGESTING_HOST` incorrecto (usar el host del source en la UI, no solo `in.logs.betterstack.com`). Ver `OBSERVABILITY.md` / `STAGING_PROVISIONING.md` §8.2.
+5. Readiness depende de DB/migraciones, **no** de OpenAI.
 
 ---
 
