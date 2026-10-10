@@ -380,15 +380,18 @@ services:
         condition: service_started
     logging: *default-logging
 
-  # Ship Docker JSON logs to Better Stack. Requires BETTERSTACK_SOURCE_TOKEN.
+  # Ship Docker JSON logs to Better Stack.
+  # Requires BETTERSTACK_SOURCE_TOKEN + BETTERSTACK_INGESTING_HOST (source UI).
   # docker compose --profile logs up -d vector
   vector:
     image: timberio/vector:0.41.1-alpine
     profiles: ['logs']
     restart: unless-stopped
     environment:
-      # Required for a working sink; empty token fails at runtime (not at compose parse).
+      # Empty token/host fails at runtime (401), not at compose parse.
       BETTERSTACK_SOURCE_TOKEN: ${BETTERSTACK_SOURCE_TOKEN:-}
+      # Host only, no scheme — e.g. s123.us-east-9.betterstackdata.com
+      BETTERSTACK_INGESTING_HOST: ${BETTERSTACK_INGESTING_HOST:-in.logs.betterstack.com}
     volumes:
       - ./vector/vector.toml:/etc/vector/vector.toml:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro

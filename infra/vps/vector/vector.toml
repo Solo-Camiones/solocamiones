@@ -1,6 +1,11 @@
 # Ship container JSON logs to Better Stack (Logtail). M4.3.
-# Token is injected via BETTERSTACK_SOURCE_TOKEN — never commit real tokens.
+# Secrets/hosts from Compose env — never commit real tokens.
 # Enable with Compose profile `logs`.
+#
+# BETTERSTACK_SOURCE_TOKEN  = Source token from the Logs source (Bearer).
+# BETTERSTACK_INGESTING_HOST = Host only (no https://), from the same source UI.
+#   Example: s123456.us-east-9.betterstackdata.com
+#   Do not rely on in.logs.betterstack.com alone — regional hosts return 401 for many sources.
 
 [api]
 enabled = false
@@ -26,12 +31,15 @@ del(.OPENAI_API_KEY)
 del(.METRICS_BEARER_TOKEN)
 del(.R2_SECRET_ACCESS_KEY)
 del(.BACKUP_AGE_SECRET_KEY)
+# Better Stack maps event time from .dt (official Vector sink guidance).
+.dt = del(.timestamp)
 '''
 
 [sinks.better_stack]
 type = "http"
+method = "post"
 inputs = ["parse_json"]
-uri = "https://in.logs.betterstack.com/"
+uri = "https://${BETTERSTACK_INGESTING_HOST}/"
 encoding.codec = "json"
 auth.strategy = "bearer"
 auth.token = "${BETTERSTACK_SOURCE_TOKEN}"
