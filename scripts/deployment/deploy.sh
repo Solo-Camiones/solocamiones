@@ -62,6 +62,27 @@ require_digest() {
   fi
 }
 
+# Read KEY=value from a Compose-style env file without sourcing it.
+# Avoids loading secrets into the shell and breaking on password special chars.
+env_file_get() {
+  local file="$1"
+  local key="$2"
+  local line value
+
+  [[ -f "${file}" ]] || return 0
+  line="$(grep -E "^[[:space:]]*${key}=" "${file}" | tail -n1 || true)"
+  [[ -n "${line}" ]] || return 0
+
+  value="${line#*=}"
+  value="${value%$'\r'}"
+  if [[ "${value}" =~ ^\"(.*)\"$ ]]; then
+    value="${BASH_REMATCH[1]}"
+  elif [[ "${value}" =~ ^\'(.*)\'$ ]]; then
+    value="${BASH_REMATCH[1]}"
+  fi
+  printf '%s' "${value}"
+}
+
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --env)
@@ -217,7 +238,13 @@ done
 SMOKE_STATUS="skipped"
 if [[ "${SKIP_SMOKE}" -eq 0 && "${APP_ENV}" == "staging" ]]; then
   echo "deploy.sh: running minimal staging smoke"
+  # Precedence: process env → Compose env file → canonical default.
+  # Compose --env-file does not export into this shell; read the key explicitly.
+  if [[ -z "${SMOKE_BASE_URL:-}" ]]; then
+    SMOKE_BASE_URL="$(env_file_get "${ENV_FILE}" "SMOKE_BASE_URL")"
+  fi
   SMOKE_BASE_URL="${SMOKE_BASE_URL:-https://staging.solocamiones.com}"
+  echo "deploy.sh: smoke base url=${SMOKE_BASE_URL}"
   # Host has curl/jq from bootstrap; Node is not installed on the VPS.
   bash "${ROOT_DIR}/scripts/deployment/smoke-staging.sh" --base-url "${SMOKE_BASE_URL}"
   SMOKE_STATUS="passed"

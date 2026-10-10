@@ -162,6 +162,10 @@ El env de la API debe coincidir:
 - `ALLOWED_HOSTS=staging.solocamiones.com`
 - `CF_ACCESS_TEAM_DOMAIN` / `CF_ACCESS_AUD` (audience de staging)
 
+`deploy.sh` (smoke de staging) también puede leer `SMOKE_BASE_URL` desde
+`/etc/solocamiones/staging.env` (solo host; Compose no la usa). Precedencia:
+variable de proceso → env file → `https://staging.solocamiones.com`.
+
 ---
 
 ## 5. Archivo de secretos (M6.4)

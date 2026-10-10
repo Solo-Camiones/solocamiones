@@ -18,11 +18,25 @@ export function deployShUsesHostShellSmoke(deployText) {
   return invokesShellSmoke && !invokesNodeSmoke;
 }
 
+/** Smoke URL must resolve from process env → ENV_FILE → canonical default (not Compose injection alone). */
+export function deployShReadsSmokeBaseUrlFromEnvFile(deployText) {
+  const readsFromEnvFile = /env_file_get\s+"\$\{ENV_FILE\}"\s+"SMOKE_BASE_URL"/.test(deployText);
+  const hasDefault =
+    /SMOKE_BASE_URL="\$\{SMOKE_BASE_URL:-https:\/\/staging\.solocamiones\.com\}"/.test(deployText);
+  return readsFromEnvFile && hasDefault;
+}
+
 function main() {
   const deployText = readFileSync(DEPLOY_SH, 'utf8');
   if (!deployShUsesHostShellSmoke(deployText)) {
     console.error(
       'assert-deploy-smoke-host-runtime: deploy.sh must invoke smoke-staging.sh and must not call Node for smoke',
+    );
+    process.exit(1);
+  }
+  if (!deployShReadsSmokeBaseUrlFromEnvFile(deployText)) {
+    console.error(
+      'assert-deploy-smoke-host-runtime: deploy.sh must resolve SMOKE_BASE_URL from ENV_FILE before the canonical default',
     );
     process.exit(1);
   }
