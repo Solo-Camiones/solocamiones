@@ -21,6 +21,7 @@ describe('HTTP edge security', () => {
       cloudflareAccess: {
         teamDomain: 'example.cloudflareaccess.com',
         audience: 'staging-aud',
+        requireOriginJwt: true,
       },
       verifyCloudflareAccessJwt: verifyJwt,
     });
@@ -45,6 +46,7 @@ describe('HTTP edge security', () => {
       cloudflareAccess: {
         teamDomain: 'example.cloudflareaccess.com',
         audience: 'prod-aud',
+        requireOriginJwt: true,
       },
       verifyCloudflareAccessJwt: verifyJwt,
     });

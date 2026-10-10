@@ -64,9 +64,61 @@ describe('parseRuntimeConfig', () => {
     expect(config.cloudflareAccess).toEqual({
       teamDomain: 'example.cloudflareaccess.com',
       audience: 'staging-audience-uuid',
+      requireOriginJwt: true,
     });
     expect(config.appRelease).toBe('v2.0.0');
     expect(config.metricsBearerToken).toBe('metrics-token');
+  });
+
+  it('defaults CF_ACCESS_REQUIRE_ORIGIN_JWT to true and accepts false/0', () => {
+    expect(parseRuntimeConfig({ ...BASE_DEPLOYED }).cloudflareAccess?.requireOriginJwt).toBe(true);
+    expect(
+      parseRuntimeConfig({
+        ...BASE_DEPLOYED,
+        CF_ACCESS_REQUIRE_ORIGIN_JWT: 'true',
+      }).cloudflareAccess?.requireOriginJwt,
+    ).toBe(true);
+    expect(
+      parseRuntimeConfig({
+        ...BASE_DEPLOYED,
+        CF_ACCESS_REQUIRE_ORIGIN_JWT: '1',
+      }).cloudflareAccess?.requireOriginJwt,
+    ).toBe(true);
+    expect(
+      parseRuntimeConfig({
+        ...BASE_DEPLOYED,
+        CF_ACCESS_REQUIRE_ORIGIN_JWT: 'false',
+      }).cloudflareAccess?.requireOriginJwt,
+    ).toBe(false);
+    expect(
+      parseRuntimeConfig({
+        ...BASE_DEPLOYED,
+        CF_ACCESS_REQUIRE_ORIGIN_JWT: '0',
+      }).cloudflareAccess?.requireOriginJwt,
+    ).toBe(false);
+  });
+
+  it('rejects invalid CF_ACCESS_REQUIRE_ORIGIN_JWT but still requires Access secrets when false', () => {
+    expect(() =>
+      parseRuntimeConfig({
+        ...BASE_DEPLOYED,
+        CF_ACCESS_REQUIRE_ORIGIN_JWT: 'maybe',
+      }),
+    ).toThrow(/CF_ACCESS_REQUIRE_ORIGIN_JWT/);
+    expect(() =>
+      parseRuntimeConfig({
+        ...BASE_DEPLOYED,
+        CF_ACCESS_REQUIRE_ORIGIN_JWT: 'false',
+        CF_ACCESS_TEAM_DOMAIN: undefined,
+      }),
+    ).toThrow(/CF_ACCESS_TEAM_DOMAIN/);
+    expect(() =>
+      parseRuntimeConfig({
+        ...BASE_DEPLOYED,
+        CF_ACCESS_REQUIRE_ORIGIN_JWT: 'false',
+        CF_ACCESS_AUD: undefined,
+      }),
+    ).toThrow(/CF_ACCESS_AUD/);
   });
 
   it('allows ASSISTANT_ENABLED=false as a kill switch in production', () => {

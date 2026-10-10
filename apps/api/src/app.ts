@@ -139,13 +139,16 @@ export function createApp(options: CreateAppOptions = {}): express.Application {
   app.use(createAllowedHostsMiddleware(allowedHosts));
   // Perimeter JWT checks run before route-level limiters; rate-limit failed Access
   // attempts when enabled so health and early 401s cannot be flooded unbounded.
+  // requireOriginJwt=false keeps CF_ACCESS_* secrets loaded but skips JWT + Access limiter.
   const cloudflareAccessConfig = options.cloudflareAccess;
-  if (cloudflareAccessConfig != null) {
+  const enforceOriginJwt =
+    cloudflareAccessConfig != null && cloudflareAccessConfig.requireOriginJwt;
+  if (enforceOriginJwt) {
     app.use(cloudflareAccessRateLimiter);
   }
   app.use(
     createCloudflareAccessMiddleware({
-      config: cloudflareAccessConfig,
+      config: enforceOriginJwt ? cloudflareAccessConfig : null,
       verifyJwt: options.verifyCloudflareAccessJwt,
     }),
   );

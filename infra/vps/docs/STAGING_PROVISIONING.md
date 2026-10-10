@@ -448,8 +448,18 @@ Plantilla versionada: `infra/vps/.env.staging.example`.
 | -------- | -------- |
 | `CF_ACCESS_TEAM_DOMAIN` | Team domain Zero Trust (issuer JWKS). La API valida el JWT Access. |
 | `CF_ACCESS_AUD` | Audience de la **aplicación Access de staging** (distinto de producción). |
+| `CF_ACCESS_REQUIRE_ORIGIN_JWT` | `true` (default si omitido) = Express exige y verifica `Cf-Access-Jwt-Assertion`. `false`/`0` = la API no exige el JWT (excepción operativa temporal). `CF_ACCESS_TEAM_DOMAIN` y `CF_ACCESS_AUD` **siguen obligatorios** para reactivar sin reconfigurar secretos. Requiere recreate/restart del contenedor `api`. |
 | `CF_ACCESS_CLIENT_ID` | Client ID del **Access service token**. Lo lee `deploy.sh` en el host para el smoke (`CF-Access-Client-Id`). También el mismo tipo de credencial se usa en monitores Better Stack uptime. **No** es secreto de GitHub Actions; vive en `staging.env`. |
 | `CF_ACCESS_CLIENT_SECRET` | Secret del service token (`CF-Access-Client-Secret`). Misma nota que el ID. |
+
+#### Acceso público temporal (Bypass Everyone + flag de origen)
+
+Solo cuando haga falta login web sin WARP/email (p. ej. demo). No dejar activo.
+
+1. **Abrir:** en `staging.env` poner `CF_ACCESS_REQUIRE_ORIGIN_JWT=false` → recreate/restart `api` → en Zero Trust añadir política **Bypass Everyone** con prioridad alta. (Bajar el JWT en origen primero evita 401 a quienes entren por el bypass.)
+2. **Cerrar:** quitar Bypass Everyone → `CF_ACCESS_REQUIRE_ORIGIN_JWT=true` → recreate/restart `api`. (Quitar el bypass primero evita una ventana pública sin JWT en origen.)
+
+Con Bypass off y JWT off, WARP+email en Cloudflare siguen protegiendo el edge; la API solo pierde la capa criptográfica hasta reactivar el flag.
 
 ### Métricas
 

@@ -47,6 +47,7 @@ describe('cloudflare access middleware', () => {
       cloudflareAccess: {
         teamDomain: 'example.cloudflareaccess.com',
         audience: 'aud-1',
+        requireOriginJwt: true,
       },
       verifyCloudflareAccessJwt: verifyJwt,
       extraRouters: [{ path: '/__test', router: probe }],
@@ -73,6 +74,7 @@ describe('cloudflare access middleware', () => {
       cloudflareAccess: {
         teamDomain: 'example.cloudflareaccess.com',
         audience: 'aud-1',
+        requireOriginJwt: true,
       },
       verifyCloudflareAccessJwt: verifyJwt,
     });
@@ -109,6 +111,7 @@ describe('cloudflare access middleware', () => {
       cloudflareAccess: {
         teamDomain: 'example.cloudflareaccess.com',
         audience: 'aud-1',
+        requireOriginJwt: true,
       },
       verifyCloudflareAccessJwt: verifyJwt,
     });
@@ -136,6 +139,7 @@ describe('cloudflare access middleware', () => {
       cloudflareAccess: {
         teamDomain: 'example.cloudflareaccess.com',
         audience: 'aud-1',
+        requireOriginJwt: true,
       },
       verifyCloudflareAccessJwt: verifyJwt,
     });
@@ -143,5 +147,39 @@ describe('cloudflare access middleware', () => {
     const ok = await request(app).get('/metrics').set('Authorization', 'Bearer metrics-secret');
     expect(ok.status).toBe(200);
     expect(verifyJwt).not.toHaveBeenCalled();
+  });
+
+  it('skips JWT verification and Access rate limit when requireOriginJwt is false', async () => {
+    const verifyJwt = vi.fn(async () => {
+      throw new Error('should not verify');
+    });
+
+    const probe = express.Router();
+    probe.get('/ping', (_req, res) => {
+      res.status(200).json({ ok: true });
+    });
+
+    const app = createApp({
+      trustProxy: true,
+      cloudflareAccess: {
+        teamDomain: 'example.cloudflareaccess.com',
+        audience: 'aud-1',
+        requireOriginJwt: false,
+      },
+      verifyCloudflareAccessJwt: verifyJwt,
+      extraRouters: [{ path: '/__test', router: probe }],
+    });
+
+    const withoutJwt = await request(app).get('/__test/ping');
+    expect(withoutJwt.status).toBe(200);
+    expect(verifyJwt).not.toHaveBeenCalled();
+
+    const clientIp = '203.0.113.95';
+    for (let attempt = 0; attempt < CLOUDFLARE_ACCESS_RATE_LIMIT_MAX_ATTEMPTS + 5; attempt += 1) {
+      const response = await request(app)
+        .get('/api/health/live')
+        .set('X-Forwarded-For', clientIp);
+      expect(response.status).toBe(200);
+    }
   });
 });

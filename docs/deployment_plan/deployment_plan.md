@@ -371,7 +371,8 @@ Reglas:
 
 ### 11.4 Express
 
-- Validar firma, issuer, expiración y audience del JWT Access.
+- Validar firma, issuer, expiración y audience del JWT Access (obligatorio por defecto en staging/production).
+- `CF_ACCESS_REQUIRE_ORIGIN_JWT=false` es una excepción operativa explícita (coordinada con Bypass en Zero Trust); no es el modo normal.
 - `ALLOWED_HOSTS` exacto por ambiente.
 - `TRUST_PROXY` limitado al hop Nginx inmediato.
 - Helmet, payload limits y rate limiting.

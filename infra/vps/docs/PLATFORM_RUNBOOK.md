@@ -13,7 +13,8 @@ Enlace Assistant (kill switch, 429, sync): `docs/assistant-ops/RUNBOOK.md`.
 1. Confirmar ambiente (staging vs production).
 2. Abrir Grafana/Prometheus solo por Tailscale o túnel SSH a loopback (`ssh -L 3001:127.0.0.1:3001 -L 9090:127.0.0.1:9090`). Detalle: `OBSERVABILITY.md` → «Cómo ver Grafana y Prometheus».
 3. Verificar Better Stack uptime (si el origen responde vía Access service token).
-4. No abrir el origen a Internet ni desactivar Cloudflare Access como “bypass”.
+4. No abrir el origen a Internet (UFW/NSG/AOP). No desactivar Cloudflare Access de forma improvisada.
+5. Acceso público temporal solo con el procedimiento controlado: `CF_ACCESS_REQUIRE_ORIGIN_JWT=false` + restart `api` + Bypass Everyone en Zero Trust (orden y cierre en `STAGING_PROVISIONING.md` § Cloudflare Access). No dejar el flag en `false` ni el Bypass activos.
 
 ---
 
