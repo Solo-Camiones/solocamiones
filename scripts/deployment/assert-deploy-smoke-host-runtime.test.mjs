@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
+  deployShPassesCfAccessServiceTokenToSmoke,
   deployShReadsSmokeBaseUrlFromEnvFile,
   deployShUsesHostShellSmoke,
 } from './assert-deploy-smoke-host-runtime.mjs';
@@ -50,5 +51,28 @@ describe('deployShReadsSmokeBaseUrlFromEnvFile', () => {
   it('passes against current deploy.sh', () => {
     const deployText = readFileSync(DEPLOY_SH, 'utf8');
     assert.equal(deployShReadsSmokeBaseUrlFromEnvFile(deployText), true);
+  });
+});
+
+describe('deployShPassesCfAccessServiceTokenToSmoke', () => {
+  it('requires env_file_get and CLI flags for Access service token', () => {
+    const text = [
+      'CF_ACCESS_CLIENT_ID="$(env_file_get "${ENV_FILE}" "CF_ACCESS_CLIENT_ID")"',
+      'CF_ACCESS_CLIENT_SECRET="$(env_file_get "${ENV_FILE}" "CF_ACCESS_CLIENT_SECRET")"',
+      'smoke_args+=(--cf-access-client-id "${CF_ACCESS_CLIENT_ID}")',
+      'smoke_args+=(--cf-access-client-secret "${CF_ACCESS_CLIENT_SECRET}")',
+    ].join('\n');
+    assert.equal(deployShPassesCfAccessServiceTokenToSmoke(text), true);
+  });
+
+  it('rejects smoke without Access service token wiring', () => {
+    const text =
+      'bash "${ROOT_DIR}/scripts/deployment/smoke-staging.sh" --base-url "${SMOKE_BASE_URL}"';
+    assert.equal(deployShPassesCfAccessServiceTokenToSmoke(text), false);
+  });
+
+  it('passes against current deploy.sh', () => {
+    const deployText = readFileSync(DEPLOY_SH, 'utf8');
+    assert.equal(deployShPassesCfAccessServiceTokenToSmoke(deployText), true);
   });
 });

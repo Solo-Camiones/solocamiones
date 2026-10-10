@@ -239,14 +239,34 @@ SMOKE_STATUS="skipped"
 if [[ "${SKIP_SMOKE}" -eq 0 && "${APP_ENV}" == "staging" ]]; then
   echo "deploy.sh: running minimal staging smoke"
   # Precedence: process env → Compose env file → canonical default.
-  # Compose --env-file does not export into this shell; read the key explicitly.
+  # Compose --env-file does not export into this shell; read keys explicitly.
   if [[ -z "${SMOKE_BASE_URL:-}" ]]; then
     SMOKE_BASE_URL="$(env_file_get "${ENV_FILE}" "SMOKE_BASE_URL")"
   fi
   SMOKE_BASE_URL="${SMOKE_BASE_URL:-https://staging.solocamiones.com}"
   echo "deploy.sh: smoke base url=${SMOKE_BASE_URL}"
+
+  # Access service token for machine smoke (WARP is human-only). Never log values.
+  if [[ -z "${CF_ACCESS_CLIENT_ID:-}" ]]; then
+    CF_ACCESS_CLIENT_ID="$(env_file_get "${ENV_FILE}" "CF_ACCESS_CLIENT_ID")"
+  fi
+  if [[ -z "${CF_ACCESS_CLIENT_SECRET:-}" ]]; then
+    CF_ACCESS_CLIENT_SECRET="$(env_file_get "${ENV_FILE}" "CF_ACCESS_CLIENT_SECRET")"
+  fi
+
+  smoke_args=(--base-url "${SMOKE_BASE_URL}")
+  if [[ -n "${CF_ACCESS_CLIENT_ID}" && -n "${CF_ACCESS_CLIENT_SECRET}" ]]; then
+    smoke_args+=(
+      --cf-access-client-id "${CF_ACCESS_CLIENT_ID}"
+      --cf-access-client-secret "${CF_ACCESS_CLIENT_SECRET}"
+    )
+    echo "deploy.sh: smoke Cloudflare Access service token enabled"
+  else
+    echo "deploy.sh: warning: CF_ACCESS_CLIENT_ID/SECRET unset; Access may return 403 on smoke" >&2
+  fi
+
   # Host has curl/jq from bootstrap; Node is not installed on the VPS.
-  bash "${ROOT_DIR}/scripts/deployment/smoke-staging.sh" --base-url "${SMOKE_BASE_URL}"
+  bash "${ROOT_DIR}/scripts/deployment/smoke-staging.sh" "${smoke_args[@]}"
   SMOKE_STATUS="passed"
 fi
 
