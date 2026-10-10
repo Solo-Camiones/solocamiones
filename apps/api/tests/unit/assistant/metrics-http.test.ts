@@ -68,6 +68,7 @@ describe('GET /metrics', () => {
       cloudflareAccess: {
         teamDomain: 'example.cloudflareaccess.com',
         audience: 'staging-aud',
+        requireOriginJwt: true,
       },
       verifyCloudflareAccessJwt: verifyJwt,
     });
@@ -93,6 +94,7 @@ describe('GET /metrics', () => {
       cloudflareAccess: {
         teamDomain: 'example.cloudflareaccess.com',
         audience: 'staging-aud',
+        requireOriginJwt: true,
       },
       verifyCloudflareAccessJwt: verifyJwt,
     });

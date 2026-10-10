@@ -1,11 +1,12 @@
 import './infrastructure/config/load-env.js';
 
 import { createApp } from './app.js';
-import { parseRuntimeConfig } from './infrastructure/config/index.js';
+import { parseRuntimeConfig, warnIfOriginJwtBypassEnabled } from './infrastructure/config/index.js';
 import { disconnectPrisma } from './infrastructure/database/index.js';
 import { logger } from './infrastructure/logging/index.js';
 
 const config = parseRuntimeConfig();
+warnIfOriginJwtBypassEnabled(config, logger);
 
 const app = createApp({
   trustProxy: config.trustProxy,

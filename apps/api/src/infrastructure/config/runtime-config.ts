@@ -16,6 +16,13 @@ const DEFAULT_LOG_LEVEL = 'info';
 export type CloudflareAccessConfig = {
   teamDomain: string;
   audience: string;
+  /**
+   * When true (default), Express verifies Cf-Access-Jwt-Assertion.
+   * Set CF_ACCESS_REQUIRE_ORIGIN_JWT=false only for a coordinated temporary Bypass
+   * in Cloudflare Zero Trust; team domain and audience stay required so re-enabling
+   * does not need secret reconfiguration.
+   */
+  requireOriginJwt: boolean;
 };
 
 export type RuntimeConfig = {
@@ -83,6 +90,23 @@ function assertNodeEnvMatchesAppEnv(appEnv: AppEnvironment, nodeEnv: string | un
 
 export function isTrustProxyEnabled(value: string | undefined): boolean {
   return value === '1' || value === 'true';
+}
+
+/**
+ * Safe-by-default boolean: unset → defaultValue; true/1 → true; false/0 → false;
+ * any other present value fails boot (same convention as ASSISTANT_ENABLED).
+ */
+function parseOptionalBooleanEnv(
+  value: string | undefined,
+  defaultValue: boolean,
+  field: string,
+): boolean {
+  const present = optionalTrimmed(value);
+  if (present == null) return defaultValue;
+  const normalized = present.toLowerCase();
+  if (normalized === 'true' || normalized === '1') return true;
+  if (normalized === 'false' || normalized === '0') return false;
+  throw new Error(`Invalid ${field}: must be true, false, 1, or 0`);
 }
 
 export function parseAllowedHosts(raw: string | undefined): string[] {
@@ -153,6 +177,11 @@ export function parseRuntimeConfig(environment: NodeJS.ProcessEnv = process.env)
     cloudflareAccess = {
       teamDomain: requireTrimmed(environment.CF_ACCESS_TEAM_DOMAIN, 'CF_ACCESS_TEAM_DOMAIN'),
       audience: requireTrimmed(environment.CF_ACCESS_AUD, 'CF_ACCESS_AUD'),
+      requireOriginJwt: parseOptionalBooleanEnv(
+        environment.CF_ACCESS_REQUIRE_ORIGIN_JWT,
+        true,
+        'CF_ACCESS_REQUIRE_ORIGIN_JWT',
+      ),
     };
   }
 
