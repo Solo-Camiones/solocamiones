@@ -1,9 +1,12 @@
 // @vitest-environment jsdom
 
+import { useState } from 'react';
 import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import type { AuthUser } from '../../../src/features/auth/auth-context';
+import { ProfileForm } from '../../../src/features/profile/ProfileForm';
 import { ProfilePage } from '../../../src/features/profile/ProfilePage';
 import { getMockState, resetMockState } from '../../../src/mocks/state';
 import { createAuthValue, renderWithProviders } from '../../support/render';
@@ -89,5 +92,58 @@ describe('ProfilePage', () => {
     expect(currentPassword).toHaveAttribute('type', 'text');
     expect(newPassword).toHaveAttribute('type', 'text');
     expect(confirmPassword).toHaveAttribute('type', 'password');
+  });
+
+  it('keeps in-progress name edits when session revalidates with the same contact data', async () => {
+    const user = userEvent.setup();
+    const initialUser = sellerAuth().user!;
+
+    function SessionRevalidateHarness() {
+      const [profileUser, setProfileUser] = useState<AuthUser>(initialUser);
+      return (
+        <>
+          <button type="button" onClick={() => setProfileUser({ ...profileUser })}>
+            Revalidate session
+          </button>
+          <ProfileForm user={profileUser} isSaving={false} error={null} onSubmit={vi.fn()} />
+        </>
+      );
+    }
+
+    renderWithProviders(<SessionRevalidateHarness />);
+    const nameField = screen.getByLabelText('Nombre');
+    await user.clear(nameField);
+    await user.type(nameField, 'Nombre editado');
+    await user.click(screen.getByRole('button', { name: 'Revalidate session' }));
+
+    expect(screen.getByLabelText('Nombre')).toHaveValue('Nombre editado');
+  });
+
+  it('resets the form when server contact fields change after refresh', async () => {
+    const user = userEvent.setup();
+    const initialUser = sellerAuth().user!;
+
+    function ServerUpdateHarness() {
+      const [profileUser, setProfileUser] = useState<AuthUser>(initialUser);
+      return (
+        <>
+          <button
+            type="button"
+            onClick={() => setProfileUser({ ...profileUser, name: 'Nombre del servidor' })}
+          >
+            Apply server profile
+          </button>
+          <ProfileForm user={profileUser} isSaving={false} error={null} onSubmit={vi.fn()} />
+        </>
+      );
+    }
+
+    renderWithProviders(<ServerUpdateHarness />);
+    const nameField = screen.getByLabelText('Nombre');
+    await user.clear(nameField);
+    await user.type(nameField, 'Borrador local');
+    await user.click(screen.getByRole('button', { name: 'Apply server profile' }));
+
+    expect(screen.getByLabelText('Nombre')).toHaveValue('Nombre del servidor');
   });
 });
