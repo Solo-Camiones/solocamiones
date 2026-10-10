@@ -46,6 +46,9 @@ Luego en el navegador del PC:
 
 - Grafana: http://127.0.0.1:3001 — user/password = `GRAFANA_ADMIN_USER` / `GRAFANA_ADMIN_PASSWORD`
 - Prometheus: http://127.0.0.1:9090 — *Status → Targets* para scrapes `UP`
+- Dashboards provisionados (carpeta **Solo Camiones**):
+  - **Solo Camiones overview** — API, HTTP, Assistant, backup
+  - **Solo Camiones host (CPU / RAM / disco)** — consumo actual del VPS (`job="node"`)
 
 Comprobar bind en el host:
 
