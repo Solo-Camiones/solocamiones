@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import { MAX_CUSTOMER_CONTACTS } from '../customers/constants.js';
+
 const role = z.enum(['ADMINISTRATOR', 'SELLER', 'MECHANIC']);
 const actor = z.discriminatedUnion('actorType', [
   z.object({ actorType: z.literal('USER'), actorUserId: z.uuid() }).strict(),
@@ -113,17 +115,19 @@ const customerSnapshot = z
       z.literal(120),
       z.null(),
     ]),
-    contacts: z.array(
-      z
-        .object({
-          name: z.string().nullable(),
-          phone: z.string().nullable(),
-          email: z.string().nullable(),
-          title: z.string().nullable(),
-          isPrimary: z.boolean(),
-        })
-        .strict(),
-    ),
+    contacts: z
+      .array(
+        z
+          .object({
+            name: z.string().nullable(),
+            phone: z.string().nullable(),
+            email: z.string().nullable(),
+            title: z.string().nullable(),
+            isPrimary: z.boolean(),
+          })
+          .strict(),
+      )
+      .max(MAX_CUSTOMER_CONTACTS),
   })
   .strict();
 const recovery = { requestId: z.uuid(), before: z.literal('PENDING') };

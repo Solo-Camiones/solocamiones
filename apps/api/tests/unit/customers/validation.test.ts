@@ -5,6 +5,8 @@ import {
   CREDIT_CUSTOMER_REQUIRES_FISCAL_ID_MESSAGE,
   CREDIT_CUSTOMER_REQUIRES_LIMIT_MESSAGE,
   CREDIT_CUSTOMER_REQUIRES_TERM_MESSAGE,
+  CUSTOMER_CONTACTS_LIMIT_MESSAGE,
+  MAX_CUSTOMER_CONTACTS,
 } from '../../../src/features/customers/constants.js';
 import {
   assertCustomerCreditProfile,
@@ -95,6 +97,24 @@ describe('customer validation', () => {
       creditLimitDop: '15000.50',
       creditTermDays: 90,
     });
+  });
+
+  it('rejects a contact list above the DoS ceiling with a single issue', () => {
+    const contacts = Array.from({ length: MAX_CUSTOMER_CONTACTS + 1 }, () => ({
+      name: 'Only name',
+    }));
+    const parsed = createCustomerSchema.safeParse({ name: 'Taller', contacts });
+
+    expect(parsed.success).toBe(false);
+    if (!parsed.success) {
+      expect(parsed.error.issues).toEqual([
+        expect.objectContaining({
+          code: 'too_big',
+          message: CUSTOMER_CONTACTS_LIMIT_MESSAGE,
+          path: ['contacts'],
+        }),
+      ]);
+    }
   });
 
   it('rejects invalid fiscal identifiers, empty names and contacts without phone or email', () => {

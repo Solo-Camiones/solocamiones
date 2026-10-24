@@ -6,7 +6,10 @@ import {
   scoreCase,
   validateDatasetComposition,
   estimateUsdCost,
+  evalCaseSchema,
   evalDatasetSchema,
+  MAX_EVAL_CASES,
+  MAX_EVAL_CASE_LIST_ITEMS,
   EVAL_THRESHOLDS,
   evaluateHardGates,
   aggregateScores,
@@ -159,6 +162,36 @@ describe('assistant eval dataset composition', () => {
     });
     const issues = validateDatasetComposition(parsed);
     expect(issues.length).toBeGreaterThan(0);
+  });
+
+  it('rejects a case list above the DoS ceiling with a single issue', () => {
+    const parsed = evalDatasetSchema.safeParse({
+      version: 't',
+      description: 't',
+      cases: Array.from({ length: MAX_EVAL_CASES + 1 }, () => ({})),
+    });
+
+    expect(parsed.success).toBe(false);
+    if (!parsed.success) {
+      expect(parsed.error.issues).toEqual([
+        expect.objectContaining({ code: 'too_big', path: ['cases'] }),
+      ]);
+    }
+  });
+
+  it('rejects an oversized per-case list before checking each string', () => {
+    const parsed = evalCaseSchema.safeParse(
+      baseCase({
+        expectedFacts: Array.from({ length: MAX_EVAL_CASE_LIST_ITEMS + 1 }, () => ''),
+      }),
+    );
+
+    expect(parsed.success).toBe(false);
+    if (!parsed.success) {
+      expect(parsed.error.issues).toEqual([
+        expect.objectContaining({ code: 'too_big', path: ['expectedFacts'] }),
+      ]);
+    }
   });
 });
 

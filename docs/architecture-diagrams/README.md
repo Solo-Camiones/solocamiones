@@ -16,12 +16,12 @@ The staging infrastructure is designed around a Microsoft Azure Virtual Machine 
 
 The architecture is organized into four logical layers:
 
-| Layer | Components |
-|---|---|
-| Edge & Access | Cloudflare DNS/WAF, Access/WARP, HTTPS |
+| Layer                | Components                                      |
+| -------------------- | ----------------------------------------------- |
+| Edge & Access        | Cloudflare DNS/WAF, Access/WARP, HTTPS          |
 | Cloud Infrastructure | Azure VM, NSG, Ubuntu, UFW, Fail2ban, Tailscale |
-| Application Services | Nginx, React, Node.js/Express, PostgreSQL |
-| Operations | Prometheus, Grafana, Vector, exporters, backups |
+| Application Services | Nginx, React, Node.js/Express, PostgreSQL       |
+| Operations           | Prometheus, Grafana, Vector, exporters, backups |
 
 ### Application Architecture
 
@@ -151,13 +151,13 @@ The infrastructure diagram includes a monitoring stack designed to provide visib
 
 ### Metrics Collection
 
-| Component | Responsibility |
-|---|---|
-| Prometheus | Metrics collection, retention and alerting rules |
-| Grafana | Dashboards and metrics visualization |
-| Node Exporter | Host-level metrics |
-| PostgreSQL Exporter | Database metrics |
-| API `/metrics` | Application-level metrics |
+| Component           | Responsibility                                   |
+| ------------------- | ------------------------------------------------ |
+| Prometheus          | Metrics collection, retention and alerting rules |
+| Grafana             | Dashboards and metrics visualization             |
+| Node Exporter       | Host-level metrics                               |
+| PostgreSQL Exporter | Database metrics                                 |
+| API `/metrics`      | Application-level metrics                        |
 
 Prometheus is configured to collect metrics from the relevant targets, while Grafana provides visualization through Prometheus queries.
 
@@ -195,30 +195,30 @@ Backup creation, backup freshness, restore testing, and infrastructure snapshots
 
 The architecture diagrams use the following status definitions:
 
-| Status | Meaning |
-|---|---|
+| Status      | Meaning                                                                                    |
+| ----------- | ------------------------------------------------------------------------------------------ |
 | Implemented | Implementation exists in repository evidence; runtime success is not necessarily confirmed |
-| Configured | Configuration is present but execution may depend on additional setup |
-| Planned | Intended architecture or functionality not yet confirmed as implemented |
-| Unverified | Insufficient evidence to confirm operational readiness |
+| Configured  | Configuration is present but execution may depend on additional setup                      |
+| Planned     | Intended architecture or functionality not yet confirmed as implemented                    |
+| Unverified  | Insufficient evidence to confirm operational readiness                                     |
 
 These labels distinguish repository configuration from the actual running environment.
 
 ## 6. Technologies
 
-| Category | Technologies |
-|---|---|
-| Cloud | Microsoft Azure, Azure VM, NSG |
-| Operating Systems | Linux, Ubuntu Server |
-| Containers | Docker, Docker Compose, GHCR |
-| CI/CD | GitHub Actions, Bash |
-| Security | Cloudflare, Tailscale, UFW, Fail2ban, Gitleaks, Trivy |
-| Web & Backend | Nginx, React, Node.js, Express |
-| Database | PostgreSQL, Prisma |
-| Monitoring | Prometheus, Grafana, Node Exporter, PostgreSQL Exporter |
-| Logging | Vector, Better Stack (planned in diagram) |
-| Quality | ESLint, Prettier, Vitest, SonarQube (optional) |
-| Backup | pg_dump, age, systemd timers |
+| Category          | Technologies                                            |
+| ----------------- | ------------------------------------------------------- |
+| Cloud             | Microsoft Azure, Azure VM, NSG                          |
+| Operating Systems | Linux, Ubuntu Server                                    |
+| Containers        | Docker, Docker Compose, GHCR                            |
+| CI/CD             | GitHub Actions, Bash                                    |
+| Security          | Cloudflare, Tailscale, UFW, Fail2ban, Gitleaks, Trivy   |
+| Web & Backend     | Nginx, React, Node.js, Express                          |
+| Database          | PostgreSQL, Prisma                                      |
+| Monitoring        | Prometheus, Grafana, Node Exporter, PostgreSQL Exporter |
+| Logging           | Vector, Better Stack (planned in diagram)               |
+| Quality           | ESLint, Prettier, Vitest, SonarQube (optional)          |
+| Backup            | pg_dump, age, systemd timers                            |
 
 ## 7. Architecture Scope & Limitations
 
