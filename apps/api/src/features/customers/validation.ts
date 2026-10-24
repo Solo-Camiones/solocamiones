@@ -4,6 +4,8 @@ import { z } from 'zod';
 import {
   CONTACT_PHONE_OR_EMAIL_MESSAGE,
   CONTACT_PRIMARY_LIMIT_MESSAGE,
+  CUSTOMER_CONTACTS_LIMIT_MESSAGE,
+  MAX_CUSTOMER_CONTACTS,
   CREDIT_TERM_DAYS,
   CUSTOMER_TYPES,
   DECIMAL_12_2_MAX,
@@ -93,6 +95,7 @@ export const customerContactInputSchema = z
 
 export const customerContactsSchema = z
   .array(customerContactInputSchema)
+  .max(MAX_CUSTOMER_CONTACTS, { error: CUSTOMER_CONTACTS_LIMIT_MESSAGE })
   .superRefine((contacts, context) => {
     const primaryCount = contacts.filter((contact) => contact.isPrimary === true).length;
     if (primaryCount > 1) {

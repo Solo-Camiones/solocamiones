@@ -8,6 +8,13 @@ export const FISCAL_IDENTIFIER_CONFLICT_MESSAGE =
   'A customer with this fiscal identifier already exists';
 export const CONTACT_PHONE_OR_EMAIL_MESSAGE = 'Each contact must include a phone or email';
 export const CONTACT_PRIMARY_LIMIT_MESSAGE = 'Only one contact can be primary';
+/**
+ * DoS ceiling for contact lists (CVE-2023-54404). The product allows multiple
+ * contacts and does not define a CRM quota; 50 is far above a lightweight
+ * customer and lets Zod reject a larger list before it walks every element.
+ */
+export const MAX_CUSTOMER_CONTACTS = 50;
+export const CUSTOMER_CONTACTS_LIMIT_MESSAGE = `A customer can have at most ${MAX_CUSTOMER_CONTACTS} contacts`;
 export const FISCAL_IDENTIFIER_FORMAT_MESSAGE =
   'Fiscal identifier must be a 9-digit RNC or 11-digit Cédula';
 

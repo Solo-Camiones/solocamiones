@@ -767,19 +767,21 @@ Esta secuencia convierte el plan operativo en bloques implementables. Una depend
 
 **Objetivo:** demostrar con evidencia que seguridad, negocio, despliegue, rollback y recuperación funcionan juntos.
 
+**Estado:** **Cerrado en host Azure de ensayo (2026-10-24).** Validación manual ya ejecutada por el operador. Evidencia: `docs/RELEASES/v2.0.0.md` §12. Decisiones owner: Azure de ensayo (1A); checklist manual (2A); audience cruzado diferido a M8/M9 (3C); resto de la sección 16 cubierto (4A); solo registro documental (5A); evidencia residual de M6 confirmada (6). Hostinger KVM 1 sigue siendo el camino canónico post-ensayo.
+
 **Dependencias del milestone:** M6.
 
-| Paso | Tarea y qué cumple                                                                                                                                                                           | Dependencias |
-| ---- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------ |
-| M7.1 | Desplegar un SHA candidato desde `develop` mediante el workflow completo; valida migración, readiness y conservación de evidencia sin pasos manuales ocultos.                                | M6 gate.     |
-| M7.2 | Ejecutar pruebas negativas de origen, WARP/Access, audience cruzado, hosts, puertos, roles y Better Stack; demuestra que no existe bypass de red o autorización.                             | M7.1.        |
-| M7.3 | Ejecutar los smoke tests comerciales de la sección 16 con datos sintéticos; confirma que facturación, conduces, pagos, CxC, PDFs, cancelación y rentabilidad sobreviven al empaquetado real. | M7.1.        |
-| M7.4 | Probar Assistant documental/live, fuentes, cuotas, purge, sync y kill switch; confirma su operación segura sin convertir AI-010 en gate previo.                                              | M6.7 y M7.1. |
-| M7.5 | Ejecutar backup, descarga, checksum, descifrado y restore aislado; mide por primera vez la ruta de recuperación y corrige cualquier paso no reproducible.                                    | M6.6 y M7.1. |
-| M7.6 | Ensayar rollback de imagen compatible, reinicio del stack y persistencia de sesiones/datos; demuestra recuperación operativa sin revertir datos a ciegas.                                    | M7.1 y M7.5. |
-| M7.7 | Registrar resultados, riesgos residuales y aprobación para provisionar producción; impide avanzar con fallos conocidos o evidencia incompleta.                                               | M7.2–M7.6.   |
+| Paso | Tarea y qué cumple                                                                                                                                                                           | Dependencias                                                                                               |
+| ---- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| M7.1 | Desplegar un SHA candidato desde `develop` mediante el workflow completo; valida migración, readiness y conservación de evidencia sin pasos manuales ocultos.                                | M6 gate. **Hecho 2026-10-24.**                                                                             |
+| M7.2 | Ejecutar pruebas negativas de origen, WARP/Access, audience cruzado, hosts, puertos, roles y Better Stack; demuestra que no existe bypass de red o autorización.                             | M7.1. **Hecho 2026-10-24.** Audience cruzado diferido a M8/M9 (decisión 3C).                               |
+| M7.3 | Ejecutar los smoke tests comerciales de la sección 16 con datos sintéticos; confirma que facturación, conduces, pagos, CxC, PDFs, cancelación y rentabilidad sobreviven al empaquetado real. | M7.1. **Hecho 2026-10-24.**                                                                                |
+| M7.4 | Probar Assistant documental/live, fuentes, cuotas, purge, sync y kill switch; confirma su operación segura sin convertir AI-010 en gate previo.                                              | M6.7 y M7.1. **Hecho 2026-10-24.**                                                                         |
+| M7.5 | Ejecutar backup, descarga, checksum, descifrado y restore aislado; mide por primera vez la ruta de recuperación y corrige cualquier paso no reproducible.                                    | M6.6 y M7.1. **Hecho 2026-10-24.** Duración numérica no archivada; el gate de menos de 60 minutos es M8.6. |
+| M7.6 | Ensayar rollback de imagen compatible, reinicio del stack y persistencia de sesiones/datos; demuestra recuperación operativa sin revertir datos a ciegas.                                    | M7.1 y M7.5. **Hecho 2026-10-24.**                                                                         |
+| M7.7 | Registrar resultados, riesgos residuales y aprobación para provisionar producción; impide avanzar con fallos conocidos o evidencia incompleta.                                               | M7.2–M7.6. **Hecho 2026-10-24:** §12 de `docs/RELEASES/v2.0.0.md`.                                         |
 
-**Gate de salida:** smoke y pruebas negativas verdes, restore reproducible, rollback ensayado y autorización explícita para crear producción.
+**Gate de salida:** smoke y pruebas negativas verdes, restore reproducible, rollback ensayado y autorización explícita para crear producción. **Cumplido 2026-10-24**, con audience cruzado pendiente hasta M8/M9. Siguiente: M8. Este cierre no provisiona producción.
 
 ### M8 — Provisionar producción y demostrar recuperación
 

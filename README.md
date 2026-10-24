@@ -264,3 +264,10 @@ No implementar ideas de [`docs/FUTURE_ROADMAP.md`](docs/FUTURE_ROADMAP.md) salvo
 El workflow **CI R1** (`.github/workflows/ci.yml`) corre en pull requests y pushes a `main`: Node.js 22, npm 11.19.1, PostgreSQL 16 desechable. Ejecuta lint, typecheck, pruebas unitarias/integración/componente, build y audit de dependencias. No usa secretos de despliegue ni la base local.
 
 El check requerido en `main` sigue llamándose **R1 quality** (nombre histórico del job). Cubre el árbol actual, no solo Release 1.
+
+## DevOps & Infrastructure
+
+Explore the cloud infrastructure, CI/CD pipelines,
+security controls, and observability architecture.
+
+[View DevOps Architecture Documentation](docs/architecture/README.md)

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import { MAX_CUSTOMER_CONTACTS } from '../../../src/features/customers/constants.js';
 import { historyEventSchema } from '../../../src/features/history/validation.js';
 
 const id = '11111111-1111-4111-8111-111111111111';
@@ -51,5 +52,31 @@ describe('customer history validation', () => {
       },
     };
     expect(historyEventSchema.parse(event)).toEqual(event);
+  });
+
+  it('rejects a customer snapshot whose contact list exceeds the same ceiling as the API', () => {
+    const contacts = Array.from({ length: MAX_CUSTOMER_CONTACTS + 1 }, () => ({
+      name: null,
+      phone: null,
+      email: null,
+      title: null,
+      isPrimary: false,
+    }));
+    const parsed = historyEventSchema.safeParse({
+      actor: { actorType: 'USER' as const, actorUserId: id },
+      subjectType: 'CUSTOMER' as const,
+      subjectId: id,
+      eventType: 'CUSTOMER_CREATED' as const,
+      payload: { ...snapshot, contacts },
+    });
+
+    expect(parsed.success).toBe(false);
+    if (!parsed.success) {
+      expect(parsed.error.issues).toHaveLength(1);
+      expect(parsed.error.issues[0]).toMatchObject({
+        code: 'too_big',
+        path: ['payload', 'contacts'],
+      });
+    }
   });
 });

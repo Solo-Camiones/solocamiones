@@ -15,6 +15,8 @@ const TITLE_MAX_LENGTH = 120;
 const VERSION_MAX_LENGTH = 32;
 // Keeps the joined requirement attribute well under the provider's 512-character limit.
 const MAX_SOURCE_REQUIREMENTS = 20;
+/** DoS ceiling. The reviewed corpus has a handful of guides; 100 leaves room to grow. */
+export const MAX_KNOWLEDGE_MANIFEST_DOCUMENTS = 100;
 
 export type KnowledgeDocumentStatus = (typeof KNOWLEDGE_DOCUMENT_STATUSES)[number];
 
@@ -75,7 +77,7 @@ const knowledgeManifestDocumentSchema = z
 export const knowledgeManifestSchema = z
   .object({
     schemaVersion: z.literal(KNOWLEDGE_MANIFEST_SCHEMA_VERSION),
-    documents: z.array(knowledgeManifestDocumentSchema),
+    documents: z.array(knowledgeManifestDocumentSchema).max(MAX_KNOWLEDGE_MANIFEST_DOCUMENTS),
   })
   .strict();
 

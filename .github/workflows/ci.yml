@@ -198,6 +198,8 @@ jobs:
       # ignore-unfixed: true — fail only when a vendor fix exists and we have not applied it.
       # Unfixed Debian/Alpine base CVEs still appear in SARIF for visibility; allowlist is for
       # reviewed exceptions to fixable findings we temporarily accept.
+      # limit-severities-for-sarif: trivy-action v0.36 drops TRIVY_SEVERITY on SARIF unless this
+      # is true, so MEDIUM findings would fail the job despite severity: HIGH,CRITICAL.
       - name: Scan API image (Trivy)
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
@@ -206,6 +208,7 @@ jobs:
           output: trivy-api.sarif
           exit-code: '1'
           severity: HIGH,CRITICAL
+          limit-severities-for-sarif: true
           ignore-unfixed: true
           trivyignores: .trivyignore.generated
 
@@ -217,6 +220,7 @@ jobs:
           output: trivy-web.sarif
           exit-code: '1'
           severity: HIGH,CRITICAL
+          limit-severities-for-sarif: true
           ignore-unfixed: true
           trivyignores: .trivyignore.generated
 
@@ -228,6 +232,7 @@ jobs:
           output: trivy-backup.sarif
           exit-code: '1'
           severity: HIGH,CRITICAL
+          limit-severities-for-sarif: true
           ignore-unfixed: true
           trivyignores: .trivyignore.generated
 

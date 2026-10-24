@@ -3,6 +3,8 @@ export {
   evalDatasetSchema,
   validateDatasetComposition,
   EVAL_CASE_CATEGORIES,
+  MAX_EVAL_CASES,
+  MAX_EVAL_CASE_LIST_ITEMS,
 } from './dataset-schema.js';
 export type { EvalCase, EvalCaseCategory, EvalDataset } from './dataset-schema.js';
 export { evalPricingTableSchema, estimateUsdCost } from './pricing.js';

@@ -45,6 +45,7 @@ export {
   KNOWLEDGE_AUDIENCE,
   KNOWLEDGE_DOCUMENT_STATUSES,
   KNOWLEDGE_MANIFEST_SCHEMA_VERSION,
+  MAX_KNOWLEDGE_MANIFEST_DOCUMENTS,
   knowledgeManifestSchema,
 } from './knowledge-manifest.js';
 export type {

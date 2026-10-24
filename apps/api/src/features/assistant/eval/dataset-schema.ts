@@ -2,6 +2,10 @@ import { z } from 'zod';
 
 export const EVAL_CASE_CATEGORIES = ['documentary', 'live', 'hybrid', 'adversarial'] as const;
 
+/** DoS ceilings. v1 has 39 cases and at most a few strings or tool calls per case. */
+export const MAX_EVAL_CASES = 200;
+export const MAX_EVAL_CASE_LIST_ITEMS = 20;
+
 export type EvalCaseCategory = (typeof EVAL_CASE_CATEGORIES)[number];
 
 const evalToolCallSchema = z.object({
@@ -18,9 +22,9 @@ export const evalCaseSchema = z.object({
   id: z.string().min(1),
   category: z.enum(EVAL_CASE_CATEGORIES),
   prompt: z.string().min(1).max(2000),
-  expectedSourceKeys: z.array(z.string().min(1)).default([]),
-  expectedFacts: z.array(z.string().min(1)).default([]),
-  forbiddenClaims: z.array(z.string().min(1)).default([]),
+  expectedSourceKeys: z.array(z.string().min(1)).max(MAX_EVAL_CASE_LIST_ITEMS).default([]),
+  expectedFacts: z.array(z.string().min(1)).max(MAX_EVAL_CASE_LIST_ITEMS).default([]),
+  forbiddenClaims: z.array(z.string().min(1)).max(MAX_EVAL_CASE_LIST_ITEMS).default([]),
   expectInsufficientEvidence: z.boolean().default(false),
   expectRefusal: z.boolean().default(false),
   /** Logical fixture ids required before the case runs. */
@@ -29,7 +33,7 @@ export const evalCaseSchema = z.object({
    * Fake-mode tool calls (executed against real commercial tools + fixtures).
    * Omitted for pure documentary / refusal cases.
    */
-  fakeToolCalls: z.array(evalToolCallSchema).default([]),
+  fakeToolCalls: z.array(evalToolCallSchema).max(MAX_EVAL_CASE_LIST_ITEMS).default([]),
   /** Optional override for the fake final answer; otherwise derived from expectedFacts. */
   fakeAnswer: z.string().min(1).optional(),
 });
@@ -39,7 +43,7 @@ export type EvalCase = z.infer<typeof evalCaseSchema>;
 export const evalDatasetSchema = z.object({
   version: z.string().min(1),
   description: z.string().min(1),
-  cases: z.array(evalCaseSchema).min(30),
+  cases: z.array(evalCaseSchema).max(MAX_EVAL_CASES).min(30),
 });
 
 export type EvalDataset = z.infer<typeof evalDatasetSchema>;

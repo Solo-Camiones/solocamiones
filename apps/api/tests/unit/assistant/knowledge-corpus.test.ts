@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { computeKnowledgeSha256 } from '../../../src/features/assistant/knowledge-checksum.js';
+import { MAX_KNOWLEDGE_MANIFEST_DOCUMENTS } from '../../../src/features/assistant/knowledge-manifest.js';
 import {
   isKnowledgeCorpusValid,
   validateKnowledgeCorpus,
@@ -136,6 +137,15 @@ describe('validateKnowledgeCorpus', () => {
       'file not found: guias/faltante.md',
       'unknown requirement IDs in docs/FEATURES: PAY-999',
     ]);
+  });
+
+  it('rejects a document list above the DoS ceiling before walking every entry', async () => {
+    const documents = Array.from({ length: MAX_KNOWLEDGE_MANIFEST_DOCUMENTS + 1 }, () => ({}));
+    const report = await validateKnowledgeCorpus(reader({ schemaVersion: 1, documents }));
+
+    expect(report.manifestIssues).toHaveLength(1);
+    expect(report.manifestIssues[0]?.message).toContain('documents');
+    expect(report.approved).toEqual([]);
   });
 
   it('rejects empty documents', async () => {

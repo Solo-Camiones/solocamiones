@@ -61,7 +61,7 @@ Authorization:
 - Seller may create only `CASH` customers and may not change type, limit, or term.
 - Seller may select an existing `CREDIT` customer on a sale; that is not a customer-maintenance permission.
 
-A customer may have **multiple contacts** (name, phone, email, optional title). Phone and email belong on contacts, not on the customer record. Contacts may be empty (`Cliente Contado`). Directory search remains name/RNC only.
+A customer may have **multiple contacts** (name, phone, email, optional title), at most 50. That ceiling is a validation bound so an oversized list is rejected before each element is checked; it is not a CRM quota. Phone and email belong on contacts, not on the customer record. Contacts may be empty (`Cliente Contado`). Directory search remains name/RNC only.
 
 At invoice confirmation, copy the applicable customer data into an immutable invoice customer snapshot, including type and credit terms then in force. This includes the primary contact's phone; if that contact has no phone, preserve a blank value without falling back to another contact. Later edits to the reusable customer record must not alter already completed invoices. Historical invoices keep the phone blank when its confirmation-time value cannot be reconstructed reliably.
 
